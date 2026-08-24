@@ -420,8 +420,8 @@
     <div id="admin-panel" style="display:none; margin-top:16px;">
       <h3>관리자 패널</h3>
       <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-        <button class="btn-ghost small-btn" id="admin-tab-log" onclick="showAdminSection('log')">활동 로그</button>
-        <button class="btn-ghost small-btn" id="admin-tab-users" onclick="showAdminSection('users')">사용자 관리</button>
+        <button class="btn-ghost small-btn" id="admin-tab-log">활동 로그</button>
+        <button class="btn-ghost small-btn" id="admin-tab-users">사용자 관리</button>
       </div>
 
       <!-- 활동 로그 -->
@@ -3869,7 +3869,16 @@ function applyUserUI() {
   function showAdminSection(sec){
     document.getElementById('admin-section-log').style.display = sec==='log' ? 'block' : 'none';
     document.getElementById('admin-section-users').style.display = sec==='users' ? 'block' : 'none';
+    document.getElementById('admin-tab-log').style.fontWeight = sec==='log' ? '700' : '';
+    document.getElementById('admin-tab-users').style.fontWeight = sec==='users' ? '700' : '';
   }
+
+  document.getElementById('admin-tab-log').addEventListener('click', ()=>{
+    showAdminSection('log'); loadAdminLog();
+  });
+  document.getElementById('admin-tab-users').addEventListener('click', ()=>{
+    showAdminSection('users'); loadAdminUsers();
+  });
 
   async function loadAdminLog(){
     const wrap = document.getElementById('admin-log-wrap');
