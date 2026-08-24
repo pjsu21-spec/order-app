@@ -2978,27 +2978,34 @@ function applyUserUI() {
     const trackColIdx = letterToIndex(document.getElementById('tracking-trackingno-col').value);
     const startRow = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
 
-    // build a queue per order number so that when one order was split into several boxes,
-    // each box (in the order it was created) picks up the next tracking number for that order.
-    // primary key is the vendor's own order number; rows where the vendor left that blank
-    // fall back to matching on our internal 사내관리번호 instead.
+    // Match tracking numbers to line items.
+    // Same orderNo → ALL rows with that orderNo get the SAME tracking number
+    // (e.g. 스테비아2+망고2+자몽2 all have ORD-001 → all get tracking 111111)
+    // Only when one order was split into multiple BOXES (boxTotal>1) do we assign
+    // different tracking numbers per box (one per box, in order).
     const rows = currentLineItems();
-    const queueByOrderNo = {};
-    rows
-      .filter(r => r.orderNo && !r.trackingNo)
-      .sort((a, b) => (a.boxIndex || 1) - (b.boxIndex || 1))
-      .forEach(r=>{
-        if(!queueByOrderNo[r.orderNo]) queueByOrderNo[r.orderNo] = [];
-        queueByOrderNo[r.orderNo].push(r);
-      });
-    const queueByInternalNo = {};
-    rows
-      .filter(r => !r.orderNo && r.internalOrderNo && !r.trackingNo)
-      .sort((a, b) => (a.boxIndex || 1) - (b.boxIndex || 1))
-      .forEach(r=>{
-        if(!queueByInternalNo[r.internalOrderNo]) queueByInternalNo[r.internalOrderNo] = [];
-        queueByInternalNo[r.internalOrderNo].push(r);
-      });
+
+    // Group rows by orderNo — split-box rows (boxTotal>1) need separate tracking per box
+    // Regular rows with same orderNo all share one tracking number
+    const groupByOrderNo = {}; // orderNo -> { sharedRows: [], boxGroups: { internalOrderNo: [] } }
+    rows.filter(r => r.orderNo && !r.trackingNo).forEach(r=>{
+      if(!groupByOrderNo[r.orderNo]) groupByOrderNo[r.orderNo] = { sharedRows: [], boxGroups: {} };
+      if(r.boxTotal && r.boxTotal > 1){
+        // box-split rows: group by internalOrderNo, each group gets its own tracking
+        if(!groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo])
+          groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo] = [];
+        groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo].push(r);
+      } else {
+        groupByOrderNo[r.orderNo].sharedRows.push(r);
+      }
+    });
+
+    // For internal-number fallback (blank orderNo)
+    const groupByInternalNo = {}; // internalOrderNo -> rows[]
+    rows.filter(r => !r.orderNo && r.internalOrderNo && !r.trackingNo).forEach(r=>{
+      if(!groupByInternalNo[r.internalOrderNo]) groupByInternalNo[r.internalOrderNo] = [];
+      groupByInternalNo[r.internalOrderNo].push(r);
+    });
 
     let matched = 0, unmatched = 0;
     for(let r = startRow - 1; r < uploadedTrackingData.length; r++){
@@ -3006,10 +3013,25 @@ function applyUserUI() {
       const refNo = (row[orderColIdx] ?? '').toString().trim();
       const trackingNo = (row[trackColIdx] ?? '').toString().trim();
       if(!refNo || !trackingNo) continue;
-      const queue = queueByOrderNo[refNo] || queueByInternalNo[refNo];
-      if(queue && queue.length){
-        queue.shift().trackingNo = trackingNo;
-        matched++;
+
+      if(groupByOrderNo[refNo]){
+        const group = groupByOrderNo[refNo];
+        // Assign to shared rows (same tracking for all same-address items)
+        if(group.sharedRows.length > 0){
+          group.sharedRows.forEach(r=>{ r.trackingNo = trackingNo; });
+          matched += group.sharedRows.length;
+          group.sharedRows = [];
+        }
+        // Assign to one box-group (next untracked box set)
+        const unTrackedBoxGroup = Object.values(group.boxGroups).find(g=> g.length > 0 && !g[0].trackingNo);
+        if(unTrackedBoxGroup){
+          unTrackedBoxGroup.forEach(r=>{ r.trackingNo = trackingNo; });
+          matched += unTrackedBoxGroup.length;
+        }
+      } else if(groupByInternalNo[refNo]){
+        groupByInternalNo[refNo].forEach(r=>{ r.trackingNo = trackingNo; });
+        matched += groupByInternalNo[refNo].length;
+        delete groupByInternalNo[refNo];
       } else {
         unmatched++;
       }
