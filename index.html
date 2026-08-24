@@ -1297,6 +1297,15 @@ function applyUserUI() {
     return { company, items };
   }
 
+  // Helper: get display label for a company (adds category if name is duplicated)
+  function companyDisplayName(company){
+    const duplicates = companies.filter(c=>c.name===company.name);
+    if(duplicates.length > 1 && company.category){
+      return `${company.name} [${company.category}]`;
+    }
+    return company.name + (company.isThirdParty ? ' [3PL]' : '');
+  }
+
   function populateCompanySelect(selectedName){
     const sel = document.getElementById('company-select');
     sel.innerHTML = '';
@@ -1305,7 +1314,7 @@ function applyUserUI() {
     sel.appendChild(blank);
     companies.forEach(c=>{
       const opt = document.createElement('option');
-      opt.value = c.name; opt.textContent = c.name + (c.isThirdParty ? ' [3PL]' : '');
+      opt.value = c.name; opt.textContent = companyDisplayName(c);
       if(c.name === selectedName) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -1583,7 +1592,7 @@ function applyUserUI() {
       categorySelect.addEventListener('change', (e)=>{
         company.category = e.target.value;
         saveCompanies();
-        regionInput.style.display = e.target.value === '직거래' ? 'none' : '';
+        // 모든 구분에서 지역/상장청과명 입력 가능 (직거래도 포함)
       });
 
       const regionInput = document.createElement('input');
@@ -1591,7 +1600,6 @@ function applyUserUI() {
       regionInput.placeholder = '지역(예:가락/수도권)';
       regionInput.style.maxWidth = '100px';
       regionInput.value = company.region || '';
-      regionInput.style.display = company.category === '직거래' ? 'none' : '';
       regionInput.addEventListener('change', (e)=>{
         company.region = e.target.value.trim();
         saveCompanies();
@@ -1813,7 +1821,7 @@ function applyUserUI() {
     sel.appendChild(blank);
     companies.forEach(c=>{
       const opt = document.createElement('option');
-      opt.value = c.name; opt.textContent = c.name + (c.isThirdParty ? ' [3PL]' : '');
+      opt.value = c.name; opt.textContent = companyDisplayName(c);
       sel.appendChild(opt);
     });
     if(companies.some(c=>c.name===prevVal)) sel.value = prevVal;
@@ -1827,59 +1835,131 @@ function applyUserUI() {
       wrap.innerHTML = '<div class="empty" style="padding:8px 0;">SKU 관리에 품목이 없습니다.</div>';
       return;
     }
+
+    // Try to parse column headers from the uploaded template (row 13)
+    let templateHeaders = []; // [{ col: 'J', header: '투맛토(스테비아)' }]
+    if(productionTemplateB64){
+      try{
+        const binaryStr = atob(productionTemplateB64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for(let i=0;i<binaryStr.length;i++) bytes[i]=binaryStr.charCodeAt(i);
+        const wb = XLSX.read(bytes, { type:'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        // Read row 13 — find all non-empty text cells
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z20');
+        for(let c = range.s.c; c <= range.e.c; c++){
+          const addr = XLSX.utils.encode_cell({ r: 12, c }); // row 13 = index 12
+          const cell = ws[addr];
+          if(cell && cell.v && typeof cell.v === 'string' && cell.v.trim()){
+            const col = XLSX.utils.encode_col(c);
+            const header = cell.v.replace(/\n/g,' ').trim();
+            templateHeaders.push({ col, header });
+          }
+        }
+      }catch(e){ /* 파싱 실패 시 수동 입력으로 fallback */ }
+    }
+
+    const hasHeaders = templateHeaders.length > 0;
+
+    // Show info bar
+    if(hasHeaders){
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'font-size:12px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--hover);border-radius:6px;';
+      infoDiv.textContent = `✅ 템플릿 파일에서 ${templateHeaders.length}개 열 헤더를 읽었습니다. 드롭다운에서 각 SKU에 맞는 열을 선택해주세요.`;
+      wrap.appendChild(infoDiv);
+    } else if(productionTemplateB64){
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:10px;';
+      infoDiv.textContent = '템플릿 파일에서 13행 헤더를 읽을 수 없습니다. 열 문자를 직접 입력해주세요 (예: J, K, AA).';
+      wrap.appendChild(infoDiv);
+    } else {
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'font-size:12px;color:var(--warn,#b7770d);margin-bottom:10px;padding:8px 12px;background:#fef9e7;border-radius:6px;';
+      infoDiv.textContent = '⚠ 템플릿 파일을 먼저 업로드하면 아래 드롭다운에서 열을 선택할 수 있습니다.';
+      wrap.appendChild(infoDiv);
+    }
+
     dict.forEach(item=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
       row.style.flexWrap = 'wrap';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
 
       const nameSpan = document.createElement('div');
       nameSpan.style.flex = '0 0 200px';
       nameSpan.style.fontSize = '13px';
+      nameSpan.style.fontWeight = '600';
       nameSpan.textContent = item.name;
       row.appendChild(nameSpan);
 
       const arrowSpan = document.createElement('span');
-      arrowSpan.textContent = '→ 열:';
-      arrowSpan.style.fontSize = '12px';
+      arrowSpan.textContent = '→';
       arrowSpan.style.color = 'var(--muted)';
       row.appendChild(arrowSpan);
 
-      const colInput = document.createElement('input');
-      colInput.type = 'text';
-      colInput.style.width = '60px';
-      colInput.style.textTransform = 'uppercase';
-      colInput.placeholder = '예: J';
-      colInput.value = skuColumnMap[item.id] || '';
-      colInput.title = `${item.name}의 데이터를 쓸 엑셀 열 (예: J, K, AA 등)`;
-      colInput.addEventListener('change', (e)=>{
-        const v = e.target.value.trim().toUpperCase();
-        if(v) skuColumnMap[item.id] = v;
-        else delete skuColumnMap[item.id];
-        saveSkuColumnMap();
-      });
-      row.appendChild(colInput);
+      if(hasHeaders){
+        // Dropdown with actual column headers from template
+        const sel = document.createElement('select');
+        sel.style.minWidth = '200px';
+        sel.style.fontSize = '12px';
 
-      const hint = document.createElement('span');
-      hint.style.fontSize = '11px';
-      hint.style.color = 'var(--muted)';
-      hint.style.marginLeft = '6px';
-      hint.textContent = skuColumnMap[item.id]
-        ? `✓ ${skuColumnMap[item.id]}열`
-        : '(미설정 — 해당 SKU는 파일에 기입 안 됨)';
-      row.appendChild(hint);
+        const blankOpt = document.createElement('option');
+        blankOpt.value = '';
+        blankOpt.textContent = '(이 SKU는 파일에 없음)';
+        sel.appendChild(blankOpt);
+
+        templateHeaders.forEach(({ col, header })=>{
+          const opt = document.createElement('option');
+          opt.value = col;
+          opt.textContent = `${col}열 — ${header}`;
+          if(skuColumnMap[item.id] === col) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        sel.addEventListener('change', (e)=>{
+          const v = e.target.value;
+          if(v) skuColumnMap[item.id] = v;
+          else delete skuColumnMap[item.id];
+          saveSkuColumnMap();
+          // Update status badge
+          badge.textContent = v ? `✓ ${v}열 — ${templateHeaders.find(h=>h.col===v)?.header||''}` : '미설정';
+          badge.style.color = v ? 'var(--accent)' : 'var(--muted)';
+        });
+        row.appendChild(sel);
+      } else {
+        // Fallback: manual text input
+        const colInput = document.createElement('input');
+        colInput.type = 'text';
+        colInput.style.width = '70px';
+        colInput.style.textTransform = 'uppercase';
+        colInput.placeholder = '예: J';
+        colInput.value = skuColumnMap[item.id] || '';
+        colInput.addEventListener('change', (e)=>{
+          const v = e.target.value.trim().toUpperCase();
+          if(v) skuColumnMap[item.id] = v;
+          else delete skuColumnMap[item.id];
+          saveSkuColumnMap();
+        });
+        row.appendChild(colInput);
+      }
+
+      const badge = document.createElement('span');
+      badge.style.fontSize = '11px';
+      badge.style.marginLeft = '4px';
+      const mapped = skuColumnMap[item.id];
+      if(mapped){
+        const hdr = templateHeaders.find(h=>h.col===mapped);
+        badge.textContent = `✓ ${mapped}열${hdr ? ` — ${hdr.header}` : ''}`;
+        badge.style.color = 'var(--accent)';
+      } else {
+        badge.textContent = '미설정';
+        badge.style.color = 'var(--muted)';
+      }
+      row.appendChild(badge);
 
       wrap.appendChild(row);
     });
-
-    // if template is loaded, show a preview of the col-13 headers to help the user
-    if(productionTemplateB64){
-      const noteDiv = document.createElement('div');
-      noteDiv.style.marginTop = '10px';
-      noteDiv.style.fontSize = '11.5px';
-      noteDiv.style.color = 'var(--muted)';
-      noteDiv.innerHTML = '<b>파일 등록됨.</b> 13행 헤더 기준 참고: J=투맛토(스테비아) K=투맛토(망고향) L=투맛토(자몽향) M=스테비아(스티로폼) N=망고향(스티로폼) O=자몽향(스티로폼) P=포도쉐킷(망고) Q=포도쉐킷(애플) S=투래곤후르츠 Z=[150g]스테비아 AA=[150g]망고 AB=[150g]자몽 AC=[150g]포도쉐킷(망고) AD=[150g]포도쉐킷(애플)';
-      wrap.appendChild(noteDiv);
-    }
   }
 
   function renderDeliveryFeeEditor(){
@@ -2777,10 +2857,12 @@ function applyUserUI() {
     const input = document.getElementById('new-company-manage-input');
     const val = input.value.trim();
     if(!val){ toast('업체명을 입력해주세요'); return; }
-    if(companies.some(c=>c.name===val)){ toast('이미 등록된 업체입니다'); return; }
+    // 같은 이름이라도 구분(거래방식)이 다르면 별도 등록 허용
+    // → 중복 체크 제거 (등록 후 구분 선택으로 차별화)
     companies.push({ name: val, isThirdParty: false, code: '', category: '', region: '', listedMarketName: '' });
     saveCompanies(); renderCompanyManager(); renderPriceMapEditor();
     input.value = '';
+    toast(`"${val}" 업체가 추가됐습니다. 아래에서 구분(거래방식)을 설정해주세요.`);
   });
 
   document.getElementById('add-category-btn').addEventListener('click', ()=>{
@@ -2912,12 +2994,15 @@ function applyUserUI() {
     const splitCount = newRows.filter(r=>r.boxTotal > 1).length;
 
     addCompanyIfNew(companyName);
+
+    // Accumulate original files per company per batch — assign batchId BEFORE saving rows
+    const batchId = cryptoId();
+    newRows.forEach(r=>{ r.sourceBatchId = batchId; }); // must be before saveLineItems
+
     const bucket = currentLineItems();
     newRows.forEach(r=> bucket.push(r));
     saveLineItems();
 
-    // Accumulate original files per company per batch
-    const batchId = cryptoId();
     const origFiles = currentOriginalFiles();
     if(!origFiles[companyName]) origFiles[companyName] = [];
     if(!Array.isArray(origFiles[companyName])) {
@@ -2925,8 +3010,6 @@ function applyUserUI() {
       origFiles[companyName] = [origFiles[companyName]];
     }
     origFiles[companyName].push({ batchId, aoa: uploadedSheetData, startRow });
-    // Update sourceRowIndex on the new rows to include batchId for unambiguous matching
-    newRows.forEach(r=>{ r.sourceBatchId = batchId; });
     saveOriginalFiles();
     renderOriginalFileSelect();
 
@@ -3132,10 +3215,7 @@ function applyUserUI() {
     });
 
     // --- Company rows: fill in quantities per company per SKU column ---
-    // Build a lookup: company name → its row(s) in the sheet
-    // Strategy: read all rows 15-93, find company names in the relevant columns by category
     const COMPANY_ROW_RULES = [
-      // { cat, rows, nameCols } — nameCols tried in order to get company name for matching
       { cat: '편의점',   rows: [15,16,17,18], nameCols:['D'] },
       { cat: '도매',     rows: Array.from({length:24}, (_,i)=>i+21), nameCols:['F','E'] },
       { cat: '직거래',   rows: Array.from({length:8}, (_,i)=>i+45), nameCols:['C'] },
@@ -3146,15 +3226,13 @@ function applyUserUI() {
       { cat: '샘플',     rows: Array.from({length:8}, (_,i)=>i+86), nameCols:['C','D'] },
     ];
 
-    // Build a map: normalised company name → row index
-    const companyRowMap = {}; // name.trim().toLowerCase() -> rowNum
+    // Build map of all company names found in the template
+    const companyRowMap = {};
     COMPANY_ROW_RULES.forEach(rule=>{
       rule.rows.forEach(rowNum=>{
         for(const nc of rule.nameCols){
           const cell = ws[`${nc}${rowNum}`];
           let v = cell && cell.v;
-          // SP rows use VLOOKUP formulas — try the cached value first, else skip
-          if(!v && cell && cell.f) v = null; // can't resolve formulas here
           if(v && typeof v === 'string'){
             const key = v.trim().toLowerCase();
             if(!companyRowMap[key]) companyRowMap[key] = [];
@@ -3165,22 +3243,51 @@ function applyUserUI() {
       });
     });
 
+    console.log('=== 생산본부 파일 디버그 ===');
+    console.log('skuColumnMap:', JSON.stringify(skuColumnMap));
+    console.log('주문 업체:', Object.keys(orders));
+    console.log('파일에서 찾은 업체 행:', companyRowMap);
+
+    let cellsWritten = 0;
+    let companiesMatched = [];
+    let companiesNotFound = [];
+
     // Fill in quantities
     Object.keys(orders).forEach(companyName=>{
       if(companyName === '_meta') return;
       const key = companyName.trim().toLowerCase();
       const targets = companyRowMap[key] || [];
-      if(targets.length === 0) return; // company not found in template
-
+      if(targets.length === 0){
+        companiesNotFound.push(companyName);
+        console.warn(`❌ 업체 미매칭: "${companyName}" (key="${key}")`);
+        return;
+      }
+      companiesMatched.push(companyName);
       targets.forEach(({ rowNum })=>{
         dict.forEach(item=>{
           const col = skuColumnMap[item.id];
-          if(!col) return;
+          if(!col){ console.warn(`  SKU "${item.name}" 열 미설정`); return; }
           const qty = Number((orders[companyName] || {})[item.id]) || 0;
-          if(qty > 0) writeCell(col, rowNum, qty);
+          if(qty > 0){
+            writeCell(col, rowNum, qty);
+            cellsWritten++;
+            console.log(`  ✅ ${companyName} 행${rowNum} ${col}열 = ${qty}`);
+          }
         });
       });
     });
+
+    console.log(`\n=== 결과 ===`);
+    console.log(`매칭된 업체: ${companiesMatched.join(', ') || '없음'}`);
+    console.log(`미매칭 업체: ${companiesNotFound.join(', ') || '없음'}`);
+    console.log(`작성된 셀: ${cellsWritten}개`);
+
+    if(cellsWritten === 0){
+      const msg = companiesNotFound.length > 0
+        ? `주의: 업체 매칭 실패 — 브라우저 개발자도구(F12) 콘솔에서 상세 내용을 확인하세요.\n미매칭 업체: ${companiesNotFound.join(', ')}`
+        : `주의: 작성된 수량이 없습니다. SKU 열 매핑과 발주 데이터를 확인하세요.`;
+      toast(msg);
+    }
 
     // --- SP rows: also write the company name into F column for VLOOKUP ---
     // (If the user has SP companies registered, we try to put their name in F55-F69)
@@ -3410,17 +3517,44 @@ function applyUserUI() {
     const rows = currentLineItems().filter(r=>r.company===companyName);
 
     batches.forEach((batch, batchIdx)=>{
-      // Build tracking map keyed by (batchId+rowIndex) or rowIndex for legacy entries
+      // Build tracking map: sourceRowIndex → tracking numbers
+      // For same-address orders (e.g. 스테비아+망고+자몽 all from row 1 of the original file),
+      // each row in lineItems has a different sourceRowIndex (each original file row = one SKU line).
+      // We collect ALL unique tracking numbers across all rows that belong to this batch.
       const trackingByRowIdx = {};
       rows.forEach(r=>{
-        // Match by batchId if available, else by sourceRowIndex alone
         const matchesBatch = batch.batchId
           ? r.sourceBatchId === batch.batchId
-          : batchIdx === 0; // legacy: assume single batch
+          : batchIdx === 0;
         if(!matchesBatch) return;
         if(r.sourceRowIndex == null) return;
-        if(!trackingByRowIdx[r.sourceRowIndex]) trackingByRowIdx[r.sourceRowIndex] = [];
-        if(r.trackingNo) trackingByRowIdx[r.sourceRowIndex].push(r.trackingNo);
+        if(!r.trackingNo) return;
+        if(!trackingByRowIdx[r.sourceRowIndex]) trackingByRowIdx[r.sourceRowIndex] = new Set();
+        trackingByRowIdx[r.sourceRowIndex].add(r.trackingNo);
+      });
+
+      // Also: if multiple rows with DIFFERENT sourceRowIndex share the same trackingNo,
+      // propagate that tracking number to all their sourceRowIndexes
+      // (same customer, multiple SKU lines in vendor file → all rows get same tracking)
+      const trackingToRows = {}; // trackingNo → Set of sourceRowIndex
+      rows.forEach(r=>{
+        const matchesBatch = batch.batchId ? r.sourceBatchId === batch.batchId : batchIdx === 0;
+        if(!matchesBatch || r.sourceRowIndex == null || !r.trackingNo) return;
+        if(!trackingToRows[r.trackingNo]) trackingToRows[r.trackingNo] = new Set();
+        trackingToRows[r.trackingNo].add(r.sourceRowIndex);
+      });
+      // For each tracking number, propagate to all its sourceRowIndexes
+      Object.entries(trackingToRows).forEach(([trackingNo, rowIdxSet])=>{
+        rowIdxSet.forEach(rowIdx=>{
+          if(!trackingByRowIdx[rowIdx]) trackingByRowIdx[rowIdx] = new Set();
+          trackingByRowIdx[rowIdx].add(trackingNo);
+        });
+      });
+
+      // Convert Sets to arrays for joining
+      const trackingStrByRowIdx = {};
+      Object.entries(trackingByRowIdx).forEach(([idx, set])=>{
+        trackingStrByRowIdx[Number(idx)] = Array.from(set).join(' / ');
       });
 
       const aoa = batch.aoa;
@@ -3428,24 +3562,21 @@ function applyUserUI() {
 
       let outRows;
       if(trackingColRaw){
-        // Mode 1: insert value into a specific existing column
         const colIdx = letterToIndex(trackingColRaw);
         outRows = aoa.map((row, idx)=>{
           const newRow = row.slice();
           if(idx >= startRow - 1){
-            // ensure the array is long enough
             while(newRow.length <= colIdx) newRow.push('');
-            newRow[colIdx] = (trackingByRowIdx[idx] || []).join(' / ');
+            newRow[colIdx] = trackingStrByRowIdx[idx] || '';
           }
           return newRow;
         });
       } else {
-        // Mode 2 (fallback): append tracking number as new last column
         const headerRowIdx = startRow - 2;
         outRows = aoa.map((row, idx)=>{
           const newRow = row.slice();
           if(idx === headerRowIdx) newRow.push('운송장번호');
-          else if(idx >= startRow - 1) newRow.push((trackingByRowIdx[idx] || []).join(' / '));
+          else if(idx >= startRow - 1) newRow.push(trackingStrByRowIdx[idx] || '');
           return newRow;
         });
       }
