@@ -129,6 +129,18 @@
   .toast.show{ opacity:1; }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  /* 메인 네비게이션 탭 */
+  .main-nav{ display:flex; gap:0; border-bottom:2px solid var(--line); margin:0 0 16px; padding:0; overflow-x:auto; }
+  .main-nav-btn{
+    background:none; border:none; border-bottom:3px solid transparent;
+    padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted);
+    cursor:pointer; font-family:inherit; white-space:nowrap; margin-bottom:-2px;
+    transition:color .15s, border-color .15s;
+  }
+  .main-nav-btn:hover{ color:var(--ink); }
+  .main-nav-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .main-tab-panel{ display:none; }
+  .main-tab-panel.active{ display:block; }
   .date-chip{ background:#fff; color:var(--ink); border:1px solid var(--line); font-size:12px; font-weight:600; padding:5px 10px; border-radius:100px; cursor:pointer; }
   .date-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .dropzone{
@@ -178,8 +190,19 @@
     </div>
   </div>
 
-  <h1>다름달음 발주취합 프로그램</h1>
-  <div class="sub">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div>
+  <h1 style="margin-bottom:4px;">다름달음 발주취합 프로그램</h1>
+  <div class="sub" style="margin-bottom:12px;">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div>
+
+  <!-- 메인 네비게이션 탭 -->
+  <nav class="main-nav">
+    <button class="main-nav-btn active" data-panel="panel-order">📋 발주 입력</button>
+    <button class="main-nav-btn" data-panel="panel-agg">📊 집계 / 출고</button>
+    <button class="main-nav-btn" data-panel="panel-sales">📈 실적 / 매출</button>
+    <button class="main-nav-btn" data-panel="panel-settings">⚙️ 설정</button>
+  </nav>
+
+  <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
+  <div id="panel-order" class="main-tab-panel active">
 
   <div class="card" style="padding:14px 20px;">
     <div class="row" style="margin-top:0; align-items:center;">
@@ -294,7 +317,6 @@
     </div>
   </div>
 
-
   <div class="card" id="preview-card" style="display:none;">
     <h2>인식 결과 확인 <span class="badge">수정 후 확정</span></h2>
     <div class="row" style="margin-top:0;">
@@ -312,6 +334,11 @@
       <button class="btn-ghost" id="cancel-preview-btn">취소</button>
     </div>
   </div>
+
+  </div><!-- /panel-order -->
+
+  <!-- ───────────── 패널 2: 집계 / 출고 ───────────── -->
+  <div id="panel-agg" class="main-tab-panel">
 
   <div class="card">
     <h2>4. 업체별 발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
@@ -424,6 +451,11 @@
           <button class="btn-primary small-btn" id="tracking-apply-btn">운송장번호 매칭 적용</button>
           <button class="btn-ghost small-btn" id="tracking-import-sales-btn" style="border:1px solid var(--accent);">📥 제이엠 파일로 실적도 등록</button>
         </div>
+        <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="font-size:12px; color:var(--muted);">실적 날짜 지정 (비워두면 파일의 집하예정일 자동 사용) :</label>
+          <input type="date" id="tracking-import-date" style="width:145px; font-size:12px;">
+          <span style="font-size:11px; color:var(--muted);">※ 날짜를 지정하면 파일의 날짜 대신 이 날짜로 일괄 등록</span>
+        </div>
         <div id="tracking-import-preview" style="display:none; margin-top:10px; padding:10px 12px; background:var(--hover); border-radius:8px; font-size:13px;"></div>
       </div>
 
@@ -466,7 +498,14 @@
       </div>
     </details>
 
-    <h3>월간 누적 보기</h3>
+  </div><!-- close agg card -->
+  </div><!-- /panel-agg -->
+
+  <!-- ───────────── 패널 3: 실적 / 매출 ───────────── -->
+  <div id="panel-sales" class="main-tab-panel">
+
+  <div class="card">
+    <h2>월간 누적 / 실적 집계</h2>
     <div class="row" style="margin-top:0;">
       <input type="number" id="monthly-year" placeholder="연" style="width:70px;">
       <span>년</span>
@@ -542,7 +581,13 @@
         </div>
       </div>
     </details>
-  </div>
+  </div><!-- /panel-sales admin section -->
+
+  </div><!-- /card -->
+  </div><!-- /panel-sales (monthly) -->
+
+  <!-- ───────────── 패널 4: 설정 ───────────── -->
+  <div class="main-tab-panel-ecount-settings">
 
   <div class="card">
     <details>
@@ -578,6 +623,9 @@
     </details>
   </div>
 
+  <!-- ───────────── 패널 4: 설정 ───────────── -->
+  <div id="panel-settings" class="main-tab-panel">
+
   <div class="card">
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">데이터 백업 / 복원</summary>
@@ -601,6 +649,8 @@
       </div>
     </details>
   </div>
+
+  </div><!-- /panel-settings -->
 
   <div class="toast" id="toast"></div>
 </div>
@@ -874,6 +924,7 @@ function applyUserUI() {
   const DEFAULT_CATEGORIES = ['편의점','도매','직거래','SP','3PL(제이엠로지스)','3PL(비티원)','개인구매','샘플','기타'];
   let companyCategories = [...DEFAULT_CATEGORIES]; // user-editable list
   let deliveryFeeItems = []; // [{ id, size, name, code, price }] size: '극소'|'소'
+  let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
   let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: { aoa: [...raw rows...], startRow } } } - 업체 원본파일 보관(운송장 반영 회신용)
   let productionTemplateB64 = ''; // base64-encoded production template xlsx (user-replaceable)
@@ -1077,6 +1128,11 @@ function applyUserUI() {
         if(department) document.getElementById('ecount-department').value = department;
       }
     }catch(e){ /* keep defaults */ }
+
+    try{
+      const sbd = await window.storage.get('sales-by-date', true);
+      salesByDate = sbd ? JSON.parse(sbd.value) : {};
+    }catch(e){ salesByDate = {}; }
 
     try{
       const dfi = await window.storage.get('delivery-fee-items', true);
@@ -1686,12 +1742,31 @@ function applyUserUI() {
         saveCompanies(); renderCompanyManager(); renderPriceMapEditor();
       });
 
+      // 택배 과세 여부 체크박스
+      const taxLabel = document.createElement('label');
+      taxLabel.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;white-space:nowrap;';
+      const taxCheck = document.createElement('input');
+      taxCheck.type = 'checkbox';
+      taxCheck.title = '택배비를 과세(거래유형 11)로 처리. 입력한 단가는 VAT 포함 금액으로 처리됩니다.';
+      taxCheck.checked = !!company.courierTaxable;
+      taxCheck.addEventListener('change', (e)=>{
+        company.courierTaxable = e.target.checked;
+        saveCompanies();
+      });
+      taxLabel.appendChild(taxCheck);
+      taxLabel.appendChild(document.createTextNode('택배 과세'));
+      const taxHint = document.createElement('span');
+      taxHint.style.cssText = 'font-size:10px;color:var(--muted);';
+      taxHint.textContent = '(거래유형 11)';
+      taxLabel.appendChild(taxHint);
+
       row.appendChild(nameInput);
       row.appendChild(label);
       row.appendChild(codeInput);
       row.appendChild(categorySelect);
       row.appendChild(regionInput);
       row.appendChild(listedInput);
+      row.appendChild(taxLabel);
       row.appendChild(delBtn);
       wrap.appendChild(row);
     });
@@ -3194,6 +3269,7 @@ function applyUserUI() {
     }
 
     const startRow = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
+    const overrideDate = (document.getElementById('tracking-import-date')?.value || '').trim();
 
     // 제이엠로지스 파일 고정 열 구조
     // 0=예약구분 1=집하예정일 2=보내는분성명 3=보내는분전화번호
@@ -3218,11 +3294,10 @@ function applyUserUI() {
 
       if(!companyName || !itemNameRaw || !qtyRaw) continue;
 
-      // 날짜 파싱 (엑셀 숫자 날짜 또는 문자열)
-      let dateKey = '';
-      if(dateRaw){
+      // 날짜 파싱 — 직접 지정된 날짜가 있으면 우선 사용
+      let dateKey = overrideDate || '';
+      if(!dateKey && dateRaw){
         if(typeof dateRaw === 'number'){
-          // 엑셀 날짜 숫자 → JS Date
           const d = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
           dateKey = d.toISOString().slice(0,10);
         } else {
@@ -3274,7 +3349,7 @@ function applyUserUI() {
     previewEl.innerHTML = previewHtml;
 
     document.getElementById('tracking-import-confirm-btn').addEventListener('click', ()=>{
-      // 실적 병합
+      // 실적 병합 (ordersByDate)
       Object.entries(parsed).forEach(([dateKey, companies])=>{
         if(!ordersByDate[dateKey]) ordersByDate[dateKey] = {};
         Object.entries(companies).forEach(([companyName, items])=>{
@@ -3286,13 +3361,81 @@ function applyUserUI() {
         });
       });
       saveOrdersByDate();
+
+      // lineItems 생성 (택배 건수 집계용)
+      // 파일의 각 행을 개별 lineItem으로 생성 (운송장번호 포함)
+      const lineItemsToAdd = [];
+      for(let r = startRow - 1; r < uploadedTrackingData.length; r++){
+        const row = uploadedTrackingData[r] || [];
+        if(row.every(v=> v==null || String(v).trim()==='')) continue;
+        const companyName = String(row[COL.company] || '').trim();
+        const itemNameRaw = String(row[COL.itemName] || '').trim();
+        const qtyRaw = row[COL.qty];
+        const trackingNo = String(row[COL.trackingNo] || '').trim();
+        const recipientName = String(row[COL.recipientName] || '').trim();
+        const address = String(row[COL.address] || '').trim();
+        const orderNo = String(row[COL.orderNo] || '').trim();
+        if(!companyName || !itemNameRaw || !qtyRaw) continue;
+        const qty = parseFloat(String(qtyRaw).trim());
+        if(isNaN(qty) || qty <= 0) continue;
+        const itemId = matchItem(itemNameRaw);
+        if(!itemId) continue;
+
+        let dateKey = overrideDate || '';
+        const dateRaw = row[COL.date];
+        if(!dateKey && dateRaw){
+          if(typeof dateRaw === 'number'){
+            const d = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
+            dateKey = d.toISOString().slice(0,10);
+          } else {
+            const s = String(dateRaw).trim().replace(/\./g,'-');
+            if(/^\d{4}-\d{2}-\d{2}/.test(s)) dateKey = s.slice(0,10);
+          }
+        }
+        if(!dateKey) dateKey = currentDateKey;
+
+        lineItemsToAdd.push({
+          id: cryptoId(),
+          internalOrderNo: orderNo || `${dateKey}-import`,
+          company: companyName,
+          orderNo,
+          recipientName,
+          recipientPhone: '',
+          address,
+          itemNameRaw,
+          itemId,
+          qty,
+          note: '',
+          trackingNo,
+          enteredBy: getStaffName(),
+          boxIndex: 1,
+          boxTotal: 1,
+          sourceRowIndex: r,
+          importedFromJM: true
+        });
+      }
+
+      // dateKey별로 lineItems에 추가
+      if(lineItemsToAdd.length > 0){
+        lineItemsToAdd.forEach(item=>{
+          const dateKey = item.internalOrderNo.slice(0,10);
+          if(!thirdPartyLineItems[dateKey]) thirdPartyLineItems[dateKey] = [];
+          // 중복 방지: 같은 운송장+품목이 없을 때만 추가
+          const exists = thirdPartyLineItems[dateKey].some(
+            r=> r.trackingNo === item.trackingNo && r.itemId === item.itemId && item.trackingNo
+          );
+          if(!exists) thirdPartyLineItems[dateKey].push(item);
+        });
+        saveLineItems();
+      }
+
       renderSavedDatesBar();
       renderAggTable();
       renderThirdPartyAggTable();
       previewEl.style.display='none';
       const totalDates = Object.keys(parsed).length;
       const totalCompanies = Object.values(parsed).reduce((s,c)=>s+Object.keys(c).length, 0);
-      toast(`✓ 실적 등록 완료 — ${totalDates}일치 ${totalCompanies}개 업체`);
+      toast(`✓ 실적 등록 완료 — ${totalDates}일치 ${totalCompanies}개 업체, 택배 ${lineItemsToAdd.length}건 등록`);
     });
 
     document.getElementById('tracking-import-cancel-btn').addEventListener('click', ()=>{
@@ -3586,7 +3729,7 @@ function applyUserUI() {
     document.getElementById(id).addEventListener('change', saveEcountSettings);
   });
 
-  document.getElementById('export-ecount-btn').addEventListener('click', ()=>{
+  document.getElementById('export-ecount-btn').addEventListener('click', async ()=>{
     const orders = currentOrders();
     const dateLabel = getDeliveryDateLabel() || currentDateKey;
     const warehouse = document.getElementById('ecount-warehouse').value.trim();
@@ -3637,17 +3780,31 @@ function applyUserUI() {
         ]);
       });
 
-      // Fee rows for this company (immediately after its product rows)
-      const feeCounts = feeCountByCompany[companyName] || {};
-      Object.entries(feeCounts).forEach(([size, count])=>{
+      // 택배비 행 처리 — 과세 업체는 거래유형 11, VAT 역산
+      const sizeCounts = feeCountByCompany[companyName] || {};
+      Object.entries(sizeCounts).forEach(([size, count])=>{
         const fi = feeItemsBySize[size];
         if(!fi || !fi.name) return;
-        const unitPrice = fi.price !== '' ? fi.price : '';
-        const supplyAmt = (unitPrice !== '' && count > 0) ? unitPrice * count : '';
+        const unitPriceRaw = fi.price !== '' ? Number(fi.price) : 0;
+        const isTaxable = companyObj?.courierTaxable;
+
+        let supplyAmt, vat, ecountTradeType;
+        if(isTaxable && unitPriceRaw > 0){
+          // 단가가 VAT 포함 금액 → 역산
+          supplyAmt = Math.round(unitPriceRaw * count / 1.1);
+          vat = Math.round(unitPriceRaw * count - supplyAmt);
+          ecountTradeType = '11'; // 과세
+        } else {
+          supplyAmt = unitPriceRaw > 0 ? unitPriceRaw * count : '';
+          vat = '';
+          ecountTradeType = tradeType; // 기본 거래유형 (면세)
+        }
+
         companyRows.push([
           dateLabel, companySeq, companyCode, companyName, manager,
-          warehouse, tradeType, '', '', '', department,
-          fi.code || '', fi.name, '', count, unitPrice, '', supplyAmt, '',
+          warehouse, ecountTradeType, '', '', '', department,
+          fi.code || '', fi.name, '',
+          count, unitPriceRaw || '', '', supplyAmt || '', vat,
           `택배비(${size})`, '', ''
         ]);
       });
@@ -3670,7 +3827,35 @@ function applyUserUI() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '판매입력');
     XLSX.writeFile(wb, `이카운트_판매입력_${dateLabel.replace(/-/g,'')}.xlsx`);
-    toast('이카운트 판매입력 엑셀이 다운로드되었습니다');
+
+    // ── 매출 집계 자동 저장 ──
+    // 이카운트 다운로드 시점의 단가/수량으로 일자별 매출을 기록
+    try{
+      if(!salesByDate) window.salesByDate = {};
+      if(!salesByDate[dateLabel]) salesByDate[dateLabel] = {};
+
+      // dataRows에서 매출 데이터 추출 (거래처코드=2, 거래처명=3, 품목코드=11, 품목명=12, 수량=14, 단가=15, 공급가액=17)
+      dataRows.forEach(row=>{
+        const companyName = row[3];
+        const itemName = row[12];
+        const qty = row[14];
+        const unitPrice = row[15];
+        const supplyAmt = row[17];
+        const note = row[19]; // 적요(팩수량)
+        if(!companyName || !itemName || !qty) return;
+        if(!salesByDate[dateLabel][companyName]) salesByDate[dateLabel][companyName] = [];
+        // 같은 날짜+거래처+품목 중복 방지 (재다운로드 시 덮어쓰기)
+        const existIdx = salesByDate[dateLabel][companyName].findIndex(s=> s.itemName === itemName);
+        const entry = { itemName, qty, unitPrice: unitPrice||0, supplyAmt: supplyAmt||0, note: note||'' };
+        if(existIdx >= 0) salesByDate[dateLabel][companyName][existIdx] = entry;
+        else salesByDate[dateLabel][companyName].push(entry);
+      });
+      await window.storage.set('sales-by-date', JSON.stringify(salesByDate), true);
+      toast(`이카운트 엑셀 다운로드 완료 — ${dateLabel} 매출 집계에 자동 저장됐습니다`);
+    }catch(e){
+      toast('이카운트 판매입력 엑셀이 다운로드되었습니다');
+      console.error('매출 저장 오류:', e);
+    }
   });
 
 
@@ -4134,6 +4319,65 @@ function applyUserUI() {
     }
     wrap.appendChild(sec3);
 
+    // 4. 월간 매출 집계 (이카운트 다운로드 기반 — 실제 단가 반영)
+    const matchingSalesDates = Object.keys(salesByDate).filter(k=>k.startsWith(monthKey)).sort();
+    const sec4 = document.createElement('div');
+    sec4.style.marginTop = '16px';
+    const h4el = document.createElement('div');
+    h4el.style.fontWeight = '700'; h4el.style.fontSize = '13px'; h4el.style.marginBottom = '6px';
+    h4el.textContent = '▸ 월간 매출 집계 (이카운트 다운로드 기준 단가)';
+    sec4.appendChild(h4el);
+
+    if(matchingSalesDates.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = '이카운트 엑셀을 다운로드하면 자동으로 매출이 집계됩니다.';
+      sec4.appendChild(empty);
+    } else {
+      // 일자별+거래처별 매출 집계
+      const salesMerged = {}; // companyName -> { itemName -> { qty, supplyAmt } }
+      let grandTotal = 0;
+      matchingSalesDates.forEach(dateKey=>{
+        Object.entries(salesByDate[dateKey]).forEach(([company, items])=>{
+          if(!salesMerged[company]) salesMerged[company] = {};
+          items.forEach(item=>{
+            if(!item.itemName) return;
+            if(!salesMerged[company][item.itemName]) salesMerged[company][item.itemName] = { qty:0, supplyAmt:0 };
+            salesMerged[company][item.itemName].qty += Number(item.qty)||0;
+            salesMerged[company][item.itemName].supplyAmt += Number(item.supplyAmt)||0;
+          });
+        });
+      });
+
+      const st = document.createElement('table');
+      st.innerHTML = `<thead><tr><th class="name-cell">업체명</th><th class="name-cell">품목</th><th>수량</th><th class="totals-col">공급가액</th></tr></thead>`;
+      const stbody = document.createElement('tbody');
+      Object.entries(salesMerged).sort(([a],[b])=>a.localeCompare(b)).forEach(([company, items])=>{
+        let companyTotal = 0;
+        Object.entries(items).forEach(([itemName, data], idx)=>{
+          const tr = document.createElement('tr');
+          companyTotal += data.supplyAmt;
+          grandTotal += data.supplyAmt;
+          tr.innerHTML = `
+            ${idx===0 ? `<td class="name-cell" rowspan="${Object.keys(items).length}" style="vertical-align:top;font-weight:600;">${escapeHtml(company)}</td>` : ''}
+            <td class="name-cell" style="font-size:12px;">${escapeHtml(itemName)}</td>
+            <td>${data.qty}</td>
+            <td class="totals-col">${data.supplyAmt.toLocaleString()}원</td>`;
+          stbody.appendChild(tr);
+        });
+        const subTr = document.createElement('tr');
+        subTr.innerHTML = `<td></td><td class="name-cell totals-col" style="font-size:12px;">소계</td><td></td><td class="totals-col" style="font-weight:700;">${companyTotal.toLocaleString()}원</td>`;
+        stbody.appendChild(subTr);
+      });
+      const totTr = document.createElement('tr');
+      totTr.innerHTML = `<td class="name-cell totals-col" colspan="3">월 합계</td><td class="totals-col" style="font-weight:700;color:var(--accent);">${grandTotal.toLocaleString()}원</td>`;
+      stbody.appendChild(totTr);
+      st.appendChild(stbody);
+      sec4.appendChild(st);
+      sec4.innerHTML += `<div style="font-size:11px;color:var(--muted);margin-top:6px;">※ 데이터 기간: ${matchingSalesDates[0]} ~ ${matchingSalesDates[matchingSalesDates.length-1]} (${matchingSalesDates.length}일치)</div>`;
+    }
+    wrap.appendChild(sec4);
+
     document.getElementById('monthly-export-btn').style.display = 'inline-block';
     document.getElementById('monthly-export-btn')._data = { monthKey, merged, matchingDates, mTrackingSet };
   });
@@ -4198,6 +4442,7 @@ function applyUserUI() {
       internalOrderCounters,
       deliveryFeeItems,
       skuColumnMap,
+      salesByDate,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -4262,6 +4507,7 @@ function applyUserUI() {
     if(data.internalOrderCounters) internalOrderCounters = data.internalOrderCounters;
     if(data.deliveryFeeItems) deliveryFeeItems = data.deliveryFeeItems;
     if(data.skuColumnMap) skuColumnMap = data.skuColumnMap;
+    if(data.salesByDate) salesByDate = data.salesByDate;
 
     // Persist everything
     await Promise.allSettled([
@@ -4276,6 +4522,7 @@ function applyUserUI() {
       saveInternalOrderCounters(),
       saveDeliveryFeeItems(),
       saveSkuColumnMap(),
+      window.storage.set('sales-by-date', JSON.stringify(salesByDate), true).catch(e=>console.error(e)),
     ]);
 
     // Re-render everything
@@ -4301,7 +4548,63 @@ function applyUserUI() {
     toast('✓ 데이터 복원이 완료되었습니다');
   });
 
-  // ── 로그인 이벤트 ──
+  // ── 메인 네비게이션 탭 ──
+  document.querySelectorAll('.main-nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.main-nav-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.main-tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      const panelId = btn.dataset.panel;
+      document.getElementById(panelId).classList.add('active');
+      // 실적/매출 탭 진입 시 날짜 기본값 세팅
+      if(panelId === 'panel-sales'){
+        const now = new Date();
+        if(!document.getElementById('monthly-year').value){
+          document.getElementById('monthly-year').value = now.getFullYear();
+          document.getElementById('monthly-month').value = now.getMonth()+1;
+        }
+        renderManualQtyEditor();
+      }
+      // 설정 탭 진입 시 단가 에디터 갱신
+      if(panelId === 'panel-settings'){
+        renderPriceMapEditor();
+        renderDeliveryFeeEditor();
+        renderEcountStaffDeptEditor();
+      }
+    });
+  });
+
+  // ── 제이엠 파일 → 택배 lineItems도 생성 ──
+  const _origImportConfirm = document.getElementById;
+  // Override the confirm button to also create lineItems
+  document.addEventListener('click', (e)=>{
+    if(e.target && e.target.id === 'tracking-import-confirm-btn'){
+      // lineItems 생성은 _parsedJMData에서 처리 (아래 핸들러에서 저장)
+    }
+  });
+
+  // ── 월간 매출 집계 (이카운트 단가 기반) ──
+  function calcMonthlySales(merged){
+    // merged: { companyName: { itemId: qty } }
+    const result = {}; // { companyName: { itemId: {qty, revenue}, total_revenue } }
+    Object.entries(merged).forEach(([companyName, items])=>{
+      const companyObj = companies.find(c=>c.name===companyName);
+      const priceMap = companyObj?.priceMap || {};
+      let totalRevenue = 0;
+      const itemResults = {};
+      Object.entries(items).forEach(([itemId, qty])=>{
+        const unitPrice = priceMap[itemId] ?? null;
+        const itemObj = dict.find(d=>d.id===itemId);
+        const boxUnitCount = Number(itemObj?.boxUnitCount) || 0;
+        const ecountQty = boxUnitCount > 0 ? qty / boxUnitCount : qty;
+        const revenue = unitPrice !== null ? Math.round(unitPrice * ecountQty) : null;
+        if(revenue !== null) totalRevenue += revenue;
+        itemResults[itemId] = { qty, unitPrice, ecountQty: Math.round(ecountQty*100)/100, revenue };
+      });
+      result[companyName] = { items: itemResults, totalRevenue };
+    });
+    return result;
+  }
   async function doLogin(){
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
