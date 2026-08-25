@@ -340,7 +340,66 @@
         <input type="text" id="sender-name" style="width:120px;" value="㈜다름달음">
         <label style="font-size:13px;">보내는분 전화번호 :</label>
         <input type="text" id="sender-phone" style="width:130px;" value="02-406-1122">
-        <button class="btn-primary small-btn" id="export-courier-form-btn">택배사 발주서 다운로드 (.xls)</button>
+        <button class="btn-primary small-btn" id="export-courier-form-btn">전체 발주서 다운로드 (.xls)</button>
+        <button class="btn-ghost small-btn" id="export-courier-selected-btn">선택 건만 발주서 다운로드</button>
+      </div>
+      <div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div>
+
+      <h3>반품 / 환불 등록</h3>
+      <div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap; gap:8px;">
+        <div>
+          <label style="font-size:12px;color:var(--muted);">반품 접수일</label>
+          <input type="date" id="return-date" style="width:140px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">원래 배송일</label>
+          <input type="date" id="return-original-date" style="width:140px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">업체명</label>
+          <select id="return-company" style="min-width:150px;"></select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">품목</label>
+          <select id="return-item" style="min-width:150px;"></select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">수량(팩)</label>
+          <input type="number" id="return-qty" min="1" style="width:70px;" placeholder="수량">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">반품사유</label>
+          <select id="return-reason">
+            <option value="파손">파손</option>
+            <option value="품질불량">품질불량</option>
+            <option value="오배송">오배송</option>
+            <option value="단순변심">단순변심</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);">처리방법</label>
+          <select id="return-process">
+            <option value="환불">환불</option>
+            <option value="교환">교환</option>
+            <option value="부분환불">부분환불</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:150px;">
+          <label style="font-size:12px;color:var(--muted);">비고</label>
+          <input type="text" id="return-note" placeholder="비고 (선택)" style="width:100%;">
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn-primary small-btn" id="return-add-btn">반품 등록</button>
+      </div>
+
+      <h3>반품 내역</h3>
+      <div id="return-list-wrap"><div class="empty">등록된 반품 내역이 없습니다.</div></div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn-ghost small-btn" id="return-refresh-btn">새로고침</button>
+        <button class="btn-primary small-btn" id="return-export-btn">반품 내역 엑셀 다운로드</button>
       </div>
 
       <h3>운송장번호 업로드</h3>
@@ -3597,23 +3656,173 @@ function applyUserUI() {
     if(rows.length === 0){ toast('3PL 개별 주문 건이 없습니다'); return; }
     const senderName = document.getElementById('sender-name').value.trim();
     const senderPhone = document.getElementById('sender-phone').value.trim();
-
     const header = ['예약구분','집하예정일','보내는분성명','보내는분전화번호','받는사람','주문자 연락처','수취인 연락처','받는분우편번호','주소','배송메세지1','운송장번호','고객주문번호','상품명(약자)','수량','판매처'];
-    const dataRows = rows.map(r=>{
+    const makeRows = (rowList) => rowList.map(r=>{
       const itemName = r.itemId ? (dict.find(d=>d.id===r.itemId)?.shortName || itemNameById(r.itemId)) : r.itemNameRaw;
-      const customerOrderNo = r.orderNo || r.internalOrderNo; // 업체 번호 우선, 없으면 사내관리번호로 대체 (양식 요구사항: 꼭 채워야 함)
-      return [
-        '', '', senderName, senderPhone, r.recipientName, r.recipientPhone, r.recipientPhone,
-        '', r.address, r.note, r.trackingNo || '', customerOrderNo, itemName, r.qty, r.company
-      ];
+      const customerOrderNo = r.orderNo || r.internalOrderNo;
+      // 박스 분리 시 두 번째 박스부터 이름 뒤 숫자 붙이기 (박준수 1)
+      const recipientLabel = (r.boxTotal && r.boxTotal > 1 && r.boxIndex > 1)
+        ? `${r.recipientName} ${r.boxIndex - 1}` : r.recipientName;
+      return ['','',senderName,senderPhone,recipientLabel,r.recipientPhone,r.recipientPhone,
+        '',r.address,r.note,r.trackingNo||'',customerOrderNo,itemName,r.qty,r.company];
     });
-
-    const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...makeRows(rows)]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet');
     const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
     XLSX.writeFile(wb, `제이엠로지스_발주서_${dateLabel}.xls`);
     toast('택배사 발주서(.xls)가 다운로드되었습니다');
+  });
+
+  // 선택 건만 발주서
+  document.getElementById('export-courier-selected-btn').addEventListener('click', ()=>{
+    const checked = Array.from(document.querySelectorAll('.detail-row-check:checked'));
+    if(checked.length === 0){ toast('개별 주문 리스트에서 출력할 주문을 먼저 체크해주세요'); return; }
+    const selectedIds = new Set(checked.map(cb=>cb.dataset.id));
+    const rows = currentLineItems().filter(r=>selectedIds.has(r.id));
+    const senderName = document.getElementById('sender-name').value.trim();
+    const senderPhone = document.getElementById('sender-phone').value.trim();
+    const header = ['예약구분','집하예정일','보내는분성명','보내는분전화번호','받는사람','주문자 연락처','수취인 연락처','받는분우편번호','주소','배송메세지1','운송장번호','고객주문번호','상품명(약자)','수량','판매처'];
+    const makeRows = (rowList) => rowList.map(r=>{
+      const itemName = r.itemId ? (dict.find(d=>d.id===r.itemId)?.shortName || itemNameById(r.itemId)) : r.itemNameRaw;
+      const customerOrderNo = r.orderNo || r.internalOrderNo;
+      const recipientLabel = (r.boxTotal && r.boxTotal > 1 && r.boxIndex > 1)
+        ? `${r.recipientName} ${r.boxIndex - 1}` : r.recipientName;
+      return ['','',senderName,senderPhone,recipientLabel,r.recipientPhone,r.recipientPhone,
+        '',r.address,r.note,r.trackingNo||'',customerOrderNo,itemName,r.qty,r.company];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([header, ...makeRows(rows)]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet');
+    const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
+    XLSX.writeFile(wb, `제이엠로지스_추가발주서_${dateLabel}.xls`);
+    toast(`${rows.length}건 추가 발주서가 다운로드되었습니다`);
+  });
+
+  // ── 반품/환불 기능 ──
+  async function sbReturnsQuery(filter=''){
+    const res = await fetch(`${SB_URL}/rest/v1/returns${filter}&order=return_date.desc`, { headers: sbHeaders });
+    if(!res.ok) throw new Error(`반품 조회 실패: ${res.status}`);
+    return res.json();
+  }
+
+  function populateReturnSelects(){
+    const companySel = document.getElementById('return-company');
+    const itemSel = document.getElementById('return-item');
+    if(!companySel || !itemSel) return;
+    const prevCo = companySel.value;
+    companySel.innerHTML = '<option value="">(업체 선택)</option>';
+    companies.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = companyDisplayName(c);
+      if(c.name===prevCo) opt.selected=true;
+      companySel.appendChild(opt);
+    });
+    itemSel.innerHTML = '<option value="">(품목 선택)</option>';
+    dict.forEach(d=>{
+      const opt = document.createElement('option');
+      opt.value = d.id; opt.textContent = d.name;
+      itemSel.appendChild(opt);
+    });
+    // Default dates
+    const today = new Date().toISOString().slice(0,10);
+    if(!document.getElementById('return-date').value) document.getElementById('return-date').value = today;
+    if(!document.getElementById('return-original-date').value) document.getElementById('return-original-date').value = today;
+  }
+
+  async function renderReturnList(){
+    const wrap = document.getElementById('return-list-wrap');
+    if(!wrap) return;
+    wrap.innerHTML = '<div class="empty">로딩 중...</div>';
+    try{
+      const rows = await sbReturnsQuery('?limit=100');
+      if(!rows.length){ wrap.innerHTML='<div class="empty">등록된 반품 내역이 없습니다.</div>'; return; }
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr>
+        <th>반품일</th><th>원배송일</th><th class="name-cell">업체명</th>
+        <th class="name-cell">품목</th><th>수량</th><th>사유</th><th>처리</th><th>비고</th><th>담당자</th><th></th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.return_date}</td><td>${r.original_date}</td>
+          <td class="name-cell">${escapeHtml(r.company_name)}</td>
+          <td class="name-cell">${escapeHtml(r.item_name)}</td>
+          <td style="color:var(--danger,#b5482e);font-weight:700;">-${r.qty}</td>
+          <td>${escapeHtml(r.reason)}</td><td>${escapeHtml(r.process)}</td>
+          <td class="name-cell" style="font-size:12px;">${escapeHtml(r.note||'')}</td>
+          <td style="font-size:12px;">${escapeHtml(r.entered_by||'')}</td><td></td>`;
+        const delBtn = document.createElement('button');
+        delBtn.className='btn-danger small-btn'; delBtn.textContent='삭제';
+        armConfirmButton(delBtn, async ()=>{
+          await fetch(`${SB_URL}/rest/v1/returns?id=eq.${r.id}`, { method:'DELETE', headers:sbHeaders });
+          await writeLog('return_delete', `반품 삭제: ${r.company_name} ${r.item_name} ${r.qty}팩`);
+          renderReturnList();
+          toast('반품 내역이 삭제됐습니다');
+        });
+        tr.lastElementChild.appendChild(delBtn);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML=''; wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML=`<div class="empty">오류: ${e.message}</div>`; }
+  }
+
+  document.getElementById('return-add-btn').addEventListener('click', async ()=>{
+    const returnDate = document.getElementById('return-date').value;
+    const originalDate = document.getElementById('return-original-date').value;
+    const companyName = document.getElementById('return-company').value;
+    const itemId = document.getElementById('return-item').value;
+    const qty = parseInt(document.getElementById('return-qty').value, 10);
+    const reason = document.getElementById('return-reason').value;
+    const process = document.getElementById('return-process').value;
+    const note = document.getElementById('return-note').value.trim();
+    if(!returnDate||!originalDate||!companyName||!itemId||!qty||qty<=0){
+      toast('모든 필수 항목을 입력해주세요'); return;
+    }
+    const itemObj = dict.find(d=>d.id===itemId);
+    const itemName = itemObj?.name || '';
+    try{
+      await sbInsert('returns', {
+        return_date: returnDate, original_date: originalDate,
+        company_name: companyName, item_id: itemId, item_name: itemName,
+        qty, reason, process, note, entered_by: getStaffName()
+      });
+      // 원래 날짜 실적에서 차감
+      if(!ordersByDate[originalDate]) ordersByDate[originalDate] = {};
+      if(!ordersByDate[originalDate][companyName]) ordersByDate[originalDate][companyName] = {};
+      const cur = Number(ordersByDate[originalDate][companyName][itemId]) || 0;
+      ordersByDate[originalDate][companyName][itemId] = Math.max(0, cur - qty);
+      saveOrdersByDate();
+      await writeLog('return_add', `반품 등록: ${companyName} ${itemName} ${qty}팩 (${reason}/${process})`);
+      renderReturnList();
+      renderAggTable();
+      document.getElementById('return-qty').value='';
+      document.getElementById('return-note').value='';
+      toast(`반품 등록 완료 — ${originalDate} ${companyName} ${itemName} ${qty}팩 차감됐습니다`);
+    }catch(e){ toast('반품 등록 실패: '+e.message); }
+  });
+
+  document.getElementById('return-refresh-btn').addEventListener('click', renderReturnList);
+
+  document.getElementById('return-export-btn').addEventListener('click', async ()=>{
+    try{
+      const rows = await sbReturnsQuery('?limit=1000');
+      if(!rows.length){ toast('반품 내역이 없습니다'); return; }
+      const header = ['반품접수일','원배송일','업체명','품목명','수량(팩)','반품사유','처리방법','비고','담당자'];
+      const data = rows.map(r=>[r.return_date,r.original_date,r.company_name,r.item_name,-r.qty,r.reason,r.process,r.note||'',r.entered_by||'']);
+      const ws = XLSX.utils.aoa_to_sheet([header,...data]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '반품내역');
+      XLSX.writeFile(wb, `반품내역_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`);
+    }catch(e){ toast('다운로드 실패: '+e.message); }
+  });
+
+  // 3PL 탭 클릭 시 반품 셀렉트 초기화
+  const _orig3plClick = document.getElementById('tab-3pl-btn').onclick;
+  document.getElementById('tab-3pl-btn').addEventListener('click', ()=>{
+    populateReturnSelects();
+    renderReturnList();
   });
 
   armConfirmButton(
