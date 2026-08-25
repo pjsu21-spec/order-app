@@ -420,9 +420,11 @@
         </div>
         <div class="sub" style="margin:6px 0 0;">업체 주문번호 기준으로 매칭됩니다. 업체 주문번호가 없으면 사내관리번호로 자동 매칭합니다.</div>
         <div id="tracking-file-preview" style="margin-top:10px; overflow-x:auto;"></div>
-        <div class="row">
+        <div class="row" style="margin-top:8px; flex-wrap:wrap; gap:8px;">
           <button class="btn-primary small-btn" id="tracking-apply-btn">운송장번호 매칭 적용</button>
+          <button class="btn-ghost small-btn" id="tracking-import-sales-btn" style="border:1px solid var(--accent);">📥 제이엠 파일로 실적도 등록</button>
         </div>
+        <div id="tracking-import-preview" style="display:none; margin-top:10px; padding:10px 12px; background:var(--hover); border-radius:8px; font-size:13px;"></div>
       </div>
 
       <h3>업체 원본 양식 + 운송장번호 다운로드</h3>
@@ -1101,6 +1103,7 @@ function applyUserUI() {
     renderProductStockEditor();
     renderOriginalFileSelect();
     applyUserUI(); // 관리자 탭 등 로그인 사용자 UI 반영
+    renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
   }
 
   function getStaffName(){
@@ -3182,6 +3185,119 @@ function applyUserUI() {
     renderThirdPartyLineItems();
     renderDeliveryCount();
     toast(`운송장번호 ${matched}건 매칭 완료${unmatched > 0 ? `, ${unmatched}건은 주문번호를 찾지 못함` : ''}`);
+  });
+
+  // ── 제이엠 파일로 실적도 등록 ──
+  document.getElementById('tracking-import-sales-btn').addEventListener('click', ()=>{
+    if(!uploadedTrackingData || !uploadedTrackingData.length){
+      toast('파일을 먼저 업로드해주세요'); return;
+    }
+
+    const startRow = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
+
+    // 제이엠로지스 파일 고정 열 구조
+    // 0=예약구분 1=집하예정일 2=보내는분성명 3=보내는분전화번호
+    // 4=받는사람 5=주문자연락처 6=수취인연락처 7=받는분우편번호
+    // 8=주소 9=배송메세지1 10=운송장번호 11=고객주문번호
+    // 12=상품명(약자) 13=수량 14=판매처
+    const COL = { date:1, recipientName:4, address:8, trackingNo:10, orderNo:11, itemName:12, qty:13, company:14 };
+
+    // 파싱
+    const parsed = {}; // { dateKey: { companyName: { itemId: qty } } }
+    const previewLines = [];
+    let parseErrors = 0;
+
+    for(let r = startRow - 1; r < uploadedTrackingData.length; r++){
+      const row = uploadedTrackingData[r] || [];
+      if(row.every(v=> v==null || String(v).trim()==='')) continue;
+
+      const companyName = String(row[COL.company] || '').trim();
+      const itemNameRaw = String(row[COL.itemName] || '').trim();
+      const qtyRaw = row[COL.qty];
+      const dateRaw = row[COL.date];
+
+      if(!companyName || !itemNameRaw || !qtyRaw) continue;
+
+      // 날짜 파싱 (엑셀 숫자 날짜 또는 문자열)
+      let dateKey = '';
+      if(dateRaw){
+        if(typeof dateRaw === 'number'){
+          // 엑셀 날짜 숫자 → JS Date
+          const d = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
+          dateKey = d.toISOString().slice(0,10);
+        } else {
+          const s = String(dateRaw).trim().replace(/\./g,'-');
+          if(/^\d{4}-\d{2}-\d{2}/.test(s)) dateKey = s.slice(0,10);
+        }
+      }
+      // 날짜 없으면 현재 집계 날짜 사용
+      if(!dateKey) dateKey = currentDateKey;
+
+      const qty = parseFloat(String(qtyRaw).trim());
+      if(isNaN(qty) || qty <= 0) continue;
+
+      // 품목 매칭
+      const itemId = matchItem(itemNameRaw);
+      if(!itemId){ parseErrors++; continue; }
+
+      if(!parsed[dateKey]) parsed[dateKey] = {};
+      if(!parsed[dateKey][companyName]) parsed[dateKey][companyName] = {};
+      parsed[dateKey][companyName][itemId] = (parsed[dateKey][companyName][itemId] || 0) + qty;
+    }
+
+    // 미리보기 생성
+    const previewEl = document.getElementById('tracking-import-preview');
+    if(Object.keys(parsed).length === 0){
+      previewEl.style.display='block';
+      previewEl.innerHTML = '<span style="color:var(--danger,#b5482e);">⚠ 인식된 실적 데이터가 없습니다. 파일 구조가 제이엠로지스 발주서 형식인지 확인해주세요.</span>';
+      return;
+    }
+
+    let previewHtml = '<b>아래 실적을 발주 집계에 추가합니다:</b><br><br>';
+    Object.entries(parsed).sort(([a],[b])=>a.localeCompare(b)).forEach(([dateKey, companies])=>{
+      previewHtml += `<div style="font-weight:700;margin-bottom:4px;">📅 ${dateKey}</div>`;
+      Object.entries(companies).forEach(([companyName, items])=>{
+        const itemStrs = Object.entries(items).map(([itemId, qty])=>{
+          const itemName = dict.find(d=>d.id===itemId)?.name || itemId;
+          return `${itemName} ${qty}팩`;
+        }).join(', ');
+        previewHtml += `<div style="margin-left:12px;margin-bottom:2px;">• ${escapeHtml(companyName)}: ${escapeHtml(itemStrs)}</div>`;
+      });
+    });
+    if(parseErrors > 0) previewHtml += `<div style="color:var(--muted);margin-top:6px;font-size:11px;">※ 품목 미매칭 ${parseErrors}건은 제외됩니다 (SKU 관리에서 별칭 추가 후 재시도)</div>`;
+
+    previewHtml += `<div class="row" style="margin-top:10px;">
+      <button class="btn-primary small-btn" id="tracking-import-confirm-btn">✓ 실적 등록 확정</button>
+      <button class="btn-ghost small-btn" id="tracking-import-cancel-btn">취소</button>
+    </div>`;
+    previewEl.style.display='block';
+    previewEl.innerHTML = previewHtml;
+
+    document.getElementById('tracking-import-confirm-btn').addEventListener('click', ()=>{
+      // 실적 병합
+      Object.entries(parsed).forEach(([dateKey, companies])=>{
+        if(!ordersByDate[dateKey]) ordersByDate[dateKey] = {};
+        Object.entries(companies).forEach(([companyName, items])=>{
+          if(!ordersByDate[dateKey][companyName]) ordersByDate[dateKey][companyName] = {};
+          Object.entries(items).forEach(([itemId, qty])=>{
+            ordersByDate[dateKey][companyName][itemId] = (ordersByDate[dateKey][companyName][itemId] || 0) + qty;
+          });
+          addCompanyIfNew(companyName);
+        });
+      });
+      saveOrdersByDate();
+      renderSavedDatesBar();
+      renderAggTable();
+      renderThirdPartyAggTable();
+      previewEl.style.display='none';
+      const totalDates = Object.keys(parsed).length;
+      const totalCompanies = Object.values(parsed).reduce((s,c)=>s+Object.keys(c).length, 0);
+      toast(`✓ 실적 등록 완료 — ${totalDates}일치 ${totalCompanies}개 업체`);
+    });
+
+    document.getElementById('tracking-import-cancel-btn').addEventListener('click', ()=>{
+      previewEl.style.display='none';
+    });
   });
 
   document.getElementById('export-btn').addEventListener('click', ()=>{
