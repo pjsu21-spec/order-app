@@ -2319,6 +2319,14 @@ function applyUserUI() {
     return remainder === 0 ? `${boxes}박스` : `${boxes}박스 ${remainder}개`;
   }
 
+  // 엑셀 셀값 정리 — 앞 작은따옴표 제거 (숫자를 문자로 강제 저장 시 생기는 접두사)
+  function cleanCell(v){
+    if(v == null) return '';
+    let s = String(v).trim();
+    if(s.startsWith("'")) s = s.slice(1).trim();
+    return s;
+  }
+
   function colLetter(i){
     let n = i + 1, s = '';
     while(n > 0){
@@ -3099,11 +3107,11 @@ function applyUserUI() {
       const qty = parseFloat(qtyRaw);
       if(isNaN(qty) || qty <= 0) continue;
 
-      const orderNo = idx.orderNo !== undefined && idx.orderNo >= 0 ? (row[idx.orderNo] ?? '').toString().trim() : '';
-      const recipientName = idx.recipientName !== undefined && idx.recipientName >= 0 ? (row[idx.recipientName] ?? '').toString().trim() : '';
-      const recipientPhone = idx.recipientPhone !== undefined && idx.recipientPhone >= 0 ? (row[idx.recipientPhone] ?? '').toString().trim() : '';
-      const address = idx.address !== undefined && idx.address >= 0 ? (row[idx.address] ?? '').toString().trim() : '';
-      const note = idx.note !== undefined && idx.note >= 0 ? (row[idx.note] ?? '').toString().trim() : '';
+      const orderNo = idx.orderNo !== undefined && idx.orderNo >= 0 ? cleanCell(row[idx.orderNo]) : '';
+      const recipientName = idx.recipientName !== undefined && idx.recipientName >= 0 ? cleanCell(row[idx.recipientName]) : '';
+      const recipientPhone = idx.recipientPhone !== undefined && idx.recipientPhone >= 0 ? cleanCell(row[idx.recipientPhone]) : '';
+      const address = idx.address !== undefined && idx.address >= 0 ? cleanCell(row[idx.address]) : '';
+      const note = idx.note !== undefined && idx.note >= 0 ? cleanCell(row[idx.note]) : '';
       const itemId = matchItem(itemTextRaw);
       const internalOrderNo = getNextInternalOrderNo(); // one per original order line
 
@@ -3234,8 +3242,8 @@ function applyUserUI() {
     let matched = 0, unmatched = 0;
     for(let r = startRow - 1; r < uploadedTrackingData.length; r++){
       const row = uploadedTrackingData[r] || [];
-      const refNo = (row[orderColIdx] ?? '').toString().trim();
-      const trackingNo = (row[trackColIdx] ?? '').toString().trim();
+      const refNo = cleanCell(row[orderColIdx]);
+      const trackingNo = cleanCell(row[trackColIdx]);
       if(!refNo || !trackingNo) continue;
 
       if(groupByOrderNo[refNo]){
