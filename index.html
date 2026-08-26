@@ -1325,7 +1325,9 @@ function applyUserUI() {
     const wrap = document.getElementById('saved-dates-wrap');
     const keys = new Set([...Object.keys(ordersByDate), ...Object.keys(thirdPartyLineItems), ...Object.keys(previousStock)]);
     keys.add(currentDateKey);
-    const sorted = Array.from(keys).sort();
+    // YYYY-MM-DD 형식만 표시 (사내관리번호 등 이상한 키 제외)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const sorted = Array.from(keys).filter(k=> dateRegex.test(k)).sort();
     wrap.innerHTML = '';
     if(sorted.length === 0) return;
     const label = document.createElement('span');
