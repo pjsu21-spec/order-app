@@ -633,7 +633,9 @@
       <div class="sub" style="margin-top:0;">새 버전으로 교체하기 전에 백업을 받아두고, 새 버전에서 복원하면 데이터를 그대로 이어갈 수 있습니다.</div>
     <div class="row">
       <button class="btn-primary small-btn" id="backup-btn">📥 전체 데이터 백업 (JSON 다운로드)</button>
+      <button class="btn-danger small-btn" id="cleanup-lineitem-dates-btn">🧹 잘못된 날짜 데이터 정리</button>
     </div>
+    <div class="sub" style="margin-top:4px;">※ 날짜 정리 버튼은 저장된 날짜 칩에 이상한 값이 보일 때 한 번만 실행하세요.</div>
     <div class="dropzone" id="restore-dropzone" style="margin-top:10px;">
       <div>백업 파일(.json)을 여기에 끌어다 놓거나 클릭해서 복원</div>
       <div class="fname" id="restore-fname"></div>
@@ -3399,6 +3401,7 @@ function applyUserUI() {
         lineItemsToAdd.push({
           id: cryptoId(),
           internalOrderNo: orderNo || `${dateKey}-import`,
+          dateKey,   // 명시적으로 dateKey 저장
           company: companyName,
           orderNo,
           recipientName,
@@ -3420,7 +3423,8 @@ function applyUserUI() {
       // dateKey별로 lineItems에 추가
       if(lineItemsToAdd.length > 0){
         lineItemsToAdd.forEach(item=>{
-          const dateKey = item.internalOrderNo.slice(0,10);
+          // dateKey는 item에 직접 저장된 값 사용 (internalOrderNo 슬라이싱 방식 제거)
+          const dateKey = item.dateKey || currentDateKey;
           if(!thirdPartyLineItems[dateKey]) thirdPartyLineItems[dateKey] = [];
           // 중복 방지: 같은 운송장+품목이 없을 때만 추가
           const exists = thirdPartyLineItems[dateKey].some(
@@ -4429,6 +4433,25 @@ function applyUserUI() {
   });
 
   // -------- 데이터 백업 / 복원 --------
+  document.getElementById('cleanup-lineitem-dates-btn').addEventListener('click', async ()=>{
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    let removedKeys = 0;
+
+    // thirdPartyLineItems에서 날짜 형식이 아닌 키 제거
+    const badKeys = Object.keys(thirdPartyLineItems).filter(k=> !dateRegex.test(k));
+    badKeys.forEach(k=>{ delete thirdPartyLineItems[k]; removedKeys++; });
+
+    // ordersByDate에서도 동일하게 정리
+    const badOrderKeys = Object.keys(ordersByDate).filter(k=> !dateRegex.test(k));
+    badOrderKeys.forEach(k=>{ delete ordersByDate[k]; removedKeys++; });
+
+    if(removedKeys === 0){ toast('정리할 잘못된 날짜 데이터가 없습니다'); return; }
+
+    await Promise.all([saveLineItems(), saveOrdersByDate()]);
+    renderSavedDatesBar();
+    renderAggTable();
+    toast(`✓ ${removedKeys}개의 잘못된 날짜 키를 정리했습니다`);
+  });
   document.getElementById('backup-btn').addEventListener('click', async ()=>{
     const backup = {
       _version: 2,
