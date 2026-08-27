@@ -3392,13 +3392,11 @@ function applyUserUI() {
       }
 
       const res = await fetch(
-        'https://rsgbqlrxtexknhsvkroc.supabase.co/functions/v1/generate_statement',
+        'https://vercel-statement-api.vercel.app/api/generate',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SB_KEY}`,
-            'apikey': SB_KEY,
           },
           body: bodyStr
         }
