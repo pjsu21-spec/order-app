@@ -2013,6 +2013,35 @@ function applyUserUI() {
     if(companies.some(c=>c.name===prevVal)) sel.value = prevVal;
   }
 
+  let _cachedTemplateHeaders = null; // 파싱 결과 캐시
+  let _cachedTemplateB64Hash = '';   // 어떤 파일 기준으로 캐싱했는지
+
+  function getTemplateHeaders(){
+    if(!productionTemplateB64) return [];
+    // 이미 파싱한 파일이면 캐시 반환
+    const hashKey = productionTemplateB64.slice(-32); // 마지막 32자로 간이 해시
+    if(_cachedTemplateHeaders && _cachedTemplateB64Hash === hashKey) return _cachedTemplateHeaders;
+    try{
+      const raw = atob(productionTemplateB64);
+      const bytes = new Uint8Array(raw.length);
+      for(let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const wb = XLSX.read(bytes, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z20');
+      const headers = [];
+      for(let c = range.s.c; c <= range.e.c; c++){
+        const addr = XLSX.utils.encode_cell({ r: 12, c });
+        const cell = ws[addr];
+        if(cell && cell.v && typeof cell.v === 'string' && cell.v.trim()){
+          headers.push({ col: XLSX.utils.encode_col(c), header: cell.v.replace(/\n/g,' ').trim() });
+        }
+      }
+      _cachedTemplateHeaders = headers;
+      _cachedTemplateB64Hash = hashKey;
+      return headers;
+    }catch(e){ return []; }
+  }
+
   function renderSkuColumnMapEditor(){
     const wrap = document.getElementById('sku-column-map-editor');
     if(!wrap) return;
@@ -2023,27 +2052,7 @@ function applyUserUI() {
     }
 
     // Try to parse column headers from the uploaded template (row 13)
-    let templateHeaders = []; // [{ col: 'J', header: '투맛토(스테비아)' }]
-    if(productionTemplateB64){
-      try{
-        const binaryStr = atob(productionTemplateB64);
-        const bytes = new Uint8Array(binaryStr.length);
-        for(let i=0;i<binaryStr.length;i++) bytes[i]=binaryStr.charCodeAt(i);
-        const wb = XLSX.read(bytes, { type:'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        // Read row 13 — find all non-empty text cells
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z20');
-        for(let c = range.s.c; c <= range.e.c; c++){
-          const addr = XLSX.utils.encode_cell({ r: 12, c }); // row 13 = index 12
-          const cell = ws[addr];
-          if(cell && cell.v && typeof cell.v === 'string' && cell.v.trim()){
-            const col = XLSX.utils.encode_col(c);
-            const header = cell.v.replace(/\n/g,' ').trim();
-            templateHeaders.push({ col, header });
-          }
-        }
-      }catch(e){ /* 파싱 실패 시 수동 입력으로 fallback */ }
-    }
+    const templateHeaders = getTemplateHeaders();
 
     const hasHeaders = templateHeaders.length > 0;
 
@@ -3383,11 +3392,19 @@ function applyUserUI() {
       const { fileB64, error } = await res.json();
       if(error) throw new Error(error);
 
-      // base64 → Blob → 다운로드
-      const binaryStr = atob(fileB64);
-      const bytes = new Uint8Array(binaryStr.length);
-      for(let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      // base64 → Blob → 다운로드 (청크 방식으로 안전하게 변환)
+      function b64ToBlob(b64, mimeType){
+        const chunk = 512;
+        const byteArrays = [];
+        for(let i = 0; i < b64.length; i += chunk){
+          const slice = atob(b64.slice(i, i + chunk));
+          const bytes = new Uint8Array(slice.length);
+          for(let j = 0; j < slice.length; j++) bytes[j] = slice.charCodeAt(j);
+          byteArrays.push(bytes);
+        }
+        return new Blob(byteArrays, { type: mimeType });
+      }
+      const blob = b64ToBlob(fileB64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
