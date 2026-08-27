@@ -484,7 +484,22 @@
     </div>
 
     <details style="margin-top:14px;">
-      <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">생산본부 공유파일 템플릿 관리 (교체 · SKU 열 매핑)</summary>
+      <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">거래명세서 템플릿 관리 (제이엠로지스 거래명세서)</summary>
+      <div style="margin-top:10px;">
+        <div class="sub" style="margin:0 0 8px;">원본 거래명세서 파일(.xlsx)을 업로드하면 서식 그대로 수량만 채워서 다운로드합니다.</div>
+        <div class="dropzone" id="statement-template-dropzone">
+          <div>거래명세서(.xlsx)를 여기에 끌어다 놓거나 클릭해서 선택</div>
+          <div class="fname" id="statement-template-fname"></div>
+          <input type="file" id="statement-template-input" accept=".xlsx" style="display:none;">
+        </div>
+        <h3 style="margin-top:12px;">SKU → 파일 내 행 매핑</h3>
+        <div class="sub" style="margin:0 0 8px;">각 SKU가 거래명세서의 몇 번 행(C열 품목명 기준)에 해당하는지 지정하세요. 예: 스테비아=10, 망고향=11, 자몽향=12</div>
+        <div id="sku-row-map-editor"></div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn-primary small-btn" id="export-statement-btn">거래명세서 다운로드</button>
+        </div>
+      </div>
+    </details>
       <div style="margin-top:12px;">
         <div class="sub" style="margin:0 0 8px;">원본 파일(.xlsx)을 업로드해두면 해당 파일 양식 그대로 값을 채워서 다운로드합니다. 파일이 바뀌면 새 파일로 교체하세요.</div>
         <div class="dropzone" id="production-template-dropzone">
@@ -940,8 +955,10 @@ function applyUserUI() {
   let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
   let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: { aoa: [...raw rows...], startRow } } } - 업체 원본파일 보관(운송장 반영 회신용)
-  let productionTemplateB64 = ''; // base64-encoded production template xlsx (user-replaceable)
+  let productionTemplateB64 = ''; // base64-encoded production template xlsx
   let skuColumnMap = {};           // { itemId: colLetter } - SKU -> column in production template
+  let statementTemplateB64 = '';   // base64-encoded 거래명세서 template
+  let skuRowMap = {};              // { itemId: rowNumber } - SKU -> row in 거래명세서
   let currentParsed = null;
   let currentDateKey = '';
   let uploadedSheetData = null;
@@ -1122,6 +1139,16 @@ function applyUserUI() {
       skuColumnMap = scm ? JSON.parse(scm.value) : {};
     }catch(e){ skuColumnMap = {}; }
 
+    try{
+      const st = await window.storage.get('statement-template-b64', true);
+      statementTemplateB64 = st ? st.value : '';
+    }catch(e){ statementTemplateB64 = ''; }
+
+    try{
+      const srm = await window.storage.get('sku-row-map', true);
+      skuRowMap = srm ? JSON.parse(srm.value) : {};
+    }catch(e){ skuRowMap = {}; }
+
     cleanupOldData(true); // silent auto-cleanup of anything past the retention window
 
     try{
@@ -1161,6 +1188,7 @@ function applyUserUI() {
     renderCategoryEditor();
     renderCompanyManager();
     renderSkuColumnMapEditor();
+    renderSkuRowMapEditor();
     renderPriceMapEditor();
     renderDeliveryFeeEditor();
     renderAggTable();
@@ -1251,6 +1279,12 @@ function applyUserUI() {
   }
   async function saveSkuColumnMap(){
     try{ await window.storage.set('sku-column-map', JSON.stringify(skuColumnMap), true); }catch(e){ console.error(e); }
+  }
+  async function saveStatementTemplate(){
+    try{ await window.storage.set('statement-template-b64', statementTemplateB64, true); }catch(e){ console.error(e); }
+  }
+  async function saveSkuRowMap(){
+    try{ await window.storage.set('sku-row-map', JSON.stringify(skuRowMap), true); }catch(e){ console.error(e); }
   }
 
   // 사내관리번호: YYYYMMDD-001, 002... 납품일(currentDateKey) 기준으로 그날 안에서 계속 이어서 발번됨.
@@ -2302,6 +2336,68 @@ function applyUserUI() {
     wrap.appendChild(table);
   }
 
+  function renderSkuRowMapEditor(){
+    const wrap = document.getElementById('sku-row-map-editor');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    if(dict.length === 0){
+      wrap.innerHTML = '<div class="empty" style="padding:6px 0;">SKU 관리에 품목이 없습니다.</div>';
+      return;
+    }
+
+    const hasTemplate = !!statementTemplateB64;
+    if(!hasTemplate){
+      wrap.innerHTML = '<div style="font-size:12px;color:var(--warn,#b7770d);padding:6px 8px;background:#fef9e7;border-radius:6px;">⚠ 거래명세서 파일을 먼저 업로드해주세요.</div>';
+      return;
+    }
+
+    dict.forEach(item=>{
+      const row = document.createElement('div');
+      row.className = 'dict-row';
+      row.style.alignItems = 'center';
+
+      const nameSpan = document.createElement('div');
+      nameSpan.style.flex = '0 0 200px';
+      nameSpan.style.fontSize = '13px';
+      nameSpan.style.fontWeight = '600';
+      nameSpan.textContent = item.name;
+      row.appendChild(nameSpan);
+
+      const arrowSpan = document.createElement('span');
+      arrowSpan.textContent = '→ 행 번호:';
+      arrowSpan.style.color = 'var(--muted)';
+      arrowSpan.style.fontSize = '12px';
+      row.appendChild(arrowSpan);
+
+      const rowInput = document.createElement('input');
+      rowInput.type = 'number';
+      rowInput.min = '1';
+      rowInput.style.width = '65px';
+      rowInput.placeholder = '예: 10';
+      rowInput.value = skuRowMap[item.id] || '';
+      rowInput.title = `${item.name}의 수량을 입력할 행 번호 (I열)`;
+      rowInput.addEventListener('change', (e)=>{
+        const v = parseInt(e.target.value);
+        if(v > 0) skuRowMap[item.id] = v;
+        else delete skuRowMap[item.id];
+        saveSkuRowMap();
+        badge.textContent = v > 0 ? `✓ ${v}행` : '미설정';
+        badge.style.color = v > 0 ? 'var(--accent)' : 'var(--muted)';
+      });
+      row.appendChild(rowInput);
+
+      const badge = document.createElement('span');
+      badge.style.fontSize = '11px';
+      badge.style.marginLeft = '6px';
+      const mapped = skuRowMap[item.id];
+      badge.textContent = mapped ? `✓ ${mapped}행` : '미설정';
+      badge.style.color = mapped ? 'var(--accent)' : 'var(--muted)';
+      row.appendChild(badge);
+
+      wrap.appendChild(row);
+    });
+  }
+
   function renderOriginalFileSelect(){
     const sel = document.getElementById('original-file-company-select');
     if(!sel) return;
@@ -3198,7 +3294,6 @@ function applyUserUI() {
     (file)=>{
       const reader = new FileReader();
       reader.onload = (evt)=>{
-        // Store as base64 so it can be persisted and later reconstructed
         const arr = new Uint8Array(evt.target.result);
         let b64 = '';
         const chunk = 8192;
@@ -3214,6 +3309,79 @@ function applyUserUI() {
       reader.readAsArrayBuffer(file);
     }
   );
+
+  // ── 거래명세서 템플릿 ──
+  setupDropzone(
+    document.getElementById('statement-template-dropzone'),
+    document.getElementById('statement-template-input'),
+    (file)=>{
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        const arr = new Uint8Array(evt.target.result);
+        let b64 = '';
+        const chunk = 8192;
+        for(let i = 0; i < arr.length; i += chunk){
+          b64 += String.fromCharCode(...arr.subarray(i, i + chunk));
+        }
+        statementTemplateB64 = btoa(b64);
+        saveStatementTemplate();
+        document.getElementById('statement-template-fname').textContent = file.name;
+        renderSkuRowMapEditor();
+        toast(`"${file.name}" 거래명세서 템플릿이 등록되었습니다`);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  );
+
+  document.getElementById('export-statement-btn').addEventListener('click', ()=>{
+    if(!statementTemplateB64){ toast('거래명세서 템플릿 파일을 먼저 업로드해주세요'); return; }
+    if(Object.keys(skuRowMap).length === 0){ toast('SKU → 행 매핑을 설정해주세요'); return; }
+
+    // 원본 파일 복원
+    const binaryStr = atob(statementTemplateB64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for(let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+    const wb = XLSX.read(bytes, { type: 'array', cellStyles: true });
+    const ws = wb.Sheets[wb.SheetNames[0]]; // 견적서 시트
+
+    const orders = currentOrders();
+    const dateLabel = getDeliveryDateLabel() || currentDateKey;
+
+    // 셀 쓰기 헬퍼
+    const writeCell = (col, row, value)=>{
+      const addr = `${col}${row}`;
+      if(!ws[addr]) ws[addr] = {};
+      ws[addr].v = value;
+      ws[addr].t = typeof value === 'number' ? 'n' : 's';
+      delete ws[addr].f;
+    };
+
+    // D3: 작성일자
+    writeCell('D', 3, dateLabel);
+
+    // 품목별 수량 입력 (I열 = 수량(팩))
+    let hasData = false;
+    dict.forEach(item=>{
+      const rowNum = skuRowMap[item.id];
+      if(!rowNum) return;
+      // 전체 업체 합산 수량
+      let totalQty = 0;
+      Object.keys(orders).forEach(company=>{
+        if(company !== '_meta') totalQty += Number(orders[company][item.id]) || 0;
+      });
+      if(totalQty > 0){
+        writeCell('I', rowNum, totalQty);
+        hasData = true;
+      }
+    });
+
+    if(!hasData){ toast('집계된 발주 수량이 없습니다. 발주 데이터를 먼저 입력해주세요'); return; }
+
+    // 파일명
+    const dateCompact = dateLabel.replace(/-/g,'');
+    XLSX.writeFile(wb, `제이엠로지스_거래명세서_${dateCompact}.xlsx`);
+    toast('거래명세서가 다운로드되었습니다 (원본 양식 그대로)');
+  });
 
   document.getElementById('tracking-apply-btn').addEventListener('click', ()=>{
     if(!uploadedTrackingData){ toast('먼저 파일을 업로드해주세요'); return; }
@@ -4511,6 +4679,8 @@ function applyUserUI() {
       deliveryFeeItems,
       skuColumnMap,
       salesByDate,
+      statementTemplateB64,
+      skuRowMap,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -4576,6 +4746,8 @@ function applyUserUI() {
     if(data.deliveryFeeItems) deliveryFeeItems = data.deliveryFeeItems;
     if(data.skuColumnMap) skuColumnMap = data.skuColumnMap;
     if(data.salesByDate) salesByDate = data.salesByDate;
+    if(data.statementTemplateB64) statementTemplateB64 = data.statementTemplateB64;
+    if(data.skuRowMap) skuRowMap = data.skuRowMap;
 
     // Persist everything
     await Promise.allSettled([
