@@ -3366,9 +3366,31 @@ function applyUserUI() {
       toast('집계된 발주 수량이 없습니다. 발주 데이터를 먼저 입력해주세요'); return;
     }
 
+    console.log('거래명세서 다운로드 시작', {
+      templateB64Length: statementTemplateB64?.length,
+      skuRowMap,
+      quantities,
+      dateLabel
+    });
+
     toast('거래명세서 생성 중...');
 
     try{
+      // JSON.stringify 대신 수동으로 안전하게 직렬화
+      const payload = {
+        templateB64: statementTemplateB64,
+        skuRowMap,
+        quantities,
+        dateLabel,
+      };
+
+      let bodyStr;
+      try {
+        bodyStr = JSON.stringify(payload);
+      } catch(jsonErr) {
+        throw new Error('데이터 직렬화 실패: ' + jsonErr.message);
+      }
+
       const res = await fetch(
         'https://rsgbqlrxtexknhsvkroc.supabase.co/functions/v1/generate_statement',
         {
@@ -3378,12 +3400,7 @@ function applyUserUI() {
             'Authorization': `Bearer ${SB_KEY}`,
             'apikey': SB_KEY,
           },
-          body: JSON.stringify({
-            templateB64: statementTemplateB64,
-            skuRowMap,
-            quantities,
-            dateLabel,
-          })
+          body: bodyStr
         }
       );
 
