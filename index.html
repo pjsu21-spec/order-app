@@ -3366,6 +3366,14 @@ function applyUserUI() {
       toast('집계된 발주 수량이 없습니다. 발주 데이터를 먼저 입력해주세요'); return;
     }
 
+    // SKU 입수 정보 (박스입수 = boxUnitCount)
+    const skuUnitMap = {}; // { itemId: boxUnitCount }
+    dict.forEach(item=>{
+      if(skuRowMap[item.id] && item.boxUnitCount){
+        skuUnitMap[item.id] = Number(item.boxUnitCount) || 0;
+      }
+    });
+
     console.log('거래명세서 다운로드 시작', {
       templateB64Length: statementTemplateB64?.length,
       skuRowMap,
@@ -3381,6 +3389,7 @@ function applyUserUI() {
         templateB64: statementTemplateB64,
         skuRowMap,
         quantities,
+        skuUnitMap,
         dateLabel,
       };
 
