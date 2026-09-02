@@ -1629,6 +1629,19 @@ function applyUserUI() {
         saveDict();
       });
 
+      // 단가 그룹 (일괄 입력용)
+      const priceGroupInput = document.createElement('input');
+      priceGroupInput.type = 'text';
+      priceGroupInput.placeholder = '단가그룹 (예: 투맛토500g)';
+      priceGroupInput.style.maxWidth = '130px';
+      priceGroupInput.title = '같은 그룹명 품목은 단가 일괄 입력 가능. 예: 투맛토500g, 투맛토150g, 포도쉐킷';
+      priceGroupInput.value = item.priceGroup || '';
+      priceGroupInput.addEventListener('change', (e)=>{
+        item.priceGroup = e.target.value.trim();
+        saveDict();
+        renderPriceMapEditor();
+      });
+
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-danger small-btn';
       delBtn.textContent = '삭제';
@@ -1653,6 +1666,7 @@ function applyUserUI() {
       row.appendChild(boxUnitLabel);
       row.appendChild(boxUnitInput);
       row.appendChild(shortNameInput);
+      row.appendChild(priceGroupInput);
       row.appendChild(delBtn);
       wrap.appendChild(row);
     });
@@ -2249,12 +2263,93 @@ function applyUserUI() {
       return;
     }
 
+    // 단가 그룹 목록 추출 (priceGroup이 설정된 SKU)
+    const groups = {}; // groupName -> [item]
+    dict.forEach(d=>{
+      const g = d.priceGroup || '';
+      if(g){ if(!groups[g]) groups[g]=[]; groups[g].push(d); }
+    });
+    const hasGroups = Object.keys(groups).length > 0;
+
+    // 안내 문구
+    if(hasGroups){
+      const hint = document.createElement('div');
+      hint.className = 'sub';
+      hint.style.marginBottom = '8px';
+      hint.innerHTML = '※ <b>그룹 단가</b> 입력 시 해당 그룹의 모든 품목에 동일 단가가 자동 입력됩니다. 개별 조정도 가능합니다.';
+      wrap.innerHTML = '';
+      wrap.appendChild(hint);
+    } else {
+      wrap.innerHTML = '<div class="sub" style="margin-bottom:8px;">SKU 관리에서 "단가그룹"을 설정하면 업체별 일괄 입력이 가능합니다.</div>';
+    }
+
     const table = document.createElement('table');
     const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    headRow.innerHTML = '<th class="name-cell">업체명</th>' +
-      dict.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('');
-    thead.appendChild(headRow);
+
+    // 헤더 1행: 그룹 단위로 병합 + 개별 품목
+    const groupHeaderRow = document.createElement('tr');
+    groupHeaderRow.innerHTML = '<th class="name-cell" rowspan="2">업체명</th>';
+
+    // 그룹이 있으면 그룹 헤더 표시
+    if(hasGroups){
+      Object.entries(groups).forEach(([gName, items])=>{
+        const th = document.createElement('th');
+        th.colSpan = items.length + 1; // 그룹 일괄입력 + 개별
+        th.style.background = 'var(--hover)';
+        th.style.fontSize = '11px';
+        th.style.borderBottom = '1px solid var(--line)';
+        th.textContent = `📦 ${gName}`;
+        groupHeaderRow.appendChild(th);
+      });
+      // 그룹 없는 개별 품목
+      const ungrouped = dict.filter(d=>!d.priceGroup);
+      if(ungrouped.length > 0){
+        const th = document.createElement('th');
+        th.colSpan = ungrouped.length;
+        th.style.fontSize = '11px';
+        th.textContent = '개별 품목';
+        groupHeaderRow.appendChild(th);
+      }
+      thead.appendChild(groupHeaderRow);
+    }
+
+    // 헤더 2행: 일괄입력 + 개별 품목명
+    const subHeaderRow = document.createElement('tr');
+    if(hasGroups){
+      Object.entries(groups).forEach(([gName, items])=>{
+        // 일괄 입력 헤더
+        const thBulk = document.createElement('th');
+        thBulk.style.background = '#e7efe9';
+        thBulk.style.fontSize = '10px';
+        thBulk.style.color = 'var(--accent)';
+        thBulk.textContent = '일괄입력';
+        subHeaderRow.appendChild(thBulk);
+        // 개별 품목 헤더
+        items.forEach(d=>{
+          const th = document.createElement('th');
+          th.style.fontSize = '10px';
+          th.textContent = d.name.replace(/ 500g| 150g/g,'');
+          subHeaderRow.appendChild(th);
+        });
+      });
+      // 그룹 없는 개별 품목
+      dict.filter(d=>!d.priceGroup).forEach(d=>{
+        const th = document.createElement('th');
+        th.style.fontSize = '10px';
+        th.textContent = d.name;
+        subHeaderRow.appendChild(th);
+      });
+    } else {
+      // 그룹 없으면 기존 단순 헤더
+      dict.forEach(d=>{
+        const th = document.createElement('th');
+        th.style.fontSize = '10px';
+        th.textContent = d.name;
+        subHeaderRow.appendChild(th);
+      });
+    }
+    if(!hasGroups) thead.appendChild(subHeaderRow); // 그룹 없으면 1행만
+    else thead.appendChild(subHeaderRow);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
@@ -2263,36 +2358,95 @@ function applyUserUI() {
       const tr = document.createElement('tr');
       const nameTd = document.createElement('td');
       nameTd.className = 'name-cell';
-      nameTd.textContent = company.name;
+      nameTd.textContent = companyDisplayName(company);
       tr.appendChild(nameTd);
 
-      dict.forEach(d=>{
-        const td = document.createElement('td');
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.min = '0';
-        input.step = '1';
-        input.style.width = '80px';
-        input.style.border = '1px solid var(--line)';
-        input.style.borderRadius = '4px';
-        input.style.padding = '3px 4px';
-        input.style.fontSize = '12px';
-        input.placeholder = '단가';
-        input.value = company.priceMap[d.id] ?? '';
-        input.addEventListener('change', (e)=>{
-          if(!company.priceMap) company.priceMap = {};
-          const v = parseFloat(e.target.value);
-          if(isNaN(v) || e.target.value.trim() === '') delete company.priceMap[d.id];
-          else company.priceMap[d.id] = v;
-          saveCompanies();
+      // 그룹별 처리
+      if(hasGroups){
+        Object.entries(groups).forEach(([gName, items])=>{
+          // 일괄 입력 셀
+          const bulkTd = document.createElement('td');
+          bulkTd.style.background = '#f3faf4';
+          const bulkInput = document.createElement('input');
+          bulkInput.type = 'number'; bulkInput.min = '0'; bulkInput.step = '1';
+          bulkInput.style.cssText = 'width:80px;border:1px solid var(--accent);border-radius:4px;padding:3px 4px;font-size:12px;';
+          bulkInput.placeholder = '일괄';
+          // 그룹 내 품목 단가가 모두 같으면 표시
+          const groupPrices = items.map(d=>company.priceMap[d.id]).filter(v=>v!=null);
+          const allSame = groupPrices.length > 0 && groupPrices.every(v=>v===groupPrices[0]);
+          if(allSame) bulkInput.value = groupPrices[0];
+
+          bulkInput.addEventListener('change', (e)=>{
+            const v = parseFloat(e.target.value);
+            items.forEach(d=>{
+              if(!company.priceMap) company.priceMap = {};
+              if(isNaN(v) || e.target.value.trim()==='') delete company.priceMap[d.id];
+              else company.priceMap[d.id] = v;
+            });
+            saveCompanies();
+            renderPriceMapEditor(); // 개별 입력란 갱신
+          });
+          bulkTd.appendChild(bulkInput);
+          tr.appendChild(bulkTd);
+
+          // 개별 품목 셀
+          items.forEach(d=>{
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'number'; input.min = '0'; input.step = '1';
+            input.style.cssText = 'width:75px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
+            input.placeholder = '단가';
+            input.value = company.priceMap[d.id] ?? '';
+            input.addEventListener('change', (e)=>{
+              if(!company.priceMap) company.priceMap = {};
+              const v = parseFloat(e.target.value);
+              if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
+              else company.priceMap[d.id] = v;
+              saveCompanies();
+            });
+            td.appendChild(input); tr.appendChild(td);
+          });
         });
-        td.appendChild(input);
-        tr.appendChild(td);
-      });
+
+        // 그룹 없는 개별 품목
+        dict.filter(d=>!d.priceGroup).forEach(d=>{
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '0'; input.step = '1';
+          input.style.cssText = 'width:75px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
+          input.placeholder = '단가';
+          input.value = company.priceMap[d.id] ?? '';
+          input.addEventListener('change', (e)=>{
+            if(!company.priceMap) company.priceMap = {};
+            const v = parseFloat(e.target.value);
+            if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
+            else company.priceMap[d.id] = v;
+            saveCompanies();
+          });
+          td.appendChild(input); tr.appendChild(td);
+        });
+      } else {
+        // 그룹 없는 기존 방식
+        dict.forEach(d=>{
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '0'; input.step = '1';
+          input.style.cssText = 'width:80px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
+          input.placeholder = '단가';
+          input.value = company.priceMap[d.id] ?? '';
+          input.addEventListener('change', (e)=>{
+            if(!company.priceMap) company.priceMap = {};
+            const v = parseFloat(e.target.value);
+            if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
+            else company.priceMap[d.id] = v;
+            saveCompanies();
+          });
+          td.appendChild(input); tr.appendChild(td);
+        });
+      }
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    wrap.innerHTML = '';
     wrap.appendChild(table);
   }
 
