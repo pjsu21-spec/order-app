@@ -481,6 +481,7 @@
     <div class="row">
       <button class="btn-primary" id="export-btn">전체 엑셀 다운로드</button>
       <button class="btn-primary" id="export-production-btn">생산본부 공유파일 다운로드</button>
+      <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 생산본부 발주취합 다운로드</button>
       <button class="btn-primary" id="export-3pl-btn" style="display:none;">3PL 엑셀 다운로드</button>
       <button class="btn-danger" id="reset-all-btn">이 날짜 초기화</button>
     </div>
@@ -1629,6 +1630,21 @@ function applyUserUI() {
         saveDict();
       });
 
+      // 박스종류 (종이/스티로폼)
+      const boxTypeSelect = document.createElement('select');
+      boxTypeSelect.style.maxWidth = '90px';
+      boxTypeSelect.title = '생산본부 발주취합 양식의 박스 구분';
+      [['','박스종류'],['종이','종이박스'],['스티로폼','스티로폼']].forEach(([val,label])=>{
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = label;
+        if((item.boxType||'') === val) opt.selected = true;
+        boxTypeSelect.appendChild(opt);
+      });
+      boxTypeSelect.addEventListener('change', (e)=>{
+        item.boxType = e.target.value;
+        saveDict();
+      });
+
       // 단가 그룹 (일괄 입력용)
       const priceGroupInput = document.createElement('input');
       priceGroupInput.type = 'text';
@@ -1666,6 +1682,7 @@ function applyUserUI() {
       row.appendChild(boxUnitLabel);
       row.appendChild(boxUnitInput);
       row.appendChild(shortNameInput);
+      row.appendChild(boxTypeSelect);
       row.appendChild(priceGroupInput);
       row.appendChild(delBtn);
       wrap.appendChild(row);
@@ -1719,9 +1736,40 @@ function applyUserUI() {
       wrap.innerHTML = '<div class="empty" style="padding:10px 0;">등록된 업체가 없습니다. 아래에서 추가하거나, 발주를 확정할 때 자동으로 등록됩니다.</div>';
       return;
     }
-    companies.forEach(company=>{
+
+    let dragSrcIdx = null;
+
+    companies.forEach((company, idx)=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
+      row.draggable = true;
+      row.dataset.idx = idx;
+      row.style.cursor = 'default';
+
+      // 드래그 핸들
+      const handle = document.createElement('span');
+      handle.textContent = '⠿';
+      handle.title = '드래그하여 순서 변경';
+      handle.style.cssText = 'cursor:grab; color:var(--muted); font-size:16px; padding:0 6px; user-select:none; flex-shrink:0;';
+
+      row.addEventListener('dragstart', (e)=>{
+        dragSrcIdx = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        row.style.opacity = '0.4';
+      });
+      row.addEventListener('dragend', ()=>{ row.style.opacity = ''; });
+      row.addEventListener('dragover', (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; row.style.background = 'var(--hover)'; });
+      row.addEventListener('dragleave', ()=>{ row.style.background = ''; });
+      row.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        row.style.background = '';
+        const targetIdx = parseInt(row.dataset.idx);
+        if(dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+        const moved = companies.splice(dragSrcIdx, 1)[0];
+        companies.splice(targetIdx, 0, moved);
+        saveCompanies();
+        renderCompanyManager();
+      });
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
@@ -1834,8 +1882,8 @@ function applyUserUI() {
       taxHint.textContent = '(거래유형 11)';
       taxLabel.appendChild(taxHint);
 
+      row.appendChild(handle);
       row.appendChild(nameInput);
-      row.appendChild(label);
       row.appendChild(codeInput);
       row.appendChild(categorySelect);
       row.appendChild(regionInput);
@@ -5111,6 +5159,59 @@ function applyUserUI() {
     });
     return result;
   }
+  // ── 생산본부 발주취합 다운로드 (Vercel Python API) ──
+  document.getElementById('export-production-order-btn').addEventListener('click', async ()=>{
+    const orders = currentOrders();
+    const dateLabel = getDeliveryDateLabel() || currentDateKey;
+    if(Object.keys(orders).length === 0){ toast('발주 데이터가 없습니다'); return; }
+
+    const skuList = dict.map(d=>({
+      id: d.id, name: d.name,
+      vol: d.name.includes('500g') ? '500g' : d.name.includes('150g') ? '150g' : '',
+      boxType: d.boxType || '종이',
+      priceGroup: d.priceGroup || '',
+      boxUnitCount: Number(d.boxUnitCount) || 0,
+    }));
+
+    const companiesList = companies
+      .filter(c=> orders[c.name] && Object.values(orders[c.name]).some(v=>Number(v)>0))
+      .map(c=>({ name: c.name, category: c.category||'', region: c.region||'', corp: c.listedMarketName||'' }));
+
+    const prevStock = {};
+    const todayStock = (previousStock[currentDateKey]?.product) || {};
+    dict.forEach(d=>{
+      const packQty = Number(todayStock[d.id]) || 0;
+      const boxUnit = Number(d.boxUnitCount) || 0;
+      prevStock[d.id] = boxUnit > 0 ? Math.round(packQty / boxUnit * 100) / 100 : packQty;
+    });
+
+    toast('생산본부 발주취합 생성 중...');
+    try{
+      const res = await fetch('https://vercel-statement-api.vercel.app/api/generate_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateLabel, skuList, companies: companiesList, orders, prevStock })
+      });
+      if(!res.ok){ const err = await res.json().catch(()=>({})); throw new Error(err.error || `서버 오류 (${res.status})`); }
+      const { fileB64, error } = await res.json();
+      if(error) throw new Error(error);
+      function b64ToBlob(b64, mime){
+        const parts=[];
+        for(let i=0;i<b64.length;i+=512){
+          const s=atob(b64.slice(i,i+512)); const b=new Uint8Array(s.length);
+          for(let j=0;j<s.length;j++) b[j]=s.charCodeAt(j); parts.push(b);
+        }
+        return new Blob(parts,{type:mime});
+      }
+      const blob = b64ToBlob(fileB64,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download=`다름달음_발주취합_${dateLabel.replace(/-/g,'')}.xlsx`;
+      a.click(); URL.revokeObjectURL(url);
+      toast('✅ 생산본부 발주취합 다운로드 완료');
+    }catch(e){ toast('오류: '+e.message); console.error(e); }
+  });
+
   async function doLogin(){
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
