@@ -437,17 +437,21 @@
         <input type="file" id="tracking-file-input" accept=".xlsx,.xls,.csv" style="display:none;">
       </div>
       <div id="tracking-mapping-wrap" style="margin-top:12px; display:none;">
-        <div class="row" style="margin-top:0;">
+        <div class="row" style="margin-top:0; flex-wrap:wrap; gap:6px;">
           <label style="font-size:13px;">업체 주문번호 열 :</label>
           <select id="tracking-orderno-col"></select>
           <label style="font-size:13px;">운송장번호 열 :</label>
           <select id="tracking-trackingno-col"></select>
+          <label style="font-size:13px;">수취인명 열 :</label>
+          <select id="tracking-recipient-col"><option value="">(없음)</option></select>
+          <label style="font-size:13px;">주소 열 :</label>
+          <select id="tracking-address-col"><option value="">(없음)</option></select>
           <label style="font-size:13px;">데이터 시작 행 :</label>
           <input type="number" id="tracking-start-row" min="1" style="width:60px;" value="2">
           <button class="btn-ghost small-btn" id="tracking-save-mapping-btn" style="font-size:11px;">💾 이 설정 저장</button>
         </div>
         <div id="tracking-mapping-status" style="font-size:11px; color:var(--accent); margin-top:4px;"></div>
-        <div class="sub" style="margin:6px 0 0;">업체 주문번호 기준으로 매칭됩니다. 업체 주문번호가 없으면 사내관리번호로 자동 매칭합니다.</div>
+        <div class="sub" style="margin:6px 0 0;">주문번호 중복 업체는 수취인명+주소로 보조 매칭합니다. 수취인명/주소 열을 지정하면 정확도가 올라갑니다.</div>
         <div id="tracking-file-preview" style="margin-top:10px; overflow-x:auto;"></div>
         <div class="row" style="margin-top:8px; flex-wrap:wrap; gap:8px;">
           <button class="btn-primary small-btn" id="tracking-apply-btn">운송장번호 매칭 적용</button>
@@ -3215,23 +3219,30 @@ function applyUserUI() {
     if(!uploadedTrackingData || uploadedTrackingData.length === 0){ wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
     const maxCols = buildColumnPreviewTable(uploadedTrackingData, 'tracking-file-preview');
-    const orderSel = document.getElementById('tracking-orderno-col');
-    const trackSel = document.getElementById('tracking-trackingno-col');
+    const orderSel    = document.getElementById('tracking-orderno-col');
+    const trackSel    = document.getElementById('tracking-trackingno-col');
+    const recipSel    = document.getElementById('tracking-recipient-col');
+    const addrSel     = document.getElementById('tracking-address-col');
     orderSel.innerHTML = ''; trackSel.innerHTML = '';
+    recipSel.innerHTML = '<option value="">(없음)</option>';
+    addrSel.innerHTML  = '<option value="">(없음)</option>';
 
-    // 헤더 행에서 실제 컬럼명 읽기
     const headerRow = uploadedTrackingData[0] || [];
     for(let i = 0; i < maxCols; i++){
       const letter = colLetter(i);
       const headerName = cleanCell(headerRow[i]);
       const label = headerName ? `${letter} (${headerName})` : letter;
-      const o1 = document.createElement('option'); o1.value = letter; o1.textContent = label;
-      orderSel.appendChild(o1);
-      const o2 = document.createElement('option'); o2.value = letter; o2.textContent = label;
-      trackSel.appendChild(o2);
+      [orderSel, trackSel].forEach(sel=>{
+        const o = document.createElement('option'); o.value = letter; o.textContent = label;
+        sel.appendChild(o);
+      });
+      [recipSel, addrSel].forEach(sel=>{
+        const o = document.createElement('option'); o.value = letter; o.textContent = label;
+        sel.appendChild(o);
+      });
     }
 
-    // 파일 헤더 핑거프린트로 저장된 매핑 자동 복원
+    // 저장된 매핑 자동 복원
     const headerKey = headerRow.slice(0, 10).map(v=>cleanCell(v)).join('|');
     const saved = trackingColMappings[headerKey];
     const statusEl = document.getElementById('tracking-mapping-status');
@@ -3239,16 +3250,32 @@ function applyUserUI() {
     if(saved){
       orderSel.value = saved.orderNoCol || 'A';
       trackSel.value = saved.trackingNoCol || (maxCols > 1 ? colLetter(1) : 'A');
+      recipSel.value = saved.recipientCol || '';
+      addrSel.value  = saved.addressCol || '';
       document.getElementById('tracking-start-row').value = saved.startRow || 2;
-      statusEl.textContent = `✅ 저장된 설정 자동 적용됨 (주문번호: ${saved.orderNoCol}열, 운송장: ${saved.trackingNoCol}열)`;
+      statusEl.textContent = `✅ 저장된 설정 자동 적용됨 (주문번호:${saved.orderNoCol}, 운송장:${saved.trackingNoCol}${saved.recipientCol?', 수취인:'+saved.recipientCol:''}${saved.addressCol?', 주소:'+saved.addressCol:''})`;
+      statusEl.style.color = 'var(--accent)';
     } else {
-      orderSel.value = 'A';
-      trackSel.value = maxCols > 1 ? colLetter(1) : 'A';
-      statusEl.textContent = '※ 열을 선택하고 "이 설정 저장" 버튼을 누르면 다음부터 자동 적용됩니다.';
+      // 제이엠로지스 파일 헤더 자동 감지
+      const autoDetect = {};
+      headerRow.forEach((h, i)=>{
+        const v = cleanCell(h);
+        if(v==='고객주문번호') autoDetect.orderNoCol = colLetter(i);
+        if(v==='운송장번호') autoDetect.trackingNoCol = colLetter(i);
+        if(v==='받는사람') autoDetect.recipientCol = colLetter(i);
+        if(v==='주소') autoDetect.addressCol = colLetter(i);
+      });
+      orderSel.value = autoDetect.orderNoCol || 'A';
+      trackSel.value = autoDetect.trackingNoCol || (maxCols > 1 ? colLetter(1) : 'A');
+      recipSel.value = autoDetect.recipientCol || '';
+      addrSel.value  = autoDetect.addressCol || '';
       statusEl.style.color = 'var(--muted)';
+      if(Object.keys(autoDetect).length > 0){
+        statusEl.textContent = '✅ 제이엠로지스 파일 형식 자동 감지됨 — "이 설정 저장" 버튼으로 저장하세요.';
+      } else {
+        statusEl.textContent = '※ 열을 선택하고 "이 설정 저장" 버튼을 누르면 다음부터 자동 적용됩니다.';
+      }
     }
-
-    // 현재 헤더키 기억 (저장 버튼에서 사용)
     wrap.dataset.headerKey = headerKey;
   }
 
@@ -3257,10 +3284,12 @@ function applyUserUI() {
     const wrap = document.getElementById('tracking-mapping-wrap');
     const headerKey = wrap.dataset.headerKey;
     if(!headerKey){ toast('파일을 먼저 업로드해주세요'); return; }
-    const orderNoCol = document.getElementById('tracking-orderno-col').value;
+    const orderNoCol   = document.getElementById('tracking-orderno-col').value;
     const trackingNoCol = document.getElementById('tracking-trackingno-col').value;
+    const recipientCol = document.getElementById('tracking-recipient-col').value;
+    const addressCol   = document.getElementById('tracking-address-col').value;
     const startRow = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
-    trackingColMappings[headerKey] = { orderNoCol, trackingNoCol, startRow };
+    trackingColMappings[headerKey] = { orderNoCol, trackingNoCol, recipientCol, addressCol, startRow };
     try{
       await window.storage.set('tracking-col-mappings', JSON.stringify(trackingColMappings), true);
       const statusEl = document.getElementById('tracking-mapping-status');
@@ -3700,61 +3729,94 @@ function applyUserUI() {
 
   document.getElementById('tracking-apply-btn').addEventListener('click', ()=>{
     if(!uploadedTrackingData){ toast('먼저 파일을 업로드해주세요'); return; }
-    const orderColIdx = letterToIndex(document.getElementById('tracking-orderno-col').value);
-    const trackColIdx = letterToIndex(document.getElementById('tracking-trackingno-col').value);
-    const startRow = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
+    const orderColIdx  = letterToIndex(document.getElementById('tracking-orderno-col').value);
+    const trackColIdx  = letterToIndex(document.getElementById('tracking-trackingno-col').value);
+    const recipColIdx  = letterToIndex(document.getElementById('tracking-recipient-col').value || '');
+    const addrColIdx   = letterToIndex(document.getElementById('tracking-address-col').value || '');
+    const startRow     = parseInt(document.getElementById('tracking-start-row').value, 10) || 2;
 
-    // Match tracking numbers to line items.
-    // Same orderNo → ALL rows with that orderNo get the SAME tracking number
-    // (e.g. 스테비아2+망고2+자몽2 all have ORD-001 → all get tracking 111111)
-    // Only when one order was split into multiple BOXES (boxTotal>1) do we assign
-    // different tracking numbers per box (one per box, in order).
     const rows = currentLineItems();
 
-    // Group rows by orderNo — split-box rows (boxTotal>1) need separate tracking per box
-    // Regular rows with same orderNo all share one tracking number
-    const groupByOrderNo = {}; // orderNo -> { sharedRows: [], boxGroups: { internalOrderNo: [] } }
-    rows.filter(r => r.orderNo && !r.trackingNo).forEach(r=>{
-      if(!groupByOrderNo[r.orderNo]) groupByOrderNo[r.orderNo] = { sharedRows: [], boxGroups: {} };
-      if(r.boxTotal && r.boxTotal > 1){
-        // box-split rows: group by internalOrderNo, each group gets its own tracking
-        if(!groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo])
-          groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo] = [];
-        groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo].push(r);
-      } else {
-        groupByOrderNo[r.orderNo].sharedRows.push(r);
+    // 주문번호가 중복인지 확인
+    const orderNoCounts = {};
+    rows.filter(r=>r.orderNo).forEach(r=>{
+      orderNoCounts[r.orderNo] = (orderNoCounts[r.orderNo]||0) + 1;
+    });
+    const hasDuplicateOrderNo = (orderNo) => (orderNoCounts[orderNo]||0) > 1;
+
+    // 복합키 생성: 주문번호+수취인명+주소앞20자
+    const makeCompositeKey = (orderNo, recipientName, address) =>
+      `${orderNo}||${(recipientName||'').trim()}||${(address||'').trim().slice(0,20)}`;
+
+    // 그룹 1: 단순 주문번호 그룹 (중복 없는 경우)
+    const groupByOrderNo = {};
+    // 그룹 2: 복합키 그룹 (중복 주문번호 처리용)
+    const groupByComposite = {};
+    // 그룹 3: 사내관리번호 fallback
+    const groupByInternalNo = {};
+
+    rows.filter(r => !r.trackingNo).forEach(r=>{
+      if(r.orderNo){
+        if(hasDuplicateOrderNo(r.orderNo)){
+          // 중복 주문번호 → 복합키로 그룹화
+          const ck = makeCompositeKey(r.orderNo, r.recipientName, r.address);
+          if(!groupByComposite[ck]) groupByComposite[ck] = { sharedRows:[], boxGroups:{} };
+          if(r.boxTotal && r.boxTotal > 1){
+            if(!groupByComposite[ck].boxGroups[r.internalOrderNo])
+              groupByComposite[ck].boxGroups[r.internalOrderNo] = [];
+            groupByComposite[ck].boxGroups[r.internalOrderNo].push(r);
+          } else {
+            groupByComposite[ck].sharedRows.push(r);
+          }
+        } else {
+          // 단순 주문번호
+          if(!groupByOrderNo[r.orderNo]) groupByOrderNo[r.orderNo] = { sharedRows:[], boxGroups:{} };
+          if(r.boxTotal && r.boxTotal > 1){
+            if(!groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo])
+              groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo] = [];
+            groupByOrderNo[r.orderNo].boxGroups[r.internalOrderNo].push(r);
+          } else {
+            groupByOrderNo[r.orderNo].sharedRows.push(r);
+          }
+        }
+      } else if(r.internalOrderNo){
+        if(!groupByInternalNo[r.internalOrderNo]) groupByInternalNo[r.internalOrderNo] = [];
+        groupByInternalNo[r.internalOrderNo].push(r);
       }
     });
 
-    // For internal-number fallback (blank orderNo)
-    const groupByInternalNo = {}; // internalOrderNo -> rows[]
-    rows.filter(r => !r.orderNo && r.internalOrderNo && !r.trackingNo).forEach(r=>{
-      if(!groupByInternalNo[r.internalOrderNo]) groupByInternalNo[r.internalOrderNo] = [];
-      groupByInternalNo[r.internalOrderNo].push(r);
-    });
+    const assignGroup = (group, trackingNo)=>{
+      let cnt = 0;
+      if(group.sharedRows.length > 0){
+        group.sharedRows.forEach(r=>{ r.trackingNo = trackingNo; });
+        cnt += group.sharedRows.length;
+        group.sharedRows = [];
+      }
+      const untracked = Object.values(group.boxGroups).find(g=>g.length>0&&!g[0].trackingNo);
+      if(untracked){ untracked.forEach(r=>{ r.trackingNo = trackingNo; }); cnt += untracked.length; }
+      return cnt;
+    };
 
     let matched = 0, unmatched = 0;
     for(let r = startRow - 1; r < uploadedTrackingData.length; r++){
       const row = uploadedTrackingData[r] || [];
-      const refNo = cleanCell(row[orderColIdx]);
-      const trackingNo = cleanCell(row[trackColIdx]);
+      const refNo     = cleanCell(row[orderColIdx]);
+      const trackingNo= cleanCell(row[trackColIdx]);
+      const recipName = recipColIdx >= 0 ? cleanCell(row[recipColIdx]) : '';
+      const address   = addrColIdx  >= 0 ? cleanCell(row[addrColIdx])  : '';
       if(!refNo || !trackingNo) continue;
 
-      if(groupByOrderNo[refNo]){
-        const group = groupByOrderNo[refNo];
-        // Assign to shared rows (same tracking for all same-address items)
-        if(group.sharedRows.length > 0){
-          group.sharedRows.forEach(r=>{ r.trackingNo = trackingNo; });
-          matched += group.sharedRows.length;
-          group.sharedRows = [];
-        }
-        // Assign to one box-group (next untracked box set)
-        const unTrackedBoxGroup = Object.values(group.boxGroups).find(g=> g.length > 0 && !g[0].trackingNo);
-        if(unTrackedBoxGroup){
-          unTrackedBoxGroup.forEach(r=>{ r.trackingNo = trackingNo; });
-          matched += unTrackedBoxGroup.length;
-        }
-      } else if(groupByInternalNo[refNo]){
+      // 1순위: 복합키 (중복 주문번호)
+      const ck = makeCompositeKey(refNo, recipName, address);
+      if(groupByComposite[ck]){
+        matched += assignGroup(groupByComposite[ck], trackingNo);
+      }
+      // 2순위: 단순 주문번호
+      else if(groupByOrderNo[refNo]){
+        matched += assignGroup(groupByOrderNo[refNo], trackingNo);
+      }
+      // 3순위: 사내관리번호 fallback
+      else if(groupByInternalNo[refNo]){
         groupByInternalNo[refNo].forEach(r=>{ r.trackingNo = trackingNo; });
         matched += groupByInternalNo[refNo].length;
         delete groupByInternalNo[refNo];
