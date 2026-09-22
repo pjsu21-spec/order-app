@@ -141,6 +141,13 @@
   .main-nav-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
   .main-tab-panel{ display:none; }
   .main-tab-panel.active{ display:block; }
+  #no-order-access-msg{ display:none; }
+  #app.no-order-access > h1,
+  #app.no-order-access > .sub,
+  #app.no-order-access .main-nav,
+  #app.no-order-access .main-tab-panel,
+  #app.no-order-access .main-tab-panel-ecount-settings{ display:none !important; }
+  #app.no-order-access #no-order-access-msg{ display:block; }
   .date-chip{ background:#fff; color:var(--ink); border:1px solid var(--line); font-size:12px; font-weight:600; padding:5px 10px; border-radius:100px; cursor:pointer; }
   .date-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .dropzone{
@@ -200,6 +207,10 @@
     <button class="main-nav-btn" data-panel="panel-sales">📈 실적 / 매출</button>
     <button class="main-nav-btn" data-panel="panel-settings">⚙️ 설정</button>
   </nav>
+
+  <div id="no-order-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
+    발주자동화 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
+  </div>
 
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
   <div id="panel-order" class="main-tab-panel active">
@@ -547,6 +558,7 @@
       <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
         <button class="btn-ghost small-btn" id="admin-tab-log">활동 로그</button>
         <button class="btn-ghost small-btn" id="admin-tab-users">사용자 관리</button>
+        <button class="btn-ghost small-btn" id="admin-tab-perms">권한 관리</button>
       </div>
 
       <!-- 활동 로그 -->
@@ -580,6 +592,12 @@
             <button class="btn-ghost small-btn" id="admin-change-pw-btn">변경</button>
           </div>
         </div>
+      </div>
+
+      <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
+      <div id="admin-section-perms" style="display:none;">
+        <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 프로그램 접근 여부와 원물선별 마스터 관리 권한을 설정합니다.</div>
+        <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
       </div>
     </div>
 
@@ -778,7 +796,7 @@ async function login(username, password) {
   const inserted = await sbInsert('sessions', { user_id: user.id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token };
+  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit };
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -808,7 +826,7 @@ async function restoreSession() {
     const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
     if (!users.length) { localStorage.removeItem('auth_token'); return false; }
     const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token };
+    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit };
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -855,6 +873,11 @@ function applyUserUI() {
   document.querySelectorAll('.admin-only').forEach(el => {
     el.style.display = isAdmin ? '' : 'none';
   });
+  // 발주자동화 접근 권한 (명시적으로 false일 때만 차단 — 컬럼 미생성 시 undefined는 허용으로 취급)
+  const appEl = document.getElementById('app');
+  if (appEl) {
+    appEl.classList.toggle('no-order-access', window.currentUser.access_order === false);
+  }
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
@@ -5325,8 +5348,10 @@ function applyUserUI() {
   function showAdminSection(sec){
     document.getElementById('admin-section-log').style.display = sec==='log' ? 'block' : 'none';
     document.getElementById('admin-section-users').style.display = sec==='users' ? 'block' : 'none';
+    document.getElementById('admin-section-perms').style.display = sec==='perms' ? 'block' : 'none';
     document.getElementById('admin-tab-log').style.fontWeight = sec==='log' ? '700' : '';
     document.getElementById('admin-tab-users').style.fontWeight = sec==='users' ? '700' : '';
+    document.getElementById('admin-tab-perms').style.fontWeight = sec==='perms' ? '700' : '';
   }
 
   document.getElementById('admin-tab-log').addEventListener('click', ()=>{
@@ -5334,6 +5359,9 @@ function applyUserUI() {
   });
   document.getElementById('admin-tab-users').addEventListener('click', ()=>{
     showAdminSection('users'); loadAdminUsers();
+  });
+  document.getElementById('admin-tab-perms').addEventListener('click', ()=>{
+    showAdminSection('perms'); loadAdminPerms();
   });
 
   async function loadAdminLog(){
@@ -5410,6 +5438,51 @@ function applyUserUI() {
       table.appendChild(tbody);
       wrap.appendChild(table);
     }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  async function loadAdminPerms(){
+    const wrap = document.getElementById('admin-perms-wrap');
+    wrap.innerHTML = '';
+    try{
+      const rows = await sbQuery('users', '?order=created_at.asc');
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(u=>{
+        // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
+        const accessOrder = u.access_order !== false;
+        const accessSorting = u.access_sorting === true;
+        const masterEdit = u.sorting_master_edit === true;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td>`;
+        const cells = tr.querySelectorAll('td');
+
+        function makeToggle(current, field, onLabel, offLabel){
+          const btn = document.createElement('button');
+          btn.className = current ? 'btn-primary small-btn' : 'btn-ghost small-btn';
+          btn.textContent = current ? onLabel : offLabel;
+          btn.addEventListener('click', async ()=>{
+            if(field === 'access_order' && u.id === window.currentUser?.id && current){
+              toast('자기 자신의 발주자동화 접근 권한은 끌 수 없습니다'); return;
+            }
+            await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
+              method:'PATCH', headers: sbHeaders, body: JSON.stringify({ [field]: !current })
+            });
+            await writeLog('perm_change', `${u.username} ${field}: ${current} → ${!current}`);
+            loadAdminPerms();
+          });
+          return btn;
+        }
+
+        cells[2].appendChild(makeToggle(accessOrder, 'access_order', '✅ 허용', '⛔ 차단'));
+        cells[3].appendChild(makeToggle(accessSorting, 'access_sorting', '✅ 허용', '⛔ 차단'));
+        cells[4].appendChild(makeToggle(masterEdit, 'sorting_master_edit', '✅ 허용', '⛔ 차단'));
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit 컬럼이 생성되어 있는지 확인하세요)</div>`; }
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);
