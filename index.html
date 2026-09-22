@@ -842,17 +842,22 @@ function showApp() {
 
 function applyUserUI() {
   if (!window.currentUser) return;
+  const isAdmin = window.currentUser.role === 'admin';
   // 담당자 이름 자동 세팅
   const nameEl = document.getElementById('staff-name');
   if (nameEl && !nameEl.value) nameEl.value = window.currentUser.display_name;
   // 관리자 탭 표시/숨김
   const adminTab = document.getElementById('admin-tab-btn');
   if (adminTab) {
-    adminTab.style.display = window.currentUser.role === 'admin' ? 'inline-block' : 'none';
+    adminTab.style.display = isAdmin ? 'inline-block' : 'none';
   }
+  // 관리자 전용 요소 일괄 표시/숨김 (class="admin-only" 부여된 모든 요소)
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
-  if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${window.currentUser.role === 'admin' ? '관리자' : '직원'})`;
+  if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
 }
 </script>
 <script>
@@ -5377,6 +5382,26 @@ function applyUserUI() {
           loadAdminUsers();
         });
         tr.lastElementChild.appendChild(toggleBtn);
+
+        // 관리자 권한 토글 버튼 (admin-only: 관리자만 해당 UI를 볼 수 있음)
+        const roleBtn = document.createElement('button');
+        roleBtn.className = 'btn-ghost small-btn admin-only';
+        roleBtn.style.marginLeft = '6px';
+        const nextRole = u.role === 'admin' ? 'staff' : 'admin';
+        roleBtn.textContent = u.role === 'admin' ? '관리자 해제' : '관리자로 지정';
+        roleBtn.addEventListener('click', async ()=>{
+          if(u.id === window.currentUser?.id){ toast('자기 자신의 권한은 변경할 수 없습니다'); return; }
+          const msg = nextRole === 'admin'
+            ? `${u.display_name}(${u.username}) 님에게 관리자 권한을 부여할까요?`
+            : `${u.display_name}(${u.username}) 님의 관리자 권한을 해제할까요?`;
+          if(!confirm(msg)) return;
+          await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
+            method:'PATCH', headers: sbHeaders, body: JSON.stringify({ role: nextRole })
+          });
+          await writeLog('role_change', `${u.username} 권한 변경: ${u.role} → ${nextRole}`);
+          loadAdminUsers();
+        });
+        tr.lastElementChild.appendChild(roleBtn);
         tbody.appendChild(tr);
         const opt = document.createElement('option');
         opt.value = u.id; opt.textContent = `${u.username} (${u.display_name})`;
