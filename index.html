@@ -737,7 +737,12 @@
       <div class="empty">물류기기 화면 준비 중</div>
     </div>
     <div id="sorting-section-master" class="sorting-master-only" style="display:none;">
-      <div class="empty">마스터관리 화면 준비 중</div>
+      <div class="row" style="margin-top:0; align-items:center;">
+        <label style="font-size:13px;font-weight:700;">항목 선택 :</label>
+        <select id="sorting-master-entity-select"></select>
+      </div>
+      <div id="sorting-master-add-form" class="row"></div>
+      <div id="sorting-master-table-wrap" style="overflow-x:auto; margin-top:10px;"></div>
     </div>
   </div>
 
@@ -5287,15 +5292,229 @@ function applyUserUI() {
       document.getElementById(`sorting-tab-${s}-btn`).classList.toggle('active', s===sec);
     });
   }
+  let sortingMasterUIInited = false;
   SORTING_SECTIONS.forEach(sec=>{
-    document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=> showSortingSection(sec));
+    document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=>{
+      showSortingSection(sec);
+      if(sec === 'master' && !sortingMasterUIInited){
+        sortingMasterUIInited = true;
+        initSortingMasterUI();
+      }
+    });
   });
 
   let sortingPanelInited = false;
   function initSortingPanel(){
     if(sortingPanelInited) return;
     sortingPanelInited = true;
-    // 각 서브탭 데이터 로더는 이후 단계에서 여기에 연결됩니다.
+    // 서브탭(원물입고/사입/선별산출/출고·정산/물류기기) 데이터 로더는 이후 단계에서 여기에 연결됩니다.
+    // 마스터관리는 sortingMasterUIInited 플래그로 해당 탭 최초 클릭 시에만 로드됩니다.
+  }
+
+  // ══════════════════ 원물선별 · 마스터관리 (7종 공통 CRUD) ══════════════════
+  const SORTING_MASTER_TABLES = [
+    { key:'sorting_farms', label:'농가', fields:[
+        { name:'name', label:'이름', type:'text' }
+      ]},
+    { key:'sorting_vendors', label:'사입처', fields:[
+        { name:'name', label:'이름', type:'text' }
+      ]},
+    { key:'sorting_grades', label:'등급', fields:[
+        { name:'name', label:'이름', type:'text' },
+        { name:'sellable', label:'판매가능', type:'checkbox', default:true },
+        { name:'sort_order', label:'정렬순서', type:'number', default:0 }
+      ]},
+    { key:'sorting_destinations', label:'거래처', fields:[
+        { name:'name', label:'이름', type:'text' },
+        { name:'region', label:'지역', type:'text' },
+        { name:'delivery_method', label:'배송방식', type:'text' },
+        { name:'category', label:'구분', type:'text' },
+        { name:'auction_fee_pct', label:'수수료율(%)', type:'number', default:0 }
+      ]},
+    { key:'sorting_staff', label:'담당자', fields:[
+        { name:'name', label:'이름', type:'text' },
+        { name:'department', label:'부서', type:'text' }
+      ]},
+    { key:'sorting_equipment_types', label:'기기유형', fields:[
+        { name:'name', label:'이름', type:'text' },
+        { name:'code', label:'코드(A1/KPP)', type:'text' }
+      ]},
+    { key:'sorting_businesses', label:'사업자', fields:[
+        { name:'name', label:'이름', type:'text' }
+      ]}
+  ];
+  let sortingMasterCurrentKey = SORTING_MASTER_TABLES[0].key;
+
+  function getSortingMasterConfig(key){
+    return SORTING_MASTER_TABLES.find(t => t.key === key);
+  }
+
+  function initSortingMasterUI(){
+    const sel = document.getElementById('sorting-master-entity-select');
+    sel.innerHTML = '';
+    SORTING_MASTER_TABLES.forEach(t=>{
+      const opt = document.createElement('option');
+      opt.value = t.key; opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+    sel.value = sortingMasterCurrentKey;
+    sel.addEventListener('change', ()=>{
+      sortingMasterCurrentKey = sel.value;
+      renderSortingMasterAddForm();
+      loadSortingMasterTable();
+    });
+    renderSortingMasterAddForm();
+    loadSortingMasterTable();
+  }
+
+  function renderSortingMasterAddForm(){
+    const cfg = getSortingMasterConfig(sortingMasterCurrentKey);
+    const form = document.getElementById('sorting-master-add-form');
+    form.innerHTML = '';
+    const inputs = {};
+    cfg.fields.forEach(f=>{
+      let input;
+      if(f.type === 'checkbox'){
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = f.default !== undefined ? !!f.default : false;
+        const wrap = document.createElement('label');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:13px;';
+        wrap.appendChild(input);
+        wrap.appendChild(document.createTextNode(f.label));
+        form.appendChild(wrap);
+      } else {
+        input = document.createElement('input');
+        input.type = f.type === 'number' ? 'number' : 'text';
+        if(f.default !== undefined) input.value = f.default;
+        input.placeholder = f.label;
+        input.style.width = '120px';
+        form.appendChild(input);
+      }
+      inputs[f.name] = input;
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-primary small-btn';
+    addBtn.textContent = `+ ${cfg.label} 추가`;
+    addBtn.addEventListener('click', async ()=>{
+      const nameInput = inputs['name'];
+      if(nameInput && !nameInput.value.trim()){ toast('이름을 입력해주세요'); return; }
+      const data = { is_active: true };
+      cfg.fields.forEach(f=>{
+        const el = inputs[f.name];
+        data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
+      });
+      try{
+        await sbInsert(cfg.key, data);
+        await writeLog('sorting_master_add', `${cfg.label} 추가: ${data.name}`);
+        cfg.fields.forEach(f=>{
+          const el = inputs[f.name];
+          if(f.type === 'checkbox') el.checked = f.default !== undefined ? !!f.default : false;
+          else el.value = f.default !== undefined ? f.default : '';
+        });
+        loadSortingMasterTable();
+        toast(`${cfg.label}이(가) 추가되었습니다`);
+      }catch(e){ toast('추가 실패: '+e.message); }
+    });
+    form.appendChild(addBtn);
+  }
+
+  function sortingFieldDisplay(f, row){
+    const v = row[f.name];
+    if(f.type === 'checkbox') return v ? '✅' : '—';
+    return escapeHtml(v === null || v === undefined ? '' : String(v));
+  }
+
+  async function loadSortingMasterTable(){
+    const cfg = getSortingMasterConfig(sortingMasterCurrentKey);
+    const wrap = document.getElementById('sorting-master-table-wrap');
+    wrap.innerHTML = '';
+    try{
+      const rows = await sbQuery(cfg.key, '?order=id.asc');
+      const table = document.createElement('table');
+      const headCells = cfg.fields.map(f=>`<th>${escapeHtml(f.label)}</th>`).join('');
+      table.innerHTML = `<thead><tr>${headCells}<th>상태</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(row=>{
+        const tr = document.createElement('tr');
+        const cells = cfg.fields.map(f=>`<td>${sortingFieldDisplay(f, row)}</td>`).join('');
+        tr.innerHTML = `${cells}<td>${row.is_active ? '✅ 활성' : '🔴 비활성'}</td><td></td>`;
+        const actionTd = tr.lastElementChild;
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-ghost small-btn';
+        editBtn.textContent = '수정';
+        editBtn.addEventListener('click', ()=> startSortingMasterEdit(tr, row, cfg));
+        actionTd.appendChild(editBtn);
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = row.is_active ? 'btn-danger small-btn' : 'btn-ghost small-btn';
+        toggleBtn.style.marginLeft = '6px';
+        toggleBtn.textContent = row.is_active ? '비활성화' : '활성화';
+        toggleBtn.addEventListener('click', async ()=>{
+          try{
+            await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
+              method:'PATCH', headers: sbHeaders, body: JSON.stringify({ is_active: !row.is_active })
+            });
+            await writeLog('sorting_master_toggle', `${cfg.label} ${row.name} ${row.is_active?'비활성화':'활성화'}`);
+            loadSortingMasterTable();
+          }catch(e){ toast('변경 실패: '+e.message); }
+        });
+        actionTd.appendChild(toggleBtn);
+
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message} (Supabase에 ${cfg.key} 테이블이 생성되어 있는지 확인하세요)</div>`; }
+  }
+
+  function startSortingMasterEdit(tr, row, cfg){
+    const cells = tr.querySelectorAll('td');
+    const inputs = {};
+    cfg.fields.forEach((f, i)=>{
+      const td = cells[i];
+      td.innerHTML = '';
+      let input;
+      if(f.type === 'checkbox'){
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = !!row[f.name];
+      } else {
+        input = document.createElement('input');
+        input.type = f.type === 'number' ? 'number' : 'text';
+        input.value = row[f.name] === null || row[f.name] === undefined ? '' : row[f.name];
+        input.style.width = '100px';
+      }
+      td.appendChild(input);
+      inputs[f.name] = input;
+    });
+    const actionTd = tr.lastElementChild;
+    actionTd.innerHTML = '';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-primary small-btn';
+    saveBtn.textContent = '저장';
+    saveBtn.addEventListener('click', async ()=>{
+      const data = {};
+      cfg.fields.forEach(f=>{
+        const el = inputs[f.name];
+        data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
+      });
+      try{
+        await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
+          method:'PATCH', headers: sbHeaders, body: JSON.stringify(data)
+        });
+        await writeLog('sorting_master_edit', `${cfg.label} 수정: ${data.name}`);
+        loadSortingMasterTable();
+      }catch(e){ toast('저장 실패: '+e.message); }
+    });
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-ghost small-btn';
+    cancelBtn.style.marginLeft = '6px';
+    cancelBtn.textContent = '취소';
+    cancelBtn.addEventListener('click', loadSortingMasterTable);
+    actionTd.appendChild(saveBtn);
+    actionTd.appendChild(cancelBtn);
   }
 
   // ── 제이엠 파일 → 택배 lineItems도 생성 ──
