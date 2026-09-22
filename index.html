@@ -141,13 +141,19 @@
   .main-nav-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
   .main-tab-panel{ display:none; }
   .main-tab-panel.active{ display:block; }
-  #no-order-access-msg{ display:none; }
+  #no-order-access-msg, #no-sorting-access-msg{ display:none; }
   #app.no-order-access > h1,
   #app.no-order-access > .sub,
-  #app.no-order-access .main-nav,
-  #app.no-order-access .main-tab-panel,
-  #app.no-order-access .main-tab-panel-ecount-settings{ display:none !important; }
+  #app.no-order-access #panel-order,
+  #app.no-order-access #panel-agg,
+  #app.no-order-access #panel-sales,
+  #app.no-order-access #panel-settings,
+  #app.no-order-access .main-tab-panel-ecount-settings,
+  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
+  #app.no-sorting-access #panel-sorting,
+  #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
+  #app.no-sorting-access #no-sorting-access-msg{ display:block; }
   .date-chip{ background:#fff; color:var(--ink); border:1px solid var(--line); font-size:12px; font-weight:600; padding:5px 10px; border-radius:100px; cursor:pointer; }
   .date-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .dropzone{
@@ -206,10 +212,14 @@
     <button class="main-nav-btn" data-panel="panel-agg">📊 집계 / 출고</button>
     <button class="main-nav-btn" data-panel="panel-sales">📈 실적 / 매출</button>
     <button class="main-nav-btn" data-panel="panel-settings">⚙️ 설정</button>
+    <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
   </nav>
 
   <div id="no-order-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
     발주자동화 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
+  </div>
+  <div id="no-sorting-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
+    원물선별 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
   </div>
 
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
@@ -697,6 +707,42 @@
 
   </div><!-- /panel-settings -->
 
+  <!-- ───────────── 패널 5: 원물선별 ───────────── -->
+  <div id="panel-sorting" class="main-tab-panel">
+
+  <div class="card">
+    <h2>🍅 원물선별</h2>
+    <div class="row" style="margin-top:0; flex-wrap:wrap;">
+      <button class="tab-btn active" id="sorting-tab-inbound-btn">원물입고</button>
+      <button class="tab-btn" id="sorting-tab-purchase-btn">사입</button>
+      <button class="tab-btn" id="sorting-tab-output-btn">선별산출</button>
+      <button class="tab-btn" id="sorting-tab-shipment-btn">출고·정산</button>
+      <button class="tab-btn" id="sorting-tab-equipment-btn">물류기기</button>
+      <button class="tab-btn sorting-master-only" id="sorting-tab-master-btn" style="display:none; background:#fef9e7; color:#b7770d;">마스터관리</button>
+    </div>
+
+    <div id="sorting-section-inbound">
+      <div class="empty">원물입고 화면 준비 중</div>
+    </div>
+    <div id="sorting-section-purchase" style="display:none;">
+      <div class="empty">사입 화면 준비 중</div>
+    </div>
+    <div id="sorting-section-output" style="display:none;">
+      <div class="empty">선별산출 화면 준비 중</div>
+    </div>
+    <div id="sorting-section-shipment" style="display:none;">
+      <div class="empty">출고·정산 화면 준비 중</div>
+    </div>
+    <div id="sorting-section-equipment" style="display:none;">
+      <div class="empty">물류기기 화면 준비 중</div>
+    </div>
+    <div id="sorting-section-master" class="sorting-master-only" style="display:none;">
+      <div class="empty">마스터관리 화면 준비 중</div>
+    </div>
+  </div>
+
+  </div><!-- /panel-sorting -->
+
   <div class="toast" id="toast"></div>
 </div>
 
@@ -878,6 +924,16 @@ function applyUserUI() {
   if (appEl) {
     appEl.classList.toggle('no-order-access', window.currentUser.access_order === false);
   }
+  // 원물선별 접근 권한 (명시적으로 true일 때만 허용 — 기본값은 차단)
+  const accessSorting = window.currentUser.access_sorting === true;
+  const sortingMasterEdit = window.currentUser.sorting_master_edit === true;
+  if (appEl) {
+    appEl.classList.toggle('no-sorting-access', !accessSorting);
+  }
+  // 원물선별 마스터관리 전용 요소 일괄 표시/숨김 (class="sorting-master-only" 부여된 모든 요소)
+  document.querySelectorAll('.sorting-master-only').forEach(el => {
+    el.style.display = sortingMasterEdit ? '' : 'none';
+  });
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
@@ -5216,8 +5272,31 @@ function applyUserUI() {
         renderDeliveryFeeEditor();
         renderEcountStaffDeptEditor();
       }
+      // 원물선별 탭 진입 시 초기화 (최초 1회)
+      if(panelId === 'panel-sorting'){
+        initSortingPanel();
+      }
     });
   });
+
+  // ── 원물선별: 서브탭 전환 ──
+  const SORTING_SECTIONS = ['inbound','purchase','output','shipment','equipment','master'];
+  function showSortingSection(sec){
+    SORTING_SECTIONS.forEach(s=>{
+      document.getElementById(`sorting-section-${s}`).style.display = (s===sec) ? 'block' : 'none';
+      document.getElementById(`sorting-tab-${s}-btn`).classList.toggle('active', s===sec);
+    });
+  }
+  SORTING_SECTIONS.forEach(sec=>{
+    document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=> showSortingSection(sec));
+  });
+
+  let sortingPanelInited = false;
+  function initSortingPanel(){
+    if(sortingPanelInited) return;
+    sortingPanelInited = true;
+    // 각 서브탭 데이터 로더는 이후 단계에서 여기에 연결됩니다.
+  }
 
   // ── 제이엠 파일 → 택배 lineItems도 생성 ──
   const _origImportConfirm = document.getElementById;
