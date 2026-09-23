@@ -156,6 +156,7 @@
   .order-sub-panel.active{ display:block; }
   #no-order-access-msg, #no-sorting-access-msg{ display:none; }
   #app.no-order-access #panel-order-group,
+  #app.no-order-access #panel-ecount,
   #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
@@ -225,6 +226,7 @@
   <nav class="main-nav">
     <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
+    <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
   </nav>
 
@@ -619,40 +621,6 @@
 
   <div class="card">
     <details>
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 판매입력 엑셀 다운로드</summary>
-      <div style="margin-top:10px;">
-      <div class="sub" style="margin-top:0;">당일 집계된 발주를 이카운트 판매입력 템플릿 형식으로 다운로드합니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div>
-    <div class="row" style="margin-top:0;">
-      <label style="font-size:13px;">출하창고 :</label>
-      <input type="text" id="ecount-warehouse" placeholder="예: 본창고" style="width:110px;">
-      <label style="font-size:13px;">거래유형 :</label>
-      <input type="text" id="ecount-trade-type" placeholder="예: 판매" style="width:90px;" value="판매">
-      <span style="font-size:11px;color:var(--muted);">※ 공용 저장</span>
-    </div>
-    <div class="row" style="margin-top:6px;">
-      <label style="font-size:13px;">담당자 :</label>
-      <input type="text" id="ecount-manager" placeholder="담당자명 (개인 저장)" style="width:120px;">
-      <label style="font-size:13px;">부서 :</label>
-      <input type="text" id="ecount-department" placeholder="부서명 (개인 저장)" style="width:110px;">
-      <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
-    </div>
-    <div class="row">
-      <button class="btn-primary small-btn" id="export-ecount-btn">이카운트 엑셀 다운로드</button>
-    </div>
-
-    <h3 style="margin-top:14px;">거래처별 품목 단가 설정</h3>
-    <div class="sub" style="margin:0 0 8px;">거래처 관리에서 구분이 설정된 업체만 표시됩니다.</div>
-    <div id="price-map-editor" style="overflow-x:auto;"></div>
-
-    <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
-    <div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div>
-    <div id="delivery-fee-editor"></div>
-      </div>
-    </details>
-  </div>
-
-  <div class="card">
-    <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">데이터 백업 / 복원</summary>
       <div style="margin-top:10px;">
       <div class="sub" style="margin-top:0;">새 버전으로 교체하기 전에 백업을 받아두고, 새 버전에서 복원하면 데이터를 그대로 이어갈 수 있습니다.</div>
@@ -862,6 +830,57 @@
   </div>
 
   </div><!-- /panel-sorting -->
+
+  <!-- ───────────── 패널 6: 이카운트 (발주취합/원물선별 공용 ERP 연동) ───────────── -->
+  <div id="panel-ecount" class="main-tab-panel">
+
+  <h1 style="margin-bottom:4px;">이카운트 연동</h1>
+  <div class="sub" style="margin-bottom:12px;">발주취합·원물선별에서 발생한 매출/구매 데이터를 이카운트 ERP 양식으로 내려받고, 품목·거래처 코드 및 부가 설정을 관리합니다.</div>
+
+  <div class="card">
+    <details open>
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 판매입력 엑셀 다운로드</summary>
+      <div style="margin-top:10px;">
+      <div class="sub" style="margin-top:0;">당일 집계된 발주를 이카운트 판매입력 템플릿 형식으로 다운로드합니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div>
+    <div class="row" style="margin-top:0;">
+      <label style="font-size:13px;">출하창고 :</label>
+      <input type="text" id="ecount-warehouse" placeholder="예: 본창고" style="width:110px;">
+      <label style="font-size:13px;">거래유형 :</label>
+      <input type="text" id="ecount-trade-type" placeholder="예: 판매" style="width:90px;" value="판매">
+      <span style="font-size:11px;color:var(--muted);">※ 공용 저장</span>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label style="font-size:13px;">담당자 :</label>
+      <input type="text" id="ecount-manager" placeholder="담당자명 (개인 저장)" style="width:120px;">
+      <label style="font-size:13px;">부서 :</label>
+      <input type="text" id="ecount-department" placeholder="부서명 (개인 저장)" style="width:110px;">
+      <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
+    </div>
+    <div class="row">
+      <button class="btn-primary small-btn" id="export-ecount-btn">이카운트 엑셀 다운로드</button>
+    </div>
+
+    <h3 style="margin-top:14px;">거래처별 품목 단가 설정</h3>
+    <div class="sub" style="margin:0 0 8px;">거래처 관리에서 구분이 설정된 업체만 표시됩니다.</div>
+    <div id="price-map-editor" style="overflow-x:auto;"></div>
+
+    <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
+    <div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div>
+    <div id="delivery-fee-editor"></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 구매입력 (원물 구매) — 준비 중</summary>
+      <div style="margin-top:10px;">
+        <div class="sub" style="margin-top:0;">원물선별의 사입(타사 구매) 내역을 이카운트 구매입력 양식으로 내려받는 기능은 추후 추가 예정입니다.</div>
+      </div>
+    </details>
+  </div>
+
+  </div><!-- /panel-ecount -->
 
   <!-- ───────────── 패널 6: 관리자 ───────────── -->
   <div id="panel-admin" class="main-tab-panel">
@@ -5440,6 +5459,12 @@ function applyUserUI() {
         loadAdminLog();
         loadAdminUsers();
       }
+      // 이카운트 탭 진입 시 단가/택배비 에디터 갱신
+      if(panelId === 'panel-ecount'){
+        renderPriceMapEditor();
+        renderDeliveryFeeEditor();
+        renderEcountStaffDeptEditor();
+      }
     });
   });
   let adminPanelInited = false;
@@ -5460,12 +5485,6 @@ function applyUserUI() {
           document.getElementById('monthly-month').value = now.getMonth()+1;
         }
         renderManualQtyEditor();
-      }
-      // 설정 탭 진입 시 단가 에디터 갱신
-      if(panelId === 'panel-settings'){
-        renderPriceMapEditor();
-        renderDeliveryFeeEditor();
-        renderEcountStaffDeptEditor();
       }
     });
   });
