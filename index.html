@@ -151,8 +151,8 @@
   #app.no-order-access .main-tab-panel-ecount-settings,
   #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
-  #app.no-sorting-access #panel-sorting,
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
+  #app.no-sorting-access #sorting-main-card{ display:none !important; }
   #app.no-sorting-access #no-sorting-access-msg{ display:block; }
   .date-chip{ background:#fff; color:var(--ink); border:1px solid var(--line); font-size:12px; font-weight:600; padding:5px 10px; border-radius:100px; cursor:pointer; }
   .date-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
@@ -217,9 +217,6 @@
 
   <div id="no-order-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
     발주자동화 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
-  </div>
-  <div id="no-sorting-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
-    원물선별 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
   </div>
 
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
@@ -710,7 +707,11 @@
   <!-- ───────────── 패널 5: 원물선별 ───────────── -->
   <div id="panel-sorting" class="main-tab-panel">
 
-  <div class="card">
+  <div id="no-sorting-access-msg" class="card" style="margin-top:0; text-align:center; color:var(--muted);">
+    원물선별 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
+  </div>
+
+  <div class="card" id="sorting-main-card">
     <h2>🍅 원물선별</h2>
     <div class="row" style="margin-top:0; flex-wrap:wrap;">
       <button class="tab-btn active" id="sorting-tab-inbound-btn">원물입고</button>
