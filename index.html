@@ -675,10 +675,50 @@
     </div>
 
     <div id="sorting-section-inbound">
-      <div class="empty">원물입고 화면 준비 중</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap;">
+        <label style="font-size:13px;">농가 :</label>
+        <select id="inbound-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="inbound-date">
+        <label style="font-size:13px;">무게(kg) :</label>
+        <input type="number" id="inbound-weight" style="width:90px;">
+        <label style="font-size:13px;">A1콘테이너 :</label>
+        <input type="number" id="inbound-a1" style="width:70px;" value="0">
+        <label style="font-size:13px;">KPP팔레트 :</label>
+        <input type="number" id="inbound-kpp" style="width:70px;" value="0">
+        <label style="font-size:13px;">담당자 :</label>
+        <select id="inbound-staff-select" style="min-width:100px;"></select>
+      </div>
+      <div class="row">
+        <input type="text" id="inbound-note" placeholder="메모" style="flex:1; min-width:150px;">
+        <button class="btn-primary small-btn" id="inbound-add-btn">+ 원물입고 등록</button>
+      </div>
+      <div id="inbound-stock-display" class="sub" style="margin-top:8px;"></div>
+      <h3 style="margin-top:16px;">최근 입고 내역</h3>
+      <div id="inbound-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-purchase" style="display:none;">
-      <div class="empty">사입 화면 준비 중</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap;">
+        <label style="font-size:13px;">사입처 :</label>
+        <select id="purchase-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="purchase-date">
+        <label style="font-size:13px;">무게(kg) :</label>
+        <input type="number" id="purchase-weight" style="width:90px;">
+        <label style="font-size:13px;">A1콘테이너 :</label>
+        <input type="number" id="purchase-a1" style="width:70px;" value="0">
+        <label style="font-size:13px;">KPP팔레트 :</label>
+        <input type="number" id="purchase-kpp" style="width:70px;" value="0">
+        <label style="font-size:13px;">담당자 :</label>
+        <select id="purchase-staff-select" style="min-width:100px;"></select>
+      </div>
+      <div class="row">
+        <input type="text" id="purchase-note" placeholder="메모" style="flex:1; min-width:150px;">
+        <button class="btn-primary small-btn" id="purchase-add-btn">+ 사입 등록</button>
+      </div>
+      <div id="purchase-stock-display" class="sub" style="margin-top:8px;"></div>
+      <h3 style="margin-top:16px;">최근 사입 내역</h3>
+      <div id="purchase-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-output" style="display:none;">
       <div class="empty">선별산출 화면 준비 중</div>
@@ -5320,8 +5360,126 @@ function applyUserUI() {
   function initSortingPanel(){
     if(sortingPanelInited) return;
     sortingPanelInited = true;
-    // 서브탭(원물입고/사입/선별산출/출고·정산/물류기기) 데이터 로더는 이후 단계에서 여기에 연결됩니다.
+    initSortingInboundUI('inbound');
+    initSortingInboundUI('purchase');
+    // 선별산출/출고·정산/물류기기 데이터 로더는 이후 단계에서 여기에 연결됩니다.
     // 마스터관리는 sortingMasterUIInited 플래그로 해당 탭 최초 클릭 시에만 로드됩니다.
+  }
+
+  // ══════════════════ 원물선별 · 원물입고 / 사입 (공통 로직) ══════════════════
+  const SORTING_INBOUND_CONFIGS = {
+    inbound:  { table:'sorting_inbound',  originTable:'sorting_farms',   originField:'farm_id',   originLabel:'농가',   prefix:'inbound' },
+    purchase: { table:'sorting_purchases', originTable:'sorting_vendors', originField:'vendor_id', originLabel:'사입처', prefix:'purchase' }
+  };
+
+  async function initSortingInboundUI(kind){
+    const cfg = SORTING_INBOUND_CONFIGS[kind];
+    const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
+    const staffSel = document.getElementById(`${cfg.prefix}-staff-select`);
+    const dateInput = document.getElementById(`${cfg.prefix}-date`);
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+
+    try{
+      const origins = await sbQuery(cfg.originTable, '?is_active=eq.true&order=name.asc');
+      originSel.innerHTML = origins.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+    }catch(e){ originSel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+
+    try{
+      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
+      staffSel.innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }catch(e){ staffSel.innerHTML = ''; }
+
+    originSel.addEventListener('change', ()=> loadSortingStock(kind));
+    document.getElementById(`${cfg.prefix}-add-btn`).addEventListener('click', ()=> submitSortingInbound(kind));
+
+    loadSortingStock(kind);
+    loadSortingInboundTable(kind);
+  }
+
+  async function loadSortingStock(kind){
+    const cfg = SORTING_INBOUND_CONFIGS[kind];
+    const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
+    const display = document.getElementById(`${cfg.prefix}-stock-display`);
+    const originId = originSel.value;
+    if(!originId){ display.textContent = ''; return; }
+    try{
+      const inRows = await sbQuery(cfg.table, `?${cfg.originField}=eq.${originId}&select=weight_kg`);
+      const totalIn = inRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
+      const outputs = await sbQuery('sorting_output', `?${cfg.originField}=eq.${originId}&select=id`);
+      let totalOut = 0;
+      if(outputs.length){
+        const ids = outputs.map(o=>o.id).join(',');
+        const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
+        totalOut = items.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
+      }
+      const stock = totalIn - totalOut;
+      const originName = originSel.selectedOptions[0]?.textContent || '';
+      display.innerHTML = `<strong>선별전재고(${escapeHtml(originName)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
+    }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
+  }
+
+  async function submitSortingInbound(kind){
+    const cfg = SORTING_INBOUND_CONFIGS[kind];
+    const originId = document.getElementById(`${cfg.prefix}-origin-select`).value;
+    const date = document.getElementById(`${cfg.prefix}-date`).value;
+    const weight = Number(document.getElementById(`${cfg.prefix}-weight`).value || 0);
+    const a1 = Number(document.getElementById(`${cfg.prefix}-a1`).value || 0);
+    const kpp = Number(document.getElementById(`${cfg.prefix}-kpp`).value || 0);
+    const staffId = document.getElementById(`${cfg.prefix}-staff-select`).value;
+    const note = document.getElementById(`${cfg.prefix}-note`).value.trim();
+    if(!originId){ toast(`${cfg.originLabel}을(를) 선택해주세요`); return; }
+    if(!date){ toast('날짜를 입력해주세요'); return; }
+    if(!weight){ toast('무게를 입력해주세요'); return; }
+    const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note };
+    data[cfg.originField] = Number(originId);
+    if(staffId) data.staff_id = Number(staffId);
+    try{
+      await sbInsert(cfg.table, data);
+      await writeLog(`sorting_${kind}_add`, `${cfg.originLabel} ${weight}kg 입고 등록`);
+      document.getElementById(`${cfg.prefix}-weight`).value = '';
+      document.getElementById(`${cfg.prefix}-a1`).value = '0';
+      document.getElementById(`${cfg.prefix}-kpp`).value = '0';
+      document.getElementById(`${cfg.prefix}-note`).value = '';
+      loadSortingStock(kind);
+      loadSortingInboundTable(kind);
+      toast('등록되었습니다');
+    }catch(e){ toast('등록 실패: '+e.message); }
+  }
+
+  async function loadSortingInboundTable(kind){
+    const cfg = SORTING_INBOUND_CONFIGS[kind];
+    const wrap = document.getElementById(`${cfg.prefix}-table-wrap`);
+    wrap.innerHTML = '';
+    try{
+      const rows = await sbQuery(cfg.table, `?order=work_date.desc,id.desc&limit=50`);
+      const originRows = await sbQuery(cfg.originTable, '');
+      const staffRows = await sbQuery('sorting_staff', '');
+      const originMap = Object.fromEntries(originRows.map(o=>[o.id, o.name]));
+      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>날짜</th><th>${cfg.originLabel}</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger small-btn';
+        delBtn.textContent = '삭제';
+        delBtn.addEventListener('click', async ()=>{
+          if(!confirm('삭제하시겠습니까?')) return;
+          try{
+            await sbDelete2(cfg.table, `id=eq.${r.id}`);
+            await writeLog(`sorting_${kind}_delete`, `${cfg.originLabel} ${r.weight_kg}kg 입고 삭제`);
+            loadSortingStock(kind);
+            loadSortingInboundTable(kind);
+          }catch(e){ toast('삭제 실패: '+e.message); }
+        });
+        tr.lastElementChild.appendChild(delBtn);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
   // ══════════════════ 원물선별 · 마스터관리 (7종 공통 CRUD) ══════════════════
