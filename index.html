@@ -804,7 +804,55 @@
       <div id="shipment-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-equipment" style="display:none;">
-      <div class="empty">물류기기 화면 준비 중</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap;">
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="equipment-date">
+        <label style="font-size:13px;">기기유형 :</label>
+        <select id="equipment-type-select" style="min-width:100px;"></select>
+        <label style="font-size:13px;">이동유형 :</label>
+        <select id="equipment-movement-select" style="min-width:100px;">
+          <option value="확보입고">확보입고</option>
+          <option value="출고반출">출고반출</option>
+          <option value="거래처회수">거래처회수</option>
+          <option value="농가발송">농가발송</option>
+          <option value="손실파손">손실파손</option>
+          <option value="내부이관">내부이관</option>
+        </select>
+        <label style="font-size:13px;">수량 :</label>
+        <input type="number" id="equipment-qty" style="width:80px;">
+      </div>
+      <div class="row" style="flex-wrap:wrap;">
+        <div id="equipment-business-wrap">
+          <label style="font-size:13px;display:block;">사업자 :</label>
+          <select id="equipment-business-select" style="min-width:100px;"></select>
+        </div>
+        <div id="equipment-to-business-wrap" style="display:none;">
+          <label style="font-size:13px;display:block;">받는 사업자 :</label>
+          <select id="equipment-to-business-select" style="min-width:100px;"></select>
+        </div>
+        <div id="equipment-destination-wrap" style="display:none;">
+          <label style="font-size:13px;display:block;">거래처 :</label>
+          <select id="equipment-destination-select" style="min-width:120px;"></select>
+        </div>
+        <div id="equipment-farm-wrap" style="display:none;">
+          <label style="font-size:13px;display:block;">농가 :</label>
+          <select id="equipment-farm-select" style="min-width:100px;"></select>
+        </div>
+        <div>
+          <label style="font-size:13px;display:block;">담당자 :</label>
+          <select id="equipment-staff-select" style="min-width:100px;"></select>
+        </div>
+      </div>
+      <div class="row">
+        <input type="text" id="equipment-note" placeholder="메모" style="flex:1; min-width:150px;">
+        <button class="btn-primary small-btn form-submit-btn" id="equipment-add-btn">+ 물류기기 이력 등록</button>
+      </div>
+      <h3 style="margin-top:16px;">현재 보유 현황 (사업자별)</h3>
+      <div id="equipment-holdings-wrap" style="overflow-x:auto;"></div>
+      <h3 style="margin-top:16px;">거래처 미회수 / 농가 보유(미회수)</h3>
+      <div id="equipment-outstanding-wrap" style="overflow-x:auto;"></div>
+      <h3 style="margin-top:16px;">최근 이동 이력</h3>
+      <div id="equipment-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-master" class="sorting-master-only" style="display:none;">
       <div class="row" style="margin-top:0; align-items:center;">
@@ -5436,6 +5484,7 @@ function applyUserUI() {
   let sortingMasterUIInited = false;
   let sortingOutputUIInited = false;
   let sortingShipmentUIInited = false;
+  let sortingEquipmentUIInited = false;
   SORTING_SECTIONS.forEach(sec=>{
     document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=>{
       showSortingSection(sec);
@@ -5450,6 +5499,10 @@ function applyUserUI() {
       if(sec === 'shipment' && !sortingShipmentUIInited){
         sortingShipmentUIInited = true;
         initSortingShipmentUI();
+      }
+      if(sec === 'equipment' && !sortingEquipmentUIInited){
+        sortingEquipmentUIInited = true;
+        initSortingEquipmentUI();
       }
     });
   });
@@ -5892,6 +5945,228 @@ function applyUserUI() {
         toast('단가가 저장되었습니다');
       }catch(e){ toast('저장 실패: '+e.message); }
     })();
+  }
+
+  // ══════════════════ 원물선별 · 물류기기 이력 (내부이관 포함, 현재보유/미회수 집계) ══════════════════
+  function updateEquipmentContextFields(){
+    const mv = document.getElementById('equipment-movement-select').value;
+    document.getElementById('equipment-to-business-wrap').style.display = mv === '내부이관' ? '' : 'none';
+    document.getElementById('equipment-destination-wrap').style.display = (mv === '출고반출' || mv === '거래처회수') ? '' : 'none';
+    document.getElementById('equipment-farm-wrap').style.display = mv === '농가발송' ? '' : 'none';
+    const bizLabel = document.querySelector('#equipment-business-wrap label');
+    if(bizLabel) bizLabel.textContent = mv === '내부이관' ? '보내는 사업자 :' : '사업자 :';
+  }
+
+  async function initSortingEquipmentUI(){
+    const dateInput = document.getElementById('equipment-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+
+    try{
+      const types = await sbQuery('sorting_equipment_types', '?is_active=eq.true&order=id.asc');
+      document.getElementById('equipment-type-select').innerHTML = types.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    }catch(e){ document.getElementById('equipment-type-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+
+    try{
+      const businesses = await sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc');
+      const opts = businesses.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+      document.getElementById('equipment-business-select').innerHTML = opts;
+      document.getElementById('equipment-to-business-select').innerHTML = opts;
+    }catch(e){ /* 사업자 목록 로드 실패는 무시 */ }
+
+    try{
+      const dests = await sbQuery('sorting_destinations', '?is_active=eq.true&order=name.asc');
+      document.getElementById('equipment-destination-select').innerHTML = dests.map(d=>`<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+    }catch(e){ /* 거래처 목록 로드 실패는 무시 */ }
+
+    try{
+      const farms = await sbQuery('sorting_farms', '?is_active=eq.true&order=name.asc');
+      document.getElementById('equipment-farm-select').innerHTML = farms.map(f=>`<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+    }catch(e){ /* 농가 목록 로드 실패는 무시 */ }
+
+    try{
+      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
+      document.getElementById('equipment-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }catch(e){ /* 담당자 목록 로드 실패는 무시 */ }
+
+    document.getElementById('equipment-movement-select').addEventListener('change', updateEquipmentContextFields);
+    updateEquipmentContextFields();
+    document.getElementById('equipment-add-btn').addEventListener('click', submitSortingEquipmentLog);
+
+    loadEquipmentSummary();
+    loadSortingEquipmentTable();
+  }
+
+  async function submitSortingEquipmentLog(){
+    const date = document.getElementById('equipment-date').value;
+    const typeId = document.getElementById('equipment-type-select').value;
+    const mv = document.getElementById('equipment-movement-select').value;
+    const qty = Number(document.getElementById('equipment-qty').value || 0);
+    const businessId = document.getElementById('equipment-business-select').value;
+    const toBusinessId = document.getElementById('equipment-to-business-select').value;
+    const destId = document.getElementById('equipment-destination-select').value;
+    const farmId = document.getElementById('equipment-farm-select').value;
+    const staffId = document.getElementById('equipment-staff-select').value;
+    const note = document.getElementById('equipment-note').value.trim();
+    if(!date){ toast('날짜를 입력해주세요'); return; }
+    if(!typeId){ toast('기기유형을 선택해주세요'); return; }
+    if(!qty){ toast('수량을 입력해주세요'); return; }
+    if(!businessId){ toast('사업자를 선택해주세요'); return; }
+    if(mv === '내부이관' && !toBusinessId){ toast('받는 사업자를 선택해주세요'); return; }
+    if((mv === '출고반출' || mv === '거래처회수') && !destId){ toast('거래처를 선택해주세요'); return; }
+    if(mv === '농가발송' && !farmId){ toast('농가를 선택해주세요'); return; }
+
+    const data = {
+      work_date: date, equipment_type_id: Number(typeId), movement_type: mv, qty,
+      business_id: Number(businessId), note
+    };
+    if(mv === '내부이관') data.to_business_id = Number(toBusinessId);
+    if(mv === '출고반출' || mv === '거래처회수') data.destination_id = Number(destId);
+    if(mv === '농가발송') data.farm_id = Number(farmId);
+    if(staffId) data.staff_id = Number(staffId);
+
+    try{
+      await sbInsert('sorting_equipment_log', data);
+      await writeLog('sorting_equipment_log_add', `${mv} ${qty}건 등록`);
+      document.getElementById('equipment-qty').value = '';
+      document.getElementById('equipment-note').value = '';
+      loadEquipmentSummary();
+      loadSortingEquipmentTable();
+      toast('등록되었습니다');
+    }catch(e){ toast('등록 실패: '+e.message); }
+  }
+
+  // 기기유형 × 사업자별 현재보유, 기기유형별 거래처미회수/농가보유(미회수) 계산
+  async function computeEquipmentAggregates(){
+    const [types, businesses, logs, inboundRows, purchaseRows] = await Promise.all([
+      sbQuery('sorting_equipment_types', '?is_active=eq.true&order=id.asc'),
+      sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc'),
+      sbQuery('sorting_equipment_log', ''),
+      sbQuery('sorting_inbound', '?select=a1_count,kpp_count'),
+      sbQuery('sorting_purchases', '?select=a1_count,kpp_count')
+    ]);
+
+    const sumInbound = { A1:0, KPP:0 };
+    inboundRows.forEach(r=>{ sumInbound.A1 += Number(r.a1_count||0); sumInbound.KPP += Number(r.kpp_count||0); });
+    const sumPurchase = { A1:0, KPP:0 };
+    purchaseRows.forEach(r=>{ sumPurchase.A1 += Number(r.a1_count||0); sumPurchase.KPP += Number(r.kpp_count||0); });
+
+    // 농가/사입 입고는 거의 항상 자담이 받는 구조로 단순화 확인됨 → 자동회수는 자담 사업자에 귀속
+    const jadamBiz = businesses.find(b=> b.name === '자담');
+
+    const rows = [];
+    const outstanding = [];
+
+    types.forEach(t=>{
+      const typeLogs = logs.filter(l=> l.equipment_type_id === t.id);
+      const autoRecoveryFarm = t.code === 'A1' ? sumInbound.A1 : (t.code === 'KPP' ? sumInbound.KPP : 0);
+      const autoRecoveryVendor = t.code === 'A1' ? sumPurchase.A1 : (t.code === 'KPP' ? sumPurchase.KPP : 0);
+      const autoRecoveryTotal = autoRecoveryFarm + autoRecoveryVendor;
+
+      let typeOutbound = 0, typeDestReturn = 0, typeFarmSend = 0;
+
+      businesses.forEach(b=>{
+        const sumBy = (mv, keyField)=> typeLogs.filter(l=> l.movement_type===mv && l[keyField]===b.id).reduce((s,l)=>s+Number(l.qty||0),0);
+        const secured = sumBy('확보입고','business_id');
+        const outbound = sumBy('출고반출','business_id');
+        const destReturn = sumBy('거래처회수','business_id');
+        const farmSend = sumBy('농가발송','business_id');
+        const loss = sumBy('손실파손','business_id');
+        const transferOut = sumBy('내부이관','business_id');
+        const transferIn = sumBy('내부이관','to_business_id');
+        const autoRecovery = (jadamBiz && b.id === jadamBiz.id) ? autoRecoveryTotal : 0;
+        const holding = secured - outbound + destReturn - farmSend - loss + autoRecovery - transferOut + transferIn;
+
+        rows.push({ typeName:t.name, bizName:b.name, secured, outbound, destReturn, farmSend, loss, autoRecovery, transferNet: transferIn-transferOut, holding });
+
+        typeOutbound += outbound;
+        typeDestReturn += destReturn;
+        typeFarmSend += farmSend;
+      });
+
+      outstanding.push({ typeName:t.name, destOutstanding: typeOutbound - typeDestReturn, farmOutstanding: typeFarmSend - autoRecoveryFarm });
+    });
+
+    return { rows, outstanding };
+  }
+
+  async function loadEquipmentSummary(){
+    const holdWrap = document.getElementById('equipment-holdings-wrap');
+    const outWrap = document.getElementById('equipment-outstanding-wrap');
+    try{
+      const { rows, outstanding } = await computeEquipmentAggregates();
+
+      const holdTable = document.createElement('table');
+      holdTable.innerHTML = `<thead><tr><th>기기유형</th><th>사업자</th><th>확보입고</th><th>출고반출</th><th>거래처회수</th><th>농가발송</th><th>손실파손</th><th>자동회수</th><th>내부이관(순)</th><th>현재보유</th></tr></thead>`;
+      const holdBody = document.createElement('tbody');
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.typeName)}</td><td>${escapeHtml(r.bizName)}</td><td>${r.secured}</td><td>${r.outbound}</td><td>${r.destReturn}</td><td>${r.farmSend}</td><td>${r.loss}</td><td>${r.autoRecovery}</td><td>${r.transferNet}</td><td><strong>${r.holding}</strong></td>`;
+        holdBody.appendChild(tr);
+      });
+      holdTable.appendChild(holdBody);
+      holdWrap.innerHTML = '';
+      holdWrap.appendChild(holdTable);
+
+      const outTable = document.createElement('table');
+      outTable.innerHTML = `<thead><tr><th>기기유형</th><th>거래처 미회수</th><th>농가 보유(미회수)</th></tr></thead>`;
+      const outBody = document.createElement('tbody');
+      outstanding.forEach(o=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(o.typeName)}</td><td>${o.destOutstanding}</td><td>${o.farmOutstanding}</td>`;
+        outBody.appendChild(tr);
+      });
+      outTable.appendChild(outBody);
+      outWrap.innerHTML = '';
+      outWrap.appendChild(outTable);
+    }catch(e){
+      holdWrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`;
+      outWrap.innerHTML = '';
+    }
+  }
+
+  async function loadSortingEquipmentTable(){
+    const wrap = document.getElementById('equipment-table-wrap');
+    wrap.innerHTML = '';
+    try{
+      const rows = await sbQuery('sorting_equipment_log', '?order=work_date.desc,id.desc&limit=50');
+      const types = await sbQuery('sorting_equipment_types', '');
+      const businesses = await sbQuery('sorting_businesses', '');
+      const dests = await sbQuery('sorting_destinations', '');
+      const farms = await sbQuery('sorting_farms', '');
+      const staffRows = await sbQuery('sorting_staff', '');
+      const typeMap = Object.fromEntries(types.map(t=>[t.id, t.name]));
+      const bizMap = Object.fromEntries(businesses.map(b=>[b.id, b.name]));
+      const destMap = Object.fromEntries(dests.map(d=>[d.id, d.name]));
+      const farmMap = Object.fromEntries(farms.map(f=>[f.id, f.name]));
+      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>날짜</th><th>기기유형</th><th>이동유형</th><th>수량</th><th>사업자</th><th>세부</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(r=>{
+        let detail = '';
+        if(r.movement_type === '내부이관') detail = `${bizMap[r.business_id]||''} → ${bizMap[r.to_business_id]||''}`;
+        else if(r.destination_id) detail = destMap[r.destination_id]||'';
+        else if(r.farm_id) detail = farmMap[r.farm_id]||'';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(typeMap[r.equipment_type_id]||'')}</td><td>${escapeHtml(r.movement_type)}</td><td>${r.qty}</td><td>${escapeHtml(bizMap[r.business_id]||'')}</td><td>${escapeHtml(detail)}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger small-btn';
+        delBtn.textContent = '삭제';
+        delBtn.addEventListener('click', async ()=>{
+          if(!confirm('삭제하시겠습니까?')) return;
+          try{
+            await sbDelete2('sorting_equipment_log', `id=eq.${r.id}`);
+            await writeLog('sorting_equipment_log_delete', `${r.movement_type} 삭제`);
+            loadEquipmentSummary();
+            loadSortingEquipmentTable();
+          }catch(e){ toast('삭제 실패: '+e.message); }
+        });
+        tr.lastElementChild.appendChild(delBtn);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
   // ══════════════════ 원물선별 · 마스터관리 (7종 공통 CRUD) ══════════════════
