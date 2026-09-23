@@ -749,7 +749,29 @@
       <div id="purchase-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-output" style="display:none;">
-      <div class="empty">선별산출 화면 준비 중</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap;">
+        <label style="font-size:13px;">원본 :</label>
+        <select id="output-origin-type-select" style="min-width:90px;">
+          <option value="farm">농가</option>
+          <option value="vendor">사입처</option>
+        </select>
+        <select id="output-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="output-date">
+        <label style="font-size:13px;">담당자 :</label>
+        <select id="output-staff-select" style="min-width:100px;"></select>
+      </div>
+      <div id="output-pre-stock-display" class="sub" style="margin-top:8px;"></div>
+      <h3 style="margin-top:16px;">등급별 산출량 입력 (kg)</h3>
+      <div id="output-grade-inputs" class="row" style="flex-wrap:wrap;"></div>
+      <div class="row">
+        <input type="text" id="output-note" placeholder="메모" style="flex:1; min-width:150px;">
+        <button class="btn-primary small-btn form-submit-btn" id="output-add-btn">+ 선별산출 등록</button>
+      </div>
+      <h3 style="margin-top:16px;">선별후재고 (등급별, 판매가능)</h3>
+      <div id="output-post-stock-wrap" style="overflow-x:auto;"></div>
+      <h3 style="margin-top:16px;">최근 선별산출 내역</h3>
+      <div id="output-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-shipment" style="display:none;">
       <div class="empty">출고·정산 화면 준비 중</div>
@@ -5385,12 +5407,17 @@ function applyUserUI() {
     });
   }
   let sortingMasterUIInited = false;
+  let sortingOutputUIInited = false;
   SORTING_SECTIONS.forEach(sec=>{
     document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=>{
       showSortingSection(sec);
       if(sec === 'master' && !sortingMasterUIInited){
         sortingMasterUIInited = true;
         initSortingMasterUI();
+      }
+      if(sec === 'output' && !sortingOutputUIInited){
+        sortingOutputUIInited = true;
+        initSortingOutputUI();
       }
     });
   });
@@ -5435,6 +5462,20 @@ function applyUserUI() {
     loadSortingInboundTable(kind);
   }
 
+  // 선별전재고(origin) = 입고/사입 누계 − 해당 origin으로 등록된 선별산출 누계
+  async function computeOriginPreStock(sourceTable, originField, originId){
+    const inRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=weight_kg`);
+    const totalIn = inRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
+    const outputs = await sbQuery('sorting_output', `?${originField}=eq.${originId}&select=id`);
+    let totalOut = 0;
+    if(outputs.length){
+      const ids = outputs.map(o=>o.id).join(',');
+      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
+      totalOut = items.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
+    }
+    return { totalIn, totalOut, stock: totalIn - totalOut };
+  }
+
   async function loadSortingStock(kind){
     const cfg = SORTING_INBOUND_CONFIGS[kind];
     const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
@@ -5442,16 +5483,7 @@ function applyUserUI() {
     const originId = originSel.value;
     if(!originId){ display.textContent = ''; return; }
     try{
-      const inRows = await sbQuery(cfg.table, `?${cfg.originField}=eq.${originId}&select=weight_kg`);
-      const totalIn = inRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
-      const outputs = await sbQuery('sorting_output', `?${cfg.originField}=eq.${originId}&select=id`);
-      let totalOut = 0;
-      if(outputs.length){
-        const ids = outputs.map(o=>o.id).join(',');
-        const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
-        totalOut = items.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
-      }
-      const stock = totalIn - totalOut;
+      const { totalIn, totalOut, stock } = await computeOriginPreStock(cfg.table, cfg.originField, originId);
       const originName = originSel.selectedOptions[0]?.textContent || '';
       display.innerHTML = `<strong>선별전재고(${escapeHtml(originName)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
     }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
@@ -5511,6 +5543,182 @@ function applyUserUI() {
             await writeLog(`sorting_${kind}_delete`, `${cfg.originLabel} ${r.weight_kg}kg 입고 삭제`);
             loadSortingStock(kind);
             loadSortingInboundTable(kind);
+          }catch(e){ toast('삭제 실패: '+e.message); }
+        });
+        tr.lastElementChild.appendChild(delBtn);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  // ══════════════════ 원물선별 · 선별산출 (농가/사입 origin → 등급별 분류) ══════════════════
+  async function initSortingOutputUI(){
+    const dateInput = document.getElementById('output-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+
+    const typeSel = document.getElementById('output-origin-type-select');
+    typeSel.addEventListener('change', populateOutputOriginSelect);
+    document.getElementById('output-origin-select').addEventListener('change', loadOutputPreStock);
+    document.getElementById('output-add-btn').addEventListener('click', submitSortingOutput);
+
+    try{
+      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
+      document.getElementById('output-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }catch(e){ /* 담당자 목록 로드 실패는 치명적이지 않으므로 무시 */ }
+
+    await populateOutputOriginSelect();
+    await renderOutputGradeInputs();
+    await loadOutputPostStock();
+    await loadSortingOutputTable();
+  }
+
+  async function populateOutputOriginSelect(){
+    const type = document.getElementById('output-origin-type-select').value;
+    const sel = document.getElementById('output-origin-select');
+    const table = type === 'farm' ? 'sorting_farms' : 'sorting_vendors';
+    try{
+      const rows = await sbQuery(table, '?is_active=eq.true&order=name.asc');
+      sel.innerHTML = rows.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    }catch(e){ sel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+    loadOutputPreStock();
+  }
+
+  async function loadOutputPreStock(){
+    const type = document.getElementById('output-origin-type-select').value;
+    const originSel = document.getElementById('output-origin-select');
+    const originId = originSel.value;
+    const display = document.getElementById('output-pre-stock-display');
+    if(!originId){ display.textContent = ''; return; }
+    const originField = type === 'farm' ? 'farm_id' : 'vendor_id';
+    const sourceTable = type === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
+    try{
+      const { totalIn, totalOut, stock } = await computeOriginPreStock(sourceTable, originField, originId);
+      const name = originSel.selectedOptions[0]?.textContent || '';
+      display.innerHTML = `<strong>선별전재고(${escapeHtml(name)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
+    }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
+  }
+
+  async function renderOutputGradeInputs(){
+    const wrap = document.getElementById('output-grade-inputs');
+    try{
+      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
+      wrap.innerHTML = '';
+      grades.forEach(g=>{
+        const pair = document.createElement('div');
+        pair.style.cssText = 'display:flex;flex-direction:column;min-width:100px;';
+        const label = document.createElement('label');
+        label.style.cssText = 'font-size:12px;color:var(--muted);';
+        label.textContent = `${g.name}${g.sellable ? '' : ' (폐기)'} (kg)`;
+        const input = document.createElement('input');
+        input.type = 'number'; input.value = '0'; input.style.width = '90px';
+        input.className = 'output-grade-input';
+        input.dataset.gradeId = g.id;
+        pair.appendChild(label); pair.appendChild(input);
+        wrap.appendChild(pair);
+      });
+    }catch(e){ wrap.innerHTML = `<div class="empty">등급 로드 실패: ${e.message}</div>`; }
+  }
+
+  async function submitSortingOutput(){
+    const type = document.getElementById('output-origin-type-select').value;
+    const originId = document.getElementById('output-origin-select').value;
+    const date = document.getElementById('output-date').value;
+    const staffId = document.getElementById('output-staff-select').value;
+    const note = document.getElementById('output-note').value.trim();
+    if(!originId){ toast('원본(농가/사입처)을 선택해주세요'); return; }
+    if(!date){ toast('날짜를 입력해주세요'); return; }
+    const items = [];
+    document.querySelectorAll('.output-grade-input').forEach(inp=>{
+      const w = Number(inp.value || 0);
+      if(w > 0) items.push({ grade_id: Number(inp.dataset.gradeId), weight_kg: w });
+    });
+    if(!items.length){ toast('등급별 산출량을 1개 이상 입력해주세요'); return; }
+    const originField = type === 'farm' ? 'farm_id' : 'vendor_id';
+    const headerData = { work_date: date, note };
+    headerData[originField] = Number(originId);
+    if(staffId) headerData.staff_id = Number(staffId);
+    try{
+      const inserted = await sbInsert('sorting_output', headerData);
+      const outputId = Array.isArray(inserted) ? inserted[0]?.id : inserted?.id;
+      if(!outputId) throw new Error('선별산출 헤더 생성에 실패했습니다');
+      for(const item of items){
+        await sbInsert('sorting_output_items', { output_id: outputId, grade_id: item.grade_id, weight_kg: item.weight_kg });
+      }
+      await writeLog('sorting_output_add', `선별산출 등록 (${items.length}개 등급)`);
+      document.querySelectorAll('.output-grade-input').forEach(inp=> inp.value = '0');
+      document.getElementById('output-note').value = '';
+      loadOutputPreStock();
+      loadOutputPostStock();
+      loadSortingOutputTable();
+      toast('선별산출이 등록되었습니다');
+    }catch(e){ toast('등록 실패: '+e.message); }
+  }
+
+  async function loadOutputPostStock(){
+    const wrap = document.getElementById('output-post-stock-wrap');
+    wrap.innerHTML = '';
+    try{
+      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>등급</th><th>선별후재고(kg)</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      for(const g of grades){
+        const itemRows = await sbQuery('sorting_output_items', `?grade_id=eq.${g.id}&select=weight_kg`);
+        const totalOut = itemRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
+        const shipRows = await sbQuery('sorting_shipment', `?grade_id=eq.${g.id}&select=qty_kg`);
+        const totalShipped = shipRows.reduce((s,r)=> s + Number(r.qty_kg||0), 0);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(g.name)}</td><td>${(totalOut-totalShipped).toLocaleString()}</td>`;
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  async function loadSortingOutputTable(){
+    const wrap = document.getElementById('output-table-wrap');
+    wrap.innerHTML = '';
+    try{
+      const rows = await sbQuery('sorting_output', '?order=work_date.desc,id.desc&limit=30');
+      const farms = await sbQuery('sorting_farms', '');
+      const vendors = await sbQuery('sorting_vendors', '');
+      const staffRows = await sbQuery('sorting_staff', '');
+      const grades = await sbQuery('sorting_grades', '');
+      const farmMap = Object.fromEntries(farms.map(f=>[f.id, f.name]));
+      const vendorMap = Object.fromEntries(vendors.map(v=>[v.id, v.name]));
+      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
+      const gradeMap = Object.fromEntries(grades.map(g=>[g.id, g.name]));
+      const itemsByOutput = {};
+      if(rows.length){
+        const ids = rows.map(r=>r.id).join(',');
+        const allItems = await sbQuery('sorting_output_items', `?output_id=in.(${ids})`);
+        allItems.forEach(it=>{
+          if(!itemsByOutput[it.output_id]) itemsByOutput[it.output_id] = [];
+          itemsByOutput[it.output_id].push(it);
+        });
+      }
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>날짜</th><th>원본</th><th>담당자</th><th>등급별 산출</th><th>메모</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(r=>{
+        const originName = r.farm_id ? (farmMap[r.farm_id]||'') : (vendorMap[r.vendor_id]||'');
+        const itemsText = (itemsByOutput[r.id]||[]).map(it=> `${gradeMap[it.grade_id]||'?'} ${it.weight_kg}kg`).join(', ');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originName)}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(itemsText)}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger small-btn';
+        delBtn.textContent = '삭제';
+        delBtn.addEventListener('click', async ()=>{
+          if(!confirm('삭제하시겠습니까? (등급별 산출 내역도 함께 삭제됩니다)')) return;
+          try{
+            await sbDelete2('sorting_output', `id=eq.${r.id}`);
+            await writeLog('sorting_output_delete', `선별산출 삭제: ${r.work_date}`);
+            loadOutputPreStock();
+            loadOutputPostStock();
+            loadSortingOutputTable();
           }catch(e){ toast('삭제 실패: '+e.message); }
         });
         tr.lastElementChild.appendChild(delBtn);
