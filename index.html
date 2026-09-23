@@ -149,7 +149,7 @@
   #app.no-order-access #panel-sales,
   #app.no-order-access #panel-settings,
   #app.no-order-access .main-tab-panel-ecount-settings,
-  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]){ display:none !important; }
+  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
   #app.no-sorting-access #sorting-main-card{ display:none !important; }
@@ -213,6 +213,7 @@
     <button class="main-nav-btn" data-panel="panel-sales">📈 실적 / 매출</button>
     <button class="main-nav-btn" data-panel="panel-settings">⚙️ 설정</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
+    <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
   </nav>
 
   <div id="no-order-access-msg" class="card" style="margin-top:20px; text-align:center; color:var(--muted);">
@@ -363,60 +364,10 @@
     <div class="row" style="margin-top:0;">
       <button class="tab-btn active" id="tab-all-btn">전체 집계</button>
       <button class="tab-btn" id="tab-3pl-btn">3PL 출고 집계</button>
-      <button class="tab-btn" id="admin-tab-btn" style="display:none; background:#fef9e7; color:#b7770d;">관리자</button>
     </div>
     <div id="agg-table-wrap"></div>
     <div class="row" id="agg-bulk-bar" style="display:none;">
       <button class="btn-danger small-btn" id="agg-bulk-delete-btn">선택 항목 삭제</button>
-    </div>
-
-    <!-- 관리자 패널 (관리자만 표시) -->
-    <div id="admin-panel" style="display:none; margin-top:16px;">
-      <h3>관리자 패널</h3>
-      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-        <button class="btn-ghost small-btn" id="admin-tab-log">활동 로그</button>
-        <button class="btn-ghost small-btn" id="admin-tab-users">사용자 관리</button>
-        <button class="btn-ghost small-btn" id="admin-tab-perms">권한 관리</button>
-      </div>
-
-      <!-- 활동 로그 -->
-      <div id="admin-section-log">
-        <div class="row" style="margin-top:0;">
-          <button class="btn-ghost small-btn" id="admin-refresh-log-btn">새로고침</button>
-          <button class="btn-primary small-btn" id="admin-export-log-btn">로그 엑셀 다운로드</button>
-        </div>
-        <div id="admin-log-wrap" style="margin-top:10px; overflow-x:auto;"></div>
-      </div>
-
-      <!-- 사용자 관리 -->
-      <div id="admin-section-users" style="display:none;">
-        <div id="admin-users-wrap" style="overflow-x:auto;"></div>
-        <h3 style="margin-top:16px;">새 사용자 추가</h3>
-        <div class="row" style="margin-top:0;">
-          <input type="text" id="new-user-username" placeholder="아이디" style="width:110px;">
-          <input type="text" id="new-user-display" placeholder="이름 (예: 박준수)" style="width:120px;">
-          <input type="password" id="new-user-pw" placeholder="비밀번호" style="width:110px;">
-          <select id="new-user-role">
-            <option value="staff">직원</option>
-            <option value="admin">관리자</option>
-          </select>
-          <button class="btn-primary small-btn" id="admin-add-user-btn">추가</button>
-        </div>
-        <div style="margin-top:10px;">
-          <div style="font-size:13px; font-weight:700; margin-bottom:6px;">비밀번호 변경</div>
-          <div class="row" style="margin-top:0;">
-            <select id="pw-change-user-select" style="min-width:130px;"></select>
-            <input type="password" id="pw-change-new" placeholder="새 비밀번호" style="width:130px;">
-            <button class="btn-ghost small-btn" id="admin-change-pw-btn">변경</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
-      <div id="admin-section-perms" style="display:none;">
-        <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 프로그램 접근 여부와 원물선별 마스터 관리 권한을 설정합니다.</div>
-        <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
-      </div>
     </div>
 
     <div id="agg-3pl-wrap" style="display:none;">
@@ -750,6 +701,59 @@
 
   </div><!-- /panel-sorting -->
 
+  <!-- ───────────── 패널 6: 관리자 ───────────── -->
+  <div id="panel-admin" class="main-tab-panel">
+
+  <div class="card" id="admin-panel">
+    <h2>🛠 관리자 패널</h2>
+    <div class="row" style="margin-top:0; flex-wrap:wrap;">
+      <button class="tab-btn active" id="admin-tab-log">활동 로그</button>
+      <button class="tab-btn" id="admin-tab-users">사용자 관리</button>
+      <button class="tab-btn" id="admin-tab-perms">권한 관리</button>
+    </div>
+
+    <!-- 활동 로그 -->
+    <div id="admin-section-log">
+      <div class="row" style="margin-top:0;">
+        <button class="btn-ghost small-btn" id="admin-refresh-log-btn">새로고침</button>
+        <button class="btn-primary small-btn" id="admin-export-log-btn">로그 엑셀 다운로드</button>
+      </div>
+      <div id="admin-log-wrap" style="margin-top:10px; overflow-x:auto;"></div>
+    </div>
+
+    <!-- 사용자 관리 -->
+    <div id="admin-section-users" style="display:none;">
+      <div id="admin-users-wrap" style="overflow-x:auto;"></div>
+      <h3 style="margin-top:16px;">새 사용자 추가</h3>
+      <div class="row" style="margin-top:0;">
+        <input type="text" id="new-user-username" placeholder="아이디" style="width:110px;">
+        <input type="text" id="new-user-display" placeholder="이름 (예: 박준수)" style="width:120px;">
+        <input type="password" id="new-user-pw" placeholder="비밀번호" style="width:110px;">
+        <select id="new-user-role">
+          <option value="staff">직원</option>
+          <option value="admin">관리자</option>
+        </select>
+        <button class="btn-primary small-btn" id="admin-add-user-btn">추가</button>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">비밀번호 변경</div>
+        <div class="row" style="margin-top:0;">
+          <select id="pw-change-user-select" style="min-width:130px;"></select>
+          <input type="password" id="pw-change-new" placeholder="새 비밀번호" style="width:130px;">
+          <button class="btn-ghost small-btn" id="admin-change-pw-btn">변경</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
+    <div id="admin-section-perms" style="display:none;">
+      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 프로그램 접근 여부와 원물선별 마스터 관리 권한을 설정합니다.</div>
+      <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
+    </div>
+  </div>
+
+  </div><!-- /panel-admin -->
+
   <div class="toast" id="toast"></div>
 </div>
 
@@ -918,9 +922,9 @@ function applyUserUI() {
   const nameEl = document.getElementById('staff-name');
   if (nameEl && !nameEl.value) nameEl.value = window.currentUser.display_name;
   // 관리자 탭 표시/숨김
-  const adminTab = document.getElementById('admin-tab-btn');
+  const adminTab = document.getElementById('main-nav-btn-admin');
   if (adminTab) {
-    adminTab.style.display = isAdmin ? 'inline-block' : 'none';
+    adminTab.style.display = isAdmin ? '' : 'none';
   }
   // 관리자 전용 요소 일괄 표시/숨김 (class="admin-only" 부여된 모든 요소)
   document.querySelectorAll('.admin-only').forEach(el => {
@@ -5283,8 +5287,15 @@ function applyUserUI() {
       if(panelId === 'panel-sorting'){
         initSortingPanel();
       }
+      // 관리자 탭 진입 시 초기화 (최초 1회 — 기본 서브탭인 활동 로그 로드)
+      if(panelId === 'panel-admin' && !adminPanelInited){
+        adminPanelInited = true;
+        loadAdminLog();
+        loadAdminUsers();
+      }
     });
   });
+  let adminPanelInited = false;
 
   // ── 원물선별: 서브탭 전환 ──
   const SORTING_SECTIONS = ['inbound','purchase','output','shipment','equipment','master'];
@@ -5624,34 +5635,14 @@ function applyUserUI() {
   document.getElementById('login-btn').addEventListener('click', doLogin);
   document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
-  // ── 관리자 탭 ──
-  document.getElementById('admin-tab-btn').addEventListener('click', ()=>{
-    document.getElementById('admin-tab-btn').classList.add('active');
-    document.getElementById('tab-all-btn').classList.remove('active');
-    document.getElementById('tab-3pl-btn').classList.remove('active');
-    document.getElementById('agg-table-wrap').style.display = 'none';
-    document.getElementById('agg-3pl-wrap').style.display = 'none';
-    document.getElementById('agg-bulk-bar').style.display = 'none';
-    document.getElementById('export-btn').style.display = 'none';
-    document.getElementById('export-3pl-btn').style.display = 'none';
-    document.getElementById('admin-panel').style.display = 'block';
-    loadAdminLog();
-    loadAdminUsers();
-  });
-  document.getElementById('tab-all-btn').addEventListener('click', ()=>{
-    document.getElementById('admin-panel').style.display = 'none';
-  });
-  document.getElementById('tab-3pl-btn').addEventListener('click', ()=>{
-    document.getElementById('admin-panel').style.display = 'none';
-  });
-
+  // ── 관리자 탭 (최상단 메인 탭) ──
   function showAdminSection(sec){
     document.getElementById('admin-section-log').style.display = sec==='log' ? 'block' : 'none';
     document.getElementById('admin-section-users').style.display = sec==='users' ? 'block' : 'none';
     document.getElementById('admin-section-perms').style.display = sec==='perms' ? 'block' : 'none';
-    document.getElementById('admin-tab-log').style.fontWeight = sec==='log' ? '700' : '';
-    document.getElementById('admin-tab-users').style.fontWeight = sec==='users' ? '700' : '';
-    document.getElementById('admin-tab-perms').style.fontWeight = sec==='perms' ? '700' : '';
+    document.getElementById('admin-tab-log').classList.toggle('active', sec==='log');
+    document.getElementById('admin-tab-users').classList.toggle('active', sec==='users');
+    document.getElementById('admin-tab-perms').classList.toggle('active', sec==='perms');
   }
 
   document.getElementById('admin-tab-log').addEventListener('click', ()=>{
