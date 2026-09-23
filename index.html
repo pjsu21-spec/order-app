@@ -757,6 +757,29 @@
       <div id="output-post-stock-wrap" style="overflow-x:auto;"></div>
       <h3 style="margin-top:16px;">최근 선별산출 내역</h3>
       <div id="output-table-wrap" style="overflow-x:auto;"></div>
+
+      <h3 style="margin-top:20px;">📤 선별결과 공유 이미지</h3>
+      <div class="sub" style="margin-top:0;">선택한 날짜의 농가/사입처별 선별 결과를 이미지로 만들어 다운로드하거나 바로 공유할 수 있습니다.</div>
+      <div class="row" style="margin-top:8px; flex-wrap:wrap;">
+        <label style="font-size:13px;">원본 :</label>
+        <select id="share-origin-type-select" style="min-width:90px;">
+          <option value="farm">농가</option>
+          <option value="vendor">사입처</option>
+        </select>
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="share-date">
+        <label style="font-size:13px;">사업자명 :</label>
+        <input type="text" id="share-business-name" value="자담" style="width:80px;">
+        <label style="font-size:13px;">품목명 :</label>
+        <input type="text" id="share-product-name" value="대추방울토마토" style="width:130px;">
+      </div>
+      <div class="row">
+        <button class="btn-primary small-btn" id="share-generate-btn">이미지 생성</button>
+        <button class="btn-ghost small-btn" id="share-download-btn" style="display:none;">⬇ 다운로드</button>
+        <button class="btn-ghost small-btn" id="share-native-btn" style="display:none;">📤 공유하기</button>
+      </div>
+      <div id="share-table-container" style="position:absolute; left:-9999px; top:-9999px;"></div>
+      <div id="share-preview-wrap" style="margin-top:12px; overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-shipment" style="display:none;">
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
@@ -953,6 +976,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
 // Supabase 어댑터 + 인증 시스템
@@ -5783,6 +5807,7 @@ function applyUserUI() {
     document.getElementById('output-calc-btn').addEventListener('click', calcOutputAllocation);
     document.getElementById('output-add-btn').addEventListener('click', submitSortingOutputAll);
     document.getElementById('output-origin-type-select').addEventListener('change', resetOutputAllocationUI);
+    initSortingShareUI();
 
     await loadOutputPostStock();
     await loadSortingOutputTable();
@@ -6089,6 +6114,153 @@ function applyUserUI() {
       table.appendChild(tbody);
       wrap.appendChild(table);
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  // ══════════════════ 원물선별 · 선별결과 공유 이미지 (농가/사입처별 일자별 결과표 PNG) ══════════════════
+  let shareImageBlob = null;
+
+  function initSortingShareUI(){
+    const dateInput = document.getElementById('share-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    document.getElementById('share-generate-btn').addEventListener('click', generateShareImage);
+    document.getElementById('share-download-btn').addEventListener('click', downloadShareImage);
+    document.getElementById('share-native-btn').addEventListener('click', nativeShareImage);
+  }
+
+  async function generateShareImage(){
+    const originType = document.getElementById('share-origin-type-select').value;
+    const date = document.getElementById('share-date').value;
+    const bizName = document.getElementById('share-business-name').value.trim() || '자담';
+    const productName = document.getElementById('share-product-name').value.trim() || '대추방울토마토';
+    if(!date){ toast('날짜를 선택해주세요'); return; }
+
+    const originTable = originType === 'farm' ? 'sorting_farms' : 'sorting_vendors';
+    const sourceTable = originType === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
+    const originField = originType === 'farm' ? 'farm_id' : 'vendor_id';
+
+    try{
+      const origins = await sbQuery(originTable, '');
+      const originMap = Object.fromEntries(origins.map(o=>[o.id, o.name]));
+
+      const inboundRows = await sbQuery(sourceTable, `?work_date=eq.${date}`);
+      const inboundByOrigin = {};
+      inboundRows.forEach(r=>{
+        const oid = r[originField];
+        if(oid === null || oid === undefined) return;
+        if(!inboundByOrigin[oid]) inboundByOrigin[oid] = { weight:0, a1:0, kpp:0 };
+        inboundByOrigin[oid].weight += Number(r.weight_kg||0);
+        inboundByOrigin[oid].a1 += Number(r.a1_count||0);
+        inboundByOrigin[oid].kpp += Number(r.kpp_count||0);
+      });
+
+      const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}`);
+      const relevantOutputs = outputs.filter(o=> o[originField] !== null && o[originField] !== undefined);
+      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
+
+      const gradeByOrigin = {};
+      if(relevantOutputs.length){
+        const ids = relevantOutputs.map(o=>o.id).join(',');
+        const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})`);
+        const outputToOrigin = Object.fromEntries(relevantOutputs.map(o=>[o.id, o[originField]]));
+        items.forEach(it=>{
+          const oid = outputToOrigin[it.output_id];
+          if(!gradeByOrigin[oid]) gradeByOrigin[oid] = {};
+          gradeByOrigin[oid][it.grade_id] = (gradeByOrigin[oid][it.grade_id]||0) + Number(it.weight_kg||0);
+        });
+      }
+
+      const originIds = new Set([
+        ...Object.keys(inboundByOrigin).map(Number),
+        ...relevantOutputs.map(o=>o[originField])
+      ]);
+      const rows = [...originIds].map(oid=>{
+        const inbound = inboundByOrigin[oid] || { weight:0, a1:0, kpp:0 };
+        const gradeVals = grades.map(g => (gradeByOrigin[oid] && gradeByOrigin[oid][g.id]) || 0);
+        const total = gradeVals.reduce((s,v)=>s+v, 0);
+        return { name: originMap[oid] || '?', weight: inbound.weight, a1: inbound.a1, kpp: inbound.kpp, gradeVals, total };
+      }).sort((a,b)=> a.name.localeCompare(b.name, 'ko'));
+
+      if(!rows.length){ toast('해당 날짜에 데이터가 없습니다'); return; }
+
+      renderShareTable({ bizName, productName, date, grades, rows });
+      await captureShareImage();
+    }catch(e){ toast('생성 실패: '+e.message); }
+  }
+
+  function renderShareTable({ bizName, productName, date, grades, rows }){
+    const container = document.getElementById('share-table-container');
+    const gradeHeaders = grades.map(g=>`<th style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;white-space:nowrap;">${escapeHtml(g.name)}</th>`).join('');
+    const rowsHtml = rows.map(r=>{
+      const gradeCells = r.gradeVals.map(v=>`<td style="border:1px solid #333;padding:6px 10px;text-align:right;">${v ? v.toLocaleString() : ''}</td>`).join('');
+      return `<tr>
+        <td style="border:1px solid #333;padding:6px 10px;font-weight:700;background:#f5f5f0;white-space:nowrap;">${escapeHtml(r.name)}</td>
+        <td style="border:1px solid #333;padding:6px 10px;text-align:right;">${r.weight.toLocaleString()}</td>
+        <td style="border:1px solid #333;padding:6px 10px;text-align:right;">${r.a1.toLocaleString()}</td>
+        <td style="border:1px solid #333;padding:6px 10px;text-align:right;">${r.kpp.toLocaleString()}</td>
+        ${gradeCells}
+        <td style="border:1px solid #333;padding:6px 10px;text-align:right;font-weight:700;">${r.total.toLocaleString()}</td>
+        <td style="border:1px solid #333;padding:6px 10px;"></td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="display:inline-block; background:#fff; padding:20px; font-family:'Malgun Gothic',sans-serif;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:24px; margin-bottom:10px;">
+          <div style="font-size:20px; font-weight:800; white-space:nowrap;">${escapeHtml(bizName)} ${escapeHtml(productName)} 출고 리스트</div>
+          <div style="font-size:13px; white-space:nowrap;">출고일:${escapeHtml(date)}</div>
+        </div>
+        <table style="border-collapse:collapse; font-size:13px;">
+          <thead>
+            <tr>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">농가</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;white-space:nowrap;">미선별(A1,KPP무게포함)(kg)</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">A1</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">KPP</th>
+              <th colspan="${grades.length}" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">선별 결과</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">계</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">비고</th>
+            </tr>
+            <tr>${gradeHeaders}</tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function captureShareImage(){
+    const container = document.getElementById('share-table-container');
+    const canvas = await html2canvas(container, { backgroundColor:'#ffffff', scale:2 });
+    const dataUrl = canvas.toDataURL('image/png');
+    const previewWrap = document.getElementById('share-preview-wrap');
+    previewWrap.innerHTML = `<img src="${dataUrl}" style="max-width:100%; border:1px solid var(--line); border-radius:8px;">`;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    shareImageBlob = blob;
+    document.getElementById('share-download-btn').style.display = '';
+    const testFile = blob ? new File([blob], 'test.png', { type:'image/png' }) : null;
+    if(testFile && navigator.share && navigator.canShare && navigator.canShare({ files:[testFile] })){
+      document.getElementById('share-native-btn').style.display = '';
+    } else {
+      document.getElementById('share-native-btn').style.display = 'none';
+    }
+  }
+
+  function downloadShareImage(){
+    if(!shareImageBlob){ toast('먼저 이미지를 생성해주세요'); return; }
+    const date = document.getElementById('share-date').value;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(shareImageBlob);
+    a.download = `선별결과_${date}.png`;
+    a.click();
+  }
+
+  async function nativeShareImage(){
+    if(!shareImageBlob){ toast('먼저 이미지를 생성해주세요'); return; }
+    const date = document.getElementById('share-date').value;
+    const file = new File([shareImageBlob], `선별결과_${date}.png`, { type:'image/png' });
+    try{
+      await navigator.share({ files:[file], title:'선별결과' });
+    }catch(e){ /* 사용자가 공유를 취소한 경우 등은 무시 */ }
   }
 
   // ══════════════════ 원물선별 · 출고·정산 (단가 나중입력 → 매출/수수료/실수령액 계산) ══════════════════
