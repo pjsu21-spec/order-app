@@ -774,7 +774,34 @@
       <div id="output-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-shipment" style="display:none;">
-      <div class="empty">출고·정산 화면 준비 중</div>
+      <div class="row" style="margin-top:0; flex-wrap:wrap;">
+        <label style="font-size:13px;">거래처 :</label>
+        <select id="shipment-destination-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">등급 :</label>
+        <select id="shipment-grade-select" style="min-width:100px;"></select>
+        <label style="font-size:13px;">수량(kg) :</label>
+        <input type="number" id="shipment-qty" style="width:90px;">
+        <label style="font-size:13px;">박스수 :</label>
+        <input type="number" id="shipment-box" style="width:80px;">
+        <label style="font-size:13px;">날짜 :</label>
+        <input type="date" id="shipment-date">
+        <label style="font-size:13px;">담당자 :</label>
+        <select id="shipment-staff-select" style="min-width:100px;"></select>
+      </div>
+      <div class="row">
+        <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
+        <button class="btn-primary small-btn form-submit-btn" id="shipment-add-btn">+ 출고 등록</button>
+      </div>
+      <div class="sub" style="margin-top:6px;">※ 단가는 낙찰 확정 전이라 비워두고 등록 가능합니다. 이후 목록에서 "단가 입력"으로 채워주세요.</div>
+      <h3 style="margin-top:16px;">선별후재고 (등급별)</h3>
+      <div id="shipment-stock-wrap" style="overflow-x:auto;"></div>
+      <div class="row" style="margin-top:16px; align-items:center;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+          <input type="checkbox" id="shipment-filter-unpriced"> 단가 미확정 건만 보기
+        </label>
+      </div>
+      <h3 style="margin-top:8px;">출고 내역</h3>
+      <div id="shipment-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-equipment" style="display:none;">
       <div class="empty">물류기기 화면 준비 중</div>
@@ -5408,6 +5435,7 @@ function applyUserUI() {
   }
   let sortingMasterUIInited = false;
   let sortingOutputUIInited = false;
+  let sortingShipmentUIInited = false;
   SORTING_SECTIONS.forEach(sec=>{
     document.getElementById(`sorting-tab-${sec}-btn`).addEventListener('click', ()=>{
       showSortingSection(sec);
@@ -5418,6 +5446,10 @@ function applyUserUI() {
       if(sec === 'output' && !sortingOutputUIInited){
         sortingOutputUIInited = true;
         initSortingOutputUI();
+      }
+      if(sec === 'shipment' && !sortingShipmentUIInited){
+        sortingShipmentUIInited = true;
+        initSortingShipmentUI();
       }
     });
   });
@@ -5656,8 +5688,9 @@ function applyUserUI() {
     }catch(e){ toast('등록 실패: '+e.message); }
   }
 
-  async function loadOutputPostStock(){
-    const wrap = document.getElementById('output-post-stock-wrap');
+  // 선별후재고(등급별, 판매가능) 표 — 선별산출/출고정산 화면에서 공용으로 사용
+  async function loadSellableGradeStock(wrapId){
+    const wrap = document.getElementById(wrapId);
     wrap.innerHTML = '';
     try{
       const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
@@ -5677,6 +5710,7 @@ function applyUserUI() {
       wrap.appendChild(table);
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
+  function loadOutputPostStock(){ return loadSellableGradeStock('output-post-stock-wrap'); }
 
   async function loadSortingOutputTable(){
     const wrap = document.getElementById('output-table-wrap');
@@ -5727,6 +5761,137 @@ function applyUserUI() {
       table.appendChild(tbody);
       wrap.appendChild(table);
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  // ══════════════════ 원물선별 · 출고·정산 (단가 나중입력 → 매출/수수료/실수령액 계산) ══════════════════
+  let shipmentFilterUnpriced = false;
+
+  async function initSortingShipmentUI(){
+    const dateInput = document.getElementById('shipment-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+
+    try{
+      const dests = await sbQuery('sorting_destinations', '?is_active=eq.true&order=name.asc');
+      document.getElementById('shipment-destination-select').innerHTML = dests.map(d=>`<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+    }catch(e){ document.getElementById('shipment-destination-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+
+    try{
+      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
+      document.getElementById('shipment-grade-select').innerHTML = grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+    }catch(e){ document.getElementById('shipment-grade-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+
+    try{
+      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
+      document.getElementById('shipment-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }catch(e){ /* 담당자 목록 로드 실패는 치명적이지 않으므로 무시 */ }
+
+    document.getElementById('shipment-add-btn').addEventListener('click', submitSortingShipment);
+    document.getElementById('shipment-filter-unpriced').addEventListener('change', (e)=>{
+      shipmentFilterUnpriced = e.target.checked;
+      loadSortingShipmentTable();
+    });
+
+    loadSellableGradeStock('shipment-stock-wrap');
+    loadSortingShipmentTable();
+  }
+
+  async function submitSortingShipment(){
+    const destId = document.getElementById('shipment-destination-select').value;
+    const gradeId = document.getElementById('shipment-grade-select').value;
+    const qty = Number(document.getElementById('shipment-qty').value || 0);
+    const box = document.getElementById('shipment-box').value;
+    const date = document.getElementById('shipment-date').value;
+    const staffId = document.getElementById('shipment-staff-select').value;
+    const note = document.getElementById('shipment-note').value.trim();
+    if(!destId){ toast('거래처를 선택해주세요'); return; }
+    if(!gradeId){ toast('등급을 선택해주세요'); return; }
+    if(!qty){ toast('수량을 입력해주세요'); return; }
+    if(!date){ toast('날짜를 입력해주세요'); return; }
+    const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note };
+    if(box) data.box_count = Number(box);
+    if(staffId) data.staff_id = Number(staffId);
+    try{
+      await sbInsert('sorting_shipment', data);
+      await writeLog('sorting_shipment_add', `출고 등록 (${qty}kg)`);
+      document.getElementById('shipment-qty').value = '';
+      document.getElementById('shipment-box').value = '';
+      document.getElementById('shipment-note').value = '';
+      loadSellableGradeStock('shipment-stock-wrap');
+      loadSortingShipmentTable();
+      toast('출고가 등록되었습니다');
+    }catch(e){ toast('등록 실패: '+e.message); }
+  }
+
+  async function loadSortingShipmentTable(){
+    const wrap = document.getElementById('shipment-table-wrap');
+    wrap.innerHTML = '';
+    try{
+      let params = '?order=ship_date.desc,id.desc&limit=50';
+      if(shipmentFilterUnpriced) params += '&unit_price=is.null';
+      const rows = await sbQuery('sorting_shipment', params);
+      const dests = await sbQuery('sorting_destinations', '');
+      const grades = await sbQuery('sorting_grades', '');
+      const staffRows = await sbQuery('sorting_staff', '');
+      const destMap = Object.fromEntries(dests.map(d=>[d.id, d]));
+      const gradeMap = Object.fromEntries(grades.map(g=>[g.id, g.name]));
+      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr><th>날짜</th><th>거래처</th><th>등급</th><th>수량(kg)</th><th>박스</th><th>단가</th><th>매출액</th><th>수수료</th><th>실수령액</th><th>담당자</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(r=>{
+        const dest = destMap[r.destination_id] || {};
+        const feePct = Number(dest.auction_fee_pct || 0);
+        const hasPrice = r.unit_price !== null && r.unit_price !== undefined;
+        const revenue = hasPrice ? r.qty_kg * r.unit_price : null;
+        const fee = hasPrice ? revenue * feePct / 100 : null;
+        const net = hasPrice ? revenue - fee : null;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${r.box_count||''}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td></td>`;
+        const actionTd = tr.lastElementChild;
+
+        const priceBtn = document.createElement('button');
+        priceBtn.className = 'btn-ghost small-btn';
+        priceBtn.textContent = hasPrice ? '단가 수정' : '단가 입력';
+        priceBtn.addEventListener('click', ()=> promptShipmentPrice(r));
+        actionTd.appendChild(priceBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger small-btn';
+        delBtn.style.marginLeft = '6px';
+        delBtn.textContent = '삭제';
+        delBtn.addEventListener('click', async ()=>{
+          if(!confirm('삭제하시겠습니까?')) return;
+          try{
+            await sbDelete2('sorting_shipment', `id=eq.${r.id}`);
+            await writeLog('sorting_shipment_delete', `출고 삭제: ${r.ship_date}`);
+            loadSellableGradeStock('shipment-stock-wrap');
+            loadSortingShipmentTable();
+          }catch(e){ toast('삭제 실패: '+e.message); }
+        });
+        actionTd.appendChild(delBtn);
+
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+    }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
+  }
+
+  function promptShipmentPrice(r){
+    const val = prompt('단가(원/kg)를 입력하세요', r.unit_price || '');
+    if(val === null) return;
+    const price = Number(val);
+    if(!price || price <= 0){ toast('올바른 단가를 입력해주세요'); return; }
+    (async ()=>{
+      try{
+        await fetch(`${SB_URL}/rest/v1/sorting_shipment?id=eq.${r.id}`, {
+          method:'PATCH', headers: sbHeaders, body: JSON.stringify({ unit_price: price, price_updated_at: new Date().toISOString() })
+        });
+        await writeLog('sorting_shipment_price_set', `출고 단가 입력: ${r.ship_date} ${price}원/kg`);
+        loadSortingShipmentTable();
+        toast('단가가 저장되었습니다');
+      }catch(e){ toast('저장 실패: '+e.message); }
+    })();
   }
 
   // ══════════════════ 원물선별 · 마스터관리 (7종 공통 CRUD) ══════════════════
