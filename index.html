@@ -786,13 +786,18 @@
         <select id="shipment-destination-select" style="min-width:120px;"></select>
         <label style="font-size:13px;">등급 :</label>
         <select id="shipment-grade-select" style="min-width:100px;"></select>
+        <label style="font-size:13px;">포장단위 :</label>
+        <select id="shipment-packaging-select" style="min-width:140px;">
+          <option value="">(직접 kg 입력)</option>
+        </select>
+        <label style="font-size:13px;">박스/콘테이너 수 :</label>
+        <input type="number" id="shipment-box" style="width:80px;">
         <label style="font-size:13px;">수량(kg) :</label>
         <input type="number" id="shipment-qty" style="width:90px;">
-        <label style="font-size:13px;">박스수 :</label>
-        <input type="number" id="shipment-box" style="width:80px;">
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
       </div>
+      <div class="sub" style="margin-top:4px;">포장단위를 고르고 박스/콘테이너 수를 입력하면 수량(kg)이 자동 계산됩니다 (직접 수정도 가능).</div>
       <div class="row">
         <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="shipment-add-btn">+ 출고 등록</button>
@@ -6275,6 +6280,8 @@ function applyUserUI() {
   // ══════════════════ 원물선별 · 출고·정산 (단가 나중입력 → 매출/수수료/실수령액 계산) ══════════════════
   let shipmentFilterUnpriced = false;
 
+  let shipmentPackagingUnits = [];
+
   async function initSortingShipmentUI(){
     const dateInput = document.getElementById('shipment-date');
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
@@ -6289,6 +6296,14 @@ function applyUserUI() {
       document.getElementById('shipment-grade-select').innerHTML = grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
     }catch(e){ document.getElementById('shipment-grade-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
 
+    try{
+      shipmentPackagingUnits = await sbQuery('sorting_packaging_units', '?is_active=eq.true&order=name.asc');
+      const pkgSel = document.getElementById('shipment-packaging-select');
+      pkgSel.innerHTML = `<option value="">(직접 kg 입력)</option>` + shipmentPackagingUnits.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${Number(p.unit_weight_kg).toLocaleString()}kg)</option>`).join('');
+    }catch(e){ /* 포장단위 목록 로드 실패는 치명적이지 않으므로 무시 */ }
+
+    document.getElementById('shipment-packaging-select').addEventListener('change', recalcShipmentQtyFromPackaging);
+    document.getElementById('shipment-box').addEventListener('input', recalcShipmentQtyFromPackaging);
     document.getElementById('shipment-add-btn').addEventListener('click', submitSortingShipment);
     document.getElementById('shipment-filter-unpriced').addEventListener('change', (e)=>{
       shipmentFilterUnpriced = e.target.checked;
@@ -6299,9 +6314,19 @@ function applyUserUI() {
     loadSortingShipmentTable();
   }
 
+  function recalcShipmentQtyFromPackaging(){
+    const pkgId = document.getElementById('shipment-packaging-select').value;
+    const boxCount = Number(document.getElementById('shipment-box').value || 0);
+    if(!pkgId || !boxCount) return;
+    const pkg = shipmentPackagingUnits.find(p=> String(p.id) === pkgId);
+    if(!pkg) return;
+    document.getElementById('shipment-qty').value = (boxCount * Number(pkg.unit_weight_kg)).toString();
+  }
+
   async function submitSortingShipment(){
     const destId = document.getElementById('shipment-destination-select').value;
     const gradeId = document.getElementById('shipment-grade-select').value;
+    const pkgId = document.getElementById('shipment-packaging-select').value;
     const qty = Number(document.getElementById('shipment-qty').value || 0);
     const box = document.getElementById('shipment-box').value;
     const date = document.getElementById('shipment-date').value;
@@ -6312,11 +6337,13 @@ function applyUserUI() {
     if(!date){ toast('날짜를 입력해주세요'); return; }
     const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note, created_by: window.currentUser?.id };
     if(box) data.box_count = Number(box);
+    if(pkgId) data.packaging_unit_id = Number(pkgId);
     try{
       await sbInsert('sorting_shipment', data);
       await writeLog('sorting_shipment_add', `출고 등록 (${qty}kg)`);
       document.getElementById('shipment-qty').value = '';
       document.getElementById('shipment-box').value = '';
+      document.getElementById('shipment-packaging-select').value = '';
       document.getElementById('shipment-note').value = '';
       loadSellableGradeStock('shipment-stock-wrap');
       loadSortingShipmentTable();
@@ -6333,11 +6360,13 @@ function applyUserUI() {
       const rows = await sbQuery('sorting_shipment', params);
       const dests = await sbQuery('sorting_destinations', '');
       const grades = await sbQuery('sorting_grades', '');
+      const packagingUnits = await sbQuery('sorting_packaging_units', '');
       const userMap = await getSortingUserDisplayNameMap();
       const destMap = Object.fromEntries(dests.map(d=>[d.id, d]));
       const gradeMap = Object.fromEntries(grades.map(g=>[g.id, g.name]));
+      const packagingMap = Object.fromEntries(packagingUnits.map(p=>[p.id, p.name]));
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>날짜</th><th>거래처</th><th>등급</th><th>수량(kg)</th><th>박스</th><th>단가</th><th>매출액</th><th>수수료</th><th>실수령액</th><th>담당자</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>날짜</th><th>거래처</th><th>등급</th><th>수량(kg)</th><th>포장</th><th>단가</th><th>매출액</th><th>수수료</th><th>실수령액</th><th>담당자</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(r=>{
         const dest = destMap[r.destination_id] || {};
@@ -6346,8 +6375,9 @@ function applyUserUI() {
         const revenue = hasPrice ? r.qty_kg * r.unit_price : null;
         const fee = hasPrice ? revenue * feePct / 100 : null;
         const net = hasPrice ? revenue - fee : null;
+        const packagingText = r.packaging_unit_id ? `${packagingMap[r.packaging_unit_id]||''} × ${r.box_count||'?'}` : (r.box_count ? `${r.box_count}박스` : '');
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${r.box_count||''}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
         const priceBtn = document.createElement('button');
@@ -6628,6 +6658,10 @@ function applyUserUI() {
         { name:'delivery_method', label:'배송방식', type:'text' },
         { name:'category', label:'구분', type:'text' },
         { name:'auction_fee_pct', label:'수수료율(%)', type:'number', default:0 }
+      ]},
+    { key:'sorting_packaging_units', label:'포장단위', fields:[
+        { name:'name', label:'이름 (예: 750g×4입 박스)', type:'text' },
+        { name:'unit_weight_kg', label:'단위중량(kg)', type:'number', default:0 }
       ]},
     { key:'sorting_equipment_types', label:'기기유형', fields:[
         { name:'name', label:'이름', type:'text' },
