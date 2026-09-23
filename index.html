@@ -141,14 +141,20 @@
   .main-nav-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
   .main-tab-panel{ display:none; }
   .main-tab-panel.active{ display:block; }
+  /* 발주취합 그룹 내부 서브 네비게이션 */
+  .order-sub-nav{ display:flex; gap:0; border-bottom:1px solid var(--line); margin:0 0 16px; padding:0; overflow-x:auto; }
+  .order-sub-nav-btn{
+    background:none; border:none; border-bottom:2px solid transparent;
+    padding:8px 16px; font-size:13px; font-weight:600; color:var(--muted);
+    cursor:pointer; font-family:inherit; white-space:nowrap; margin-bottom:-1px;
+    transition:color .15s, border-color .15s;
+  }
+  .order-sub-nav-btn:hover{ color:var(--ink); }
+  .order-sub-nav-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .order-sub-panel{ display:none; }
+  .order-sub-panel.active{ display:block; }
   #no-order-access-msg, #no-sorting-access-msg{ display:none; }
-  #app.no-order-access > h1,
-  #app.no-order-access > .sub,
-  #app.no-order-access #panel-order,
-  #app.no-order-access #panel-agg,
-  #app.no-order-access #panel-sales,
-  #app.no-order-access #panel-settings,
-  #app.no-order-access .main-tab-panel-ecount-settings,
+  #app.no-order-access #panel-order-group,
   #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
@@ -196,22 +202,16 @@
 <div id="app" style="display:none;">
   <!-- 상단 사용자 정보 바 -->
   <div style="background:var(--accent); color:#fff; padding:8px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
-    <span style="font-weight:700;">다름달음 발주취합</span>
+    <span style="font-weight:700;">다름달음 통합 오더 시스템</span>
     <div style="display:flex; align-items:center; gap:12px;">
       <span id="user-badge" style="opacity:0.9;"></span>
       <button onclick="logout()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit;">로그아웃</button>
     </div>
   </div>
 
-  <h1 style="margin-bottom:4px;">다름달음 발주취합 프로그램</h1>
-  <div class="sub" style="margin-bottom:12px;">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div>
-
   <!-- 메인 네비게이션 탭 -->
   <nav class="main-nav">
-    <button class="main-nav-btn active" data-panel="panel-order">📋 발주 입력</button>
-    <button class="main-nav-btn" data-panel="panel-agg">📊 집계 / 출고</button>
-    <button class="main-nav-btn" data-panel="panel-sales">📈 실적 / 매출</button>
-    <button class="main-nav-btn" data-panel="panel-settings">⚙️ 설정</button>
+    <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
   </nav>
@@ -220,8 +220,22 @@
     발주자동화 프로그램 접근 권한이 없습니다. 관리자에게 문의해주세요.
   </div>
 
+  <!-- ═════════════ 발주취합 프로그램 (그룹) ═════════════ -->
+  <div id="panel-order-group" class="main-tab-panel active">
+
+  <h1 style="margin-bottom:4px;">다름달음 발주취합 프로그램</h1>
+  <div class="sub" style="margin-bottom:12px;">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div>
+
+  <!-- 발주취합 서브 네비게이션 -->
+  <nav class="order-sub-nav">
+    <button class="order-sub-nav-btn active" data-order-panel="panel-order">📋 발주 입력</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-agg">📊 집계 / 출고</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-sales">📈 실적 / 매출</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-settings">⚙️ 설정</button>
+  </nav>
+
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
-  <div id="panel-order" class="main-tab-panel active">
+  <div id="panel-order" class="order-sub-panel active">
 
   <div class="card" style="padding:14px 20px;">
     <div class="row" style="margin-top:0; align-items:center;">
@@ -357,7 +371,7 @@
   </div><!-- /panel-order -->
 
   <!-- ───────────── 패널 2: 집계 / 출고 ───────────── -->
-  <div id="panel-agg" class="main-tab-panel">
+  <div id="panel-agg" class="order-sub-panel">
 
   <div class="card">
     <h2>4. 업체별 발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
@@ -546,7 +560,7 @@
   </div><!-- /panel-agg -->
 
   <!-- ───────────── 패널 3: 실적 / 매출 ───────────── -->
-  <div id="panel-sales" class="main-tab-panel">
+  <div id="panel-sales" class="order-sub-panel">
 
   <div class="card">
     <h2>월간 누적 / 실적 집계</h2>
@@ -626,7 +640,7 @@
   </div>
 
   <!-- ───────────── 패널 4: 설정 ───────────── -->
-  <div id="panel-settings" class="main-tab-panel">
+  <div id="panel-settings" class="order-sub-panel">
 
   <div class="card">
     <details>
@@ -655,6 +669,8 @@
   </div>
 
   </div><!-- /panel-settings -->
+
+  </div><!-- /panel-order-group -->
 
   <!-- ───────────── 패널 5: 원물선별 ───────────── -->
   <div id="panel-sorting" class="main-tab-panel">
@@ -5300,13 +5316,35 @@ function applyUserUI() {
     toast('✓ 데이터 복원이 완료되었습니다');
   });
 
-  // ── 메인 네비게이션 탭 ──
+  // ── 메인 네비게이션 탭 (발주취합 / 원물선별 / 관리자) ──
   document.querySelectorAll('.main-nav-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.main-nav-btn').forEach(b=>b.classList.remove('active'));
       document.querySelectorAll('.main-tab-panel').forEach(p=>p.classList.remove('active'));
       btn.classList.add('active');
       const panelId = btn.dataset.panel;
+      document.getElementById(panelId).classList.add('active');
+      // 원물선별 탭 진입 시 초기화 (최초 1회)
+      if(panelId === 'panel-sorting'){
+        initSortingPanel();
+      }
+      // 관리자 탭 진입 시 초기화 (최초 1회 — 기본 서브탭인 활동 로그 로드)
+      if(panelId === 'panel-admin' && !adminPanelInited){
+        adminPanelInited = true;
+        loadAdminLog();
+        loadAdminUsers();
+      }
+    });
+  });
+  let adminPanelInited = false;
+
+  // ── 발주취합 그룹 내부 서브 네비게이션 (발주 입력 / 집계·출고 / 실적·매출 / 설정) ──
+  document.querySelectorAll('.order-sub-nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.order-sub-nav-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.order-sub-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      const panelId = btn.dataset.orderPanel;
       document.getElementById(panelId).classList.add('active');
       // 실적/매출 탭 진입 시 날짜 기본값 세팅
       if(panelId === 'panel-sales'){
@@ -5323,19 +5361,8 @@ function applyUserUI() {
         renderDeliveryFeeEditor();
         renderEcountStaffDeptEditor();
       }
-      // 원물선별 탭 진입 시 초기화 (최초 1회)
-      if(panelId === 'panel-sorting'){
-        initSortingPanel();
-      }
-      // 관리자 탭 진입 시 초기화 (최초 1회 — 기본 서브탭인 활동 로그 로드)
-      if(panelId === 'panel-admin' && !adminPanelInited){
-        adminPanelInited = true;
-        loadAdminLog();
-        loadAdminUsers();
-      }
     });
   });
-  let adminPanelInited = false;
 
   // ── 원물선별: 서브탭 전환 ──
   const SORTING_SECTIONS = ['inbound','purchase','output','shipment','equipment','master'];
