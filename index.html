@@ -720,18 +720,22 @@
           <option value="farm">농가</option>
           <option value="vendor">사입처</option>
         </select>
-        <select id="output-origin-select" style="min-width:120px;"></select>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="output-date">
         <label style="font-size:13px;">담당자 :</label>
         <select id="output-staff-select" style="min-width:100px;"></select>
       </div>
-      <div id="output-pre-stock-display" class="sub" style="margin-top:8px;"></div>
-      <h3 style="margin-top:16px;">등급별 산출량 입력 (kg)</h3>
-      <div id="output-grade-inputs" class="row" style="flex-wrap:wrap;"></div>
+      <div class="row">
+        <label style="font-size:13px;">오늘 총 처리량(kg) :</label>
+        <input type="number" id="output-total-qty" style="width:110px;">
+        <button class="btn-ghost small-btn" id="output-calc-btn">자동 배분 계산 (선입선출)</button>
+      </div>
+      <div id="output-alloc-summary" class="sub" style="margin-top:8px;"></div>
+      <div id="output-alloc-wrap" style="overflow-x:auto; margin-top:8px;"></div>
+      <div id="output-grade-forms-wrap"></div>
       <div class="row">
         <input type="text" id="output-note" placeholder="메모" style="flex:1; min-width:150px;">
-        <button class="btn-primary small-btn form-submit-btn" id="output-add-btn">+ 선별산출 등록</button>
+        <button class="btn-primary small-btn form-submit-btn" id="output-add-btn">+ 선별산출 전체 등록</button>
       </div>
       <h3 style="margin-top:16px;">선별후재고 (등급별, 판매가능)</h3>
       <div id="output-post-stock-wrap" style="overflow-x:auto;"></div>
@@ -5654,58 +5658,194 @@ function applyUserUI() {
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
-  // ══════════════════ 원물선별 · 선별산출 (농가/사입 origin → 등급별 분류) ══════════════════
+  // ══════════════════ 원물선별 · 선별산출 (FIFO 기반 농가/사입처 자동 배분) ══════════════════
+  let currentAllocationPlan = null;
+
   async function initSortingOutputUI(){
     const dateInput = document.getElementById('output-date');
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
-
-    const typeSel = document.getElementById('output-origin-type-select');
-    typeSel.addEventListener('change', populateOutputOriginSelect);
-    document.getElementById('output-origin-select').addEventListener('change', loadOutputPreStock);
-    document.getElementById('output-add-btn').addEventListener('click', submitSortingOutput);
 
     try{
       const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
       document.getElementById('output-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
     }catch(e){ /* 담당자 목록 로드 실패는 치명적이지 않으므로 무시 */ }
 
-    await populateOutputOriginSelect();
-    await renderOutputGradeInputs();
+    document.getElementById('output-calc-btn').addEventListener('click', calcOutputAllocation);
+    document.getElementById('output-add-btn').addEventListener('click', submitSortingOutputAll);
+    document.getElementById('output-origin-type-select').addEventListener('change', resetOutputAllocationUI);
+
     await loadOutputPostStock();
     await loadSortingOutputTable();
   }
 
-  async function populateOutputOriginSelect(){
-    const type = document.getElementById('output-origin-type-select').value;
-    const sel = document.getElementById('output-origin-select');
-    const table = type === 'farm' ? 'sorting_farms' : 'sorting_vendors';
-    try{
-      const rows = await sbQuery(table, '?is_active=eq.true&order=name.asc');
-      sel.innerHTML = rows.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
-    }catch(e){ sel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
-    loadOutputPreStock();
+  function resetOutputAllocationUI(){
+    currentAllocationPlan = null;
+    document.getElementById('output-alloc-wrap').innerHTML = '';
+    document.getElementById('output-grade-forms-wrap').innerHTML = '';
+    document.getElementById('output-alloc-summary').textContent = '';
   }
 
-  async function loadOutputPreStock(){
-    const type = document.getElementById('output-origin-type-select').value;
-    const originSel = document.getElementById('output-origin-select');
-    const originId = originSel.value;
-    const display = document.getElementById('output-pre-stock-display');
-    if(!originId){ display.textContent = ''; return; }
-    const originField = type === 'farm' ? 'farm_id' : 'vendor_id';
-    const sourceTable = type === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
-    try{
-      const { totalIn, totalOut, stock } = await computeOriginPreStock(sourceTable, originField, originId);
-      const name = originSel.selectedOptions[0]?.textContent || '';
-      display.innerHTML = `<strong>선별전재고(${escapeHtml(name)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
-    }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
+  // origin(농가 또는 사입처) 1곳의 날짜별 입고 잔량 원장 — 오래된 배치부터 기존 소진량을 차감
+  async function computeOriginFifoLedger(sourceTable, originField, originId){
+    const batchRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=work_date,weight_kg&order=work_date.asc`);
+    const batchesByDate = {};
+    batchRows.forEach(r=>{ batchesByDate[r.work_date] = (batchesByDate[r.work_date]||0) + Number(r.weight_kg||0); });
+    const dates = Object.keys(batchesByDate).sort();
+    const outputs = await sbQuery('sorting_output', `?${originField}=eq.${originId}&select=id`);
+    let consumedTotal = 0;
+    if(outputs.length){
+      const ids = outputs.map(o=>o.id).join(',');
+      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
+      consumedTotal = items.reduce((s,r)=>s+Number(r.weight_kg||0),0);
+    }
+    let remainingToConsume = consumedTotal;
+    return dates.map(d=>{
+      const batchQty = batchesByDate[d];
+      const consumedFromThis = Math.min(batchQty, remainingToConsume);
+      remainingToConsume -= consumedFromThis;
+      return { date: d, batchQty, remaining: batchQty - consumedFromThis };
+    });
   }
 
-  async function renderOutputGradeInputs(){
-    const wrap = document.getElementById('output-grade-inputs');
+  // 여러 농가(또는 사입처)에 걸쳐 오늘 처리할 총량을 선입선출로 자동 배분
+  async function computeFifoAllocationPlan(originType, totalNeeded){
+    const originTable = originType === 'farm' ? 'sorting_farms' : 'sorting_vendors';
+    const sourceTable = originType === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
+    const originField = originType === 'farm' ? 'farm_id' : 'vendor_id';
+    const origins = await sbQuery(originTable, '?is_active=eq.true&order=name.asc');
+
+    const ledgers = {};
+    for(const o of origins){
+      ledgers[o.id] = await computeOriginFifoLedger(sourceTable, originField, o.id);
+    }
+
+    const allDates = new Set();
+    Object.values(ledgers).forEach(l=> l.forEach(b=>{ if(b.remaining>0) allDates.add(b.date); }));
+    const sortedDates = [...allDates].sort();
+
+    let remainingNeeded = totalNeeded;
+    const autoAlloc = {};
+    const boundaryCaps = {};
+    origins.forEach(o=> autoAlloc[o.id]=0);
+    let boundaryDate = null;
+
+    for(const d of sortedDates){
+      if(remainingNeeded <= 0) break;
+      let dateTotal = 0;
+      origins.forEach(o=>{
+        const b = ledgers[o.id].find(x=>x.date===d);
+        if(b) dateTotal += b.remaining;
+      });
+      if(dateTotal <= 0) continue;
+      if(dateTotal <= remainingNeeded){
+        origins.forEach(o=>{
+          const b = ledgers[o.id].find(x=>x.date===d);
+          if(b && b.remaining>0) autoAlloc[o.id] += b.remaining;
+        });
+        remainingNeeded -= dateTotal;
+      } else {
+        boundaryDate = d;
+        origins.forEach(o=>{
+          const b = ledgers[o.id].find(x=>x.date===d);
+          boundaryCaps[o.id] = b ? b.remaining : 0;
+        });
+        break;
+      }
+    }
+
+    return { originType, originField, origins, autoAlloc, boundaryDate, boundaryCaps, remainingAfterAuto: remainingNeeded };
+  }
+
+  async function calcOutputAllocation(){
+    const originType = document.getElementById('output-origin-type-select').value;
+    const total = Number(document.getElementById('output-total-qty').value || 0);
+    const summary = document.getElementById('output-alloc-summary');
+    if(!total){ toast('오늘 총 처리량을 입력해주세요'); return; }
+    summary.textContent = '계산 중...';
     try{
-      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
-      wrap.innerHTML = '';
+      const plan = await computeFifoAllocationPlan(originType, total);
+      currentAllocationPlan = plan;
+      await renderAllocationTable(plan);
+      if(plan.remainingAfterAuto > 0){
+        summary.innerHTML = `<span style="color:var(--warn);">⚠ 등록된 재고 합계가 부족합니다 (부족분 ${plan.remainingAfterAuto.toLocaleString()}kg)</span>`;
+      } else if(plan.boundaryDate){
+        summary.textContent = `${plan.boundaryDate}분은 전량이 필요하지 않아 직접 배분이 필요합니다 — 아래 표에서 배분량을 확인·조정하세요.`;
+      } else {
+        summary.textContent = '전량 자동 배분되었습니다 — 아래 표에서 배분량을 확인하세요.';
+      }
+    }catch(e){ summary.textContent = '계산 실패: '+e.message; }
+  }
+
+  function updateAllocSummaryTotal(){
+    const inputs = document.querySelectorAll('.output-alloc-input');
+    let sum = 0;
+    inputs.forEach(i=> sum += Number(i.value||0));
+    const totalRow = document.getElementById('output-alloc-total-row');
+    const target = Number(document.getElementById('output-total-qty').value || 0);
+    if(totalRow) totalRow.textContent = `배분 합계: ${sum.toLocaleString()} / 목표: ${target.toLocaleString()} kg`;
+  }
+
+  async function renderAllocationTable(plan){
+    const allocWrap = document.getElementById('output-alloc-wrap');
+    allocWrap.innerHTML = '';
+
+    const table = document.createElement('table');
+    table.innerHTML = `<thead><tr><th>${plan.originType==='farm'?'농가':'사입처'}</th><th>배분량(kg)</th><th>안내</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    plan.origins.forEach(o=>{
+      const auto = plan.autoAlloc[o.id] || 0;
+      const cap = plan.boundaryCaps[o.id] || 0;
+      if(auto <= 0 && cap <= 0) return;
+      const hint = cap > 0 ? `${plan.boundaryDate}분 최대 ${cap.toLocaleString()}kg 추가 가능 (직접 입력)` : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(o.name)}</td><td></td><td class="sub" style="margin:0;">${escapeHtml(hint)}</td>`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = auto > 0 ? auto : '';
+      input.className = 'output-alloc-input';
+      input.dataset.originId = o.id;
+      input.style.width = '100px';
+      input.addEventListener('input', updateAllocSummaryTotal);
+      tr.children[1].appendChild(input);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    allocWrap.appendChild(table);
+
+    const totalRow = document.createElement('div');
+    totalRow.id = 'output-alloc-total-row';
+    totalRow.className = 'sub';
+    totalRow.style.marginTop = '6px';
+    allocWrap.appendChild(totalRow);
+    updateAllocSummaryTotal();
+
+    await renderGradeFormsForActiveOrigins(plan);
+  }
+
+  async function renderGradeFormsForActiveOrigins(plan){
+    const wrap = document.getElementById('output-grade-forms-wrap');
+    wrap.innerHTML = '';
+    let grades;
+    try{
+      grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
+    }catch(e){ wrap.innerHTML = `<div class="empty">등급 로드 실패: ${e.message}</div>`; return; }
+
+    plan.origins.forEach(o=>{
+      const auto = plan.autoAlloc[o.id] || 0;
+      const cap = plan.boundaryCaps[o.id] || 0;
+      if(auto <= 0 && cap <= 0) return;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.marginTop = '10px';
+      card.dataset.originId = o.id;
+      const heading = document.createElement('h3');
+      heading.style.marginTop = '0';
+      heading.textContent = `${o.name} — 등급별 산출량 입력 (kg)`;
+      card.appendChild(heading);
+      const gradeRow = document.createElement('div');
+      gradeRow.className = 'row';
+      gradeRow.style.flexWrap = 'wrap';
       grades.forEach(g=>{
         const pair = document.createElement('div');
         pair.style.cssText = 'display:flex;flex-direction:column;min-width:100px;';
@@ -5717,40 +5857,49 @@ function applyUserUI() {
         input.className = 'output-grade-input';
         input.dataset.gradeId = g.id;
         pair.appendChild(label); pair.appendChild(input);
-        wrap.appendChild(pair);
+        gradeRow.appendChild(pair);
       });
-    }catch(e){ wrap.innerHTML = `<div class="empty">등급 로드 실패: ${e.message}</div>`; }
+      card.appendChild(gradeRow);
+      wrap.appendChild(card);
+    });
   }
 
-  async function submitSortingOutput(){
-    const type = document.getElementById('output-origin-type-select').value;
-    const originId = document.getElementById('output-origin-select').value;
+  async function submitSortingOutputAll(){
+    if(!currentAllocationPlan){ toast('먼저 자동 배분 계산을 실행해주세요'); return; }
+    const plan = currentAllocationPlan;
     const date = document.getElementById('output-date').value;
     const staffId = document.getElementById('output-staff-select').value;
     const note = document.getElementById('output-note').value.trim();
-    if(!originId){ toast('원본(농가/사입처)을 선택해주세요'); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
-    const items = [];
-    document.querySelectorAll('.output-grade-input').forEach(inp=>{
-      const w = Number(inp.value || 0);
-      if(w > 0) items.push({ grade_id: Number(inp.dataset.gradeId), weight_kg: w });
+
+    const jobs = [];
+    document.querySelectorAll('#output-grade-forms-wrap [data-origin-id]').forEach(card=>{
+      const items = [];
+      card.querySelectorAll('.output-grade-input').forEach(inp=>{
+        const w = Number(inp.value||0);
+        if(w>0) items.push({ grade_id: Number(inp.dataset.gradeId), weight_kg: w });
+      });
+      if(items.length) jobs.push({ originId: Number(card.dataset.originId), items });
     });
-    if(!items.length){ toast('등급별 산출량을 1개 이상 입력해주세요'); return; }
-    const originField = type === 'farm' ? 'farm_id' : 'vendor_id';
-    const headerData = { work_date: date, note };
-    headerData[originField] = Number(originId);
-    if(staffId) headerData.staff_id = Number(staffId);
+
+    if(!jobs.length){ toast('등급별 산출량을 1개 이상 입력해주세요'); return; }
+
     try{
-      const inserted = await sbInsert('sorting_output', headerData);
-      const outputId = Array.isArray(inserted) ? inserted[0]?.id : inserted?.id;
-      if(!outputId) throw new Error('선별산출 헤더 생성에 실패했습니다');
-      for(const item of items){
-        await sbInsert('sorting_output_items', { output_id: outputId, grade_id: item.grade_id, weight_kg: item.weight_kg });
+      for(const job of jobs){
+        const headerData = { work_date: date, note };
+        headerData[plan.originField] = job.originId;
+        if(staffId) headerData.staff_id = Number(staffId);
+        const inserted = await sbInsert('sorting_output', headerData);
+        const outputId = Array.isArray(inserted) ? inserted[0]?.id : inserted?.id;
+        if(!outputId) throw new Error('선별산출 헤더 생성에 실패했습니다');
+        for(const item of job.items){
+          await sbInsert('sorting_output_items', { output_id: outputId, grade_id: item.grade_id, weight_kg: item.weight_kg });
+        }
       }
-      await writeLog('sorting_output_add', `선별산출 등록 (${items.length}개 등급)`);
-      document.querySelectorAll('.output-grade-input').forEach(inp=> inp.value = '0');
+      await writeLog('sorting_output_add', `선별산출 등록 (${jobs.length}개 농가/사입처)`);
+      document.getElementById('output-total-qty').value = '';
       document.getElementById('output-note').value = '';
-      loadOutputPreStock();
+      resetOutputAllocationUI();
       loadOutputPostStock();
       loadSortingOutputTable();
       toast('선별산출이 등록되었습니다');
@@ -5819,7 +5968,6 @@ function applyUserUI() {
           try{
             await sbDelete2('sorting_output', `id=eq.${r.id}`);
             await writeLog('sorting_output_delete', `선별산출 삭제: ${r.work_date}`);
-            loadOutputPreStock();
             loadOutputPostStock();
             loadSortingOutputTable();
           }catch(e){ toast('삭제 실패: '+e.message); }
