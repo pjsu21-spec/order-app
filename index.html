@@ -279,7 +279,7 @@
   </div>
 
   <div class="card">
-    <details>
+    <details id="sku-manage-details">
       <summary>SKU 관리 (별칭 등록 · 항목 추가/삭제)</summary>
       <div id="dict-editor" style="margin-top:12px;"></div>
       <div class="row">
@@ -289,7 +289,7 @@
   </div>
 
   <div class="card">
-    <details>
+    <details id="company-manage-details">
       <summary>거래처 관리 (업체 목록 추가/삭제)</summary>
       <div id="company-editor" style="margin-top:12px;"></div>
       <div class="row">
@@ -669,24 +669,23 @@
     </div>
 
     <div id="sorting-section-overview">
-      <h3 style="margin-top:0;">📦 금일 재고 현황</h3>
+      <div class="row" style="margin-top:0; align-items:center;">
+        <label style="font-size:13px;">작업·출고 현황 조회 날짜 :</label>
+        <input type="date" id="overview-date">
+        <button class="btn-ghost small-btn" id="overview-refresh-btn">🔄 새로고침</button>
+      </div>
+
+      <h3 style="margin-top:20px;">📦 재고 현황 (실시간 누계)</h3>
       <div class="sub" style="margin-top:0;">선별전재고 (농가/사입처별)</div>
       <div id="overview-prestock-wrap" style="overflow-x:auto;"></div>
       <div class="sub" style="margin-top:14px;">선별후재고 (등급별, 판매가능)</div>
       <div id="overview-poststock-wrap" style="overflow-x:auto;"></div>
 
-      <h3 style="margin-top:20px;">🛠 금일 작업 현황</h3>
+      <h3 style="margin-top:20px;">🛠 작업 현황</h3>
       <div id="overview-work-wrap" style="overflow-x:auto;"></div>
 
-      <h3 style="margin-top:20px;">✅ 완료 현황 (금일 목표 대비)</h3>
-      <div id="overview-completion-wrap" class="sub"></div>
-
-      <h3 style="margin-top:20px;">🚚 금일 출고 현황</h3>
+      <h3 style="margin-top:20px;">🚚 출고 현황</h3>
       <div id="overview-shipment-wrap" style="overflow-x:auto;"></div>
-
-      <div class="row" style="margin-top:14px;">
-        <button class="btn-ghost small-btn" id="overview-refresh-btn">🔄 새로고침</button>
-      </div>
     </div>
 
     <div id="sorting-section-inbound" style="display:none;">
@@ -873,6 +872,15 @@
 
   <h1 style="margin-bottom:4px;">이카운트 연동</h1>
   <div class="sub" style="margin-bottom:12px;">발주취합·원물선별에서 발생한 매출/구매 데이터를 이카운트 ERP 양식으로 내려받고, 품목·거래처 코드 및 부가 설정을 관리합니다.</div>
+
+  <div class="card">
+    <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">코드 관리는 각 원본 화면에서 — 바로가기</div>
+    <div class="row" style="margin-top:0;">
+      <button class="btn-ghost small-btn" id="ecount-goto-sku-btn">→ SKU 관리로 이동</button>
+      <button class="btn-ghost small-btn" id="ecount-goto-company-btn">→ 거래처 관리로 이동</button>
+      <button class="btn-ghost small-btn" id="ecount-goto-sorting-master-btn">→ 원물선별 마스터관리로 이동</button>
+    </div>
+  </div>
 
   <div class="card">
     <details open>
@@ -5507,6 +5515,24 @@ function applyUserUI() {
   });
   let adminPanelInited = false;
 
+  // ── 이카운트 탭: 코드 원본 화면으로 바로가기 ──
+  function goToOrderDetails(detailsId){
+    document.querySelector('.main-nav-btn[data-panel="panel-order-group"]').click();
+    document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]').click();
+    const details = document.getElementById(detailsId);
+    if(details){
+      details.open = true;
+      details.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  }
+  document.getElementById('ecount-goto-sku-btn').addEventListener('click', ()=> goToOrderDetails('sku-manage-details'));
+  document.getElementById('ecount-goto-company-btn').addEventListener('click', ()=> goToOrderDetails('company-manage-details'));
+  document.getElementById('ecount-goto-sorting-master-btn').addEventListener('click', ()=>{
+    document.getElementById('main-nav-btn-sorting').click();
+    const masterBtn = document.getElementById('sorting-tab-master-btn');
+    if(masterBtn) masterBtn.click();
+  });
+
   // ── 발주취합 그룹 내부 서브 네비게이션 (발주 입력 / 집계·출고 / 실적·매출 / 설정) ──
   document.querySelectorAll('.order-sub-nav-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -5575,9 +5601,12 @@ function applyUserUI() {
     // 마스터관리는 sortingMasterUIInited 플래그로 해당 탭 최초 클릭 시에만 로드됩니다.
   }
 
-  // ══════════════════ 원물선별 · 현황 (금일 재고/작업/완료/출고 현황판) ══════════════════
+  // ══════════════════ 원물선별 · 현황 (재고/작업/출고 현황판, 작업·출고는 날짜 선택 가능) ══════════════════
   function initSortingOverviewUI(){
+    const dateInput = document.getElementById('overview-date');
+    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
     document.getElementById('overview-refresh-btn').addEventListener('click', loadSortingOverview);
+    dateInput.addEventListener('change', loadSortingOverview);
     loadSortingOverview();
   }
 
@@ -5614,13 +5643,13 @@ function applyUserUI() {
   async function loadOverviewWork(){
     const wrap = document.getElementById('overview-work-wrap');
     wrap.innerHTML = '';
-    const today = new Date().toISOString().slice(0,10);
+    const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
     try{
-      const inboundRows = await sbQuery('sorting_inbound', `?work_date=eq.${today}&select=weight_kg`);
+      const inboundRows = await sbQuery('sorting_inbound', `?work_date=eq.${date}&select=weight_kg`);
       const inboundTotal = inboundRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
-      const purchaseRows = await sbQuery('sorting_purchases', `?work_date=eq.${today}&select=weight_kg`);
+      const purchaseRows = await sbQuery('sorting_purchases', `?work_date=eq.${date}&select=weight_kg`);
       const purchaseTotal = purchaseRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
-      const outputs = await sbQuery('sorting_output', `?work_date=eq.${today}&select=id`);
+      const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}&select=id`);
       let outputTotal = 0;
       if(outputs.length){
         const ids = outputs.map(o=>o.id).join(',');
@@ -5628,7 +5657,7 @@ function applyUserUI() {
         outputTotal = items.reduce((s,r)=>s+Number(r.weight_kg||0),0);
       }
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>구분</th><th>금일 수량(kg)</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>구분</th><th>수량(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       [['원물입고', inboundTotal], ['사입', purchaseTotal], ['선별산출(처리량)', outputTotal]].forEach(([label, val])=>{
         const tr = document.createElement('tr');
@@ -5637,37 +5666,21 @@ function applyUserUI() {
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
-
-      await renderOverviewCompletion(today, outputTotal);
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
-  }
-
-  async function renderOverviewCompletion(today, actualOutputTotal){
-    const wrap = document.getElementById('overview-completion-wrap');
-    try{
-      const targetRes = await window.storage.get(`sorting-output-target-${today}`, true);
-      const target = targetRes ? Number(targetRes.value) : null;
-      if(!target){
-        wrap.textContent = '오늘 목표 처리량이 아직 설정되지 않았습니다 (선별산출 탭에서 "자동 배분 계산"을 실행하면 설정됩니다).';
-        return;
-      }
-      const pct = target > 0 ? Math.round((actualOutputTotal/target)*1000)/10 : 0;
-      wrap.innerHTML = `오늘 목표 <strong>${target.toLocaleString()}kg</strong> 중 <strong>${actualOutputTotal.toLocaleString()}kg</strong> 처리 완료 (<strong>${pct}%</strong>)`;
-    }catch(e){ wrap.textContent = '완료 현황 로드 실패: '+e.message; }
   }
 
   async function loadOverviewShipment(){
     const wrap = document.getElementById('overview-shipment-wrap');
     wrap.innerHTML = '';
-    const today = new Date().toISOString().slice(0,10);
+    const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
     try{
-      const rows = await sbQuery('sorting_shipment', `?ship_date=eq.${today}`);
+      const rows = await sbQuery('sorting_shipment', `?ship_date=eq.${date}`);
       const totalQty = rows.reduce((s,r)=>s+Number(r.qty_kg||0),0);
       const unpriced = rows.filter(r=> r.unit_price===null || r.unit_price===undefined).length;
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>구분</th><th>값</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      [['금일 출고 건수', rows.length+'건'], ['금일 출고 총량(kg)', totalQty.toLocaleString()], ['단가 미확정 건수', unpriced+'건']].forEach(([label,val])=>{
+      [['출고 건수', rows.length+'건'], ['출고 총량(kg)', totalQty.toLocaleString()], ['단가 미확정 건수', unpriced+'건']].forEach(([label,val])=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${escapeHtml(String(val))}</td>`;
         tbody.appendChild(tr);
@@ -5901,10 +5914,6 @@ function applyUserUI() {
       const plan = await computeFifoAllocationPlan(originType, total);
       currentAllocationPlan = plan;
       await renderAllocationTable(plan);
-      const workDate = document.getElementById('output-date').value;
-      if(workDate){
-        try{ await window.storage.set(`sorting-output-target-${workDate}`, String(total), true); }catch(e){ /* 목표량 저장 실패는 무시 */ }
-      }
       if(plan.remainingAfterAuto > 0){
         summary.innerHTML = `<span style="color:var(--warn);">⚠ 등록된 재고 합계가 부족합니다 (부족분 ${plan.remainingAfterAuto.toLocaleString()}kg)</span>`;
       } else if(plan.boundaryDate){
