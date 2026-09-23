@@ -701,8 +701,6 @@
         <input type="number" id="inbound-a1" style="width:70px;" value="0">
         <label style="font-size:13px;">KPP팔레트 :</label>
         <input type="number" id="inbound-kpp" style="width:70px;" value="0">
-        <label style="font-size:13px;">담당자 :</label>
-        <select id="inbound-staff-select" style="min-width:100px;"></select>
       </div>
       <div class="row">
         <input type="text" id="inbound-note" placeholder="메모" style="flex:1; min-width:150px;">
@@ -724,8 +722,6 @@
         <input type="number" id="purchase-a1" style="width:70px;" value="0">
         <label style="font-size:13px;">KPP팔레트 :</label>
         <input type="number" id="purchase-kpp" style="width:70px;" value="0">
-        <label style="font-size:13px;">담당자 :</label>
-        <select id="purchase-staff-select" style="min-width:100px;"></select>
       </div>
       <div class="row">
         <input type="text" id="purchase-note" placeholder="메모" style="flex:1; min-width:150px;">
@@ -744,8 +740,6 @@
         </select>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="output-date">
-        <label style="font-size:13px;">담당자 :</label>
-        <select id="output-staff-select" style="min-width:100px;"></select>
       </div>
       <div class="row">
         <label style="font-size:13px;">오늘 총 처리량(kg) :</label>
@@ -776,8 +770,6 @@
         <input type="number" id="shipment-box" style="width:80px;">
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
-        <label style="font-size:13px;">담당자 :</label>
-        <select id="shipment-staff-select" style="min-width:100px;"></select>
       </div>
       <div class="row">
         <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
@@ -828,10 +820,6 @@
         <div id="equipment-farm-wrap" style="display:none;">
           <label style="font-size:13px;display:block;">농가 :</label>
           <select id="equipment-farm-select" style="min-width:100px;"></select>
-        </div>
-        <div>
-          <label style="font-size:13px;display:block;">담당자 :</label>
-          <select id="equipment-staff-select" style="min-width:100px;"></select>
         </div>
       </div>
       <div class="row">
@@ -5674,7 +5662,6 @@ function applyUserUI() {
   async function initSortingInboundUI(kind){
     const cfg = SORTING_INBOUND_CONFIGS[kind];
     const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
-    const staffSel = document.getElementById(`${cfg.prefix}-staff-select`);
     const dateInput = document.getElementById(`${cfg.prefix}-date`);
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
 
@@ -5682,11 +5669,6 @@ function applyUserUI() {
       const origins = await sbQuery(cfg.originTable, '?is_active=eq.true&order=name.asc');
       originSel.innerHTML = origins.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
     }catch(e){ originSel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
-
-    try{
-      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
-      staffSel.innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-    }catch(e){ staffSel.innerHTML = ''; }
 
     originSel.addEventListener('change', ()=> loadSortingStock(kind));
     document.getElementById(`${cfg.prefix}-add-btn`).addEventListener('click', ()=> submitSortingInbound(kind));
@@ -5709,6 +5691,14 @@ function applyUserUI() {
     return { totalIn, totalOut, stock: totalIn - totalOut };
   }
 
+  // 원물선별 각 화면의 "담당자"는 별도 마스터 없이 로그인 계정(users)을 그대로 사용 — 목록 표시용 id→이름 맵
+  async function getSortingUserDisplayNameMap(){
+    try{
+      const rows = await sbQuery('users', '?select=id,display_name');
+      return Object.fromEntries(rows.map(u=>[u.id, u.display_name]));
+    }catch(e){ return {}; }
+  }
+
   async function loadSortingStock(kind){
     const cfg = SORTING_INBOUND_CONFIGS[kind];
     const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
@@ -5729,14 +5719,12 @@ function applyUserUI() {
     const weight = Number(document.getElementById(`${cfg.prefix}-weight`).value || 0);
     const a1 = Number(document.getElementById(`${cfg.prefix}-a1`).value || 0);
     const kpp = Number(document.getElementById(`${cfg.prefix}-kpp`).value || 0);
-    const staffId = document.getElementById(`${cfg.prefix}-staff-select`).value;
     const note = document.getElementById(`${cfg.prefix}-note`).value.trim();
     if(!originId){ toast(`${cfg.originLabel}을(를) 선택해주세요`); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
     if(!weight){ toast('무게를 입력해주세요'); return; }
-    const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note };
+    const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note, created_by: window.currentUser?.id };
     data[cfg.originField] = Number(originId);
-    if(staffId) data.staff_id = Number(staffId);
     try{
       await sbInsert(cfg.table, data);
       await writeLog(`sorting_${kind}_add`, `${cfg.originLabel} ${weight}kg 입고 등록`);
@@ -5757,15 +5745,14 @@ function applyUserUI() {
     try{
       const rows = await sbQuery(cfg.table, `?order=work_date.desc,id.desc&limit=50`);
       const originRows = await sbQuery(cfg.originTable, '');
-      const staffRows = await sbQuery('sorting_staff', '');
+      const userMap = await getSortingUserDisplayNameMap();
       const originMap = Object.fromEntries(originRows.map(o=>[o.id, o.name]));
-      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>날짜</th><th>${cfg.originLabel}</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(r=>{
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
@@ -5792,11 +5779,6 @@ function applyUserUI() {
   async function initSortingOutputUI(){
     const dateInput = document.getElementById('output-date');
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
-
-    try{
-      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
-      document.getElementById('output-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-    }catch(e){ /* 담당자 목록 로드 실패는 치명적이지 않으므로 무시 */ }
 
     document.getElementById('output-calc-btn').addEventListener('click', calcOutputAllocation);
     document.getElementById('output-add-btn').addEventListener('click', submitSortingOutputAll);
@@ -6000,7 +5982,6 @@ function applyUserUI() {
     if(!currentAllocationPlan){ toast('먼저 자동 배분 계산을 실행해주세요'); return; }
     const plan = currentAllocationPlan;
     const date = document.getElementById('output-date').value;
-    const staffId = document.getElementById('output-staff-select').value;
     const note = document.getElementById('output-note').value.trim();
     if(!date){ toast('날짜를 입력해주세요'); return; }
 
@@ -6018,9 +5999,8 @@ function applyUserUI() {
 
     try{
       for(const job of jobs){
-        const headerData = { work_date: date, note };
+        const headerData = { work_date: date, note, created_by: window.currentUser?.id };
         headerData[plan.originField] = job.originId;
-        if(staffId) headerData.staff_id = Number(staffId);
         const inserted = await sbInsert('sorting_output', headerData);
         const outputId = Array.isArray(inserted) ? inserted[0]?.id : inserted?.id;
         if(!outputId) throw new Error('선별산출 헤더 생성에 실패했습니다');
@@ -6069,11 +6049,10 @@ function applyUserUI() {
       const rows = await sbQuery('sorting_output', '?order=work_date.desc,id.desc&limit=30');
       const farms = await sbQuery('sorting_farms', '');
       const vendors = await sbQuery('sorting_vendors', '');
-      const staffRows = await sbQuery('sorting_staff', '');
+      const userMap = await getSortingUserDisplayNameMap();
       const grades = await sbQuery('sorting_grades', '');
       const farmMap = Object.fromEntries(farms.map(f=>[f.id, f.name]));
       const vendorMap = Object.fromEntries(vendors.map(v=>[v.id, v.name]));
-      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
       const gradeMap = Object.fromEntries(grades.map(g=>[g.id, g.name]));
       const itemsByOutput = {};
       if(rows.length){
@@ -6091,7 +6070,7 @@ function applyUserUI() {
         const originName = r.farm_id ? (farmMap[r.farm_id]||'') : (vendorMap[r.vendor_id]||'');
         const itemsText = (itemsByOutput[r.id]||[]).map(it=> `${gradeMap[it.grade_id]||'?'} ${it.weight_kg}kg`).join(', ');
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originName)}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(itemsText)}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originName)}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(itemsText)}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
@@ -6129,11 +6108,6 @@ function applyUserUI() {
       document.getElementById('shipment-grade-select').innerHTML = grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
     }catch(e){ document.getElementById('shipment-grade-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
 
-    try{
-      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
-      document.getElementById('shipment-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-    }catch(e){ /* 담당자 목록 로드 실패는 치명적이지 않으므로 무시 */ }
-
     document.getElementById('shipment-add-btn').addEventListener('click', submitSortingShipment);
     document.getElementById('shipment-filter-unpriced').addEventListener('change', (e)=>{
       shipmentFilterUnpriced = e.target.checked;
@@ -6150,15 +6124,13 @@ function applyUserUI() {
     const qty = Number(document.getElementById('shipment-qty').value || 0);
     const box = document.getElementById('shipment-box').value;
     const date = document.getElementById('shipment-date').value;
-    const staffId = document.getElementById('shipment-staff-select').value;
     const note = document.getElementById('shipment-note').value.trim();
     if(!destId){ toast('거래처를 선택해주세요'); return; }
     if(!gradeId){ toast('등급을 선택해주세요'); return; }
     if(!qty){ toast('수량을 입력해주세요'); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
-    const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note };
+    const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note, created_by: window.currentUser?.id };
     if(box) data.box_count = Number(box);
-    if(staffId) data.staff_id = Number(staffId);
     try{
       await sbInsert('sorting_shipment', data);
       await writeLog('sorting_shipment_add', `출고 등록 (${qty}kg)`);
@@ -6180,10 +6152,9 @@ function applyUserUI() {
       const rows = await sbQuery('sorting_shipment', params);
       const dests = await sbQuery('sorting_destinations', '');
       const grades = await sbQuery('sorting_grades', '');
-      const staffRows = await sbQuery('sorting_staff', '');
+      const userMap = await getSortingUserDisplayNameMap();
       const destMap = Object.fromEntries(dests.map(d=>[d.id, d]));
       const gradeMap = Object.fromEntries(grades.map(g=>[g.id, g.name]));
-      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>날짜</th><th>거래처</th><th>등급</th><th>수량(kg)</th><th>박스</th><th>단가</th><th>매출액</th><th>수수료</th><th>실수령액</th><th>담당자</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -6195,7 +6166,7 @@ function applyUserUI() {
         const fee = hasPrice ? revenue * feePct / 100 : null;
         const net = hasPrice ? revenue - fee : null;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${r.box_count||''}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${r.box_count||''}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
         const priceBtn = document.createElement('button');
@@ -6279,11 +6250,6 @@ function applyUserUI() {
       document.getElementById('equipment-farm-select').innerHTML = farms.map(f=>`<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
     }catch(e){ /* 농가 목록 로드 실패는 무시 */ }
 
-    try{
-      const staffRows = await sbQuery('sorting_staff', '?is_active=eq.true&order=name.asc');
-      document.getElementById('equipment-staff-select').innerHTML = `<option value="">(선택 안 함)</option>` + staffRows.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-    }catch(e){ /* 담당자 목록 로드 실패는 무시 */ }
-
     document.getElementById('equipment-movement-select').addEventListener('change', updateEquipmentContextFields);
     updateEquipmentContextFields();
     document.getElementById('equipment-add-btn').addEventListener('click', submitSortingEquipmentLog);
@@ -6301,7 +6267,6 @@ function applyUserUI() {
     const toBusinessId = document.getElementById('equipment-to-business-select').value;
     const destId = document.getElementById('equipment-destination-select').value;
     const farmId = document.getElementById('equipment-farm-select').value;
-    const staffId = document.getElementById('equipment-staff-select').value;
     const note = document.getElementById('equipment-note').value.trim();
     if(!date){ toast('날짜를 입력해주세요'); return; }
     if(!typeId){ toast('기기유형을 선택해주세요'); return; }
@@ -6313,12 +6278,11 @@ function applyUserUI() {
 
     const data = {
       work_date: date, equipment_type_id: Number(typeId), movement_type: mv, qty,
-      business_id: Number(businessId), note
+      business_id: Number(businessId), note, created_by: window.currentUser?.id
     };
     if(mv === '내부이관') data.to_business_id = Number(toBusinessId);
     if(mv === '출고반출' || mv === '거래처회수') data.destination_id = Number(destId);
     if(mv === '농가발송') data.farm_id = Number(farmId);
-    if(staffId) data.staff_id = Number(staffId);
 
     try{
       await sbInsert('sorting_equipment_log', data);
@@ -6429,12 +6393,11 @@ function applyUserUI() {
       const businesses = await sbQuery('sorting_businesses', '');
       const dests = await sbQuery('sorting_destinations', '');
       const farms = await sbQuery('sorting_farms', '');
-      const staffRows = await sbQuery('sorting_staff', '');
+      const userMap = await getSortingUserDisplayNameMap();
       const typeMap = Object.fromEntries(types.map(t=>[t.id, t.name]));
       const bizMap = Object.fromEntries(businesses.map(b=>[b.id, b.name]));
       const destMap = Object.fromEntries(dests.map(d=>[d.id, d.name]));
       const farmMap = Object.fromEntries(farms.map(f=>[f.id, f.name]));
-      const staffMap = Object.fromEntries(staffRows.map(s=>[s.id, s.name]));
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>날짜</th><th>기기유형</th><th>이동유형</th><th>수량</th><th>사업자</th><th>세부</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -6444,7 +6407,7 @@ function applyUserUI() {
         else if(r.destination_id) detail = destMap[r.destination_id]||'';
         else if(r.farm_id) detail = farmMap[r.farm_id]||'';
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(typeMap[r.equipment_type_id]||'')}</td><td>${escapeHtml(r.movement_type)}</td><td>${r.qty}</td><td>${escapeHtml(bizMap[r.business_id]||'')}</td><td>${escapeHtml(detail)}</td><td>${escapeHtml(staffMap[r.staff_id]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(typeMap[r.equipment_type_id]||'')}</td><td>${escapeHtml(r.movement_type)}</td><td>${r.qty}</td><td>${escapeHtml(bizMap[r.business_id]||'')}</td><td>${escapeHtml(detail)}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
@@ -6484,10 +6447,6 @@ function applyUserUI() {
         { name:'delivery_method', label:'배송방식', type:'text' },
         { name:'category', label:'구분', type:'text' },
         { name:'auction_fee_pct', label:'수수료율(%)', type:'number', default:0 }
-      ]},
-    { key:'sorting_staff', label:'담당자', fields:[
-        { name:'name', label:'이름', type:'text' },
-        { name:'department', label:'부서', type:'text' }
       ]},
     { key:'sorting_equipment_types', label:'기기유형', fields:[
         { name:'name', label:'이름', type:'text' },
