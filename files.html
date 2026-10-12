@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>다름달음 공유폴더</title>
+<meta property="og:title" content="다름달음 공유폴더">
+<meta property="og:description" content="다름달음 사내 공유폴더">
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    --ink:#1e2a24; --paper:#faf8f3; --line:#d8d2c2; --accent:#3a6b52;
+    --accent-soft:#e7efe9; --warn:#b5482e; --warn-soft:#fbeae5; --muted:#8a8578;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; font-size:15px; }
+  button{ font-family:inherit; font-size:14px; cursor:pointer; border-radius:8px; border:1px solid var(--line);
+    background:#fff; color:var(--ink); padding:9px 14px; }
+  button:disabled{ opacity:.5; cursor:default; }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .btn-danger{ color:var(--warn); border-color:var(--warn); }
+  input[type=text],input[type=password],input[type=search]{ font-family:inherit; font-size:16px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:8px; width:100%; background:#fff; color:var(--ink); }
+
+  /* 로그인 */
+  #login-screen{ display:none; min-height:100vh; align-items:center; justify-content:center; padding:16px; }
+  .login-card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:28px 22px; width:100%; max-width:340px; }
+  .login-card h1{ font-size:19px; margin:0 0 4px; }
+  .login-card .sub{ color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .login-card input{ margin-bottom:10px; }
+  .login-card button{ width:100%; padding:12px; }
+  #login-error{ display:none; color:var(--warn); background:var(--warn-soft); border-radius:8px; padding:9px 11px; font-size:13px; margin-bottom:10px; }
+
+  /* 본문 */
+  #app{ display:none; max-width:920px; margin:0 auto; padding:14px 16px 90px; }
+  header{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  header h1{ font-size:18px; margin:0; flex:1; letter-spacing:-0.02em; }
+  #user-badge{ font-size:12px; color:var(--muted); white-space:nowrap; }
+  header button{ padding:6px 10px; font-size:12.5px; }
+
+  .usage{ font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .usage-bar{ height:6px; background:#ece7d9; border-radius:3px; overflow:hidden; margin-top:4px; }
+  .usage-bar > div{ height:100%; background:var(--accent); width:0; }
+  .usage-bar.full > div{ background:var(--warn); }
+
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .toolbar input[type=search]{ flex:1 1 160px; min-width:0; padding:9px 12px; font-size:15px; }
+
+  .crumbs{ display:flex; flex-wrap:wrap; align-items:center; gap:2px; font-size:14px; margin-bottom:8px; }
+  .crumbs button{ border:none; background:none; padding:5px 6px; color:var(--accent); font-weight:600; }
+  .crumbs button.current{ color:var(--ink); cursor:default; }
+  .crumbs span{ color:var(--muted); }
+
+  .list{ background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .item{ display:flex; align-items:center; gap:10px; padding:11px 12px; border-bottom:1px solid #eee9dc; }
+  .item:last-child{ border-bottom:none; }
+  .item .icon{ font-size:22px; width:28px; text-align:center; flex:none; }
+  .item .main{ flex:1; min-width:0; cursor:pointer; }
+  .item .name{ font-weight:600; word-break:break-all; line-height:1.35; }
+  .item .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .item .more{ flex:none; border:none; background:none; font-size:20px; padding:6px 10px; color:var(--muted); }
+  .empty{ padding:38px 16px; text-align:center; color:var(--muted); font-size:14px; }
+  #drop-hint{ display:none; position:fixed; inset:0; background:rgba(58,107,82,.14); border:3px dashed var(--accent);
+    align-items:center; justify-content:center; font-size:20px; font-weight:700; color:var(--accent); z-index:40; pointer-events:none; }
+  body.dragging #drop-hint{ display:flex; }
+
+  /* 업로드 진행 */
+  #uploads{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line);
+    padding:10px 16px; display:none; z-index:30; max-height:40vh; overflow:auto; }
+  .up-row{ font-size:13px; margin-bottom:8px; }
+  .up-row .up-name{ display:flex; justify-content:space-between; gap:8px; }
+  .up-row .up-name span:first-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .up-row .bar{ height:5px; background:#ece7d9; border-radius:3px; overflow:hidden; margin-top:4px; }
+  .up-row .bar > div{ height:100%; background:var(--accent); width:0; transition:width .2s; }
+  .up-row.error .bar > div{ background:var(--warn); }
+  .up-row.error .up-state{ color:var(--warn); }
+
+  /* 메뉴 / 대화상자 */
+  .overlay{ position:fixed; inset:0; background:rgba(30,42,36,.4); display:none; align-items:flex-end; justify-content:center; z-index:50; }
+  .overlay.show{ display:flex; }
+  .sheet{ background:#fff; width:100%; max-width:480px; border-radius:14px 14px 0 0; padding:14px 14px 20px; }
+  .sheet h3{ font-size:15px; margin:4px 4px 10px; word-break:break-all; }
+  .sheet .sheet-btn{ display:block; width:100%; text-align:left; border:none; padding:13px 10px; font-size:15px; border-radius:8px; }
+  .sheet .sheet-btn:hover{ background:var(--accent-soft); }
+  .sheet .sheet-btn.danger{ color:var(--warn); }
+  .sheet .row{ display:flex; gap:8px; margin-top:12px; }
+  .sheet .row button{ flex:1; padding:11px; }
+  .sheet p{ margin:4px 4px 0; font-size:14px; line-height:1.5; }
+  @media (min-width:640px){ .overlay{ align-items:center; } .sheet{ border-radius:14px; } }
+
+  .toast{ position:fixed; left:50%; top:16px; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:10px 16px; border-radius:20px; font-size:13.5px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:60; max-width:90vw; }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>📁 다름달음 공유폴더</h1>
+    <div class="sub">발주 프로그램과 같은 아이디로 로그인합니다</div>
+    <div id="login-error"></div>
+    <input type="text" id="login-username" placeholder="아이디" autocomplete="username" autocapitalize="off">
+    <input type="password" id="login-password" placeholder="비밀번호" autocomplete="current-password">
+    <button class="btn-primary" id="login-btn">로그인</button>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>📁 다름달음 공유폴더</h1>
+    <span id="user-badge"></span>
+    <button id="logout-btn">로그아웃</button>
+  </header>
+
+  <div class="usage">
+    <span id="usage-text">사용량 확인 중…</span>
+    <div class="usage-bar" id="usage-bar"><div></div></div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-primary" id="upload-btn">⬆ 파일 올리기</button>
+    <button id="folder-btn">＋ 새 폴더</button>
+    <input type="search" id="search" placeholder="전체에서 이름 검색">
+    <input type="file" id="file-input" multiple style="display:none;">
+  </div>
+
+  <div class="crumbs" id="crumbs"></div>
+  <div class="list" id="list"><div class="empty">불러오는 중…</div></div>
+</div>
+
+<div id="drop-hint">여기에 놓으면 올라갑니다</div>
+<div id="uploads"></div>
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 설정 — Cloudflare Worker 주소만 본인 것으로 바꿔주세요 (끝에 / 없이)
+// ══════════════════════════════════════════════════════════════════
+const WORKER_URL = 'https://dareum-files.karra1307.workers.dev';
+
+// 발주 프로그램과 같은 Supabase 프로젝트 (로그인용)
+const SB_URL = 'https://rsgbqlrxtexknhsvkroc.supabase.co';
+const SB_KEY = 'sb_publishable_Es6Y1pOe1friYzEnvT0iSw_gqQQvFvJ';
+const sbHeaders = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+
+const SINGLE_MAX = 50 * 1024 * 1024;   // 이보다 크면 분할 업로드
+const PART_SIZE  = 20 * 1024 * 1024;   // 분할 크기
+
+let token = null;
+let me = null;
+let items = [];          // 전체 파일/폴더 목록
+let byId = new Map();
+let currentFolder = null; // null = 최상위
+let searchText = '';
+
+const $ = (id) => document.getElementById(id);
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'), 2800); }
+function fmtSize(n){
+  n = Number(n||0);
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(0) + ' KB';
+  if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+  return (n/1024/1024/1024).toFixed(2) + ' GB';
+}
+function fmtDate(s){ const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('ko-KR', { year:'2-digit', month:'numeric', day:'numeric' }); }
+function iconFor(it){
+  if (it.is_folder) return '📁';
+  const m = (it.mime||'').toLowerCase(), n = it.name.toLowerCase();
+  if (m.startsWith('image/')) return '🖼';
+  if (m.startsWith('video/')) return '🎬';
+  if (m.startsWith('audio/')) return '🎵';
+  if (m === 'application/pdf') return '📕';
+  if (/\.(xlsx?|csv)$/.test(n)) return '📊';
+  if (/\.(docx?|hwpx?|txt)$/.test(n)) return '📝';
+  if (/\.(pptx?)$/.test(n)) return '📙';
+  if (/\.(zip|7z|rar|egg|alz)$/.test(n)) return '🗜';
+  return '📄';
+}
+function canPreview(it){
+  const m = (it.mime||'').toLowerCase();
+  return (m.startsWith('image/') && m !== 'image/svg+xml') || m.startsWith('video/') || m.startsWith('audio/') || m === 'application/pdf';
+}
+
+// ── 서버 호출 ──
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(WORKER_URL + path, {
+      ...options,
+      headers: { 'Authorization': `Bearer ${token}`, ...(options.body && typeof options.body === 'string' ? { 'Content-Type':'application/json' } : {}), ...(options.headers||{}) }
+    });
+  } catch (e) { throw new Error('서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.'); }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { handleLoggedOut(); throw new Error(data.error || '로그인이 필요합니다'); }
+  if (!res.ok) { const err = new Error(data.error || `오류 (${res.status})`); err.status = res.status; throw err; }
+  return data;
+}
+function dlUrl(it, inline){ return `${WORKER_URL}/dl/${it.id}?t=${encodeURIComponent(token)}${inline ? '&inline=1' : ''}`; }
+
+// ── 로그인 (발주 프로그램과 동일한 방식 · 같은 세션 공유) ──
+async function hashPassword(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function login(username, password) {
+  const hash = await hashPassword(password);
+  const res = await fetch(`${SB_URL}/rest/v1/users?username=eq.${encodeURIComponent(username)}&is_active=eq.true&limit=1`, { headers: sbHeaders });
+  if (!res.ok) throw new Error('로그인 서버 오류입니다. 잠시 후 다시 시도해주세요.');
+  const rows = await res.json();
+  if (!rows.length || rows[0].password_hash !== hash) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
+  const ins = await fetch(`${SB_URL}/rest/v1/sessions`, {
+    method:'POST', headers:{ ...sbHeaders, 'Prefer':'return=representation' }, body: JSON.stringify({ user_id: rows[0].id })
+  });
+  if (!ins.ok) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  const inserted = await ins.json();
+  const t = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
+  if (!t) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  localStorage.setItem('auth_token', t);
+  return t;
+}
+function showLogin(msg){
+  $('app').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+  const err = $('login-error');
+  if (msg) { err.textContent = msg; err.style.display = 'block'; } else { err.style.display = 'none'; }
+  const btn = $('login-btn'); btn.disabled = false; btn.textContent = '로그인';
+}
+function handleLoggedOut(){ token = null; try { localStorage.removeItem('auth_token'); } catch(e){} showLogin('로그인이 만료되었습니다. 다시 로그인해주세요.'); }
+
+async function doLogin(){
+  const u = $('login-username').value.trim(), p = $('login-password').value;
+  if (!u || !p) { showLogin('아이디와 비밀번호를 입력해주세요'); return; }
+  const btn = $('login-btn'); btn.disabled = true; btn.textContent = '로그인 중...';
+  try { token = await login(u, p); await start(); }
+  catch (e) { if ($('login-screen').style.display !== 'none') showLogin(e.message); }
+}
+$('login-btn').addEventListener('click', doLogin);
+$('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('logout-btn').addEventListener('click', async () => {
+  try { await fetch(`${SB_URL}/rest/v1/sessions?token=eq.${encodeURIComponent(token)}`, { method:'DELETE', headers: sbHeaders }); } catch(e){}
+  token = null; try { localStorage.removeItem('auth_token'); } catch(e){}
+  showLogin();
+});
+
+// ── 목록 ──
+async function refresh(){
+  const data = await api('/api/list');
+  items = data.items; me = data.me;
+  byId = new Map(items.map(it => [it.id, it]));
+  if (currentFolder && !byId.has(currentFolder)) currentFolder = null;
+  $('user-badge').textContent = `${me.display_name}${me.isAdmin ? ' (관리자)' : ''}`;
+  const pct = Math.min(100, data.used / data.limit * 100);
+  $('usage-text').textContent = `사용량 ${fmtSize(data.used)} / ${fmtSize(data.limit)} (${pct.toFixed(1)}%)`;
+  $('usage-bar').firstElementChild.style.width = pct + '%';
+  $('usage-bar').classList.toggle('full', pct >= 90);
+  render();
+}
+
+function pathOf(id){
+  const out = []; let cur = id ? byId.get(id) : null; let guard = 0;
+  while (cur && guard++ < 100) { out.unshift(cur); cur = cur.parent_id ? byId.get(cur.parent_id) : null; }
+  return out;
+}
+
+function render(){
+  // 경로
+  const crumbs = $('crumbs'); crumbs.innerHTML = '';
+  const addCrumb = (label, id, isCurrent) => {
+    const b = document.createElement('button'); b.textContent = label;
+    if (isCurrent) b.className = 'current'; else b.addEventListener('click', () => { currentFolder = id; clearSearch(); render(); });
+    crumbs.appendChild(b);
+  };
+  const path = pathOf(currentFolder);
+  addCrumb('전체', null, path.length === 0);
+  path.forEach((f, i) => { const s = document.createElement('span'); s.textContent = '›'; crumbs.appendChild(s); addCrumb(f.name, f.id, i === path.length - 1); });
+
+  // 항목
+  const q = searchText.trim().toLowerCase();
+  let rows = q ? items.filter(it => it.name.toLowerCase().includes(q))
+               : items.filter(it => (it.parent_id || null) === currentFolder);
+  rows.sort((a, b) => (b.is_folder - a.is_folder) || a.name.localeCompare(b.name, 'ko'));
+  const list = $('list'); list.innerHTML = '';
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty">${q ? '검색 결과가 없습니다.' : '비어 있는 폴더입니다.<br>「파일 올리기」로 파일을 추가해보세요.'}</div>`;
+    return;
+  }
+  for (const it of rows) {
+    const row = document.createElement('div'); row.className = 'item';
+    const where = q ? (pathOf(it.parent_id).map(f => f.name).join(' › ') || '전체') + ' · ' : '';
+    const meta = it.is_folder
+      ? `${where}폴더 · ${items.filter(x => x.parent_id === it.id).length}개`
+      : `${where}${fmtSize(it.size)} · ${fmtDate(it.created_at)} · ${escapeHtml(it.uploaded_by_name || '')}`;
+    row.innerHTML = `<div class="icon">${iconFor(it)}</div>
+      <div class="main"><div class="name">${escapeHtml(it.name)}</div><div class="meta">${it.is_folder ? escapeHtml(meta) : meta}</div></div>
+      <button class="more" aria-label="메뉴">⋮</button>`;
+    row.querySelector('.main').addEventListener('click', () => openItem(it));
+    row.querySelector('.more').addEventListener('click', () => showMenu(it));
+    list.appendChild(row);
+  }
+}
+function clearSearch(){ searchText = ''; $('search').value = ''; }
+$('search').addEventListener('input', e => { searchText = e.target.value; render(); });
+
+function openItem(it){
+  if (it.is_folder) { currentFolder = it.id; clearSearch(); render(); window.scrollTo(0, 0); return; }
+  if (canPreview(it)) window.open(dlUrl(it, true), '_blank', 'noopener');
+  else download(it);
+}
+function download(it){
+  const a = document.createElement('a'); a.href = dlUrl(it, false); a.download = it.name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ── 메뉴 / 대화상자 ──
+function closeSheet(){ $('overlay').classList.remove('show'); }
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeSheet(); });
+function openSheet(html){ $('sheet').innerHTML = html; $('overlay').classList.add('show'); return $('sheet'); }
+
+function showMenu(it){
+  const mine = me && it.uploaded_by === me.id;
+  const canRename = me.isAdmin || mine;
+  const canDelete = it.is_folder ? me.isAdmin : (me.isAdmin || mine);
+  const sheet = openSheet(`<h3>${iconFor(it)} ${escapeHtml(it.name)}</h3>
+    ${it.is_folder ? '<button class="sheet-btn" data-act="open">📂 열기</button>' : '<button class="sheet-btn" data-act="download">⬇ 내려받기</button>'}
+    ${!it.is_folder && canPreview(it) ? '<button class="sheet-btn" data-act="preview">👁 바로 보기</button>' : ''}
+    ${canRename ? '<button class="sheet-btn" data-act="rename">✏ 이름 바꾸기</button>' : ''}
+    ${canDelete ? '<button class="sheet-btn danger" data-act="delete">🗑 삭제</button>' : ''}
+    <div class="row"><button data-act="close">닫기</button></div>`);
+  sheet.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const act = b.dataset.act; closeSheet();
+    if (act === 'open') openItem(it);
+    if (act === 'download') download(it);
+    if (act === 'preview') window.open(dlUrl(it, true), '_blank', 'noopener');
+    if (act === 'rename') askName('이름 바꾸기', it.name, async (name) => { await api('/api/rename', { method:'POST', body: JSON.stringify({ id: it.id, name }) }); toast('이름을 바꿨습니다'); await refresh(); });
+    if (act === 'delete') askDelete(it);
+  }));
+}
+
+function askName(title, initial, onOk){
+  const sheet = openSheet(`<h3>${escapeHtml(title)}</h3><input type="text" id="name-input" maxlength="200">
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-primary" data-act="ok">확인</button></div>`);
+  const input = sheet.querySelector('#name-input'); input.value = initial || '';
+  setTimeout(() => { input.focus(); const dot = input.value.lastIndexOf('.'); input.setSelectionRange(0, dot > 0 ? dot : input.value.length); }, 50);
+  const ok = async () => {
+    const name = input.value.trim(); if (!name) { toast('이름을 입력해주세요'); return; }
+    closeSheet();
+    try { await onOk(name); } catch (e) { toast(e.message); }
+  };
+  sheet.querySelector('[data-act=ok]').addEventListener('click', ok);
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
+}
+
+function askDelete(it){
+  const sheet = openSheet(`<h3>삭제할까요?</h3>
+    <p>${it.is_folder ? `폴더 「${escapeHtml(it.name)}」와 그 안의 모든 파일이 삭제됩니다.` : `「${escapeHtml(it.name)}」 파일이 삭제됩니다.`}<br>삭제한 뒤에는 되돌릴 수 없습니다.</p>
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">삭제</button></div>`);
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  sheet.querySelector('[data-act=ok]').addEventListener('click', async () => {
+    closeSheet();
+    try { await api('/api/delete', { method:'POST', body: JSON.stringify({ id: it.id }) }); toast('삭제했습니다'); await refresh(); }
+    catch (e) { toast(e.message); }
+  });
+}
+
+$('folder-btn').addEventListener('click', () => {
+  askName('새 폴더 이름', '', async (name) => {
+    await api('/api/folder', { method:'POST', body: JSON.stringify({ parent_id: currentFolder, name }) });
+    toast('폴더를 만들었습니다'); await refresh();
+  });
+});
+
+// ── 업로드 ──
+$('upload-btn').addEventListener('click', () => $('file-input').click());
+$('file-input').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; uploadFiles(files); });
+
+let dragDepth = 0;
+window.addEventListener('dragenter', e => { if (e.dataTransfer?.types?.includes('Files')) { dragDepth++; document.body.classList.add('dragging'); e.preventDefault(); } });
+window.addEventListener('dragover', e => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault(); });
+window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) document.body.classList.remove('dragging'); });
+window.addEventListener('drop', e => {
+  if (!e.dataTransfer?.files?.length) return;
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  if (token && me) uploadFiles([...e.dataTransfer.files]);
+});
+
+let activeUploads = 0;
+window.addEventListener('beforeunload', e => { if (activeUploads > 0) { e.preventDefault(); e.returnValue = ''; } });
+
+function xhrSend(method, path, body, onProgress){
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, WORKER_URL + path);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded); };
+    xhr.onload = () => {
+      let data = {}; try { data = JSON.parse(xhr.responseText); } catch(e){}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else { const err = new Error(data.error || `업로드 실패 (${xhr.status})`); err.status = xhr.status; reject(err); }
+    };
+    xhr.onerror = () => reject(new Error('연결이 끊겼습니다'));
+    xhr.send(body);
+  });
+}
+
+async function sendWithRetry(method, path, body, onProgress){
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await xhrSend(method, path, body, onProgress); }
+    catch (e) { lastErr = e; if (e.status && e.status < 500) throw e; await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); }
+  }
+  throw lastErr;
+}
+
+async function uploadOne(file, parentId, onProgress){
+  const type = file.type || 'application/octet-stream';
+  if (file.size <= SINGLE_MAX) {
+    const qs = `?parent=${parentId || 'root'}&name=${encodeURIComponent(file.name)}&type=${encodeURIComponent(type)}`;
+    return xhrSend('PUT', '/api/upload' + qs, file, onProgress);
+  }
+  const { key, uploadId } = await api('/api/mpu/create', { method:'POST', body: JSON.stringify({ parent_id: parentId, name: file.name, type, size: file.size }) });
+  try {
+    const parts = []; const total = Math.ceil(file.size / PART_SIZE);
+    for (let i = 0; i < total; i++) {
+      const start = i * PART_SIZE;
+      const chunk = file.slice(start, Math.min(file.size, start + PART_SIZE));
+      const qs = `?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&part=${i + 1}`;
+      parts.push(await sendWithRetry('PUT', '/api/mpu/part' + qs, chunk, loaded => onProgress(start + loaded)));
+    }
+    return await api('/api/mpu/complete', { method:'POST', body: JSON.stringify({ key, uploadId, parts, parent_id: parentId, name: file.name, type }) });
+  } catch (e) {
+    api('/api/mpu/abort', { method:'POST', body: JSON.stringify({ key, uploadId }) }).catch(() => {});
+    throw e;
+  }
+}
+
+async function uploadFiles(files){
+  if (!files.length) return;
+  const parentId = currentFolder;
+  const box = $('uploads'); box.style.display = 'block';
+  const rows = files.map(f => {
+    const row = document.createElement('div'); row.className = 'up-row';
+    row.innerHTML = `<div class="up-name"><span>${escapeHtml(f.name)}</span><span class="up-state">대기 중</span></div><div class="bar"><div></div></div>`;
+    box.appendChild(row); return row;
+  });
+  let okCount = 0, failCount = 0;
+  activeUploads++;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], row = rows[i];
+      const state = row.querySelector('.up-state'), bar = row.querySelector('.bar > div');
+      try {
+        await uploadOne(f, parentId, loaded => {
+          const pct = f.size ? Math.min(100, loaded / f.size * 100) : 100;
+          bar.style.width = pct + '%'; state.textContent = pct.toFixed(0) + '%';
+        });
+        bar.style.width = '100%'; state.textContent = '완료'; okCount++;
+        setTimeout(() => row.remove(), 2500);
+      } catch (e) {
+        row.classList.add('error'); bar.style.width = '100%'; state.textContent = '실패: ' + e.message; failCount++;
+        setTimeout(() => row.remove(), 9000);
+      }
+    }
+  } finally { activeUploads--; }
+  toast(failCount ? `${okCount}개 완료, ${failCount}개 실패` : `${okCount}개 파일을 올렸습니다`);
+  setTimeout(() => { if (!box.children.length) box.style.display = 'none'; }, 9500);
+  try { await refresh(); } catch (e) {}
+}
+
+// ── 시작 ──
+async function start(){
+  try {
+    await refresh();
+    $('login-screen').style.display = 'none';
+    $('app').style.display = 'block';
+  } catch (e) {
+    if (e.status === 403) { token = null; showLogin(e.message); }
+    else if ($('login-screen').style.display === 'none') { $('app').style.display = 'block'; $('list').innerHTML = `<div class="empty">${escapeHtml(e.message)}</div>`; }
+    else showLogin(e.message);
+  }
+}
+(function init(){
+  try { token = localStorage.getItem('auth_token'); } catch (e) { token = null; }
+  if (token) start(); else showLogin();
+})();
+</script>
+</body>
+</html>

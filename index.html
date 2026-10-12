@@ -230,6 +230,7 @@
     <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
     <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
+    <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
   </nav>
 
@@ -981,7 +982,7 @@
 
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
-      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 프로그램 접근 여부와 원물선별 마스터 관리 권한을 설정합니다.</div>
+      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 접근 여부와 원물선별 마스터 관리 권한을 설정합니다. (관리자는 공유폴더에 항상 접근할 수 있습니다)</div>
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
   </div>
@@ -1088,7 +1089,7 @@ async function login(username, password) {
   const inserted = await sbInsert('sessions', { user_id: user.id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit };
+  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files };
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -1118,7 +1119,7 @@ async function restoreSession() {
     const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
     if (!users.length) { localStorage.removeItem('auth_token'); return false; }
     const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit };
+    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files };
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -1180,6 +1181,9 @@ function applyUserUI() {
   document.querySelectorAll('.sorting-master-only').forEach(el => {
     el.style.display = sortingMasterEdit ? '' : 'none';
   });
+  // 공유폴더 바로가기 (관리자 또는 공유폴더 권한 보유자에게만 표시)
+  const filesLink = document.getElementById('main-nav-link-files');
+  if (filesLink) filesLink.style.display = (isAdmin || window.currentUser.access_files === true) ? '' : 'none';
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
@@ -7055,16 +7059,17 @@ function applyUserUI() {
     try{
       const rows = await sbQuery('users', '?order=created_at.asc');
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
         const accessOrder = u.access_order !== false;
         const accessSorting = u.access_sorting === true;
         const masterEdit = u.sorting_master_edit === true;
+        const accessFiles = u.access_files === true;
 
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td>`;
         const cells = tr.querySelectorAll('td');
 
         function makeToggle(current, field, onLabel, offLabel){
@@ -7087,11 +7092,12 @@ function applyUserUI() {
         cells[2].appendChild(makeToggle(accessOrder, 'access_order', '✅ 허용', '⛔ 차단'));
         cells[3].appendChild(makeToggle(accessSorting, 'access_sorting', '✅ 허용', '⛔ 차단'));
         cells[4].appendChild(makeToggle(masterEdit, 'sorting_master_edit', '✅ 허용', '⛔ 차단'));
+        cells[5].appendChild(makeToggle(accessFiles, 'access_files', '✅ 허용', '⛔ 차단'));
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
-    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit 컬럼이 생성되어 있는지 확인하세요)</div>`; }
+    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files 컬럼이 생성되어 있는지 확인하세요)</div>`; }
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);
