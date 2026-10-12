@@ -131,6 +131,17 @@
     font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:999;
   }
   .toast.show{ opacity:1; }
+  /* 읽기 전용 권한: 안내 띠 표시 + 삭제류 버튼 숨김 (실제 저장 차단은 스크립트의 쓰기 가드가 담당) */
+  #app.ro-order #panel-order-group::before,
+  #app.ro-order #panel-ecount::before,
+  #app.ro-sorting #panel-sorting::before{
+    content:'👁 읽기 전용 권한입니다 — 조회와 엑셀 다운로드만 가능하며, 입력·수정한 내용은 저장되지 않습니다.';
+    display:block; background:var(--warn-soft); color:var(--warn); border:1px solid var(--warn);
+    padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:13px; font-weight:600;
+  }
+  #app.ro-order #panel-order-group .btn-danger,
+  #app.ro-order #panel-ecount .btn-danger,
+  #app.ro-sorting #panel-sorting .btn-danger{ display:none !important; }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   /* 메인 네비게이션 탭 */
@@ -982,7 +993,7 @@
 
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
-      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 접근 여부와 원물선별 마스터 관리 권한을 설정합니다. (관리자는 공유폴더에 항상 접근할 수 있습니다)</div>
+      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더에 항상 접근할 수 있습니다)</div>
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
   </div>
@@ -1007,6 +1018,60 @@ const sbHeaders = {
   'Content-Type': 'application/json',
   'Prefer': 'resolution=merge-duplicates'
 };
+
+// ── 프로그램별 권한 단계: 'none'(차단) / 'read'(읽기만) / 'full'(전체) ──
+//    prog: 'order'(발주자동화·이카운트) | 'sorting'(원물선별) | 'files'(공유폴더). 관리자는 읽기 전용이 적용되지 않습니다.
+window.accessLevel = function(prog){
+  const u = window.currentUser;
+  if (!u) return 'none';
+  const isAdmin = u.role === 'admin';
+  const has = prog === 'order' ? u.access_order !== false
+            : prog === 'sorting' ? u.access_sorting === true
+            : (isAdmin || u.access_files === true);
+  if (!has) return 'none';
+  if (isAdmin) return 'full';
+  return u['readonly_' + prog] === true ? 'read' : 'full';
+};
+
+// ── 읽기 전용 쓰기 가드: 읽기 전용 사용자의 저장/수정/삭제 요청을 서버로 보내지 않고 막습니다 ──
+(function(){
+  const REST = SB_URL + '/rest/v1/';
+  const origFetch = window.fetch.bind(window);
+  let lastNotice = 0;
+  function notice(){
+    const now = Date.now();
+    if (now - lastNotice < 4000) return;
+    lastNotice = now;
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = '👁 읽기 전용 권한입니다 — 저장되지 않았습니다';
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2600);
+  }
+  function programFor(table){
+    if (table === 'sessions' || table === 'activity_log' || table === 'users') return null; // 로그인·로그·관리자 기능
+    if (table.startsWith('sorting_')) return 'sorting';
+    return 'order'; // kv_store, returns 등 발주자동화 데이터
+  }
+  window.fetch = function(input, init){
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD' && url.startsWith(REST)) {
+        const table = url.slice(REST.length).split(/[?\/]/)[0];
+        const prog = programFor(table);
+        if (prog && window.accessLevel(prog) === 'read') {
+          notice();
+          return Promise.resolve(new Response(
+            JSON.stringify({ message: '읽기 전용 권한입니다 (저장되지 않음)' }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          ));
+        }
+      }
+    } catch (e) { /* 가드 오류 시 원래 요청 그대로 진행 */ }
+    return origFetch(input, init);
+  };
+})();
 
 // ── 현재 로그인 세션 ──
 window.currentUser = null; // { id, username, display_name, role, token }
@@ -1089,7 +1154,7 @@ async function login(username, password) {
   const inserted = await sbInsert('sessions', { user_id: user.id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files };
+  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -1119,7 +1184,7 @@ async function restoreSession() {
     const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
     if (!users.length) { localStorage.removeItem('auth_token'); return false; }
     const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files };
+    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -1184,6 +1249,13 @@ function applyUserUI() {
   // 공유폴더 바로가기 (관리자 또는 공유폴더 권한 보유자에게만 표시)
   const filesLink = document.getElementById('main-nav-link-files');
   if (filesLink) filesLink.style.display = (isAdmin || window.currentUser.access_files === true) ? '' : 'none';
+  // 읽기 전용 권한 표시 (안내 띠 + 삭제류 버튼 숨김)
+  const roOrder = window.accessLevel('order') === 'read';
+  const roSorting = window.accessLevel('sorting') === 'read';
+  if (appEl) {
+    appEl.classList.toggle('ro-order', roOrder);
+    appEl.classList.toggle('ro-sorting', roSorting);
+  }
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
@@ -7089,15 +7161,52 @@ function applyUserUI() {
           return btn;
         }
 
-        cells[2].appendChild(makeToggle(accessOrder, 'access_order', '✅ 허용', '⛔ 차단'));
-        cells[3].appendChild(makeToggle(accessSorting, 'access_sorting', '✅ 허용', '⛔ 차단'));
+        // 프로그램별 3단계 권한 선택 (차단 / 읽기만 / 전체)
+        function makeLevel(prog, hasAccess){
+          const accessField = 'access_' + prog, roField = 'readonly_' + prog;
+          const isAdminRow = u.role === 'admin';
+          if(prog === 'files' && isAdminRow){
+            const span = document.createElement('span');
+            span.textContent = '전체 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);';
+            return span;
+          }
+          const cur = !hasAccess ? 'none' : (!isAdminRow && u[roField] === true ? 'read' : 'full');
+          const sel = document.createElement('select');
+          sel.style.cssText = 'font-size:13px; padding:4px 6px;';
+          [['none','⛔ 차단'],['read','👁 읽기만'],['full','✅ 전체']]
+            .filter(o => !(isAdminRow && o[0] === 'read'))
+            .forEach(([v, label])=>{
+              const o = document.createElement('option');
+              o.value = v; o.textContent = label; if(v === cur) o.selected = true;
+              sel.appendChild(o);
+            });
+          sel.addEventListener('change', async ()=>{
+            const next = sel.value;
+            if(prog === 'order' && u.id === window.currentUser?.id && next === 'none'){
+              toast('자기 자신의 발주자동화 접근 권한은 끌 수 없습니다'); sel.value = cur; return;
+            }
+            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
+              method:'PATCH', headers: sbHeaders,
+              body: JSON.stringify({ [accessField]: next !== 'none', [roField]: next === 'read' })
+            });
+            if(!res.ok){
+              toast('변경 실패 — Supabase에서 readonly.sql을 먼저 실행해주세요'); sel.value = cur; return;
+            }
+            await writeLog('perm_change', `${u.username} ${prog} 권한: ${cur} → ${next}`);
+            loadAdminPerms();
+          });
+          return sel;
+        }
+
+        cells[2].appendChild(makeLevel('order', accessOrder));
+        cells[3].appendChild(makeLevel('sorting', accessSorting));
         cells[4].appendChild(makeToggle(masterEdit, 'sorting_master_edit', '✅ 허용', '⛔ 차단'));
-        cells[5].appendChild(makeToggle(accessFiles, 'access_files', '✅ 허용', '⛔ 차단'));
+        cells[5].appendChild(makeLevel('files', accessFiles));
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
-    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files 컬럼이 생성되어 있는지 확인하세요)</div>`; }
+    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files/readonly_* 컬럼이 생성되어 있는지 확인하세요)</div>`; }
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);

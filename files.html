@@ -252,7 +252,10 @@ async function refresh(){
   items = data.items; me = data.me;
   byId = new Map(items.map(it => [it.id, it]));
   if (currentFolder && !byId.has(currentFolder)) currentFolder = null;
-  $('user-badge').textContent = `${me.display_name}${me.isAdmin ? ' (관리자)' : ''}`;
+  $('user-badge').textContent = `${me.display_name}${me.isAdmin ? ' (관리자)' : me.readOnly ? ' (읽기 전용)' : ''}`;
+  // 읽기 전용: 올리기·새 폴더 숨김
+  $('upload-btn').style.display = me.readOnly ? 'none' : '';
+  $('folder-btn').style.display = me.readOnly ? 'none' : '';
   const pct = Math.min(100, data.used / data.limit * 100);
   $('usage-text').textContent = `사용량 ${fmtSize(data.used)} / ${fmtSize(data.limit)} (${pct.toFixed(1)}%)`;
   $('usage-bar').firstElementChild.style.width = pct + '%';
@@ -285,7 +288,7 @@ function render(){
   rows.sort((a, b) => (b.is_folder - a.is_folder) || a.name.localeCompare(b.name, 'ko'));
   const list = $('list'); list.innerHTML = '';
   if (!rows.length) {
-    list.innerHTML = `<div class="empty">${q ? '검색 결과가 없습니다.' : '비어 있는 폴더입니다.<br>「파일 올리기」로 파일을 추가해보세요.'}</div>`;
+    list.innerHTML = `<div class="empty">${q ? '검색 결과가 없습니다.' : (me && me.readOnly ? '비어 있는 폴더입니다.' : '비어 있는 폴더입니다.<br>「파일 올리기」로 파일을 추가해보세요.')}</div>`;
     return;
   }
   for (const it of rows) {
@@ -322,8 +325,8 @@ function openSheet(html){ $('sheet').innerHTML = html; $('overlay').classList.ad
 
 function showMenu(it){
   const mine = me && it.uploaded_by === me.id;
-  const canRename = me.isAdmin || mine;
-  const canDelete = it.is_folder ? me.isAdmin : (me.isAdmin || mine);
+  const canRename = !me.readOnly && (me.isAdmin || mine);
+  const canDelete = !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
   const sheet = openSheet(`<h3>${iconFor(it)} ${escapeHtml(it.name)}</h3>
     ${it.is_folder ? '<button class="sheet-btn" data-act="open">📂 열기</button>' : '<button class="sheet-btn" data-act="download">⬇ 내려받기</button>'}
     ${!it.is_folder && canPreview(it) ? '<button class="sheet-btn" data-act="preview">👁 바로 보기</button>' : ''}
@@ -385,7 +388,9 @@ window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth -
 window.addEventListener('drop', e => {
   if (!e.dataTransfer?.files?.length) return;
   e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
-  if (token && me) uploadFiles([...e.dataTransfer.files]);
+  if (!token || !me) return;
+  if (me.readOnly) { toast('읽기 전용 권한이라 파일을 올릴 수 없습니다'); return; }
+  uploadFiles([...e.dataTransfer.files]);
 });
 
 let activeUploads = 0;
