@@ -327,9 +327,11 @@ function showMenu(it){
   const mine = me && it.uploaded_by === me.id;
   const canRename = !me.readOnly && (me.isAdmin || mine);
   const canDelete = !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
+  const canMove = canDelete;
   const sheet = openSheet(`<h3>${iconFor(it)} ${escapeHtml(it.name)}</h3>
     ${it.is_folder ? '<button class="sheet-btn" data-act="open">📂 열기</button>' : '<button class="sheet-btn" data-act="download">⬇ 내려받기</button>'}
     ${!it.is_folder && canPreview(it) ? '<button class="sheet-btn" data-act="preview">👁 바로 보기</button>' : ''}
+    ${canMove ? '<button class="sheet-btn" data-act="move">📂 다른 폴더로 이동</button>' : ''}
     ${canRename ? '<button class="sheet-btn" data-act="rename">✏ 이름 바꾸기</button>' : ''}
     ${canDelete ? '<button class="sheet-btn danger" data-act="delete">🗑 삭제</button>' : ''}
     <div class="row"><button data-act="close">닫기</button></div>`);
@@ -339,6 +341,7 @@ function showMenu(it){
     if (act === 'download') download(it);
     if (act === 'preview') window.open(dlUrl(it, true), '_blank', 'noopener');
     if (act === 'rename') askName('이름 바꾸기', it.name, async (name) => { await api('/api/rename', { method:'POST', body: JSON.stringify({ id: it.id, name }) }); toast('이름을 바꿨습니다'); await refresh(); });
+    if (act === 'move') askMove(it);
     if (act === 'delete') askDelete(it);
   }));
 }
@@ -356,6 +359,34 @@ function askName(title, initial, onOk){
   sheet.querySelector('[data-act=ok]').addEventListener('click', ok);
   sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
+}
+
+// 이동할 폴더 고르기 (폴더 구조를 들여쓰기로 표시)
+function askMove(it){
+  const blocked = new Set();
+  if (it.is_folder) { // 자기 자신과 그 안의 폴더로는 이동 불가
+    const stack = [it.id];
+    while (stack.length) { const id = stack.pop(); blocked.add(id); items.filter(x => x.is_folder && x.parent_id === id).forEach(x => stack.push(x.id)); }
+  }
+  const lines = [];
+  (function walk(parentId, depth){
+    items.filter(x => x.is_folder && (x.parent_id || null) === parentId && !blocked.has(x.id))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .forEach(f => { lines.push({ id: f.id, name: f.name, depth }); walk(f.id, depth + 1); });
+  })(null, 1);
+  const cur = it.parent_id || null;
+  const btn = (id, label, depth) => `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${id === cur ? ' color:var(--muted);' : ''}" ${id === cur ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : ''}</button>`;
+  const sheet = openSheet(`<h3>「${escapeHtml(it.name)}」 옮길 폴더 선택</h3>
+    <div style="max-height:50vh; overflow:auto;">${btn(null, '전체 (최상위)', 0)}${lines.map(l => btn(l.id, l.name, l.depth)).join('')}</div>
+    ${lines.length ? '' : '<p style="color:var(--muted);">아직 폴더가 없습니다. 「＋ 새 폴더」로 먼저 폴더를 만들어주세요.</p>'}
+    <div class="row"><button data-act="cancel">취소</button></div>`);
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  sheet.querySelectorAll('[data-dest]').forEach(b => b.addEventListener('click', async () => {
+    const dest = b.dataset.dest === 'root' ? null : b.dataset.dest;
+    closeSheet();
+    try { await api('/api/move', { method:'POST', body: JSON.stringify({ id: it.id, parent_id: dest }) }); toast('옮겼습니다'); await refresh(); }
+    catch (e) { toast(e.message); }
+  }));
 }
 
 function askDelete(it){

@@ -141,7 +141,8 @@
   }
   #app.ro-order #panel-order-group .btn-danger,
   #app.ro-order #panel-ecount .btn-danger,
-  #app.ro-sorting #panel-sorting .btn-danger{ display:none !important; }
+  #app.ro-sorting #panel-sorting .btn-danger,
+  #app.ro-order .company-bulk-delete-ui{ display:none !important; }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   /* 메인 네비게이션 탭 */
@@ -420,6 +421,9 @@
       <div id="agg-3pl-detail-wrap"></div>
       <div class="row" id="detail-bulk-bar" style="display:none;">
         <button class="btn-danger small-btn" id="detail-bulk-delete-btn">선택 항목 삭제</button>
+        <span class="company-bulk-delete-ui" style="margin-left:18px; font-size:13px; color:var(--muted);">업체 단위 삭제 :</span>
+        <select class="company-bulk-delete-ui" id="company-bulk-delete-select" style="min-width:160px;"></select>
+        <button class="btn-danger small-btn" id="company-bulk-delete-btn">이 업체 발주 전체 삭제</button>
       </div>
 
       <h3>택배사 발주서 다운로드</h3>
@@ -3411,6 +3415,23 @@ function applyUserUI() {
       return;
     }
     document.getElementById('detail-bulk-bar').style.display = 'flex';
+    // 업체 단위 삭제용 업체 목록 (현재 날짜에 개별 주문이 있는 업체 + 건수)
+    const companySel = document.getElementById('company-bulk-delete-select');
+    if(companySel){
+      const prevCompany = companySel.value;
+      const counts = {};
+      rows.forEach(r=>{ counts[r.company] = (counts[r.company] || 0) + 1; });
+      companySel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = ''; ph.textContent = '(업체 선택)';
+      companySel.appendChild(ph);
+      Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ko')).forEach(name=>{
+        const o = document.createElement('option');
+        o.value = name; o.textContent = `${name} (${counts[name]}건)`;
+        if(name === prevCompany) o.selected = true;
+        companySel.appendChild(o);
+      });
+    }
     // Build total-qty per tracking number so box size reflects the full shipment, not just one row
     const trackingTotalMap = buildTrackingTotalMap(rows.filter(r=>r.trackingNo&&r.trackingNo.trim()));
     const table = document.createElement('table');
@@ -5167,6 +5188,34 @@ function applyUserUI() {
     ()=>{
       const checked = document.querySelectorAll('.detail-row-check:checked');
       if(checked.length === 0){ toast('삭제할 항목을 먼저 체크해주세요'); return false; }
+      return true;
+    }
+  );
+
+  // 업체 단위 삭제: 현재 날짜에서 해당 업체의 개별 주문·집계 수량·원본 파일을 한 번에 지웁니다
+  // (잘못된 발주서를 받은 경우 등). 다른 날짜와 다른 업체 데이터는 건드리지 않습니다.
+  armConfirmButton(
+    document.getElementById('company-bulk-delete-btn'),
+    ()=>{
+      const company = document.getElementById('company-bulk-delete-select').value;
+      if(!company) return;
+      const bucket = currentLineItems();
+      const count = bucket.filter(r=>r.company === company).length;
+      thirdPartyLineItems[currentDateKey] = bucket.filter(r=>r.company !== company);
+      delete currentOrders()[company];
+      const origFiles = currentOriginalFiles();
+      if(origFiles[company]){ delete origFiles[company]; saveOriginalFiles(); }
+      saveOrdersByDate();
+      saveLineItems();
+      renderAggTable();
+      renderThirdPartyAggTable();
+      renderThirdPartyLineItems();
+      renderOriginalFileSelect();
+      try{ writeLog('order_company_delete', `${currentDateKey} ${company} 발주 전체 삭제 (개별 주문 ${count}건)`); }catch(e){}
+      toast(`${currentDateKey} ${company} 발주 ${count}건을 모두 삭제했습니다`);
+    },
+    ()=>{
+      if(!document.getElementById('company-bulk-delete-select').value){ toast('삭제할 업체를 먼저 선택해주세요'); return false; }
       return true;
     }
   );
