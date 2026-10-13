@@ -4472,17 +4472,25 @@ function applyUserUI() {
           enteredBy: getStaffName(),
           boxIndex: 1,
           boxTotal: 1,
-          sourceRowIndex: r,
           importedFromJM: true
         });
       }
 
       // dateKey별로 lineItems에 추가
       if(lineItemsToAdd.length > 0){
+        // 이미 있는 발주서 행은 통째로 덮어쓰지 않고 병합한다.
+        // (덮어쓰면 배송시 요청사항·원본 파일 행 번호(sourceRowIndex)·sourceBatchId·사내관리번호가 사라져
+        //  새로고침 후 요청사항이 비고, '원본 양식 + 운송장번호' 다운로드에 운송장이 안 들어간다)
+        const mergeJmItem = (existing, item)=>{
+          if(!existing.trackingNo) existing.trackingNo = item.trackingNo;
+          if(!existing.recipientName) existing.recipientName = item.recipientName;
+          if(!existing.address) existing.address = item.address;
+          if(!existing.orderNo) existing.orderNo = item.orderNo;
+        };
         lineItemsToAdd.forEach(item=>{
           const dateKey = item.dateKey || currentDateKey;
           if(!thirdPartyLineItems[dateKey]) thirdPartyLineItems[dateKey] = [];
-          // 중복 방지: trackingNo+itemId+company 조합이 이미 있으면 덮어쓰기
+          // 중복 방지: trackingNo+itemId+company 조합이 이미 있으면 병합
           // (같은 파일을 두 번 올려도 중복 등록 안 됨)
           if(item.trackingNo){
             const existIdx = thirdPartyLineItems[dateKey].findIndex(
@@ -4491,7 +4499,7 @@ function applyUserUI() {
                   r.company === item.company
             );
             if(existIdx >= 0){
-              thirdPartyLineItems[dateKey][existIdx] = item; // 덮어쓰기
+              mergeJmItem(thirdPartyLineItems[dateKey][existIdx], item);
             } else {
               thirdPartyLineItems[dateKey].push(item);
             }
@@ -4504,7 +4512,7 @@ function applyUserUI() {
                   r.company === item.company
             );
             if(existIdx >= 0){
-              thirdPartyLineItems[dateKey][existIdx] = item;
+              mergeJmItem(thirdPartyLineItems[dateKey][existIdx], item);
             } else {
               thirdPartyLineItems[dateKey].push(item);
             }
@@ -4516,6 +4524,7 @@ function applyUserUI() {
       renderSavedDatesBar();
       renderAggTable();
       renderThirdPartyAggTable();
+      renderThirdPartyLineItems();
       previewEl.style.display='none';
       const totalDates = Object.keys(parsed).length;
       const totalCompanies = Object.values(parsed).reduce((s,c)=>s+Object.keys(c).length, 0);
