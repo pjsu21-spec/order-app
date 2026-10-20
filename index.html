@@ -218,7 +218,31 @@
   .cost-card-kv > div{ background:var(--paper); border-radius:8px; padding:7px 9px; }
   .cost-card-kv .k{ font-size:11px; color:var(--muted); }
   .cost-card-kv .v{ font-size:15px; font-weight:700; }
-  .cost-type-block{ border-top:1px dashed var(--line); margin-top:10px; padding-top:10px; }
+  .cost-card-title{ margin-bottom:0; }
+  .cost-card-kv3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:10px 0 12px; }
+  .cost-card-kv3 > div{ background:var(--paper); border-radius:8px; padding:7px 8px; }
+  .cost-card-kv3 .k{ font-size:11px; color:var(--muted); }
+  .cost-card-kv3 .v{ font-size:16px; font-weight:700; }
+  .cost-type-head, .cost-type-row{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.1fr); gap:6px; align-items:center; }
+  .cost-type-head{ font-size:11px; color:var(--muted); padding:0 2px 4px; border-bottom:1px solid var(--line); }
+  .cost-type-head span:nth-child(2){ text-align:right; }
+  .cost-type-head span:nth-child(3){ text-align:right; }
+  .cost-type-row{ padding:9px 2px; border-bottom:1px solid #f0e8e4; }
+  .cost-type-row .tn{ font-size:14px; font-weight:700; line-height:1.25; }
+  .cost-type-row .tn small{ display:block; font-size:11px; font-weight:400; color:var(--muted); }
+  .cost-type-row .tp{ text-align:right; font-size:16px; font-weight:700; }
+  .cost-type-row .tp input{ width:100% !important; text-align:right; font-size:16px; padding:8px 8px; border:1px solid var(--line); border-radius:8px; background:#fff7b3; box-sizing:border-box; }
+  .cost-type-row .tg{ text-align:right; }
+  .cost-profit{ display:inline-block; text-align:right; font-size:15px; font-weight:800; line-height:1.15; }
+  .cost-profit small{ display:block; font-size:12px; font-weight:600; opacity:.85; }
+  .cost-profit.neg{ color:var(--warn); }
+  .cost-profit.pos{ color:#2f7d4f; }
+  .cost-type-row .dash{ color:var(--muted); }
+  .cost-more{ margin-top:10px; }
+  .cost-more summary{ cursor:pointer; font-size:12.5px; color:var(--muted); padding:4px 0; }
+  table.cost-mini{ width:100%; margin-top:8px; font-size:12px; }
+  table.cost-mini th, table.cost-mini td{ padding:5px 4px; text-align:right; }
+  table.cost-mini th:first-child, table.cost-mini td:first-child{ text-align:left; }
   .cost-type-name{ font-size:13px; font-weight:700; margin-bottom:6px; }
   .cost-price-line{ display:grid; grid-template-columns:52px 1fr auto; align-items:center; gap:4px 8px; padding:4px 0; font-size:13px; }
   .cost-price-line .lbl{ color:var(--muted); font-size:12px; }
@@ -238,7 +262,8 @@
     #panel-cost input:not([type="checkbox"]),
     #panel-cost select{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; }
     #panel-cost .cost-price-line input{ width:110px !important; padding:8px 10px; text-align:right; }
-    #panel-cost .row label{ text-align:left; font-weight:600; }
+    #panel-cost .row{ text-align:left; }
+    #panel-cost .row label{ text-align:left; font-weight:600; align-self:flex-start; }
     #panel-cost .tab-btn{ padding:10px 14px; font-size:13px; }
     #panel-cost .card{ padding:12px; }
     #panel-cost table{ font-size:12.5px; }
@@ -6119,10 +6144,11 @@ function applyUserUI() {
     const priceCell = (kind, sku, type, v)=> canEdit
       ? `<input type="number" step="any" class="cost-price-input" data-sku="${sku}" data-type="${type}" data-kind="${kind}" value="${costHas(v) ? v : ''}" style="width:90px;">`
       : (costHas(v) ? costFmt(v) : '-');
-    // 모바일용 카드: 한 줄에 '구분 / 가격 / 이익(이익률)'
-    const priceLine = (label, kind, sku, type, price, sc)=> `<div class="cost-price-line"><span class="lbl">${label}</span>
-      <span>${canEdit ? priceCell(kind, sku, type, price) : `<span class="pf">${costHas(price) ? costFmt(price) + '원' : '-'}</span>`}</span>
-      <span>${sc ? `<span class="cost-pill${sc.profit < 0 ? ' neg' : ''}">${costFmt(sc.profit)}원 · ${costPct(sc.margin)}</span>` : '<span class="sub" style="margin:0;">-</span>'}</span></div>`;
+    // 모바일용 카드: 판매유형마다 한 줄 '유형 / 공급가 / 이익(이익률)', 총원가·손익분기 등 상세는 접어둠
+    const typeRow = (t, feePct, ids, price, sc)=> `<div class="cost-type-row">
+      <div class="tn">${escapeHtml(t.name)}${costNum(feePct) ? `<small>수수료 ${costNum(feePct)}%</small>` : ''}</div>
+      <div class="tp">${canEdit ? priceCell('supply', ids, t.id, price) : (costHas(price) ? costFmt(price) : '<span class="dash">-</span>')}</div>
+      <div class="tg">${sc ? `<span class="cost-profit${sc.profit < 0 ? ' neg' : ' pos'}">${sc.profit > 0 ? '+' : ''}${costFmt(sc.profit)}<small>${costPct(sc.margin)}</small></span>` : '<span class="dash">-</span>'}</div></div>`;
     let cards = '';
     let html = `<table><thead><tr>
       <th style="${th}">SKU</th><th style="${th}">원물가(원/kg)</th><th style="${th}">생산단가</th><th style="${th}">물류비</th>
@@ -6133,16 +6159,15 @@ function applyUserUI() {
       const b = costBase(r.sku.id, r.cfg, r.pe.price, baseDate);
       const n = c.salesTypes.length;
       const rawName = escapeHtml((c.rawMaterials.find(x=>x.id===r.cfg.rawId)||{}).name || '?');
-      let typeBlocks = '';
+      let typeRows = '', typeDetail = '';
       c.salesTypes.forEach((t, i)=>{
         const feePct = costVal('fee', t.id, r.sku.id, baseDate);
         const supplyPrice = costResolve('supply', t.id, r.sku.id, baseDate).value;
         const supply = costScenario(b, supplyPrice, feePct);
         const total = supply ? supply.total : (b.production + b.logistics + b.extra);
         const be = supply ? supply.breakEven : null;
-        typeBlocks += `<div class="cost-type-block"><div class="cost-type-name">${escapeHtml(t.name)}${costNum(feePct) ? ` <span class="sub" style="margin:0;font-weight:400;">수수료 ${costNum(feePct)}%</span>` : ''}</div>
-          ${priceLine('공급가', 'supply', r.ids, t.id, supplyPrice, supply)}
-          <div class="cost-card-meta">총원가 ${costFmt(total)}원${supply ? ` (수수료 ${costFmt(supply.fee)}원)` : ''}${b.extra ? ` · 기타 ${costFmt(b.extra)}원` : ''} · 손익분기 원물가 ${be == null ? '-' : costFmt(be) + '원'}</div></div>`;
+        typeRows += typeRow(t, feePct, r.ids, supplyPrice, supply);
+        typeDetail += `<tr><td>${escapeHtml(t.name)}</td><td>${costFmt(total)}</td><td>${supply ? costFmt(supply.fee) : '-'}</td><td>${be == null ? '-' : costFmt(be)}</td></tr>`;
         html += '<tr>';
         if(i === 0){
           html += `<td rowspan="${n}">${r.nameHtml}<div class="sub" style="margin:2px 0 0;">${rawName} ${b.rawKg}kg/박스</div></td>
@@ -6160,16 +6185,22 @@ function applyUserUI() {
           <td style="text-align:right;">${be == null ? '-' : costFmt(be)}</td>
         </tr>`;
       });
+      const merged = r.members.length > 1;
       cards += `<div class="cost-card">
-        <div class="cost-card-head"><div><div class="cost-card-title">${r.members.length > 1 ? escapeHtml(r.group) : escapeHtml(r.sku.name)}</div>
-          ${r.members.length > 1 ? `<div class="cost-card-meta">${r.members.length}종 모두 적용 · ${r.members.map(s => escapeHtml(s.name)).join(', ')}</div>` : (r.group ? `<div class="cost-card-meta">${escapeHtml(r.group)}</div>` : '')}
-          <div class="cost-card-meta">${rawName} ${b.rawKg}kg/박스</div></div></div>
-        <div class="cost-card-kv">
-          <div><div class="k">원물가(원/kg)</div><div class="v">${costFmt(r.pe.price)}</div><div class="cost-card-meta">${escapeHtml(r.pe.effectiveFrom)}~ 적용</div></div>
-          <div><div class="k">생산단가</div><div class="v">${costFmt(b.production)}</div><div class="cost-card-meta">물류비 ${costFmt(b.logistics)}</div></div>
+        <div class="cost-card-title">${merged ? escapeHtml(r.group) : escapeHtml(r.sku.name)}</div>
+        <div class="cost-card-meta">${merged ? `${r.members.length}종 모두 적용 · ` : (r.group ? escapeHtml(r.group) + ' · ' : '')}${rawName} ${b.rawKg}kg/박스</div>
+        ${merged ? `<details class="help"><summary>맛 목록</summary><div class="sub" style="margin:0;">${r.members.map(s => escapeHtml(s.name)).join('<br>')}</div></details>` : ''}
+        <div class="cost-card-kv3">
+          <div><div class="k">원물가(원/kg)</div><div class="v">${costFmt(r.pe.price)}</div></div>
+          <div><div class="k">생산단가</div><div class="v">${costFmt(b.production)}</div></div>
+          <div><div class="k">물류비</div><div class="v">${costFmt(b.logistics)}</div></div>
         </div>
-        <details><summary>생산단가 내역 보기</summary><div class="cost-card-meta" style="line-height:1.7;">원물 ${costFmt(b.rawCost)} · 불량 ${costFmt(b.defect)}<br>부자재 ${costFmt(b.matVat)} · 감가 ${costFmt(b.deprec)}<br>직접비 ${costFmt(b.direct)}</div></details>
-        ${typeBlocks}</div>`;
+        <div class="cost-type-head"><span>판매유형</span><span>공급가</span><span>이익 · 이익률</span></div>
+        ${typeRows}
+        <details class="cost-more"><summary>원가 상세 보기</summary>
+          <div class="cost-card-meta" style="line-height:1.7;">원물가 ${costFmt(r.pe.price)}원 (${escapeHtml(r.pe.effectiveFrom)}~ 적용)<br>생산단가 = 원물 ${costFmt(b.rawCost)} + 불량 ${costFmt(b.defect)} + 부자재 ${costFmt(b.matVat)} + 감가 ${costFmt(b.deprec)} + 직접비 ${costFmt(b.direct)}${b.extra ? `<br>기타비용 ${costFmt(b.extra)}` : ''}</div>
+          <table class="cost-mini"><thead><tr><th>판매유형</th><th>총원가</th><th>수수료</th><th>손익분기 원물가</th></tr></thead><tbody>${typeDetail}</tbody></table>
+        </details></div>`;
     });
     html += '</tbody></table>';
     wrap.innerHTML = `<div class="cost-table-desktop" style="overflow-x:auto;">${html}</div><div class="cost-cards">${cards}</div>`;
