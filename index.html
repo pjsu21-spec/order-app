@@ -5877,7 +5877,7 @@ function applyUserUI() {
   // 모든 비용·가격은 "적용 시작일 이력"으로 저장하고, 기준일에 적용 중인 값으로 계산한다 → 값을 바꿔도 과거 계산은 유지된다.
   // 값 조회 순서: SKU 개별 이력(있으면) → 공통 이력. 개별 이력의 value=null 은 "공통값 적용".
   // 생산단가 = 원물(kg×원물가) + 불량비용 + 부자재(VAT 포함) + 감가상각 + 직접비
-  // 총비용 = 생산단가 + 물류비 + 수수료(가격×수수료율) + 기타비용 (생산원가만 가리키는 '원가'와 구분하기 위해 '총비용'이라 부른다) / 이익 = 가격 − 총비용
+  // 판매원가 = 생산단가 + 물류비 + 수수료(가격×수수료율) + 기타비용 (생산원가만 가리키는 '원가'와 구분하기 위해 '판매원가'라 부른다) / 이익 = 가격 − 판매원가
   const COST_BASE_FROM = '2000-01-01';
   function costDefaultConfig(){
     return {
@@ -6144,7 +6144,7 @@ function applyUserUI() {
     const priceCell = (kind, sku, type, v)=> canEdit
       ? `<input type="number" step="any" class="cost-price-input" data-sku="${sku}" data-type="${type}" data-kind="${kind}" value="${costHas(v) ? v : ''}" style="width:90px;">`
       : (costHas(v) ? costFmt(v) : '-');
-    // 모바일용 카드: 판매유형마다 한 줄 '유형 / 공급가 / 이익(이익률)', 총비용·손익분기 등 상세는 접어둠
+    // 모바일용 카드: 판매유형마다 한 줄 '유형 / 공급가 / 이익(이익률)', 판매원가·손익분기 등 상세는 접어둠
     const typeRow = (t, feePct, ids, price, sc)=> `<div class="cost-type-row">
       <div class="tn">${escapeHtml(t.name)}${costNum(feePct) ? `<small>수수료 ${costNum(feePct)}%</small>` : ''}</div>
       <div class="tp">${canEdit ? priceCell('supply', ids, t.id, price) : (costHas(price) ? costFmt(price) : '<span class="dash">-</span>')}</div>
@@ -6152,7 +6152,7 @@ function applyUserUI() {
     let cards = '';
     let html = `<table><thead><tr>
       <th style="${th}">SKU</th><th style="${th}">원물가(원/kg)</th><th style="${th}">생산단가</th><th style="${th}">물류비</th>
-      <th style="${th}">판매유형</th><th style="${th}">수수료</th><th style="${th}">기타비용</th><th style="${th}">총비용</th>
+      <th style="${th}">판매유형</th><th style="${th}">수수료</th><th style="${th}">기타비용</th><th style="${th}">판매원가</th>
       <th style="${th}">공급가</th><th style="${th}">공급이익</th><th style="${th}">이익률</th><th style="${th}">손익분기 원물가</th>
     </tr></thead><tbody>`;
     groups.forEach(r=>{
@@ -6199,7 +6199,7 @@ function applyUserUI() {
         ${typeRows}
         <details class="cost-more"><summary>원가 상세 보기</summary>
           <div class="cost-card-meta" style="line-height:1.7;">원물가 ${costFmt(r.pe.price)}원 (${escapeHtml(r.pe.effectiveFrom)}~ 적용)<br>생산단가 = 원물 ${costFmt(b.rawCost)} + 불량 ${costFmt(b.defect)} + 부자재 ${costFmt(b.matVat)} + 감가 ${costFmt(b.deprec)} + 직접비 ${costFmt(b.direct)}${b.extra ? `<br>기타비용 ${costFmt(b.extra)}` : ''}</div>
-          <table class="cost-mini"><thead><tr><th>판매유형</th><th>총비용</th><th>수수료</th><th>손익분기 원물가</th></tr></thead><tbody>${typeDetail}</tbody></table>
+          <table class="cost-mini"><thead><tr><th>판매유형</th><th>판매원가</th><th>수수료</th><th>손익분기 원물가</th></tr></thead><tbody>${typeDetail}</tbody></table>
         </details></div>`;
     });
     html += '</tbody></table>';
@@ -6225,7 +6225,7 @@ function applyUserUI() {
     const hist = (rawPriceHistory[cfg.rawId] || []).slice().sort((a, b)=> a.effectiveFrom < b.effectiveFrom ? -1 : 1);
     if(!hist.length){ wrap.innerHTML = '<div class="empty">등록된 원물가 이력이 없습니다.</div>'; return; }
     const neg = 'background:#fbeae5;color:#b5482e;font-weight:700;';
-    let html = '<table><thead><tr><th>적용 시작일</th><th>원물가</th><th>전주 대비</th><th>생산단가</th><th>총비용</th><th>가격</th><th>이익</th><th>이익률</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>적용 시작일</th><th>원물가</th><th>전주 대비</th><th>생산단가</th><th>판매원가</th><th>가격</th><th>이익</th><th>이익률</th></tr></thead><tbody>';
     let any = false, tcards = '';
     hist.map((e, i)=>({ e, prev: i > 0 ? hist[i - 1] : null })).reverse().forEach(({ e, prev })=>{
       const d = e.effectiveFrom;
@@ -6238,7 +6238,7 @@ function applyUserUI() {
       tcards += `<div class="cost-card"><div class="cost-card-head"><div class="cost-card-title">${escapeHtml(d)}~</div>
         ${s ? `<span class="cost-pill${s.profit < 0 ? ' neg' : ''}">${costFmt(s.profit)}원 · ${costPct(s.margin)}</span>` : '<span class="sub" style="margin:0;">가격 없음</span>'}</div>
         <div class="cost-card-meta" style="margin-top:6px;line-height:1.7;">원물가 <strong>${costFmt(e.price)}</strong>${diff == null ? '' : ` (${diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : ''}${costFmt(Math.abs(diff))})`}
-        <br>생산단가 ${costFmt(b.production)} · 총비용 ${s ? costFmt(s.total) : '-'}${s ? `<br>${label} ${costFmt(usedPrice)}` : ''}</div></div>`;
+        <br>생산단가 ${costFmt(b.production)} · 판매원가 ${s ? costFmt(s.total) : '-'}${s ? `<br>${label} ${costFmt(usedPrice)}` : ''}</div></div>`;
       html += `<tr><td>${escapeHtml(d)}</td><td style="text-align:right;">${costFmt(e.price)}</td>
         <td style="text-align:right;">${diff == null ? '-' : (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '') + costFmt(Math.abs(diff))}</td>
         <td style="text-align:right;">${costFmt(b.production)}</td>
