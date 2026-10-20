@@ -9,14 +9,34 @@
 <meta property="og:type" content="website">
 <style>
   :root{
-    --ink:#1e2a24;
-    --paper:#faf8f3;
-    --line:#d8d2c2;
-    --accent:#3a6b52;
-    --accent-soft:#e7efe9;
-    --warn:#b5482e;
+    --ink:#2a2426;
+    --paper:#fbf8f6;
+    --line:#e2d8d4;
+    --accent:#d9485b;
+    --accent-soft:#fbe9ec;
+    --warn:#a8322a;
     --warn-soft:#fbeae5;
-    --muted:#8a8578;
+    --muted:#8c8280;
+  }
+  /* 상단 사용자 바 */
+  .topbar{ background:var(--accent); color:#fff; padding:8px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px; gap:8px; }
+  .topbar-title{ font-weight:700; white-space:nowrap; }
+  .topbar-user{ display:flex; align-items:center; gap:10px; }
+  #user-badge{ opacity:.92; white-space:nowrap; }
+  .topbar-user button{ background:rgba(255,255,255,.2); border:none; color:#fff; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit; white-space:nowrap; }
+  /* 설명 더보기 (긴 안내 문구는 평소엔 숨기고 눌렀을 때만 표시) */
+  details.help{ margin:4px 0 8px; }
+  details.help > summary{ display:inline-block; list-style:none; cursor:pointer; font-size:11.5px; color:var(--muted); padding:1px 9px; border:1px solid var(--line); border-radius:100px; background:#fff; user-select:none; }
+  details.help > summary::-webkit-details-marker{ display:none; }
+  details.help[open] > summary{ color:var(--accent); border-color:var(--accent); }
+  details.help > .sub{ margin-top:6px; }
+  @media (max-width: 640px){
+    .topbar{ flex-wrap:wrap; padding:6px 12px; row-gap:4px; }
+    .topbar-title{ flex:1 1 100%; font-size:14px; }
+    .topbar-user{ flex:1 1 100%; justify-content:space-between; gap:6px; }
+    .topbar-user button{ padding:3px 9px; font-size:11px; }
+    #user-badge{ margin-right:auto; font-size:12px; overflow:hidden; text-overflow:ellipsis; }
+    .hide-mobile{ display:none; }
   }
   #app{
     font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
@@ -265,12 +285,12 @@
 
 <div id="app" style="display:none;">
   <!-- 상단 사용자 정보 바 -->
-  <div style="background:var(--accent); color:#fff; padding:8px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
-    <span style="font-weight:700;">다름달음 통합 오더 시스템</span>
-    <div style="display:flex; align-items:center; gap:12px;">
-      <span id="user-badge" style="opacity:0.9;"></span>
-      <button onclick="openPasswordDialog()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit;">비밀번호 변경</button>
-      <button onclick="logout()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:inherit;">로그아웃</button>
+  <div class="topbar">
+    <span class="topbar-title">다름달음 통합 오더 시스템</span>
+    <div class="topbar-user">
+      <span id="user-badge"></span>
+      <button onclick="openPasswordDialog()">비밀번호<span class="hide-mobile"> 변경</span></button>
+      <button onclick="logout()">로그아웃</button>
     </div>
   </div>
 
@@ -292,7 +312,7 @@
   <div id="panel-order-group" class="main-tab-panel active">
 
   <h1 style="margin-bottom:4px;">다름달음 발주취합 프로그램</h1>
-  <div class="sub" style="margin-bottom:12px;">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">카카오톡 발주 메시지를 붙여넣거나 엑셀을 업로드하면 품목별 수량을 자동으로 집계표에 반영합니다.</div></details>
 
   <!-- 발주취합 서브 네비게이션 -->
   <nav class="order-sub-nav">
@@ -366,7 +386,7 @@
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">1. 전일 재고 / 원물사용량 입력 <span class="badge">원물 · 제품 별도 관리</span></summary>
       <div style="margin-top:10px;">
-      <div class="sub" style="margin-top:0;">전일 재고를 넣어두면 아래 집계표에서 오늘 필요한 생산 수량을 바로 확인할 수 있습니다. 원물사용량은 생산본부 공유파일에 자동 반영됩니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">전일 재고를 넣어두면 아래 집계표에서 오늘 필요한 생산 수량을 바로 확인할 수 있습니다. 원물사용량은 생산본부 공유파일에 자동 반영됩니다.</div></details>
 
       <h3>원물 재고 &amp; 당일 사용량(kg)</h3>
       <div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">전일재고(단위), 팩당kg, 당일사용량(kg) — 당일사용량은 직접 입력하거나 팩당kg×오늘출고수량으로 자동계산</div>
@@ -409,7 +429,7 @@
           <label style="font-size:13px;">데이터 시작 행 :</label>
           <input type="number" id="upload-start-row" min="1" style="width:60px;" value="2">
         </div>
-        <div class="sub" style="margin:6px 0 0;">업체마다 파일 형식이 달라도 괜찮습니다 — 한 번 지정해두면 같은 업체 파일은 다음부터 자동으로 같은 열을 사용합니다.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:6px 0 0;">업체마다 파일 형식이 달라도 괜찮습니다 — 한 번 지정해두면 같은 업체 파일은 다음부터 자동으로 같은 열을 사용합니다.</div></details>
         <div id="upload-file-preview" style="margin-top:10px; overflow-x:auto;"></div>
         <div class="row">
           <button class="btn-primary small-btn" id="upload-apply-btn">이 매핑으로 불러오기</button>
@@ -465,7 +485,7 @@
       </div>
 
       <h3>택배사 발주서 다운로드</h3>
-      <div class="sub" style="margin-top:0;">첨부해주신 제이엠로지스 발주서 양식 그대로, 오늘 3PL 전체 개별 주문을 담아 .xls로 내려받습니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">첨부해주신 제이엠로지스 발주서 양식 그대로, 오늘 3PL 전체 개별 주문을 담아 .xls로 내려받습니다.</div></details>
       <div class="row">
         <label style="font-size:13px;">보내는분 성명 :</label>
         <input type="text" id="sender-name" style="width:120px;" value="㈜다름달음">
@@ -474,10 +494,10 @@
         <button class="btn-primary small-btn" id="export-courier-form-btn">전체 발주서 다운로드 (.xls)</button>
         <button class="btn-ghost small-btn" id="export-courier-selected-btn">선택 건만 발주서 다운로드</button>
       </div>
-      <div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div></details>
 
       <h3>반품 / 환불 등록</h3>
-      <div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div></details>
       <div class="row" style="margin-top:0; flex-wrap:wrap; gap:8px;">
         <div>
           <label style="font-size:12px;color:var(--muted);">반품 접수일</label>
@@ -534,7 +554,7 @@
       </div>
 
       <h3>운송장번호 업로드</h3>
-      <div class="sub" style="margin-top:0;">택배사에서 발급된 운송장번호 파일을 업로드하면 개별 주문과 자동 매칭됩니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">택배사에서 발급된 운송장번호 파일을 업로드하면 개별 주문과 자동 매칭됩니다.</div></details>
       <div class="dropzone" id="tracking-dropzone">
         <div>운송장번호가 담긴 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요 (xlsx / xls / csv)</div>
         <div class="fname" id="tracking-fname"></div>
@@ -555,7 +575,7 @@
           <button class="btn-ghost small-btn" id="tracking-save-mapping-btn" style="font-size:11px;">💾 이 설정 저장</button>
         </div>
         <div id="tracking-mapping-status" style="font-size:11px; color:var(--accent); margin-top:4px;"></div>
-        <div class="sub" style="margin:6px 0 0;">주문번호 중복 업체는 수취인명+주소로 보조 매칭합니다. 수취인명/주소 열을 지정하면 정확도가 올라갑니다.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:6px 0 0;">주문번호 중복 업체는 수취인명+주소로 보조 매칭합니다. 수취인명/주소 열을 지정하면 정확도가 올라갑니다.</div></details>
         <div id="tracking-file-preview" style="margin-top:10px; overflow-x:auto;"></div>
         <div class="row" style="margin-top:8px; flex-wrap:wrap; gap:8px;">
           <button class="btn-primary small-btn" id="tracking-apply-btn">운송장번호 매칭 적용</button>
@@ -570,7 +590,7 @@
       </div>
 
       <h3>업체 원본 양식 + 운송장번호 다운로드</h3>
-      <div class="sub" style="margin-top:0;">업로드했던 업체의 원본 파일 형식 그대로, 운송장번호를 지정한 열에 채워서 그 업체에 회신할 파일을 받습니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">업로드했던 업체의 원본 파일 형식 그대로, 운송장번호를 지정한 열에 채워서 그 업체에 회신할 파일을 받습니다.</div></details>
       <div class="row">
         <select id="original-file-company-select" style="min-width:180px;"></select>
         <label style="font-size:13px;">운송장번호 삽입 열 :</label>
@@ -579,7 +599,7 @@
       </div>
 
       <h3>택배 건수 집계 (업체별 / 사이즈별)</h3>
-      <div class="sub" style="margin-top:0;">운송장번호가 매칭된 주문 기준으로 극소(1~4팩) / 소(5~8팩) 사이즈별 건수를 집계합니다. 업체에 택배비 청구 시 활용하세요.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">운송장번호가 매칭된 주문 기준으로 극소(1~4팩) / 소(5~8팩) 사이즈별 건수를 집계합니다. 업체에 택배비 청구 시 활용하세요.</div></details>
       <div id="delivery-count-wrap"></div>
       <div class="row">
         <button class="btn-ghost small-btn" id="refresh-delivery-count-btn">집계 새로고침</button>
@@ -597,14 +617,14 @@
     <details style="margin-top:14px;">
       <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">📄 거래명세서 템플릿 관리 (제이엠로지스 거래명세서)</summary>
       <div style="margin-top:10px;">
-        <div class="sub" style="margin:0 0 8px;">원본 거래명세서 파일(.xlsx)을 업로드하면 서식 그대로 수량만 채워서 다운로드합니다.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">원본 거래명세서 파일(.xlsx)을 업로드하면 서식 그대로 수량만 채워서 다운로드합니다.</div></details>
         <div class="dropzone" id="statement-template-dropzone">
           <div>거래명세서(.xlsx)를 여기에 끌어다 놓거나 클릭해서 선택</div>
           <div class="fname" id="statement-template-fname"></div>
           <input type="file" id="statement-template-input" accept=".xlsx" style="display:none;">
         </div>
         <h3 style="margin-top:12px;">SKU → 파일 내 행 매핑</h3>
-        <div class="sub" style="margin:0 0 8px;">각 SKU가 거래명세서의 몇 번 행(C열 품목명 기준)에 해당하는지 지정하세요. 예: 스테비아=10, 망고향=11, 자몽향=12</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">각 SKU가 거래명세서의 몇 번 행(C열 품목명 기준)에 해당하는지 지정하세요. 예: 스테비아=10, 망고향=11, 자몽향=12</div></details>
         <div id="sku-row-map-editor"></div>
         <div class="row" style="margin-top:10px;">
           <button class="btn-primary small-btn" id="export-statement-btn">거래명세서 다운로드</button>
@@ -615,14 +635,14 @@
     <details style="margin-top:14px;">
       <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">📊 생산본부 공유파일 템플릿 관리 (교체 · SKU 열 매핑)</summary>
       <div style="margin-top:10px;">
-        <div class="sub" style="margin:0 0 8px;">원본 파일(.xlsx)을 업로드해두면 해당 파일 양식 그대로 값을 채워서 다운로드합니다. 파일이 바뀌면 새 파일로 교체하세요.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">원본 파일(.xlsx)을 업로드해두면 해당 파일 양식 그대로 값을 채워서 다운로드합니다. 파일이 바뀌면 새 파일로 교체하세요.</div></details>
         <div class="dropzone" id="production-template-dropzone">
           <div>생산본부 공유파일(.xlsx)을 여기에 끌어다 놓거나 클릭해서 선택</div>
           <div class="fname" id="production-template-fname"></div>
           <input type="file" id="production-template-input" accept=".xlsx" style="display:none;">
         </div>
         <h3 style="margin:14px 0 6px;">SKU → 파일 내 열 매핑</h3>
-        <div class="sub" style="margin:0 0 8px;">각 SKU가 파일에서 어느 열(예: J, K, AA)에 해당하는지 지정하세요. 파일의 13행 헤더를 보고 맞춰주세요.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">각 SKU가 파일에서 어느 열(예: J, K, AA)에 해당하는지 지정하세요. 파일의 13행 헤더를 보고 맞춰주세요.</div></details>
         <div id="sku-column-map-editor"></div>
       </div>
     </details>
@@ -648,7 +668,7 @@
     <details style="margin-top:14px;">
       <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);">수동 날짜 데이터 입력 (프로그램 외부에서 처리한 날짜)</summary>
       <div style="margin-top:10px;">
-        <div class="sub" style="margin:0 0 8px;">발주취합 프로그램을 사용하지 않은 날짜의 데이터를 직접 입력해 월간 합계에 포함시킵니다.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">발주취합 프로그램을 사용하지 않은 날짜의 데이터를 직접 입력해 월간 합계에 포함시킵니다.</div></details>
         <div class="row" style="margin-top:0;">
           <label style="font-size:13px;">날짜 :</label>
           <input type="number" id="manual-year" placeholder="연" style="width:70px;">
@@ -680,12 +700,12 @@
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">데이터 백업 / 복원</summary>
       <div style="margin-top:10px;">
-      <div class="sub" style="margin-top:0;">새 버전으로 교체하기 전에 백업을 받아두고, 새 버전에서 복원하면 데이터를 그대로 이어갈 수 있습니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">새 버전으로 교체하기 전에 백업을 받아두고, 새 버전에서 복원하면 데이터를 그대로 이어갈 수 있습니다.</div></details>
     <div class="row">
       <button class="btn-primary small-btn" id="backup-btn">📥 전체 데이터 백업 (JSON 다운로드)</button>
       <button class="btn-danger small-btn" id="cleanup-lineitem-dates-btn">🧹 잘못된 날짜 데이터 정리</button>
     </div>
-    <div class="sub" style="margin-top:4px;">※ 날짜 정리 버튼은 저장된 날짜 칩에 이상한 값이 보일 때 한 번만 실행하세요.</div>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">※ 날짜 정리 버튼은 저장된 날짜 칩에 이상한 값이 보일 때 한 번만 실행하세요.</div></details>
     <div class="dropzone" id="restore-dropzone" style="margin-top:10px;">
       <div>백업 파일(.json)을 여기에 끌어다 놓거나 클릭해서 복원</div>
       <div class="fname" id="restore-fname"></div>
@@ -815,7 +835,7 @@
       <div id="output-table-wrap" style="overflow-x:auto;"></div>
 
       <h3 style="margin-top:20px;">📤 선별결과 공유 이미지</h3>
-      <div class="sub" style="margin-top:0;">선택한 날짜의 농가/사입처별 선별 결과를 이미지로 만들어 다운로드하거나 바로 공유할 수 있습니다.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 날짜의 농가/사입처별 선별 결과를 이미지로 만들어 다운로드하거나 바로 공유할 수 있습니다.</div></details>
       <div class="row" style="margin-top:8px; flex-wrap:wrap;">
         <label style="font-size:13px;">원본 :</label>
         <select id="share-origin-type-select" style="min-width:90px;">
@@ -854,12 +874,12 @@
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
       </div>
-      <div class="sub" style="margin-top:4px;">포장단위를 고르고 박스/콘테이너 수를 입력하면 수량(kg)이 자동 계산됩니다 (직접 수정도 가능).</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">포장단위를 고르고 박스/콘테이너 수를 입력하면 수량(kg)이 자동 계산됩니다 (직접 수정도 가능).</div></details>
       <div class="row">
         <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="shipment-add-btn">+ 출고 등록</button>
       </div>
-      <div class="sub" style="margin-top:6px;">※ 단가는 낙찰 확정 전이라 비워두고 등록 가능합니다. 이후 목록에서 "단가 입력"으로 채워주세요.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:6px;">※ 단가는 낙찰 확정 전이라 비워두고 등록 가능합니다. 이후 목록에서 "단가 입력"으로 채워주세요.</div></details>
       <h3 style="margin-top:16px;">선별후재고 (등급별)</h3>
       <div id="shipment-stock-wrap" style="overflow-x:auto;"></div>
       <div class="row" style="margin-top:16px; align-items:center;">
@@ -933,7 +953,7 @@
   <div id="panel-ecount" class="main-tab-panel">
 
   <h1 style="margin-bottom:4px;">이카운트 연동</h1>
-  <div class="sub" style="margin-bottom:12px;">발주취합·원물선별에서 발생한 매출/구매 데이터를 이카운트 ERP 양식으로 내려받고, 품목·거래처 코드 및 부가 설정을 관리합니다.</div>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">발주취합·원물선별에서 발생한 매출/구매 데이터를 이카운트 ERP 양식으로 내려받고, 품목·거래처 코드 및 부가 설정을 관리합니다.</div></details>
 
   <div class="card">
     <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">코드 관리는 각 원본 화면에서 — 바로가기</div>
@@ -948,7 +968,7 @@
     <details open>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 판매입력 엑셀 다운로드</summary>
       <div style="margin-top:10px;">
-      <div class="sub" style="margin-top:0;">당일 집계된 발주를 이카운트 판매입력 템플릿 형식으로 다운로드합니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">당일 집계된 발주를 이카운트 판매입력 템플릿 형식으로 다운로드합니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div></details>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;">출하창고 :</label>
       <input type="text" id="ecount-warehouse" placeholder="예: 본창고" style="width:110px;">
@@ -972,7 +992,7 @@
     <div id="price-map-editor" style="overflow-x:auto;"></div>
 
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
-    <div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div></details>
     <div id="delivery-fee-editor"></div>
       </div>
     </details>
@@ -982,7 +1002,7 @@
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 구매입력 (원물 구매) — 준비 중</summary>
       <div style="margin-top:10px;">
-        <div class="sub" style="margin-top:0;">원물선별의 사입(타사 구매) 내역을 이카운트 구매입력 양식으로 내려받는 기능은 추후 추가 예정입니다.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원물선별의 사입(타사 구매) 내역을 이카운트 구매입력 양식으로 내려받는 기능은 추후 추가 예정입니다.</div></details>
       </div>
     </details>
   </div>
@@ -992,7 +1012,7 @@
   <!-- ───────────── 패널: 단가 확인 (원가분석 · 원물가 이력 · 이익률, 관리자 전용) ───────────── -->
   <div id="panel-cost" class="main-tab-panel">
   <h1 style="margin-bottom:4px;">단가 확인</h1>
-  <div class="sub" style="margin-bottom:12px;">원물가(주 1회 변동)와 생산단가·물류비·수수료를 반영한 원가분석, 공급가 대비 이익·이익률을 확인합니다. 품목은 SKU 관리에 등록된 품목 기준입니다.</div>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">원물가(주 1회 변동)와 생산단가·물류비·수수료를 반영한 원가분석, 공급가 대비 이익·이익률을 확인합니다. 품목은 SKU 관리에 등록된 품목 기준입니다.</div></details>
   <div class="card">
     <div class="cost-viewonly">👁 열람 전용 — 입력·수정은 관리자만 할 수 있습니다.</div>
     <div class="row cost-tabstrip" style="margin-top:0; flex-wrap:wrap;">
@@ -1006,7 +1026,7 @@
       <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">기준일 :</label>
         <input type="date" id="cost-base-date">
-        <span class="sub" style="margin:0;">기준일에 적용 중인 원물가·비용으로 계산합니다.<span class="cost-edit-only"> 노란 칸(공급가)을 수정하면 기준일부터 적용되는 이력으로 저장됩니다.</span></span>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0;">기준일에 적용 중인 원물가·비용으로 계산합니다.<span class="cost-edit-only"> 노란 칸(공급가)을 수정하면 기준일부터 적용되는 이력으로 저장됩니다.</span></div></details>
       </div>
       <div id="cost-view-warn" class="sub" style="margin-top:8px;"></div>
       <div id="cost-view-wrap" style="overflow-x:auto; margin-top:8px;"></div>
@@ -1021,7 +1041,7 @@
     </div>
 
     <div id="cost-section-raw" style="display:none;">
-      <div class="sub cost-edit-only" style="margin-top:0;">원물 시세는 매주 금요일에 확정되고 다음 주 일요일부터 적용됩니다. 확정된 가격과 적용 시작일(기본값: 다가오는 일요일)을 입력해두면 기준일에 맞는 가격이 자동으로 쓰입니다.</div>
+      <details class="help cost-edit-only"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원물 시세는 매주 금요일에 확정되고 다음 주 일요일부터 적용됩니다. 확정된 가격과 적용 시작일(기본값: 다가오는 일요일)을 입력해두면 기준일에 맞는 가격이 자동으로 쓰입니다.</div></details>
       <div class="row" style="margin-top:8px; align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">원물 :</label>
         <select id="cost-raw-select" style="min-width:140px;"></select>
@@ -1096,7 +1116,7 @@
 
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
-      <div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더에 항상 접근할 수 있습니다)</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더에 항상 접근할 수 있습니다)</div></details>
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
   </div>
@@ -1104,7 +1124,7 @@
   </div><!-- /panel-admin -->
 
   <!-- 내 비밀번호 변경 -->
-  <div id="pw-dialog" style="display:none; position:fixed; inset:0; background:rgba(30,42,36,.45); z-index:900; align-items:center; justify-content:center; padding:16px;">
+  <div id="pw-dialog" style="display:none; position:fixed; inset:0; background:rgba(42,36,38,.45); z-index:900; align-items:center; justify-content:center; padding:16px;">
     <div style="background:#fff; border-radius:12px; padding:22px; width:100%; max-width:340px; border:1px solid var(--line);">
       <div style="font-size:16px; font-weight:700; margin-bottom:4px;">🔑 비밀번호 변경</div>
       <div class="sub" style="margin-bottom:14px;">변경하면 다른 기기에서는 자동으로 로그아웃됩니다.</div>
@@ -2948,7 +2968,7 @@ function applyUserUI() {
       Object.entries(groups).forEach(([gName, items])=>{
         // 일괄 입력 헤더
         const thBulk = document.createElement('th');
-        thBulk.style.background = '#e7efe9';
+        thBulk.style.background = '#fbe9ec';
         thBulk.style.fontSize = '10px';
         thBulk.style.color = 'var(--accent)';
         thBulk.textContent = '일괄입력';
@@ -2995,7 +3015,7 @@ function applyUserUI() {
         Object.entries(groups).forEach(([gName, items])=>{
           // 일괄 입력 셀
           const bulkTd = document.createElement('td');
-          bulkTd.style.background = '#f3faf4';
+          bulkTd.style.background = '#fdf3f4';
           const bulkInput = document.createElement('input');
           bulkInput.type = 'number'; bulkInput.min = '0'; bulkInput.step = '1';
           bulkInput.style.cssText = 'width:80px;border:1px solid var(--accent);border-radius:4px;padding:3px 4px;font-size:12px;';
@@ -6070,7 +6090,7 @@ function applyUserUI() {
     const msgs = [];
     const canFix = costCanEdit();
     if(noPrice.length) msgs.push(`⚠ 기준일(${baseDate})에 적용되는 원물가가 없는 품목: ${noPrice.map(escapeHtml).join(', ')}${canFix ? " → '원물가 관리'에서 등록해주세요." : ''}`);
-    if(noCfg.length) msgs.push(`원가 설정이 안 된 SKU ${noCfg.length}개: ${noCfg.map(escapeHtml).join(', ')}${canFix ? " → 'SKU별 원가 설정'에서 등록하면 표시됩니다." : ''}`);
+    if(noCfg.length) msgs.push(`원가 설정이 안 된 SKU ${noCfg.length}개 <details class="help" style="display:inline-block;"><summary>목록 보기</summary><div class="sub" style="margin:0;">${noCfg.map(escapeHtml).join(', ')}${canFix ? "<br>→ 'SKU별 원가 설정'에서 등록하면 표시됩니다." : ''}</div></details>`);
     warn.innerHTML = msgs.join('<br>');
     if(!c.salesTypes.length){ wrap.innerHTML = '<div class="empty">공통 설정에서 판매유형을 먼저 등록해주세요.</div>'; renderCostTrend(); return; }
     if(!rows.length){ wrap.innerHTML = '<div class="empty">표시할 품목이 없습니다.</div>'; renderCostTrend(); return; }
@@ -6449,7 +6469,7 @@ function applyUserUI() {
         <label style="font-size:13px;">분류(선택) :</label>
         <input type="text" id="cost-f-group" list="cost-group-list" value="${escapeHtml(cur.group || '')}" style="width:260px;" placeholder="예: [2kg] 투맛토 방울토마토 3종">
         <datalist id="cost-group-list">${[...new Set(Object.values(c.skus).map(s => (s.group || '').trim()).filter(Boolean))].map(g => `<option value="${escapeHtml(g)}"></option>`).join('')}</datalist>
-        <span class="sub" style="margin:0;">같은 분류 이름을 가진 SKU는 단가 현황에서 원가·수수료·공급가가 모두 같으면 한 줄로 묶여 보입니다.</span>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0;">같은 분류 이름을 가진 SKU는 단가 현황에서 원가·수수료·공급가가 모두 같으면 한 줄로 묶여 보입니다.</div></details>
       </div>
       <div class="row" style="align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">원물 종류 :</label>
@@ -6468,7 +6488,7 @@ function applyUserUI() {
         <button class="btn-danger small-btn" id="cost-f-del">이 SKU 설정 삭제</button>
       </div>
       <h3 style="margin-top:20px;">개별 적용 / 공통 적용 (적용 시작일 이력)</h3>
-      <div class="sub" style="margin-top:0;">'공통값'으로 표시된 항목은 공통 설정 값을 그대로 씁니다. 값을 등록하면 적용 시작일부터 <strong>이 SKU에만 개별 적용</strong>되고, '공통값 적용'을 누르면 다시 공통값을 씁니다. 시작일 이전 기간의 계산은 바뀌지 않습니다. (저장 버튼과 별개로 바로 저장됩니다)</div>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">'공통값'으로 표시된 항목은 공통 설정 값을 그대로 씁니다. 값을 등록하면 적용 시작일부터 <strong>이 SKU에만 개별 적용</strong>되고, '공통값 적용'을 누르면 다시 공통값을 씁니다. 시작일 이전 기간의 계산은 바뀌지 않습니다. (저장 버튼과 별개로 바로 저장됩니다)</div></details>
       <div id="cost-f-hist" style="margin-top:8px;"></div>`;
     renderCostFormMats();
     document.getElementById('cost-f-addmat').addEventListener('click', ()=>{
@@ -6576,7 +6596,7 @@ function applyUserUI() {
     // 입력 중 포커스를 잃지 않도록, 이미 그려져 있으면 값/목록만 갱신한다
     if(!document.getElementById('cost-c-vat')){
       wrap.innerHTML = `
-        <div class="sub" style="margin-top:0;">비용·가격은 모두 <strong>적용 시작일 이력</strong>으로 관리됩니다. 값을 바꿔도 시작일 이전 기간의 계산 결과는 그대로 유지됩니다. 아래는 <strong>모든 SKU에 공통 적용</strong>되는 값이며, 특정 SKU만 다르게 적용하려면 'SKU별 원가 설정'에서 개별 적용하세요.</div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">비용·가격은 모두 <strong>적용 시작일 이력</strong>으로 관리됩니다. 값을 바꿔도 시작일 이전 기간의 계산 결과는 그대로 유지됩니다. 아래는 <strong>모든 SKU에 공통 적용</strong>되는 값이며, 특정 SKU만 다르게 적용하려면 'SKU별 원가 설정'에서 개별 적용하세요.</div></details>
         <h3 style="margin-top:12px;">기본 비용 (공통)</h3><div id="cost-c-base"></div>
         <h3 style="margin-top:18px;">감가상각(중량 기준) · VAT (이력 없이 현재 값만 사용)</h3>
         <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
