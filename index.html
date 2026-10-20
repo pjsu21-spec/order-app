@@ -5830,7 +5830,7 @@ function applyUserUI() {
   // ══════════════════ 단가 확인 (원가분석 · 원물가/비용 이력 · 이익률) — 관리자 전용 ══════════════════
   // 저장: kv_store(shared) 'cost-config'(구성·비용 이력) / 'raw-price-history'(원물별 주간 시세 이력)
   // 모든 비용·가격은 "적용 시작일 이력"으로 저장하고, 기준일에 적용 중인 값으로 계산한다 → 값을 바꿔도 과거 계산은 유지된다.
-  // 값 조회 순서: SKU 개별 이력(있으면) → 공통 이력. 개별 이력의 value=null 은 "공통 따르기".
+  // 값 조회 순서: SKU 개별 이력(있으면) → 공통 이력. 개별 이력의 value=null 은 "공통값 적용".
   // 생산단가 = 원물(kg×원물가) + 불량비용 + 부자재(VAT 포함) + 감가상각 + 직접비
   // 총원가 = 생산단가 + 물류비 + 수수료(가격×수수료율) + 기타비용 / 이익 = 가격 − 총원가
   const COST_BASE_FROM = '2000-01-01';
@@ -6259,7 +6259,7 @@ function applyUserUI() {
   }
 
   // ── 값 + 적용 시작일 이력 편집 행 (공통 설정 / SKU별 개별 적용에서 함께 사용) ──
-  // spec: { label | labelNode, kind, itemId, skuId(null=공통), suffix, follow(SKU 개별에서 '공통 따르기' 허용) }
+  // spec: { label | labelNode, kind, itemId, skuId(null=공통), suffix, follow(SKU 개별에서 '공통값 적용' 허용) }
   function costHistRow(spec, afterChange){
     const today = costDateKey(new Date());
     const k = costKeys(spec.kind, spec.itemId, spec.skuId);
@@ -6275,7 +6275,7 @@ function applyUserUI() {
     const tdCur = document.createElement('td');
     tdCur.style.whiteSpace = 'nowrap';
     const srcTxt = res.source === 'sku' ? `개별 · ${res.from <= COST_BASE_FROM ? '최초' : res.from + '~'}`
-      : res.source === 'common' ? (spec.skuId ? '공통 따름' : (res.from <= COST_BASE_FROM ? '최초' : res.from + '~')) : '미설정';
+      : res.source === 'common' ? (spec.skuId ? '공통값' : (res.from <= COST_BASE_FROM ? '최초' : res.from + '~')) : '미설정';
     tdCur.innerHTML = `<strong>${res.value == null ? '-' : costFmt2(res.value) + (spec.suffix || '')}</strong> <span class="sub" style="margin:0;">${escapeHtml(srcTxt)}</span>`;
 
     const tdVal = document.createElement('td');
@@ -6298,7 +6298,7 @@ function applyUserUI() {
       }
       costSetHist(key, dateInput.value, value);
       if(await saveCostConfig()){
-        await writeLog('cost_hist', `${key} ${dateInput.value} ${value === null ? '공통 따름' : value}`);
+        await writeLog('cost_hist', `${key} ${dateInput.value} ${value === null ? '공통값' : value}`);
         toast(msg || `${dateInput.value}부터 적용되도록 저장했습니다`);
         afterChange();
       }
@@ -6309,9 +6309,9 @@ function applyUserUI() {
     tdAct.appendChild(regBtn);
     if(spec.skuId && spec.follow){
       const followBtn = document.createElement('button');
-      followBtn.className = 'btn-ghost small-btn'; followBtn.style.marginLeft = '6px'; followBtn.textContent = '공통 따르기';
+      followBtn.className = 'btn-ghost small-btn'; followBtn.style.marginLeft = '6px'; followBtn.textContent = '공통값 적용';
       followBtn.title = '선택한 적용 시작일부터 이 SKU의 개별값을 해제하고 공통 설정 값을 따릅니다';
-      followBtn.addEventListener('click', ()=>{ reg(null, `${dateInput.value}부터 공통 값을 따릅니다`)(); });
+      followBtn.addEventListener('click', ()=>{ reg(null, `${dateInput.value}부터 공통값을 적용합니다`)(); });
       tdAct.appendChild(followBtn);
     }
     const histBtn = document.createElement('button');
@@ -6332,7 +6332,7 @@ function applyUserUI() {
       const tb = document.createElement('tbody');
       list.slice().reverse().forEach(e=>{
         const r = document.createElement('tr');
-        r.innerHTML = `<td>${escapeHtml(e.from <= COST_BASE_FROM ? '최초부터' : e.from)}</td><td>${e.value === null ? '공통 따름' : costFmt2(e.value) + (spec.suffix || '')}</td><td class="sub" style="margin:0;">${escapeHtml(e.by || '')}</td><td></td>`;
+        r.innerHTML = `<td>${escapeHtml(e.from <= COST_BASE_FROM ? '최초부터' : e.from)}</td><td>${e.value === null ? '공통값' : costFmt2(e.value) + (spec.suffix || '')}</td><td class="sub" style="margin:0;">${escapeHtml(e.by || '')}</td><td></td>`;
         const del = document.createElement('button');
         del.className = 'btn-danger small-btn'; del.textContent = '삭제';
         del.addEventListener('click', async ()=>{
@@ -6437,7 +6437,7 @@ function applyUserUI() {
         <button class="btn-danger small-btn" id="cost-f-del">이 SKU 설정 삭제</button>
       </div>
       <h3 style="margin-top:20px;">개별 적용 / 공통 적용 (적용 시작일 이력)</h3>
-      <div class="sub" style="margin-top:0;">'공통 따름'으로 표시된 항목은 공통 설정 값을 그대로 씁니다. 값을 등록하면 적용 시작일부터 <strong>이 SKU에만 개별 적용</strong>되고, '공통 따르기'를 누르면 다시 공통 값을 따릅니다. 시작일 이전 기간의 계산은 바뀌지 않습니다. (저장 버튼과 별개로 바로 저장됩니다)</div>
+      <div class="sub" style="margin-top:0;">'공통값'으로 표시된 항목은 공통 설정 값을 그대로 씁니다. 값을 등록하면 적용 시작일부터 <strong>이 SKU에만 개별 적용</strong>되고, '공통값 적용'을 누르면 다시 공통값을 씁니다. 시작일 이전 기간의 계산은 바뀌지 않습니다. (저장 버튼과 별개로 바로 저장됩니다)</div>
       <div id="cost-f-hist" style="margin-top:8px;"></div>`;
     renderCostFormMats();
     document.getElementById('cost-f-addmat').addEventListener('click', ()=>{
