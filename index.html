@@ -5837,7 +5837,7 @@ function applyUserUI() {
   function costDefaultConfig(){
     return {
       vatRate: 10, defectRate: 2.5,
-      deprec: { invest: 1300000000, years: 10, dailyQty: 2000, workDays: 288 },
+      deprec: { invest: 1300000000, years: 10, dailyKg: 4000, workDays: 288 },
       directCost: 2104, logistics: 474,
       salesTypes: [
         { id: cryptoId(), name: '수도권(직거래)', feePct: 0 },
@@ -5904,6 +5904,8 @@ function applyUserUI() {
     const d = costDefaultConfig();
     ['salesTypes', 'materials', 'rawMaterials'].forEach(k=>{ if(!Array.isArray(costConfig[k])) costConfig[k] = d[k]; });
     if(!costConfig.deprec) costConfig.deprec = d.deprec;
+    // 감가상각을 중량(kg) 기준으로 변경: 기존 '일생산량(박스)'는 2kg 박스 기준이었으므로 kg로 환산해 결과가 바뀌지 않게 한다
+    if(costConfig.deprec.dailyKg == null){ costConfig.deprec.dailyKg = costNum(costConfig.deprec.dailyQty) > 0 ? costNum(costConfig.deprec.dailyQty) * 2 : d.deprec.dailyKg; delete costConfig.deprec.dailyQty; }
     if(!costConfig.skus) costConfig.skus = {};
     if(costConfig.vatRate == null) costConfig.vatRate = d.vatRate;
     const migrated = costMigrateV2();
@@ -5961,9 +5963,10 @@ function applyUserUI() {
   }
 
   // ── 계산 ──
-  function costDeprecPerUnit(){
+  // 감가상각은 원물 중량(kg) 기준: kg당 감가 × SKU의 원물 kg/박스 → 500g·150g 등 중량이 다른 SKU는 자동으로 다르게 계산된다
+  function costDeprecPerKg(){
     const d = costConfig.deprec;
-    const base = costNum(d.dailyQty) * costNum(d.workDays), years = costNum(d.years);
+    const base = costNum(d.dailyKg) * costNum(d.workDays), years = costNum(d.years);
     return (base <= 0 || years <= 0) ? 0 : costNum(d.invest) / years / base;
   }
   function rawPriceAt(rawId, dateKey){
@@ -5978,7 +5981,7 @@ function applyUserUI() {
     const defect = rawCost * defPct / 100;
     const matSub = (cfg.mats || []).reduce((s, m)=> s + costVal('mat', m.matId, skuId, dateKey) * costNum(m.qty), 0);
     const matVat = matSub * (1 + costNum(c.vatRate) / 100);
-    const deprec = costDeprecPerUnit();
+    const deprec = costDeprecPerKg() * rawKg;
     const direct = costVal('direct', null, skuId, dateKey);
     const logistics = costVal('logi', null, skuId, dateKey);
     const extra = costVal('extra', null, skuId, dateKey);
@@ -6547,12 +6550,12 @@ function applyUserUI() {
       wrap.innerHTML = `
         <div class="sub" style="margin-top:0;">비용·가격은 모두 <strong>적용 시작일 이력</strong>으로 관리됩니다. 값을 바꿔도 시작일 이전 기간의 계산 결과는 그대로 유지됩니다. 아래는 <strong>모든 SKU에 공통 적용</strong>되는 값이며, 특정 SKU만 다르게 적용하려면 'SKU별 원가 설정'에서 개별 적용하세요.</div>
         <h3 style="margin-top:12px;">기본 비용 (공통)</h3><div id="cost-c-base"></div>
-        <h3 style="margin-top:18px;">감가상각 · VAT (이력 없이 현재 값만 사용)</h3>
+        <h3 style="margin-top:18px;">감가상각(중량 기준) · VAT (이력 없이 현재 값만 사용)</h3>
         <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
           <label style="font-size:13px;">부자재 VAT율(%) :</label><input type="number" step="any" id="cost-c-vat" style="width:70px;">
           <label style="font-size:13px;">투자금액(원) :</label><input type="number" step="any" id="cost-c-dep-invest" style="width:130px;">
           <label style="font-size:13px;">내용연수(년) :</label><input type="number" step="any" id="cost-c-dep-years" style="width:70px;">
-          <label style="font-size:13px;">일생산량(박스) :</label><input type="number" step="any" id="cost-c-dep-qty" style="width:90px;">
+          <label style="font-size:13px;">일 처리 원물량(kg) :</label><input type="number" step="any" id="cost-c-dep-kg" style="width:90px;">
           <label style="font-size:13px;">연 가동일수(일) :</label><input type="number" step="any" id="cost-c-dep-days" style="width:70px;">
         </div>
         <div id="cost-c-dep-result" class="sub" style="margin-top:6px;"></div>
@@ -6566,13 +6569,13 @@ function applyUserUI() {
       bind('cost-c-vat', v=>{ c.vatRate = v; });
       bind('cost-c-dep-invest', v=>{ c.deprec.invest = v; });
       bind('cost-c-dep-years', v=>{ c.deprec.years = v; });
-      bind('cost-c-dep-qty', v=>{ c.deprec.dailyQty = v; });
+      bind('cost-c-dep-kg', v=>{ c.deprec.dailyKg = v; });
       bind('cost-c-dep-days', v=>{ c.deprec.workDays = v; });
     }
     document.getElementById('cost-c-vat').value = c.vatRate;
     document.getElementById('cost-c-dep-invest').value = c.deprec.invest;
     document.getElementById('cost-c-dep-years').value = c.deprec.years;
-    document.getElementById('cost-c-dep-qty').value = c.deprec.dailyQty;
+    document.getElementById('cost-c-dep-kg').value = c.deprec.dailyKg;
     document.getElementById('cost-c-dep-days').value = c.deprec.workDays;
     updateCostDepResult();
     const after = ()=>{ renderCostCommon(); renderCostView(); };
@@ -6599,7 +6602,7 @@ function applyUserUI() {
   }
   function updateCostDepResult(){
     const el = document.getElementById('cost-c-dep-result');
-    if(el) el.textContent = `→ 박스당 감가상각 ${(Math.round(costDeprecPerUnit() * 100) / 100).toLocaleString()}원 (투자금액 ÷ 내용연수 ÷ (일생산량 × 연 가동일수))`;
+    if(el) el.textContent = `→ 원물 1kg당 감가상각 ${costFmt2(costDeprecPerKg())}원 (투자금액 ÷ 내용연수 ÷ (일 처리 원물량 × 연 가동일수)). SKU별 원물 kg/박스를 곱해 적용됩니다 — 예: 2kg ${costFmt2(costDeprecPerKg() * 2)}원 · 500g ${costFmt2(costDeprecPerKg() * 0.5)}원 · 150g ${costFmt2(costDeprecPerKg() * 0.15)}원`;
   }
   // 단순 이름 목록 편집기 (원물 종류용)
   function costListEditor(wrapId, items, cols, opts){
