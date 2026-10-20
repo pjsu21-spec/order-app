@@ -188,6 +188,42 @@
     #panel-sorting .tab-btn{ padding:10px 14px; font-size:13px; }
     #panel-sorting table{ font-size:13px; }
   }
+  /* 단가 확인: 휴대폰에서는 표 대신 카드로 보여준다 (표는 PC용, 카드는 모바일용) */
+  .cost-cards{ display:none; }
+  .cost-card{ border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; background:#fff; }
+  .cost-card-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .cost-card-title{ font-size:15px; font-weight:700; line-height:1.3; }
+  .cost-card-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .cost-card-kv{ display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:10px; }
+  .cost-card-kv > div{ background:var(--paper); border-radius:8px; padding:7px 9px; }
+  .cost-card-kv .k{ font-size:11px; color:var(--muted); }
+  .cost-card-kv .v{ font-size:15px; font-weight:700; }
+  .cost-type-block{ border-top:1px dashed var(--line); margin-top:10px; padding-top:10px; }
+  .cost-type-name{ font-size:13px; font-weight:700; margin-bottom:6px; }
+  .cost-price-line{ display:grid; grid-template-columns:52px 1fr auto; align-items:center; gap:4px 8px; padding:4px 0; font-size:13px; }
+  .cost-price-line .lbl{ color:var(--muted); font-size:12px; }
+  .cost-price-line .pf{ text-align:right; font-weight:700; }
+  .cost-pill{ display:inline-block; padding:2px 8px; border-radius:100px; font-size:12px; font-weight:700; background:var(--accent-soft); color:var(--accent); }
+  .cost-pill.neg{ background:#fbeae5; color:#b5482e; }
+  .cost-card details summary{ cursor:pointer; font-size:12px; color:var(--muted); margin-top:8px; }
+  .cost-viewonly{ display:none; background:var(--accent-soft); color:var(--accent); font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; margin-bottom:10px; }
+  #app.cost-viewer .cost-viewonly{ display:block; }
+  #app.cost-viewer .cost-edit-only{ display:none !important; }
+  @media (max-width: 640px){
+    #app{ padding:12px; }
+    #panel-cost .cost-table-desktop{ display:none; }
+    #panel-cost .cost-cards{ display:block; }
+    #panel-cost .row{ flex-direction:column; align-items:stretch; gap:8px; }
+    #panel-cost .row.cost-tabstrip{ flex-direction:row; flex-wrap:wrap; }
+    #panel-cost input:not([type="checkbox"]),
+    #panel-cost select{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; }
+    #panel-cost .cost-price-line input{ width:110px !important; padding:8px 10px; text-align:right; }
+    #panel-cost .row label{ text-align:left; font-weight:600; }
+    #panel-cost .tab-btn{ padding:10px 14px; font-size:13px; }
+    #panel-cost .card{ padding:12px; }
+    #panel-cost table{ font-size:12.5px; }
+    #panel-cost #cost-common-wrap, #panel-cost #cost-sku-form{ overflow-x:auto; }
+  }
   .date-chip{ background:#fff; color:var(--ink); border:1px solid var(--line); font-size:12px; font-weight:600; padding:5px 10px; border-radius:100px; cursor:pointer; }
   .date-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .dropzone{
@@ -958,18 +994,19 @@
   <h1 style="margin-bottom:4px;">단가 확인</h1>
   <div class="sub" style="margin-bottom:12px;">원물가(주 1회 변동)와 생산단가·물류비·수수료를 반영한 원가분석, 공급가/판매가 대비 이익·이익률을 확인합니다. 품목은 SKU 관리에 등록된 품목 기준입니다.</div>
   <div class="card">
-    <div class="row" style="margin-top:0; flex-wrap:wrap;">
+    <div class="cost-viewonly">👁 열람 전용 — 입력·수정은 관리자만 할 수 있습니다.</div>
+    <div class="row cost-tabstrip" style="margin-top:0; flex-wrap:wrap;">
       <button class="tab-btn active" id="cost-tab-view-btn">단가 현황</button>
       <button class="tab-btn" id="cost-tab-raw-btn">원물가 관리</button>
-      <button class="tab-btn" id="cost-tab-sku-btn">SKU별 원가 설정</button>
-      <button class="tab-btn" id="cost-tab-common-btn">공통 설정</button>
+      <button class="tab-btn cost-edit-only" id="cost-tab-sku-btn">SKU별 원가 설정</button>
+      <button class="tab-btn cost-edit-only" id="cost-tab-common-btn">공통 설정</button>
     </div>
 
     <div id="cost-section-view">
       <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">기준일 :</label>
         <input type="date" id="cost-base-date">
-        <span class="sub" style="margin:0;">기준일에 적용 중인 원물가·비용으로 계산합니다. 노란 칸(공급가·판매가)을 수정하면 기준일부터 적용되는 이력으로 저장됩니다.</span>
+        <span class="sub" style="margin:0;">기준일에 적용 중인 원물가·비용으로 계산합니다.<span class="cost-edit-only"> 노란 칸(공급가·판매가)을 수정하면 기준일부터 적용되는 이력으로 저장됩니다.</span></span>
       </div>
       <div id="cost-view-warn" class="sub" style="margin-top:8px;"></div>
       <div id="cost-view-wrap" style="overflow-x:auto; margin-top:8px;"></div>
@@ -984,16 +1021,16 @@
     </div>
 
     <div id="cost-section-raw" style="display:none;">
-      <div class="sub" style="margin-top:0;">원물 시세는 매주 금요일에 확정되고 다음 주 일요일부터 적용됩니다. 확정된 가격과 적용 시작일(기본값: 다가오는 일요일)을 입력해두면 기준일에 맞는 가격이 자동으로 쓰입니다.</div>
+      <div class="sub cost-edit-only" style="margin-top:0;">원물 시세는 매주 금요일에 확정되고 다음 주 일요일부터 적용됩니다. 확정된 가격과 적용 시작일(기본값: 다가오는 일요일)을 입력해두면 기준일에 맞는 가격이 자동으로 쓰입니다.</div>
       <div class="row" style="margin-top:8px; align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">원물 :</label>
         <select id="cost-raw-select" style="min-width:140px;"></select>
-        <label style="font-size:13px;">원물가(원/kg) :</label>
-        <input type="number" id="cost-raw-price" style="width:100px;">
-        <label style="font-size:13px;">적용 시작일 :</label>
-        <input type="date" id="cost-raw-from">
-        <input type="text" id="cost-raw-note" placeholder="메모(선택)" style="width:160px;">
-        <button class="btn-primary small-btn" id="cost-raw-add-btn">+ 원물가 등록</button>
+        <label style="font-size:13px;" class="cost-edit-only">원물가(원/kg) :</label>
+        <input type="number" id="cost-raw-price" class="cost-edit-only" style="width:100px;">
+        <label style="font-size:13px;" class="cost-edit-only">적용 시작일 :</label>
+        <input type="date" id="cost-raw-from" class="cost-edit-only">
+        <input type="text" id="cost-raw-note" class="cost-edit-only" placeholder="메모(선택)" style="width:160px;">
+        <button class="btn-primary small-btn cost-edit-only" id="cost-raw-add-btn">+ 원물가 등록</button>
       </div>
       <div id="cost-raw-history-wrap" style="overflow-x:auto; margin-top:12px;"></div>
     </div>
@@ -1236,7 +1273,7 @@ async function login(username, password) {
   const inserted = await sbInsert('sessions', { user_id: user.id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -1266,7 +1303,7 @@ async function restoreSession() {
     const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
     if (!users.length) { localStorage.removeItem('auth_token'); return false; }
     const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -1355,9 +1392,11 @@ function applyUserUI() {
   if (adminTab) {
     adminTab.style.display = isAdmin ? '' : 'none';
   }
-  // 단가 확인 탭(원가·이익률)은 관리자에게만 표시
+  // 단가 확인 탭(원가·이익률): 관리자는 입력/열람, 열람 권한(access_cost)을 받은 사용자는 열람만
   const costTab = document.getElementById('main-nav-btn-cost');
-  if (costTab) costTab.style.display = isAdmin ? '' : 'none';
+  if (costTab) costTab.style.display = (isAdmin || window.currentUser.access_cost === true) ? '' : 'none';
+  const appForCost = document.getElementById('app');
+  if (appForCost) appForCost.classList.toggle('cost-viewer', !isAdmin);
   // 관리자 전용 요소 일괄 표시/숨김 (class="admin-only" 부여된 모든 요소)
   document.querySelectorAll('.admin-only').forEach(el => {
     el.style.display = isAdmin ? '' : 'none';
@@ -5826,6 +5865,9 @@ function applyUserUI() {
   function costDateKey(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function costNextSunday(){ const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); return costDateKey(d); }
   const costWho = () => (window.currentUser && window.currentUser.display_name) || '';
+  // 입력·수정은 관리자만. 열람 권한(access_cost)만 있는 사용자는 조회 전용
+  const costCanEdit = () => !!(window.currentUser && window.currentUser.role === 'admin');
+  const costCanView = () => costCanEdit() || !!(window.currentUser && window.currentUser.access_cost === true);
 
   // 구버전(고정값) 설정 → 적용 시작일 이력 구조(version 2)로 변환. 기존 값은 모두 '최초부터 적용'으로 옮긴다.
   function costMigrateV2(){
@@ -5866,14 +5908,16 @@ function applyUserUI() {
     if(costConfig.vatRate == null) costConfig.vatRate = d.vatRate;
     const migrated = costMigrateV2();
     // 최초 생성/변환 시 바로 저장해 항목 id가 매번 바뀌지 않게 한다
-    if((firstTime || migrated) && !costLoadError) await saveCostConfig();
+    if((firstTime || migrated) && !costLoadError && costCanEdit()) await saveCostConfig();
   }
   async function saveCostConfig(){
+    if(!costCanEdit()){ toast('단가 확인은 관리자만 수정할 수 있습니다'); return false; }
     if(costLoadError){ toast('데이터를 불러오지 못한 상태라 저장하지 않았습니다. 새로고침 후 다시 시도해주세요'); return false; }
     try{ await window.storage.set('cost-config', JSON.stringify(costConfig), true); return true; }
     catch(e){ console.error(e); toast('저장 실패: ' + e.message); return false; }
   }
   async function saveRawPriceHistory(){
+    if(!costCanEdit()){ toast('단가 확인은 관리자만 수정할 수 있습니다'); return false; }
     if(costLoadError){ toast('데이터를 불러오지 못한 상태라 저장하지 않았습니다. 새로고침 후 다시 시도해주세요'); return false; }
     try{ await window.storage.set('raw-price-history', JSON.stringify(rawPriceHistory), true); return true; }
     catch(e){ console.error(e); toast('저장 실패: ' + e.message); return false; }
@@ -5954,6 +5998,7 @@ function applyUserUI() {
   // ── 초기화 / 탭 전환 ──
   const COST_SECTIONS = ['view', 'raw', 'sku', 'common'];
   function showCostSection(sec){
+    if(!costCanEdit() && (sec === 'sku' || sec === 'common')) sec = 'view';
     COST_SECTIONS.forEach(s=>{
       document.getElementById('cost-section-' + s).style.display = (s === sec) ? 'block' : 'none';
       document.getElementById('cost-tab-' + s + '-btn').classList.toggle('active', s === sec);
@@ -5961,10 +6006,11 @@ function applyUserUI() {
     refreshCostAll();
   }
   function refreshCostAll(){
-    renderCostView(); renderCostRaw(); renderCostSkuTab(); renderCostCommon();
+    renderCostView(); renderCostRaw();
+    if(costCanEdit()){ renderCostSkuTab(); renderCostCommon(); }
   }
   async function initCostPanel(){
-    if(!window.currentUser || window.currentUser.role !== 'admin') return;
+    if(!costCanView()) return;
     if(!costInited){
       costInited = true;
       await loadCostData();
@@ -5980,6 +6026,7 @@ function applyUserUI() {
       document.getElementById('cost-view-wrap').addEventListener('change', async (e)=>{
         const t = e.target;
         if(!t.classList.contains('cost-price-input')) return;
+        if(!costCanEdit()) return;
         const baseDate = document.getElementById('cost-base-date').value || costDateKey(new Date());
         costSetHist(`${t.dataset.kind}|${t.dataset.type}|${t.dataset.sku}`, baseDate, t.value === '' ? null : Number(t.value));
         if(await saveCostConfig()) toast(`${baseDate}부터 적용되도록 저장했습니다`);
@@ -6007,8 +6054,9 @@ function applyUserUI() {
       rows.push({ sku: s, cfg, pe });
     });
     const msgs = [];
-    if(noPrice.length) msgs.push(`⚠ 기준일(${baseDate})에 적용되는 원물가가 없는 품목: ${noPrice.map(escapeHtml).join(', ')} → '원물가 관리'에서 등록해주세요.`);
-    if(noCfg.length) msgs.push(`원가 설정이 안 된 SKU ${noCfg.length}개: ${noCfg.map(escapeHtml).join(', ')} → 'SKU별 원가 설정'에서 등록하면 표시됩니다.`);
+    const canFix = costCanEdit();
+    if(noPrice.length) msgs.push(`⚠ 기준일(${baseDate})에 적용되는 원물가가 없는 품목: ${noPrice.map(escapeHtml).join(', ')}${canFix ? " → '원물가 관리'에서 등록해주세요." : ''}`);
+    if(noCfg.length) msgs.push(`원가 설정이 안 된 SKU ${noCfg.length}개: ${noCfg.map(escapeHtml).join(', ')}${canFix ? " → 'SKU별 원가 설정'에서 등록하면 표시됩니다." : ''}`);
     warn.innerHTML = msgs.join('<br>');
     if(!c.salesTypes.length){ wrap.innerHTML = '<div class="empty">공통 설정에서 판매유형을 먼저 등록해주세요.</div>'; renderCostTrend(); return; }
     if(!rows.length){ wrap.innerHTML = '<div class="empty">표시할 품목이 없습니다.</div>'; renderCostTrend(); return; }
@@ -6016,6 +6064,15 @@ function applyUserUI() {
     const neg = 'background:#fbeae5;color:#b5482e;font-weight:700;';
     const yellow = 'background:#fff7b3;';
     const th = 'white-space:nowrap;';
+    const canEdit = costCanEdit();
+    const priceCell = (kind, sku, type, v)=> canEdit
+      ? `<input type="number" step="any" class="cost-price-input" data-sku="${sku}" data-type="${type}" data-kind="${kind}" value="${costHas(v) ? v : ''}" style="width:90px;">`
+      : (costHas(v) ? costFmt(v) : '-');
+    // 모바일용 카드: 한 줄에 '구분 / 가격 / 이익(이익률)'
+    const priceLine = (label, kind, sku, type, price, sc)=> `<div class="cost-price-line"><span class="lbl">${label}</span>
+      <span>${canEdit ? priceCell(kind, sku, type, price) : `<span class="pf">${costHas(price) ? costFmt(price) + '원' : '-'}</span>`}</span>
+      <span>${sc ? `<span class="cost-pill${sc.profit < 0 ? ' neg' : ''}">${costFmt(sc.profit)}원 · ${costPct(sc.margin)}</span>` : '<span class="sub" style="margin:0;">-</span>'}</span></div>`;
+    let cards = '';
     let html = `<table><thead><tr>
       <th style="${th}">SKU</th><th style="${th}">원물가(원/kg)</th><th style="${th}">생산단가</th><th style="${th}">물류비</th>
       <th style="${th}">판매유형</th><th style="${th}">수수료</th><th style="${th}">기타비용</th><th style="${th}">총원가</th>
@@ -6025,6 +6082,8 @@ function applyUserUI() {
     rows.forEach(r=>{
       const b = costBase(r.sku.id, r.cfg, r.pe.price, baseDate);
       const n = c.salesTypes.length;
+      const rawName = escapeHtml((c.rawMaterials.find(x=>x.id===r.cfg.rawId)||{}).name || '?');
+      let typeBlocks = '';
       c.salesTypes.forEach((t, i)=>{
         const feePct = costVal('fee', t.id, r.sku.id, baseDate);
         const salePrice = costResolve('sale', t.id, r.sku.id, baseDate).value;
@@ -6032,6 +6091,10 @@ function applyUserUI() {
         const sale = costScenario(b, salePrice, feePct), supply = costScenario(b, supplyPrice, feePct);
         const total = sale ? sale.total : (b.production + b.logistics + b.extra);
         const be = sale ? sale.breakEven : (supply ? supply.breakEven : null);
+        typeBlocks += `<div class="cost-type-block"><div class="cost-type-name">${escapeHtml(t.name)}${costNum(feePct) ? ` <span class="sub" style="margin:0;font-weight:400;">수수료 ${costNum(feePct)}%</span>` : ''}</div>
+          ${priceLine('공급가', 'supply', r.sku.id, t.id, supplyPrice, supply)}
+          ${priceLine('판매가', 'sale', r.sku.id, t.id, salePrice, sale)}
+          <div class="cost-card-meta">총원가 ${costFmt(total)}원${sale ? ` (수수료 ${costFmt(sale.fee)}원)` : ''}${b.extra ? ` · 기타 ${costFmt(b.extra)}원` : ''} · 손익분기 원물가 ${be == null ? '-' : costFmt(be) + '원'}</div></div>`;
         html += '<tr>';
         if(i === 0){
           html += `<td rowspan="${n}"><strong>${escapeHtml(r.sku.name)}</strong><div class="sub" style="margin:2px 0 0;">${escapeHtml((c.rawMaterials.find(x=>x.id===r.cfg.rawId)||{}).name || '?')} ${b.rawKg}kg/박스</div></td>
@@ -6043,18 +6106,27 @@ function applyUserUI() {
           <td style="text-align:right;">${sale ? costFmt(sale.fee) : '-'}</td>
           <td style="text-align:right;">${b.extra ? costFmt(b.extra) : '-'}</td>
           <td style="text-align:right;">${costFmt(total)}</td>
-          <td style="${yellow}"><input type="number" step="any" class="cost-price-input" data-sku="${r.sku.id}" data-type="${t.id}" data-kind="supply" value="${costHas(supplyPrice) ? supplyPrice : ''}" style="width:90px;"></td>
+          <td style="${yellow}${canEdit ? '' : 'text-align:right;'}">${priceCell('supply', r.sku.id, t.id, supplyPrice)}</td>
           <td style="text-align:right;${supply ? (supply.profit < 0 ? neg : '') : ''}">${supply ? costFmt(supply.profit) : '-'}</td>
           <td style="text-align:right;${supply ? (supply.profit < 0 ? neg : '') : ''}">${supply ? costPct(supply.margin) : '-'}</td>
-          <td style="${yellow}"><input type="number" step="any" class="cost-price-input" data-sku="${r.sku.id}" data-type="${t.id}" data-kind="sale" value="${costHas(salePrice) ? salePrice : ''}" style="width:90px;"></td>
+          <td style="${yellow}${canEdit ? '' : 'text-align:right;'}">${priceCell('sale', r.sku.id, t.id, salePrice)}</td>
           <td style="text-align:right;${sale ? (sale.profit < 0 ? neg : '') : ''}">${sale ? costFmt(sale.profit) : '-'}</td>
           <td style="text-align:right;${sale ? (sale.profit < 0 ? neg : '') : ''}">${sale ? costPct(sale.margin) : '-'}</td>
           <td style="text-align:right;">${be == null ? '-' : costFmt(be)}</td>
         </tr>`;
       });
+      cards += `<div class="cost-card">
+        <div class="cost-card-head"><div><div class="cost-card-title">${escapeHtml(r.sku.name)}</div>
+          <div class="cost-card-meta">${rawName} ${b.rawKg}kg/박스</div></div></div>
+        <div class="cost-card-kv">
+          <div><div class="k">원물가(원/kg)</div><div class="v">${costFmt(r.pe.price)}</div><div class="cost-card-meta">${escapeHtml(r.pe.effectiveFrom)}~ 적용</div></div>
+          <div><div class="k">생산단가</div><div class="v">${costFmt(b.production)}</div><div class="cost-card-meta">물류비 ${costFmt(b.logistics)}</div></div>
+        </div>
+        <details><summary>생산단가 내역 보기</summary><div class="cost-card-meta" style="line-height:1.7;">원물 ${costFmt(b.rawCost)} · 불량 ${costFmt(b.defect)}<br>부자재 ${costFmt(b.matVat)} · 감가 ${costFmt(b.deprec)}<br>직접비 ${costFmt(b.direct)}</div></details>
+        ${typeBlocks}</div>`;
     });
     html += '</tbody></table>';
-    wrap.innerHTML = html;
+    wrap.innerHTML = `<div class="cost-table-desktop" style="overflow-x:auto;">${html}</div><div class="cost-cards">${cards}</div>`;
     renderCostTrend();
   }
 
@@ -6077,7 +6149,7 @@ function applyUserUI() {
     if(!hist.length){ wrap.innerHTML = '<div class="empty">등록된 원물가 이력이 없습니다.</div>'; return; }
     const neg = 'background:#fbeae5;color:#b5482e;font-weight:700;';
     let html = '<table><thead><tr><th>적용 시작일</th><th>원물가</th><th>전주 대비</th><th>생산단가</th><th>총원가</th><th>가격</th><th>이익</th><th>이익률</th></tr></thead><tbody>';
-    let any = false;
+    let any = false, tcards = '';
     hist.map((e, i)=>({ e, prev: i > 0 ? hist[i - 1] : null })).reverse().forEach(({ e, prev })=>{
       const d = e.effectiveFrom;
       const sale = costResolve('sale', type.id, sku.id, d).value, supply = costResolve('supply', type.id, sku.id, d).value;
@@ -6087,6 +6159,10 @@ function applyUserUI() {
       const s = costScenario(b, usedPrice, costVal('fee', type.id, sku.id, d));
       const diff = prev ? e.price - prev.price : null;
       if(s) any = true;
+      tcards += `<div class="cost-card"><div class="cost-card-head"><div class="cost-card-title">${escapeHtml(d)}~</div>
+        ${s ? `<span class="cost-pill${s.profit < 0 ? ' neg' : ''}">${costFmt(s.profit)}원 · ${costPct(s.margin)}</span>` : '<span class="sub" style="margin:0;">가격 없음</span>'}</div>
+        <div class="cost-card-meta" style="margin-top:6px;line-height:1.7;">원물가 <strong>${costFmt(e.price)}</strong>${diff == null ? '' : ` (${diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : ''}${costFmt(Math.abs(diff))})`}
+        <br>생산단가 ${costFmt(b.production)} · 총원가 ${s ? costFmt(s.total) : '-'}${s ? `<br>${label} ${costFmt(usedPrice)}` : ''}</div></div>`;
       html += `<tr><td>${escapeHtml(d)}</td><td style="text-align:right;">${costFmt(e.price)}</td>
         <td style="text-align:right;">${diff == null ? '-' : (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '') + costFmt(Math.abs(diff))}</td>
         <td style="text-align:right;">${costFmt(b.production)}</td>
@@ -6095,7 +6171,7 @@ function applyUserUI() {
         <td style="text-align:right;${s && s.profit < 0 ? neg : ''}">${s ? costFmt(s.profit) : '-'}</td>
         <td style="text-align:right;${s && s.profit < 0 ? neg : ''}">${s ? costPct(s.margin) : '-'}</td></tr>`;
     });
-    wrap.innerHTML = any ? html + '</tbody></table>' : '<div class="empty">이 SKU·판매유형의 판매가(또는 공급가)가 원물가 적용 시점에 입력되어 있지 않습니다.</div>';
+    wrap.innerHTML = any ? `<div class="cost-table-desktop" style="overflow-x:auto;">${html}</tbody></table></div><div class="cost-cards">${tcards}</div>` : '<div class="empty">이 SKU·판매유형의 판매가(또는 공급가)가 원물가 적용 시점에 입력되어 있지 않습니다.</div>';
   }
 
   // ── 원물가 관리 ──
@@ -6115,9 +6191,19 @@ function applyUserUI() {
     const table = document.createElement('table');
     table.innerHTML = '<thead><tr><th>적용 시작일</th><th>원물가(원/kg)</th><th>전주 대비</th><th>상태</th><th>메모</th><th>입력</th><th></th></tr></thead>';
     const tbody = document.createElement('tbody');
+    const cardsDiv = document.createElement('div');
+    cardsDiv.className = 'cost-cards';
+    const canEdit = costCanEdit();
     hist.map((e, i)=>({ e, prev: i > 0 ? hist[i - 1] : null })).reverse().forEach(({ e, prev })=>{
       const diff = prev ? e.price - prev.price : null;
       const status = e.effectiveFrom > today ? '예정' : (cur && cur.effectiveFrom === e.effectiveFrom ? '적용 중' : '종료');
+      const card = document.createElement('div');
+      card.className = 'cost-card';
+      card.innerHTML = `<div class="cost-card-head"><div class="cost-card-title">${escapeHtml(e.effectiveFrom)}~</div>
+        <span class="cost-pill${status === '적용 중' ? '' : ' neg'}" style="${status === '적용 중' ? '' : 'background:var(--paper);color:var(--muted);'}">${status}</span></div>
+        <div style="font-size:18px;font-weight:700;margin-top:6px;">${costFmt(e.price)}<span class="sub" style="margin:0 0 0 4px;font-weight:400;">원/kg</span></div>
+        <div class="cost-card-meta">${diff == null ? '' : `전주 대비 ${diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : ''}${costFmt(Math.abs(diff))} (${costPct(diff / prev.price * 100)})`}${e.note ? ` · ${escapeHtml(e.note)}` : ''}</div>`;
+      cardsDiv.appendChild(card);
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${escapeHtml(e.effectiveFrom)}</td><td style="text-align:right;"><strong>${costFmt(e.price)}</strong></td>
         <td style="text-align:right;">${diff == null ? '-' : (diff > 0 ? '▲ ' : diff < 0 ? '▼ ' : '') + costFmt(Math.abs(diff)) + ' (' + costPct(diff / prev.price * 100) + ')'}</td>
@@ -6130,11 +6216,20 @@ function applyUserUI() {
         rawPriceHistory[sel.value] = (rawPriceHistory[sel.value] || []).filter(x => x.id !== e.id);
         if(await saveRawPriceHistory()){ renderCostRaw(); renderCostView(); }
       });
-      tr.lastElementChild.appendChild(del);
+      if(canEdit){
+        tr.lastElementChild.appendChild(del);
+        const del2 = del.cloneNode(true);
+        del2.style.marginTop = '8px';
+        del2.addEventListener('click', ()=> del.click());
+        card.appendChild(del2);
+      }
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    wrap.innerHTML = ''; wrap.appendChild(table);
+    const tableBox = document.createElement('div');
+    tableBox.className = 'cost-table-desktop'; tableBox.style.overflowX = 'auto';
+    tableBox.appendChild(table);
+    wrap.innerHTML = ''; wrap.appendChild(tableBox); wrap.appendChild(cardsDiv);
   }
   async function addRawPrice(){
     const rawId = document.getElementById('cost-raw-select').value;
@@ -8088,7 +8183,7 @@ function applyUserUI() {
     try{
       const rows = await sbQuery('users', '?order=created_at.asc');
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더</th><th>단가 확인 열람</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
@@ -8096,9 +8191,10 @@ function applyUserUI() {
         const accessSorting = u.access_sorting === true;
         const masterEdit = u.sorting_master_edit === true;
         const accessFiles = u.access_files === true;
+        const accessCost = u.access_cost === true;
 
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td><td></td>`;
         const cells = tr.querySelectorAll('td');
 
         function makeToggle(current, field, onLabel, offLabel){
@@ -8159,11 +8255,18 @@ function applyUserUI() {
         cells[3].appendChild(makeLevel('sorting', accessSorting));
         cells[4].appendChild(makeToggle(masterEdit, 'sorting_master_edit', '✅ 허용', '⛔ 차단'));
         cells[5].appendChild(makeLevel('files', accessFiles));
+        if(u.role === 'admin'){
+          const span = document.createElement('span');
+          span.textContent = '전체 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);';
+          cells[6].appendChild(span);
+        } else {
+          cells[6].appendChild(makeToggle(accessCost, 'access_cost', '✅ 열람', '⛔ 차단'));
+        }
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
-    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files/readonly_* 컬럼이 생성되어 있는지 확인하세요)</div>`; }
+    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files/access_cost/readonly_* 컬럼이 생성되어 있는지 확인하세요)</div>`; }
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);
