@@ -6035,12 +6035,12 @@ function applyUserUI() {
         // 묶여 보이는 행(여러 SKU)은 포함된 모든 SKU에 같은 값을 저장한다
         let ids = t.dataset.sku.split(',');
         const value = t.value === '' ? null : Number(t.value);
-        if(ids.length === 1 && value !== null){
-          // 같은 분류의 다른 SKU가 이 판매유형 공급가를 아직 입력하지 않았다면 함께 입력할지 묻는다
+        if(ids.length === 1){
+          // 따로 보이는 행을 수정할 때, 같은 분류의 다른 SKU 값이 이 값과 다르면 함께 적용할지 묻는다 (취소하면 이 SKU만 변경)
           const grp = ((costConfig.skus[ids[0]] || {}).group || '').trim();
-          const empties = !grp ? [] : dict.filter(s => s.id !== ids[0] && costConfig.skus[s.id] && (costConfig.skus[s.id].group || '').trim() === grp
-            && costResolve(t.dataset.kind, t.dataset.type, s.id, baseDate).value == null);
-          if(empties.length && confirm(`같은 분류('${grp}')의 다른 SKU ${empties.length}개(${empties.map(s => s.name).join(', ')})에도 같은 공급가를 입력할까요?`)) ids = ids.concat(empties.map(s => s.id));
+          const diffs = !grp ? [] : dict.filter(s => s.id !== ids[0] && costConfig.skus[s.id] && (costConfig.skus[s.id].group || '').trim() === grp
+            && costResolve(t.dataset.kind, t.dataset.type, s.id, baseDate).value !== value);
+          if(diffs.length && confirm(`같은 분류('${grp}')의 다른 SKU ${diffs.length}개(${diffs.map(s => s.name).join(', ')})에도 ${value === null ? '이 칸을 비우도록' : '같은 공급가(' + value + ')를'} 적용할까요?\n\n[확인] 분류 전체에 적용 (한 줄로 묶임)\n[취소] 이 SKU만 변경`)) ids = ids.concat(diffs.map(s => s.id));
         }
         ids.forEach(sid => costSetHist(`${t.dataset.kind}|${t.dataset.type}|${sid}`, baseDate, value));
         if(await saveCostConfig()) toast(`${baseDate}부터 적용되도록 저장했습니다${ids.length > 1 ? ` (${ids.length}개 SKU)` : ''}`);
