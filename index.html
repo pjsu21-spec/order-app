@@ -8200,9 +8200,13 @@ function applyUserUI() {
             if(field === 'access_order' && u.id === window.currentUser?.id && current){
               toast('자기 자신의 발주자동화 접근 권한은 끌 수 없습니다'); return;
             }
-            await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
+            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
               method:'PATCH', headers: sbHeaders, body: JSON.stringify({ [field]: !current })
             });
+            if(!res.ok){
+              alert(`권한 변경에 실패했습니다. Supabase users 테이블에 '${field}' 컬럼이 없는 것 같습니다.\nSupabase SQL Editor에서 아래를 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS ${field} boolean NOT NULL DEFAULT false;`);
+              return;
+            }
             await writeLog('perm_change', `${u.username} ${field}: ${current} → ${!current}`);
             loadAdminPerms();
           });
