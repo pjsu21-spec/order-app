@@ -6032,8 +6032,18 @@ function applyUserUI() {
         if(!t.classList.contains('cost-price-input')) return;
         if(!costCanEdit()) return;
         const baseDate = document.getElementById('cost-base-date').value || costDateKey(new Date());
-        costSetHist(`${t.dataset.kind}|${t.dataset.type}|${t.dataset.sku}`, baseDate, t.value === '' ? null : Number(t.value));
-        if(await saveCostConfig()) toast(`${baseDate}부터 적용되도록 저장했습니다`);
+        // 묶여 보이는 행(여러 SKU)은 포함된 모든 SKU에 같은 값을 저장한다
+        let ids = t.dataset.sku.split(',');
+        const value = t.value === '' ? null : Number(t.value);
+        if(ids.length === 1 && value !== null){
+          // 같은 분류의 다른 SKU가 이 판매유형 공급가를 아직 입력하지 않았다면 함께 입력할지 묻는다
+          const grp = ((costConfig.skus[ids[0]] || {}).group || '').trim();
+          const empties = !grp ? [] : dict.filter(s => s.id !== ids[0] && costConfig.skus[s.id] && (costConfig.skus[s.id].group || '').trim() === grp
+            && costResolve(t.dataset.kind, t.dataset.type, s.id, baseDate).value == null);
+          if(empties.length && confirm(`같은 분류('${grp}')의 다른 SKU ${empties.length}개(${empties.map(s => s.name).join(', ')})에도 같은 공급가를 입력할까요?`)) ids = ids.concat(empties.map(s => s.id));
+        }
+        ids.forEach(sid => costSetHist(`${t.dataset.kind}|${t.dataset.type}|${sid}`, baseDate, value));
+        if(await saveCostConfig()) toast(`${baseDate}부터 적용되도록 저장했습니다${ids.length > 1 ? ` (${ids.length}개 SKU)` : ''}`);
         renderCostView();
         renderCostSkuHist();
       });
@@ -6065,6 +6075,23 @@ function applyUserUI() {
     if(!c.salesTypes.length){ wrap.innerHTML = '<div class="empty">공통 설정에서 판매유형을 먼저 등록해주세요.</div>'; renderCostTrend(); return; }
     if(!rows.length){ wrap.innerHTML = '<div class="empty">표시할 품목이 없습니다.</div>'; renderCostTrend(); return; }
 
+    // 같은 '분류'의 SKU(맛 등)가 원가·수수료·공급가까지 모두 같으면 한 줄로 묶어 보여주고, 하나라도 다르면 따로 보여준다
+    const groups = [], byKey = new Map();
+    rows.forEach(r=>{
+      const grp = (r.cfg.group || '').trim();
+      const b0 = costBase(r.sku.id, r.cfg, r.pe.price, baseDate);
+      const sig = JSON.stringify([r.cfg.rawId, r.pe.price, b0.rawKg, b0.production, b0.logistics, b0.extra,
+        c.salesTypes.map(t => [costVal('fee', t.id, r.sku.id, baseDate), costResolve('supply', t.id, r.sku.id, baseDate).value])]);
+      const key = grp ? grp + '||' + sig : r.sku.id;
+      let g = byKey.get(key);
+      if(!g){ g = { ...r, group: grp, members: [r.sku] }; byKey.set(key, g); groups.push(g); } else g.members.push(r.sku);
+    });
+    groups.forEach(g=>{
+      g.ids = g.members.map(s => s.id).join(',');
+      g.nameHtml = g.members.length > 1
+        ? `<strong>${escapeHtml(g.group)}</strong><div class="sub" style="margin:2px 0 0;">${g.members.length}종 모두 적용<br>${g.members.map(s => escapeHtml(s.name)).join('<br>')}</div>`
+        : `<strong>${escapeHtml(g.sku.name)}</strong>${g.group ? `<div class="sub" style="margin:2px 0 0;">${escapeHtml(g.group)}</div>` : ''}`;
+    });
     const neg = 'background:#fbeae5;color:#b5482e;font-weight:700;';
     const yellow = 'background:#fff7b3;';
     const th = 'white-space:nowrap;';
@@ -6082,7 +6109,7 @@ function applyUserUI() {
       <th style="${th}">판매유형</th><th style="${th}">수수료</th><th style="${th}">기타비용</th><th style="${th}">총원가</th>
       <th style="${th}">공급가</th><th style="${th}">공급이익</th><th style="${th}">이익률</th><th style="${th}">손익분기 원물가</th>
     </tr></thead><tbody>`;
-    rows.forEach(r=>{
+    groups.forEach(r=>{
       const b = costBase(r.sku.id, r.cfg, r.pe.price, baseDate);
       const n = c.salesTypes.length;
       const rawName = escapeHtml((c.rawMaterials.find(x=>x.id===r.cfg.rawId)||{}).name || '?');
@@ -6094,11 +6121,11 @@ function applyUserUI() {
         const total = supply ? supply.total : (b.production + b.logistics + b.extra);
         const be = supply ? supply.breakEven : null;
         typeBlocks += `<div class="cost-type-block"><div class="cost-type-name">${escapeHtml(t.name)}${costNum(feePct) ? ` <span class="sub" style="margin:0;font-weight:400;">수수료 ${costNum(feePct)}%</span>` : ''}</div>
-          ${priceLine('공급가', 'supply', r.sku.id, t.id, supplyPrice, supply)}
+          ${priceLine('공급가', 'supply', r.ids, t.id, supplyPrice, supply)}
           <div class="cost-card-meta">총원가 ${costFmt(total)}원${supply ? ` (수수료 ${costFmt(supply.fee)}원)` : ''}${b.extra ? ` · 기타 ${costFmt(b.extra)}원` : ''} · 손익분기 원물가 ${be == null ? '-' : costFmt(be) + '원'}</div></div>`;
         html += '<tr>';
         if(i === 0){
-          html += `<td rowspan="${n}"><strong>${escapeHtml(r.sku.name)}</strong><div class="sub" style="margin:2px 0 0;">${escapeHtml((c.rawMaterials.find(x=>x.id===r.cfg.rawId)||{}).name || '?')} ${b.rawKg}kg/박스</div></td>
+          html += `<td rowspan="${n}">${r.nameHtml}<div class="sub" style="margin:2px 0 0;">${rawName} ${b.rawKg}kg/박스</div></td>
             <td rowspan="${n}" style="${yellow}text-align:right;">${costFmt(r.pe.price)}<div class="sub" style="margin:2px 0 0;">${escapeHtml(r.pe.effectiveFrom)}~ 적용</div></td>
             <td rowspan="${n}" style="text-align:right;"><strong>${costFmt(b.production)}</strong><div class="sub" style="margin:2px 0 0;white-space:nowrap;">원물 ${costFmt(b.rawCost)} · 불량 ${costFmt(b.defect)}<br>부자재 ${costFmt(b.matVat)} · 감가 ${costFmt(b.deprec)}<br>직접비 ${costFmt(b.direct)}</div></td>
             <td rowspan="${n}" style="text-align:right;">${costFmt(b.logistics)}</td>`;
@@ -6107,14 +6134,15 @@ function applyUserUI() {
           <td style="text-align:right;">${supply ? costFmt(supply.fee) : '-'}</td>
           <td style="text-align:right;">${b.extra ? costFmt(b.extra) : '-'}</td>
           <td style="text-align:right;">${costFmt(total)}</td>
-          <td style="${yellow}${canEdit ? '' : 'text-align:right;'}">${priceCell('supply', r.sku.id, t.id, supplyPrice)}</td>
+          <td style="${yellow}${canEdit ? '' : 'text-align:right;'}">${priceCell('supply', r.ids, t.id, supplyPrice)}</td>
           <td style="text-align:right;${supply ? (supply.profit < 0 ? neg : '') : ''}">${supply ? costFmt(supply.profit) : '-'}</td>
           <td style="text-align:right;${supply ? (supply.profit < 0 ? neg : '') : ''}">${supply ? costPct(supply.margin) : '-'}</td>
           <td style="text-align:right;">${be == null ? '-' : costFmt(be)}</td>
         </tr>`;
       });
       cards += `<div class="cost-card">
-        <div class="cost-card-head"><div><div class="cost-card-title">${escapeHtml(r.sku.name)}</div>
+        <div class="cost-card-head"><div><div class="cost-card-title">${r.members.length > 1 ? escapeHtml(r.group) : escapeHtml(r.sku.name)}</div>
+          ${r.members.length > 1 ? `<div class="cost-card-meta">${r.members.length}종 모두 적용 · ${r.members.map(s => escapeHtml(s.name)).join(', ')}</div>` : (r.group ? `<div class="cost-card-meta">${escapeHtml(r.group)}</div>` : '')}
           <div class="cost-card-meta">${rawName} ${b.rawKg}kg/박스</div></div></div>
         <div class="cost-card-kv">
           <div><div class="k">원물가(원/kg)</div><div class="v">${costFmt(r.pe.price)}</div><div class="cost-card-meta">${escapeHtml(r.pe.effectiveFrom)}~ 적용</div></div>
@@ -6418,6 +6446,12 @@ function applyUserUI() {
     const others = dict.filter(s => s.id !== id && c.skus[s.id]);
     wrap.innerHTML = `
       <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">분류(선택) :</label>
+        <input type="text" id="cost-f-group" list="cost-group-list" value="${escapeHtml(cur.group || '')}" style="width:260px;" placeholder="예: [2kg] 투맛토 방울토마토 3종">
+        <datalist id="cost-group-list">${[...new Set(Object.values(c.skus).map(s => (s.group || '').trim()).filter(Boolean))].map(g => `<option value="${escapeHtml(g)}"></option>`).join('')}</datalist>
+        <span class="sub" style="margin:0;">같은 분류 이름을 가진 SKU는 단가 현황에서 원가·수수료·공급가가 모두 같으면 한 줄로 묶여 보입니다.</span>
+      </div>
+      <div class="row" style="align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">원물 종류 :</label>
         <select id="cost-f-raw" style="min-width:140px;">${c.rawMaterials.map(r=>`<option value="${r.id}" ${cur.rawId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}</select>
         <label style="font-size:13px;">원물 사용량(kg/박스) :</label>
@@ -6507,6 +6541,7 @@ function applyUserUI() {
     const g = id => document.getElementById(id).value;
     return {
       ...prev,
+      group: g('cost-f-group').trim(),
       rawId: g('cost-f-raw'), rawKgPerBox: costNum(g('cost-f-rawkg')),
       mats: costEditMats.filter(m => m.matId && costNum(m.qty) > 0).map(m => ({ matId: m.matId, qty: costNum(m.qty) }))
     };
