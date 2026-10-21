@@ -326,6 +326,7 @@
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
     <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
+    <a id="main-nav-link-detail" href="detail.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">🖼 상세페이지 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
   </nav>
 
@@ -1464,6 +1465,8 @@ function applyUserUI() {
   // 공유폴더 바로가기 (관리자 또는 공유폴더 권한 보유자에게만 표시)
   const filesLink = document.getElementById('main-nav-link-files');
   if (filesLink) filesLink.style.display = (isAdmin || window.currentUser.access_files === true) ? '' : 'none';
+  const detailLink = document.getElementById('main-nav-link-detail');
+  if (detailLink) detailLink.style.display = (isAdmin || window.currentUser.access_files === true) ? '' : 'none';
   // 읽기 전용 권한 표시 (안내 띠 + 삭제류 버튼 숨김)
   const roOrder = window.accessLevel('order') === 'read';
   const roSorting = window.accessLevel('sorting') === 'read';
