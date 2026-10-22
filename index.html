@@ -1142,7 +1142,7 @@
 
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더에 항상 접근할 수 있습니다)</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더/상세페이지 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. (공유폴더와 상세페이지는 같은 권한을 함께 씁니다) 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더·상세페이지에 항상 접근할 수 있습니다)</div></details>
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
   </div>
@@ -1185,7 +1185,7 @@ const sbHeaders = {
 };
 
 // ── 프로그램별 권한 단계: 'none'(차단) / 'read'(읽기만) / 'full'(전체) ──
-//    prog: 'order'(발주자동화·이카운트) | 'sorting'(원물선별) | 'files'(공유폴더). 관리자는 읽기 전용이 적용되지 않습니다.
+//    prog: 'order'(발주자동화·이카운트) | 'sorting'(원물선별) | 'files'(공유폴더·상세페이지). 관리자는 읽기 전용이 적용되지 않습니다.
 window.accessLevel = function(prog){
   const u = window.currentUser;
   if (!u) return 'none';
@@ -1462,7 +1462,7 @@ function applyUserUI() {
   document.querySelectorAll('.sorting-master-only').forEach(el => {
     el.style.display = sortingMasterEdit ? '' : 'none';
   });
-  // 공유폴더 바로가기 (관리자 또는 공유폴더 권한 보유자에게만 표시)
+  // 공유폴더·상세페이지 바로가기 (관리자 또는 공유폴더/상세페이지 권한 보유자에게만 표시)
   const filesLink = document.getElementById('main-nav-link-files');
   if (filesLink) filesLink.style.display = (isAdmin || window.currentUser.access_files === true) ? '' : 'none';
   const detailLink = document.getElementById('main-nav-link-detail');
@@ -8268,7 +8268,7 @@ function applyUserUI() {
     try{
       const rows = await sbQuery('users', '?order=created_at.asc');
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더</th><th>단가 확인 열람</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
