@@ -25,7 +25,16 @@
   #app:not(.in-program) #home-screen{ display:block; }
   #app:not(.in-program) .main-tab-panel{ display:none !important; }
   #app.in-program #program-bar{ display:flex; }
-  #home-hello{ font-size:15px; color:var(--muted); margin:6px 0 14px; }
+  #home-tools{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:-4px 0 12px; }
+  .home-tool-btn{ background:#fff; border:1px solid var(--line); color:var(--ink); padding:7px 14px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; }
+  .home-tool-btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .home-tool-tip{ font-size:12px; color:var(--muted); }
+  .home-tile.editing{ border-style:dashed; border-color:var(--accent); cursor:default; position:relative; }
+  .home-tile.editing:hover{ transform:none; box-shadow:none; }
+  .home-no{ position:absolute; top:8px; right:10px; font-size:12px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:100px; padding:1px 8px; }
+  .home-move{ display:flex; gap:8px; width:100%; margin-top:auto; padding-top:8px; }
+  .home-move button{ flex:1; background:#fff; border:1px solid var(--accent); color:var(--accent); border-radius:8px; padding:6px 0; font-size:14px; cursor:pointer; font-family:inherit; }
+  .home-move button:disabled{ opacity:.3; cursor:default; }  #home-hello{ font-size:15px; color:var(--muted); margin:6px 0 14px; }
   #home-hello b{ color:var(--ink); }
   #home-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:14px; }
   .home-tile{ display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:6px; min-height:120px; padding:18px 16px;
@@ -405,6 +414,7 @@
   <!-- 홈 화면: 로그인하면 프로그램 타일이 나오고, 타일을 누르면 해당 프로그램으로 들어갑니다 -->
   <div id="home-screen">
     <div id="home-hello"></div>
+    <div id="home-tools"></div>
     <div id="home-grid"></div>
   </div>
   <div id="program-bar">
@@ -1588,6 +1598,7 @@ function showApp() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('app').classList.remove('in-program'); // 로그인하면 홈 화면부터
   applyUserUI();
+  loadHomeOrder(); // 관리자가 정한 타일 순서 불러오기
 }
 
 function applyUserUI() {
@@ -1648,38 +1659,115 @@ function applyUserUI() {
 
 // ── 홈 화면 (프로그램 타일) ──
 //  - nav: 기존 상단 탭 버튼(숨김 처리됨)의 선택자. 그 버튼이 화면에 보이는(=권한 있는) 경우에만 타일을 보여주고, 누르면 그 버튼을 눌러 이동한다.
-//  - href: 새 창으로 열리는 외부 링크 타일. show(user, isAdmin)로 표시 조건을 지정한다.
+//  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
+//  - 타일 순서: 관리자가 '타일 순서 편집'으로 바꾸면 kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
 const HOME_TILES = [
-  { icon: '🍱', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20260825c' },
-  { icon: '🧪', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
-  { icon: '📋', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
-  { icon: '🍅', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
-  { icon: '🧾', name: '이카운트', desc: '이카운트 양식 · 코드 관리', nav: '#main-nav-btn-ecount' },
-  { icon: '💰', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
-  { icon: '🖼', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
-  { icon: '📁', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
-  { icon: '🛠', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
+  { key: 'lunch', icon: '🍱', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20260825c' },
+  { key: 'sample', icon: '🧪', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
+  { key: 'order', icon: '📋', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
+  { key: 'sorting', icon: '🍅', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
+  { key: 'ecount', icon: '🧾', name: '이카운트', desc: '이카운트 양식 · 코드 관리', nav: '#main-nav-btn-ecount' },
+  { key: 'cost', icon: '💰', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
+  { key: 'detail', icon: '🖼', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
+  { key: 'files', icon: '📁', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
+  { key: 'admin', icon: '🛠', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
 ];
+let homeOrder = null;       // 저장된 순서 (타일 key 배열)
+let homeEditing = false;    // 순서 편집 모드 (관리자)
+let homeDraft = [];         // 편집 중인 순서
+const HOME_DEFAULT_ORDER = HOME_TILES.map(t => t.key);
+// 순서 목록에 없는 타일(새로 추가된 것)은 기본 순서대로 뒤에 붙는다
+function homeSortTiles(tiles, order) {
+  const idx = k => { const i = (order || []).indexOf(k); return i < 0 ? 999 : i; };
+  return tiles.map((t, i) => ({ t, i })).sort((a, b) => idx(a.t.key) - idx(b.t.key) || a.i - b.i).map(x => x.t);
+}
+async function loadHomeOrder() {
+  try {
+    const r = await window.storage.get('home-tile-order', true);
+    const v = r ? JSON.parse(r.value) : null;
+    homeOrder = Array.isArray(v) ? v : null;
+  } catch (e) { homeOrder = null; }
+  renderHome();
+}
+function homeToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+function homeStartEdit() { homeEditing = true; homeDraft = homeSortTiles(HOME_TILES, homeOrder).map(t => t.key); renderHome(); }
+function homeCancelEdit() { homeEditing = false; renderHome(); }
+function homeResetDraft() { homeDraft = HOME_DEFAULT_ORDER.slice(); renderHome(); }
+function homeMove(key, dir) {
+  const i = homeDraft.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= homeDraft.length) return;
+  [homeDraft[i], homeDraft[j]] = [homeDraft[j], homeDraft[i]];
+  renderHome();
+}
+async function homeSaveEdit() {
+  const u = window.currentUser;
+  if (!u || u.role !== 'admin') return;
+  try {
+    await window.storage.set('home-tile-order', JSON.stringify(homeDraft), true);
+    homeOrder = homeDraft.slice(); homeEditing = false;
+    homeToast('타일 순서를 저장했습니다 (모든 사용자에게 적용)');
+  } catch (e) { homeToast('저장 실패: ' + e.message); }
+  renderHome();
+}
 function renderHome() {
   const u = window.currentUser;
   const grid = document.getElementById('home-grid');
   if (!u || !grid) return;
   const admin = u.role === 'admin';
+  if (!admin) homeEditing = false;
   const hello = document.getElementById('home-hello');
   if (hello) hello.innerHTML = `<b>${escapeHtmlSimple(u.display_name || '')}</b>님, 업무를 선택해주세요`;
+  // 관리자 도구: 타일 순서 편집
+  const tools = document.getElementById('home-tools');
+  if (tools) {
+    tools.innerHTML = '';
+    const mk = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'home-tool-btn ' + cls; b.textContent = label; b.addEventListener('click', fn); tools.appendChild(b); };
+    if (admin && !homeEditing) mk('↕ 타일 순서 편집', '', homeStartEdit);
+    if (admin && homeEditing) {
+      mk('저장', 'primary', homeSaveEdit); mk('취소', '', homeCancelEdit); mk('기본 순서로', '', homeResetDraft);
+      const tip = document.createElement('span'); tip.className = 'home-tool-tip'; tip.textContent = '◀ ▶ 버튼으로 순서를 바꾸고 저장하세요 (모든 사용자에게 적용)'; tools.appendChild(tip);
+    }
+  }
   grid.innerHTML = '';
+  grid.classList.toggle('editing', homeEditing);
+  const visible = [];
   HOME_TILES.forEach(t => {
     let btn = null;
     if (t.nav) {
       btn = document.querySelector(t.nav);
       if (!btn || getComputedStyle(btn).display === 'none') return;
     } else if (t.show && !t.show(u, admin)) return;
+    visible.push({ t, btn });
+  });
+  const sorted = homeSortTiles(visible.map(v => v.t), homeEditing ? homeDraft : homeOrder);
+  sorted.forEach((t, n) => {
+    const btn = (visible.find(v => v.t === t) || {}).btn;
+    const body = `<span class="ic">${t.icon}</span><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}`;
+    if (homeEditing) {
+      // 편집 모드: 클릭 이동 없이 ◀ ▶ 로 순서만 바꾼다
+      const el = document.createElement('div');
+      el.className = 'home-tile editing';
+      el.innerHTML = `<span class="home-no">${n + 1}</span>${body}<span class="home-move"></span>`;
+      const mv = el.querySelector('.home-move');
+      [['◀', -1], ['▶', 1]].forEach(([label, dir]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+        if ((dir < 0 && n === 0) || (dir > 0 && n === sorted.length - 1)) b.disabled = true;
+        b.addEventListener('click', () => homeMove(t.key, dir));
+        mv.appendChild(b);
+      });
+      grid.appendChild(el);
+      return;
+    }
     const el = document.createElement(t.href ? 'a' : 'button');
     el.className = 'home-tile';
-    // self: 같은 창에서 이동 (공유폴더·상세페이지는 ‘← 통합 시스템’으로 돌아올 수 있음) / 그 외 외부 링크는 새 창
     if (t.href) { el.href = t.href; if (!t.self) { el.target = '_blank'; el.rel = 'noopener'; } }
     else { el.type = 'button'; el.addEventListener('click', () => btn.click()); }
-    el.innerHTML = `<span class="ic">${t.icon}</span><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}`;
+    el.innerHTML = body;
     grid.appendChild(el);
   });
 }
