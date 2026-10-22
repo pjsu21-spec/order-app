@@ -331,8 +331,22 @@ async function api(path, options = {}){
 
 // ── 로그인 (발주 프로그램과 같은 세션 공유) ──
 async function hashPassword(pw){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-async function login(username, password){
+// 로그인·로그아웃은 DB 함수(RPC)로 처리하고, 함수가 아직 없으면(404) 예전 방식으로 동작합니다 (전환 기간 호환용).
+async function sbRpc(name, args){
+  const res = await fetch(`${SB_URL}/rest/v1/rpc/${name}`, { method:'POST', headers:{ 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type':'application/json' }, body: JSON.stringify(args || {}) });
+  if (res.status === 404){ const e = new Error('rpc-missing'); e.rpcMissing = true; throw e; }
+  if (!res.ok) throw new Error('로그인 서버 오류입니다. 잠시 후 다시 시도해주세요.');
+  return res.json();
+}async function login(username, password){
   const hash = await hashPassword(password);
+  try {
+    const r = await sbRpc('app_login', { p_username: username, p_hash: hash });
+    if (r && r.error === 'locked') throw new Error('로그인 시도가 너무 많습니다. 10분 뒤에 다시 시도해주세요');
+    if (!r || r.error || !r.token) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
+    localStorage.setItem('auth_token', r.token);
+    return r.token;
+  } catch (e) { if (!e.rpcMissing) throw e; }
+  // (호환) 예전 방식
   const res = await fetch(`${SB_URL}/rest/v1/users?username=eq.${encodeURIComponent(username)}&is_active=eq.true&limit=1`, { headers: sbHeaders });
   if (!res.ok) throw new Error('로그인 서버 오류입니다. 잠시 후 다시 시도해주세요.');
   const rows = await res.json();
@@ -360,7 +374,8 @@ async function doLogin(){
 $('login-btn').onclick = doLogin;
 $('login-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 $('logout-btn').onclick = async () => {
-  try { await fetch(`${SB_URL}/rest/v1/sessions?token=eq.${encodeURIComponent(token)}`, { method:'DELETE', headers: sbHeaders }); } catch(e){}
+  try { await sbRpc('app_logout', { p_token: token }); }
+  catch(e){ if (e.rpcMissing) { try { await fetch(`${SB_URL}/rest/v1/sessions?token=eq.${encodeURIComponent(token)}`, { method:'DELETE', headers: sbHeaders }); } catch(e2){} } }
   token=null; try{localStorage.removeItem('auth_token');}catch(e){} showLogin();
 };
 

@@ -1385,7 +1385,7 @@ window.accessLevel = function(prog){
     setTimeout(()=>t.classList.remove('show'), 2600);
   }
   function programFor(table){
-    if (table === 'sessions' || table === 'activity_log' || table === 'users') return null; // 로그인·로그·관리자 기능
+    if (table === 'sessions' || table === 'activity_log' || table === 'users' || table === 'rpc') return null; // 로그인·로그·관리자 기능 (rpc = 로그인/사용자 관리 DB 함수)
     if (table.startsWith('sample_')) return null; // 샘플 신청은 자체 권한(users.access_sample)으로 관리
     if (table.startsWith('sorting_')) return 'sorting';
     return 'order'; // kv_store, returns 등 발주자동화 데이터
@@ -1480,18 +1480,120 @@ async function hashPassword(pw) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-async function login(username, password) {
-  const hash = await hashPassword(password);
+// ── 사용자/세션 API ──
+//  로그인·세션 확인·사용자 관리는 DB 함수(RPC)로 처리합니다 (비밀번호 정보가 브라우저로 내려오지 않음).
+//  보안 0단계 SQL(A)이 아직 적용되지 않아 함수가 없으면(404) 예전 방식으로 동작합니다 — 전환 기간 호환용.
+async function sbRpc(name, args) {
+  const res = await fetch(`${SB_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {})
+  });
+  if (res.status === 404) { const e = new Error('rpc-missing'); e.rpcMissing = true; throw e; }
+  if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`요청 실패 (${res.status}) ${t.slice(0, 100)}`); }
+  return res.json();
+}
+const sessionToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
+function buildCurrentUser(user, token) {
+  return { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+}
+// 로그인 → { token, user } (실패 시 예외)
+async function apiLogin(username, hash) {
+  try {
+    const r = await sbRpc('app_login', { p_username: username, p_hash: hash });
+    if (r && r.error === 'locked') throw new Error('로그인 시도가 너무 많습니다. 10분 뒤에 다시 시도해주세요');
+    if (!r || r.error || !r.token) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
+    return { token: r.token, user: r.user };
+  } catch (e) {
+    if (!e.rpcMissing) throw e;
+  }
+  // (호환) 예전 방식
   const rows = await sbQuery('users', `?username=eq.${encodeURIComponent(username)}&is_active=eq.true&limit=1`);
-  if (!rows.length) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
-  const user = rows[0];
-  // 비밀번호 확인
-  if (user.password_hash !== hash) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
-  // 세션 생성 — INSERT 후 token을 직접 읽어옴
-  const inserted = await sbInsert('sessions', { user_id: user.id });
+  if (!rows.length || rows[0].password_hash !== hash) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다');
+  const inserted = await sbInsert('sessions', { user_id: rows[0].id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  return { token, user: rows[0] };
+}
+// 토큰 → 사용자 (없거나 만료면 null)
+async function apiMe(token) {
+  try { return (await sbRpc('app_me', { p_token: token })) || null; }
+  catch (e) { if (!e.rpcMissing) throw e; }
+  const sessions = await sbQuery('sessions', `?token=eq.${encodeURIComponent(token)}&limit=1`);
+  if (!sessions.length || new Date(sessions[0].expires_at) < new Date()) return null;
+  const users = await sbQuery('users', `?id=eq.${encodeURIComponent(sessions[0].user_id)}&is_active=eq.true&limit=1`);
+  return users[0] || null;
+}
+async function apiLogout(token) {
+  try { await sbRpc('app_logout', { p_token: token }); return; }
+  catch (e) { if (!e.rpcMissing) throw e; }
+  await sbDelete2('sessions', `token=eq.${encodeURIComponent(token)}`);
+}
+// 내 비밀번호 변경 (실패 시 예외)
+async function apiChangeOwnPassword(oldHash, newHash) {
+  const me = window.currentUser;
+  try {
+    const r = await sbRpc('app_change_password', { p_token: me.token, p_old_hash: oldHash, p_new_hash: newHash });
+    if (r && r.error === 'wrong_password') throw new Error('현재 비밀번호가 올바르지 않습니다');
+    if (!r || !r.ok) throw new Error('계정을 찾을 수 없습니다. 다시 로그인해주세요.');
+    return;
+  } catch (e) { if (!e.rpcMissing) throw e; }
+  const rows = await sbQuery('users', `?id=eq.${encodeURIComponent(me.id)}&is_active=eq.true&limit=1`);
+  if (!rows.length) throw new Error('계정을 찾을 수 없습니다. 다시 로그인해주세요.');
+  if (rows[0].password_hash !== oldHash) throw new Error('현재 비밀번호가 올바르지 않습니다');
+  const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${encodeURIComponent(me.id)}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify({ password_hash: newHash }) });
+  if (!res.ok) throw new Error(`변경에 실패했습니다 (${res.status}). 잠시 후 다시 시도해주세요.`);
+  try { await sbDelete2('sessions', `user_id=eq.${encodeURIComponent(me.id)}&token=neq.${encodeURIComponent(me.token)}`); } catch (e) {}
+}
+// 직원 이름 목록 (id, username, display_name, is_active) — 로그인한 누구나. 비활성 직원도 포함(과거 기록의 이름 표시용)
+async function apiUsersBasic() {
+  try { const r = await sbRpc('app_list_users_basic', { p_token: sessionToken() }); return Array.isArray(r) ? r : []; }
+  catch (e) { if (!e.rpcMissing) throw e; }
+  return sbQuery('users', '?select=id,username,display_name,is_active&order=display_name.asc');
+}
+// ── 관리자 전용 ──
+async function apiUsersAdmin() {
+  try {
+    const r = await sbRpc('app_list_users_admin', { p_token: sessionToken() });
+    if (!Array.isArray(r)) throw new Error('관리자 권한이 필요합니다');
+    return r;
+  } catch (e) { if (!e.rpcMissing) throw e; }
+  return sbQuery('users', '?order=created_at.asc');
+}
+// 사용자 정보·권한 수정 → { ok:boolean }
+async function apiUpdateUser(id, fields) {
+  try {
+    const r = await sbRpc('app_admin_update_user', { p_token: sessionToken(), p_id: String(id), p_fields: fields });
+    return { ok: !!(r && r.ok), error: r && r.error };
+  } catch (e) { if (!e.rpcMissing) return { ok: false, error: e.message }; }
+  const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify(fields) });
+  return { ok: res.ok };
+}
+async function apiCreateUser(username, display, hash, role) {
+  try {
+    const r = await sbRpc('app_admin_create_user', { p_token: sessionToken(), p_username: username, p_display: display, p_hash: hash, p_role: role });
+    if (r && r.error === 'duplicate') throw new Error('이미 있는 아이디입니다');
+    if (!r || !r.ok) throw new Error('관리자 권한이 필요하거나 입력값이 올바르지 않습니다');
+    return;
+  } catch (e) { if (!e.rpcMissing) throw e; }
+  await sbInsert('users', { username, display_name: display, password_hash: hash, role, is_active: true });
+}
+// 다른 사용자 비밀번호 재설정 → 사용자 아이디
+async function apiResetPassword(id, hash) {
+  try {
+    const r = await sbRpc('app_admin_reset_password', { p_token: sessionToken(), p_id: String(id), p_hash: hash });
+    if (!r || !r.ok) throw new Error('변경하지 못했습니다 (관리자 권한 또는 대상 사용자를 확인하세요)');
+    return r.username;
+  } catch (e) { if (!e.rpcMissing) throw e; }
+  await fetch(`${SB_URL}/rest/v1/users?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify({ password_hash: hash }) });
+  const users = await sbQuery('users', `?id=eq.${encodeURIComponent(id)}&limit=1`);
+  return users[0] && users[0].username;
+}
+
+async function login(username, password) {
+  const hash = await hashPassword(password);
+  const { token, user } = await apiLogin(username, hash);
+  window.currentUser = buildCurrentUser(user, token);
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -1500,7 +1602,7 @@ async function login(username, password) {
 async function logout() {
   if (window.currentUser?.token) {
     await writeLog('logout', '로그아웃');
-    await sbDelete2('sessions', `token=eq.${encodeURIComponent(window.currentUser.token)}`);
+    try { await apiLogout(window.currentUser.token); } catch (e) { console.warn('세션 삭제 실패:', e); }
   }
   localStorage.removeItem('auth_token');
   window.currentUser = null;
@@ -1511,17 +1613,9 @@ async function restoreSession() {
   const token = localStorage.getItem('auth_token');
   if (!token) return false;
   try {
-    // Step 1: get session
-    const sessions = await sbQuery('sessions', `?token=eq.${encodeURIComponent(token)}&limit=1`);
-    if (!sessions.length) { localStorage.removeItem('auth_token'); return false; }
-    const session = sessions[0];
-    // Check expiry
-    if (new Date(session.expires_at) < new Date()) { localStorage.removeItem('auth_token'); return false; }
-    // Step 2: get user
-    const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
-    if (!users.length) { localStorage.removeItem('auth_token'); return false; }
-    const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+    const user = await apiMe(token);
+    if (!user) { localStorage.removeItem('auth_token'); return false; }
+    window.currentUser = buildCurrentUser(user, token);
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -1552,16 +1646,8 @@ async function submitPasswordChange(){
   if (next === cur) return fail('현재 비밀번호와 다른 비밀번호를 입력해주세요');
   btn.disabled = true; btn.textContent = '변경 중...';
   try {
-    const me = window.currentUser;
-    const rows = await sbQuery('users', `?id=eq.${encodeURIComponent(me.id)}&is_active=eq.true&limit=1`);
-    if (!rows.length) throw new Error('계정을 찾을 수 없습니다. 다시 로그인해주세요.');
-    if (rows[0].password_hash !== await hashPassword(cur)) throw new Error('현재 비밀번호가 올바르지 않습니다');
-    const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${encodeURIComponent(me.id)}`, {
-      method: 'PATCH', headers: sbHeaders, body: JSON.stringify({ password_hash: await hashPassword(next) })
-    });
-    if (!res.ok) throw new Error(`변경에 실패했습니다 (${res.status}). 잠시 후 다시 시도해주세요.`);
-    // 다른 기기의 로그인은 끊고, 지금 쓰는 기기만 유지
-    try { await sbDelete2('sessions', `user_id=eq.${encodeURIComponent(me.id)}&token=neq.${encodeURIComponent(me.token)}`); } catch (e) {}
+    // 현재 비밀번호 확인 + 변경 + 다른 기기 로그아웃(지금 쓰는 기기만 유지)
+    await apiChangeOwnPassword(await hashPassword(cur), await hashPassword(next));
     await writeLog('password_self_change', '본인 비밀번호 변경');
     closePasswordDialog();
     const t = document.getElementById('toast');
@@ -6234,7 +6320,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     try{
       sampleRows = await sbQuery('sample_requests', '?order=ship_at.desc&limit=1000');
       if(sampleCan('collect') && !sampleUsers.length){
-        sampleUsers = await sbQuery('users', '?select=id,username,display_name&is_active=eq.true&order=display_name.asc');
+        sampleUsers = (await apiUsersBasic()).filter(x => x.is_active !== false);
       }
     }catch(e){ sampleLoadErr = e.message; sampleRows = []; console.error(e); }
     sampleUpdateMsg();
@@ -7630,7 +7716,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
   // 원물선별 각 화면의 "담당자"는 별도 마스터 없이 로그인 계정(users)을 그대로 사용 — 목록 표시용 id→이름 맵
   async function getSortingUserDisplayNameMap(){
     try{
-      const rows = await sbQuery('users', '?select=id,display_name');
+      const rows = await apiUsersBasic();
       return Object.fromEntries(rows.map(u=>[u.id, u.display_name]));
     }catch(e){ return {}; }
   }
@@ -8890,7 +8976,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const sel = document.getElementById('pw-change-user-select');
     wrap.innerHTML = ''; sel.innerHTML = '';
     try{
-      const rows = await sbQuery('users', '?order=created_at.asc');
+      const rows = await apiUsersAdmin();
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>역할</th><th>상태</th><th>생성일</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -8903,9 +8989,8 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
         toggleBtn.textContent = u.is_active ? '비활성화' : '활성화';
         toggleBtn.addEventListener('click', async ()=>{
           if(u.id === window.currentUser?.id){ toast('자기 자신은 변경할 수 없습니다'); return; }
-          await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
-            method:'PATCH', headers: sbHeaders, body: JSON.stringify({ is_active: !u.is_active })
-          });
+          const tr1 = await apiUpdateUser(u.id, { is_active: !u.is_active });
+          if(!tr1.ok){ toast('변경하지 못했습니다'); return; }
           await writeLog('user_toggle', `${u.username} ${u.is_active?'비활성화':'활성화'}`);
           loadAdminUsers();
         });
@@ -8923,9 +9008,8 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
             ? `${u.display_name}(${u.username}) 님에게 관리자 권한을 부여할까요?`
             : `${u.display_name}(${u.username}) 님의 관리자 권한을 해제할까요?`;
           if(!confirm(msg)) return;
-          await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
-            method:'PATCH', headers: sbHeaders, body: JSON.stringify({ role: nextRole })
-          });
+          const tr2 = await apiUpdateUser(u.id, { role: nextRole });
+          if(!tr2.ok){ toast('변경하지 못했습니다'); return; }
           await writeLog('role_change', `${u.username} 권한 변경: ${u.role} → ${nextRole}`);
           loadAdminUsers();
         });
@@ -8944,7 +9028,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const wrap = document.getElementById('admin-perms-wrap');
     wrap.innerHTML = '';
     try{
-      const rows = await sbQuery('users', '?order=created_at.asc');
+      const rows = await apiUsersAdmin();
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -8968,9 +9052,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
             if(field === 'access_order' && u.id === window.currentUser?.id && current){
               toast('자기 자신의 발주자동화 접근 권한은 끌 수 없습니다'); return;
             }
-            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
-              method:'PATCH', headers: sbHeaders, body: JSON.stringify({ [field]: !current })
-            });
+            const res = await apiUpdateUser(u.id, { [field]: !current });
             if(!res.ok){
               alert(`권한 변경에 실패했습니다. Supabase users 테이블에 '${field}' 컬럼이 없는 것 같습니다.\nSupabase SQL Editor에서 아래를 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS ${field} boolean NOT NULL DEFAULT false;`);
               return;
@@ -9005,10 +9087,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
             if(prog === 'order' && u.id === window.currentUser?.id && next === 'none'){
               toast('자기 자신의 발주자동화 접근 권한은 끌 수 없습니다'); sel.value = cur; return;
             }
-            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, {
-              method:'PATCH', headers: sbHeaders,
-              body: JSON.stringify({ [accessField]: next !== 'none', [roField]: next === 'read' })
-            });
+            const res = await apiUpdateUser(u.id, { [accessField]: next !== 'none', [roField]: next === 'read' });
             if(!res.ok){
               toast('변경 실패 — Supabase에서 readonly.sql을 먼저 실행해주세요'); sel.value = cur; return;
             }
@@ -9043,7 +9122,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
           });
           selS.addEventListener('change', async ()=>{
             const next = selS.value;
-            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, { method:'PATCH', headers: sbHeaders, body: JSON.stringify({ access_sample: next }) });
+            const res = await apiUpdateUser(u.id, { access_sample: next });
             if(!res.ok){
               alert("권한 변경에 실패했습니다. Supabase users 테이블에 'access_sample' 컬럼이 없는 것 같습니다.\n샘플 신청 탭 상단 안내의 SQL(또는 아래)을 Supabase SQL Editor에서 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS access_sample text NOT NULL DEFAULT 'none';");
               selS.value = curS; return;
@@ -9082,7 +9161,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     if(!username||!display||!pw){ toast('모든 항목을 입력해주세요'); return; }
     try{
       const hash = await hashPassword(pw);
-      await sbInsert('users', { username, display_name: display, password_hash: hash, role, is_active: true });
+      await apiCreateUser(username, display, hash, role);
       await writeLog('user_create', `신규 사용자 생성: ${username} (${display})`);
       ['new-user-username','new-user-display','new-user-pw'].forEach(id=>{ document.getElementById(id).value=''; });
       loadAdminUsers();
@@ -9096,11 +9175,8 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     if(!userId||!newPw){ toast('사용자와 새 비밀번호를 입력해주세요'); return; }
     try{
       const hash = await hashPassword(newPw);
-      await fetch(`${SB_URL}/rest/v1/users?id=eq.${userId}`, {
-        method:'PATCH', headers: sbHeaders, body: JSON.stringify({ password_hash: hash })
-      });
-      const users = await sbQuery('users', `?id=eq.${userId}&limit=1`);
-      await writeLog('pw_change', `비밀번호 변경: ${users[0]?.username}`);
+      const targetName = await apiResetPassword(userId, hash);
+      await writeLog('pw_change', `비밀번호 변경: ${targetName}`);
       document.getElementById('pw-change-new').value='';
       toast('비밀번호가 변경되었습니다');
     }catch(e){ toast('변경 실패: '+e.message); }

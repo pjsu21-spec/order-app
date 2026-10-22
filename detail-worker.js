@@ -50,23 +50,41 @@ async function sb(path) {
   return res.json();
 }
 
+// 세션 확인은 DB 함수(app_me)로 합니다 (users/sessions 테이블을 직접 읽지 않음).
+// 함수가 아직 없으면(404) 예전 방식으로 확인합니다 — 보안 0단계 SQL 적용 전 호환용.
+async function rpcMe(token) {
+  const res = await fetch(`${SB_URL}/rest/v1/rpc/app_me`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_token: token }),
+  });
+  if (res.status === 404) return { missing: true };
+  if (!res.ok) throw new Error('로그인 서버 오류');
+  return { user: await res.json() };
+}
+
 async function getUser(request) {
   const auth = request.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token || token.length > 200) return null;
-  const sessions = await sb(`sessions?token=eq.${encodeURIComponent(token)}&limit=1`);
-  if (!sessions.length) return null;
-  const s = sessions[0];
-  if (s.expires_at && new Date(s.expires_at) < new Date()) return null;
-  const users = await sb(`users?id=eq.${encodeURIComponent(s.user_id)}&is_active=eq.true&limit=1`);
-  if (!users.length) return null;
-  const u = users[0];
+  let u = null;
+  const r = await rpcMe(token);
+  if (!r.missing) {
+    u = r.user;
+  } else {
+    const sessions = await sb(`sessions?token=eq.${encodeURIComponent(token)}&limit=1`);
+    if (!sessions.length) return null;
+    const s = sessions[0];
+    if (s.expires_at && new Date(s.expires_at) < new Date()) return null;
+    const users = await sb(`users?id=eq.${encodeURIComponent(s.user_id)}&is_active=eq.true&limit=1`);
+    u = users[0] || null;
+  }
+  if (!u) return null;
   const isAdmin = u.role === 'admin';
   const has = isAdmin || u.access_files === true;
   const readOnly = !isAdmin && u.readonly_files === true;
   return { id: u.id, display_name: u.display_name || u.username, isAdmin, has, readOnly };
 }
-
 // ── 공개 이미지 ──
 async function serveImage(request, key, ctx, env) {
   const cache = caches.default;
