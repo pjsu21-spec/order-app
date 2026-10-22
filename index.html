@@ -1660,7 +1660,7 @@ function applyUserUI() {
 // ── 홈 화면 (프로그램 타일) ──
 //  - nav: 기존 상단 탭 버튼(숨김 처리됨)의 선택자. 그 버튼이 화면에 보이는(=권한 있는) 경우에만 타일을 보여주고, 누르면 그 버튼을 눌러 이동한다.
 //  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
-//  - 타일 순서: 관리자가 '타일 순서 편집'으로 바꾸면 kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
+//  - 타일 순서: 마스터 계정(admin)만 '타일 순서 편집'으로 바꿀 수 있고, kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
 const HOME_TILES = [
   { key: 'lunch', icon: '🍱', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20260825c' },
   { key: 'sample', icon: '🧪', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
@@ -1673,7 +1673,8 @@ const HOME_TILES = [
   { key: 'admin', icon: '🛠', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
 ];
 let homeOrder = null;       // 저장된 순서 (타일 key 배열)
-let homeEditing = false;    // 순서 편집 모드 (관리자)
+let homeEditing = false;    // 순서 편집 모드 (마스터 계정 admin 전용)
+const isHomeMaster = u => !!u && u.role === 'admin' && u.username === 'admin';
 let homeDraft = [];         // 편집 중인 순서
 const HOME_DEFAULT_ORDER = HOME_TILES.map(t => t.key);
 // 순서 목록에 없는 타일(새로 추가된 것)은 기본 순서대로 뒤에 붙는다
@@ -1695,7 +1696,7 @@ function homeToast(msg) {
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
 }
-function homeStartEdit() { homeEditing = true; homeDraft = homeSortTiles(HOME_TILES, homeOrder).map(t => t.key); renderHome(); }
+function homeStartEdit() { if (!isHomeMaster(window.currentUser)) return; homeEditing = true; homeDraft = homeSortTiles(HOME_TILES, homeOrder).map(t => t.key); renderHome(); }
 function homeCancelEdit() { homeEditing = false; renderHome(); }
 function homeResetDraft() { homeDraft = HOME_DEFAULT_ORDER.slice(); renderHome(); }
 function homeMove(key, dir) {
@@ -1706,7 +1707,7 @@ function homeMove(key, dir) {
 }
 async function homeSaveEdit() {
   const u = window.currentUser;
-  if (!u || u.role !== 'admin') return;
+  if (!isHomeMaster(u)) return;
   try {
     await window.storage.set('home-tile-order', JSON.stringify(homeDraft), true);
     homeOrder = homeDraft.slice(); homeEditing = false;
@@ -1719,7 +1720,8 @@ function renderHome() {
   const grid = document.getElementById('home-grid');
   if (!u || !grid) return;
   const admin = u.role === 'admin';
-  if (!admin) homeEditing = false;
+  const master = isHomeMaster(u);
+  if (!master) homeEditing = false;
   const hello = document.getElementById('home-hello');
   if (hello) hello.innerHTML = `<b>${escapeHtmlSimple(u.display_name || '')}</b>님, 업무를 선택해주세요`;
   // 관리자 도구: 타일 순서 편집
@@ -1727,8 +1729,8 @@ function renderHome() {
   if (tools) {
     tools.innerHTML = '';
     const mk = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'home-tool-btn ' + cls; b.textContent = label; b.addEventListener('click', fn); tools.appendChild(b); };
-    if (admin && !homeEditing) mk('↕ 타일 순서 편집', '', homeStartEdit);
-    if (admin && homeEditing) {
+    if (master && !homeEditing) mk('↕ 타일 순서 편집', '', homeStartEdit);
+    if (master && homeEditing) {
       mk('저장', 'primary', homeSaveEdit); mk('취소', '', homeCancelEdit); mk('기본 순서로', '', homeResetDraft);
       const tip = document.createElement('span'); tip.className = 'home-tool-tip'; tip.textContent = '◀ ▶ 버튼으로 순서를 바꾸고 저장하세요 (모든 사용자에게 적용)'; tools.appendChild(tip);
     }
