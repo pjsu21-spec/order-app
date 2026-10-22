@@ -6008,8 +6008,9 @@ function applyUserUI() {
   // ══════════════════ 샘플 신청 ══════════════════
   // 저장: Supabase 테이블 sample_requests (신청 1건 = 1행, 품목은 items(jsonb)).
   // 권한(users.access_sample): none / view(열람) / request(신청) / collect(주문 취합). 관리자는 항상 collect.
-  //  - 열람: 전체 신청 내역 + 샘플 취합 표 조회  - 신청: 본인 신청만 작성·수정·취소(확인 전까지)
-  //  - 주문 취합: 대리 신청, 신청 확인/확인 취소, 모든 신청 수정·취소, 샘플 취합
+  //  - 열람: 전체 신청 내역 + 샘플 취합 표 조회  - 신청: 전체 신청 내역 조회, 본인 신청만 작성·수정·취소(확인 전까지)
+  //  - 주문 취합: 대리 신청, 신청 확인/확인 취소, 모든 신청 수정·취소·완전 삭제, 샘플 취합
+  //  - 완전 삭제: '취소됨' 상태의 신청만 가능 (주문 취합 / 본인 신청)
   // 수량은 팩 단위로 입력하고, SKU 관리의 박스입수(boxUnitCount)로 박스 수를 자동 환산한다 (1박스 4팩 → 1팩 = 0.25박스).
   // 생산 공유 연동용: window.getSampleDemand('YYYY-MM-DD', { confirmedOnly }) → { skuId: { packs, boxes, count } } (출고일 기준)
   const SAMPLE_RANK = { none: 0, view: 1, request: 2, collect: 3 };
@@ -6052,9 +6053,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
   async function sampleLoad(){
     sampleLoadErr = '';
     try{
-      let q = '?order=ship_at.desc&limit=1000';
-      if(sampleLevel() === 'request'){ const id = sampleMe().id; q += `&or=(requester_id.eq.${id},created_by_id.eq.${id})`; }
-      sampleRows = await sbQuery('sample_requests', q);
+      sampleRows = await sbQuery('sample_requests', '?order=ship_at.desc&limit=1000');
       if(sampleCan('collect') && !sampleUsers.length){
         sampleUsers = await sbQuery('users', '?select=id,username,display_name&is_active=eq.true&order=display_name.asc');
       }
@@ -6090,7 +6089,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const lv = sampleLevel();
     sEl('sample-tab-form-btn').style.display = sampleCan('request') ? '' : 'none';
     sEl('sample-tab-sum-btn').style.display = (lv === 'view' || lv === 'collect') ? '' : 'none';
-    sEl('sample-level-note').textContent = lv === 'collect' ? '권한: 주문 취합' : lv === 'request' ? '권한: 신청 (본인 신청만 보입니다)' : '권한: 열람 (조회만 가능)';
+    sEl('sample-level-note').textContent = lv === 'collect' ? '권한: 주문 취합' : lv === 'request' ? '권한: 신청 (전체 신청 내역 조회 · 수정/취소는 본인 신청만)' : '권한: 열람 (조회만 가능)';
     if(!sampleInited){
       sampleInited = true;
       SAMPLE_SECTIONS.forEach(s => sEl('sample-tab-' + s + '-btn').addEventListener('click', async () => { await sampleLoad(); sampleShow(s); }));
@@ -6221,6 +6220,24 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const me = sampleMe();
     return sampleCan('request') && r.status === '신청' && (r.requester_id === me.id || r.created_by_id === me.id);
   }
+  // 취소된 신청만 완전 삭제할 수 있다 (주문 취합 권한 또는 본인 신청). 서버 조건(status=eq.취소)으로 한 번 더 확인.
+  function sampleCanDelete(r){
+    if(r.status !== '취소') return false;
+    if(sampleCan('collect')) return true;
+    const me = sampleMe();
+    return sampleCan('request') && (r.requester_id === me.id || r.created_by_id === me.id);
+  }
+  async function sampleDelete(r){
+    if(!confirm('취소된 이 신청을 완전히 삭제할까요?\n삭제하면 복구할 수 없습니다.')) return;
+    try{
+      const res = await fetch(`${SB_URL}/rest/v1/sample_requests?id=eq.${encodeURIComponent(r.id)}&status=eq.${encodeURIComponent('취소')}`, { method: 'DELETE', headers: { ...sbHeaders, 'Prefer': 'return=representation' } });
+      if(!res.ok) throw new Error(`삭제 실패 (${res.status})`);
+      const out = await res.json();
+      if(!out.length) toast('삭제하지 못했습니다. 새로고침 후 다시 시도해주세요');
+      else { await writeLog('sample_delete', `샘플 신청 완전 삭제: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`); toast('완전히 삭제했습니다'); }
+    }catch(e){ toast(e.message); }
+    await sampleLoad(); sampleRenderList();
+  }
   async function sampleSetStatus(r, patch, logMsg, okMsg){
     try{
       const out = await samplePatch(r.id, patch);
@@ -6274,6 +6291,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
         if(!confirm('이 샘플 신청을 취소할까요?')) return;
         sampleSetStatus(r, { status: '취소' }, `샘플 신청 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '신청을 취소했습니다');
       });
+      if(sampleCanDelete(r)) add('완전 삭제', 'btn-danger', () => sampleDelete(r));
       if(!btns.children.length) btns.remove();
       wrap.appendChild(card);
     });
