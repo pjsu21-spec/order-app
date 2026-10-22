@@ -192,7 +192,7 @@
   #no-order-access-msg, #no-sorting-access-msg{ display:none; }
   #app.no-order-access #panel-order-group,
   #app.no-order-access #panel-ecount,
-  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]){ display:none !important; }
+  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]):not([data-panel="panel-sample"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
   #app.no-sorting-access #sorting-main-card{ display:none !important; }
@@ -207,6 +207,49 @@
     #panel-sorting .form-submit-btn{ width:100%; padding:12px; font-size:15px; }
     #panel-sorting .tab-btn{ padding:10px 14px; font-size:13px; }
     #panel-sorting table{ font-size:13px; }
+  }
+  /* 샘플 신청 */
+  #panel-sample .sample-item-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  #panel-sample .sample-item-row select{ min-width:220px; flex:1 1 220px; }
+  #panel-sample .sample-qty{ width:90px; }
+  .sample-box-info{ font-size:12.5px; color:var(--muted); }
+  .sample-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:12px; }
+  .sample-card{ border:1px solid var(--line); border-radius:10px; padding:12px; background:#fff; }
+  .sample-card.confirmed{ border-color:#bfe0cb; background:#fbfefc; }
+  .sample-card.canceled{ opacity:.6; }
+  .sample-card-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .sample-card .when{ font-size:16px; font-weight:700; }
+  .sample-card .meth{ display:inline-block; margin-left:8px; font-size:12px; font-weight:600; color:var(--accent); background:var(--accent-soft); padding:1px 8px; border-radius:100px; vertical-align:2px; }
+  .sample-pill{ font-size:12px; font-weight:700; padding:2px 9px; border-radius:100px; white-space:nowrap; }
+  .sample-pill.ok{ background:#e3f3e9; color:#2f7d4f; }
+  .sample-pill.wait{ background:#fff3d6; color:#9a6a00; }
+  .sample-pill.off{ background:#eee; color:#777; }
+  .sample-who{ font-size:13px; color:var(--muted); margin-top:6px; }
+  .sample-items-list{ list-style:none; margin:8px 0 0; padding:0; }
+  .sample-items-list li{ display:flex; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px dashed var(--line); font-size:14px; }
+  .sample-items-list li span{ flex:1; min-width:0; }
+  .sample-items-list li small{ color:var(--muted); font-size:12px; }
+  .sample-note{ margin-top:8px; font-size:13px; background:var(--paper); border-radius:8px; padding:8px 10px; line-height:1.5; }
+  .sample-confirmed{ margin-top:8px; font-size:13px; color:#2f7d4f; font-weight:600; }
+  .sample-btns{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .sample-table-wrap{ overflow-x:auto; }
+  .sample-table{ width:100%; }
+  .sample-table td.num, .sample-table th{ text-align:right; }
+  .sample-table td:first-child, .sample-table th:first-child{ text-align:left; }
+  .sample-table tfoot td{ font-weight:700; background:var(--paper); }
+  .sample-sql{ font-size:11.5px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; white-space:pre-wrap; user-select:all; }
+  @media (max-width: 640px){
+    #panel-sample .row{ flex-direction:column; align-items:stretch; gap:8px; text-align:left; }
+    #panel-sample .row.sample-tabstrip{ flex-direction:row; flex-wrap:wrap; }
+    #panel-sample .sample-item-row{ flex-direction:column; align-items:stretch; }
+    #panel-sample .sample-item-row select{ flex:0 0 auto; min-width:0; }
+    #panel-sample input:not([type="checkbox"]), #panel-sample select, #panel-sample textarea{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; }
+    #panel-sample .tab-btn{ padding:10px 14px; font-size:13px; }
+    #panel-sample .card{ padding:12px; }
+    #panel-sample .row label{ font-weight:600; align-self:flex-start; }
+    #panel-sample .btn-primary, #panel-sample .btn-ghost{ padding:11px 14px; }
+    #panel-sample #sample-submit{ width:100%; padding:13px 14px; font-size:15px; }
+    .sample-list{ grid-template-columns:1fr; }
   }
   /* 단가 확인: 휴대폰에서는 표 대신 카드로 보여준다 (표는 PC용, 카드는 모바일용) */
   .cost-cards{ display:none; }
@@ -323,6 +366,7 @@
   <nav class="main-nav">
     <button class="main-nav-btn" id="main-nav-btn-cost" data-panel="panel-cost" style="display:none;">💰 단가 확인</button>
     <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
+    <button class="main-nav-btn" id="main-nav-btn-sample" data-panel="panel-sample" style="display:none;">🧪 샘플 신청</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
     <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
@@ -1035,6 +1079,84 @@
 
   </div><!-- /panel-ecount -->
 
+  <!-- ───────────── 패널: 샘플 신청 ───────────── -->
+  <div id="panel-sample" class="main-tab-panel">
+  <h1 style="margin-bottom:4px;">샘플 신청 <span id="sample-level-note" class="sub" style="font-weight:400; margin:0 0 0 6px;"></span></h1>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0;">샘플이 필요한 출고일시·출고 방식·품목(팩 단위)을 신청하면 주문 취합 담당자가 확인 처리합니다. 수량은 SKU 관리의 박스입수로 박스 수가 자동 환산됩니다(예: 1박스 4팩 → 1팩 = 0.25박스). 확인되기 전에는 신청자가 직접 수정·취소할 수 있고, 확인 후에는 취합 담당자만 변경할 수 있습니다.</div></details>
+  <div class="card">
+    <div class="row sample-tabstrip" style="margin-top:0; flex-wrap:wrap;">
+      <button class="tab-btn active" id="sample-tab-form-btn">신청하기</button>
+      <button class="tab-btn" id="sample-tab-list-btn">신청 내역</button>
+      <button class="tab-btn" id="sample-tab-sum-btn">샘플 취합</button>
+    </div>
+    <div id="sample-msg" class="sub" style="margin-top:8px;"></div>
+
+    <div id="sample-section-form">
+      <h3 id="sample-form-title" style="margin-top:0;">샘플 신청</h3>
+      <div class="row" style="align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">신청자 :</label>
+        <strong id="sample-requester-fixed"></strong>
+        <select id="sample-requester-select" style="min-width:200px; display:none;"></select>
+      </div>
+      <div class="row" style="align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">출고일시 :</label>
+        <input type="datetime-local" id="sample-ship-at">
+        <label style="font-size:13px;">출고 방식 :</label>
+        <select id="sample-ship-method">
+          <option value="직접 픽업">직접 픽업</option>
+          <option value="택배 발송 요청">택배 발송 요청</option>
+          <option value="퀵서비스">퀵서비스</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <input type="text" id="sample-ship-method-etc" placeholder="출고 방식 입력" style="display:none; width:200px;">
+      </div>
+      <h3 style="margin-top:16px;">신청 샘플 <span class="sub" style="font-weight:400; margin:0;">(팩 단위 · SKU 등록 품목)</span></h3>
+      <div id="sample-items"></div>
+      <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
+      <h3 style="margin-top:16px;">비고 <span class="sub" style="font-weight:400; margin:0;">(용도 · 택배 발송 시 주소/연락처)</span></h3>
+      <textarea id="sample-note" rows="3" placeholder="예) 롯데백화점 청과 MD 미팅 샘플&#10;택배 발송: 서울시 ○○구 ○○로 00 / 홍길동 010-0000-0000"></textarea>
+      <div class="row" style="align-items:center;">
+        <button type="button" class="btn-primary" id="sample-submit">신청하기</button>
+        <button type="button" class="btn-ghost" id="sample-cancel-edit" style="display:none;">수정 취소</button>
+      </div>
+    </div>
+
+    <div id="sample-section-list" style="display:none;">
+      <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">출고일 :</label>
+        <select id="sample-f-range">
+          <option value="upcoming">오늘 이후</option>
+          <option value="recent">최근 7일 + 이후</option>
+          <option value="all">전체</option>
+        </select>
+        <label style="font-size:13px;">상태 :</label>
+        <select id="sample-f-status">
+          <option value="active">취소 제외</option>
+          <option value="pending">미확인</option>
+          <option value="confirmed">확인됨</option>
+          <option value="canceled">취소됨</option>
+          <option value="all">전체</option>
+        </select>
+        <span id="sample-list-count" class="sub" style="margin:0;"></span>
+      </div>
+      <div id="sample-list-wrap" class="sample-list" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="sample-section-sum" style="display:none;">
+      <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">출고일 :</label>
+        <input type="date" id="sample-s-from"> <span>~</span> <input type="date" id="sample-s-to">
+        <select id="sample-s-scope">
+          <option value="active">취소 제외 전체</option>
+          <option value="confirmed">확인된 건만</option>
+        </select>
+        <span id="sample-sum-count" class="sub" style="margin:0;"></span>
+      </div>
+      <div id="sample-sum-wrap" style="margin-top:10px;"></div>
+    </div>
+  </div>
+  </div><!-- /panel-sample -->
+
   <!-- ───────────── 패널: 단가 확인 (원가분석 · 원물가 이력 · 이익률, 관리자 전용) ───────────── -->
   <div id="panel-cost" class="main-tab-panel">
   <h1 style="margin-bottom:4px;">단가 확인</h1>
@@ -1215,6 +1337,7 @@ window.accessLevel = function(prog){
   }
   function programFor(table){
     if (table === 'sessions' || table === 'activity_log' || table === 'users') return null; // 로그인·로그·관리자 기능
+    if (table.startsWith('sample_')) return null; // 샘플 신청은 자체 권한(users.access_sample)으로 관리
     if (table.startsWith('sorting_')) return 'sorting';
     return 'order'; // kv_store, returns 등 발주자동화 데이터
   }
@@ -1319,7 +1442,7 @@ async function login(username, password) {
   const inserted = await sbInsert('sessions', { user_id: user.id });
   const token = Array.isArray(inserted) ? inserted[0]?.token : inserted?.token;
   if (!token) throw new Error('세션 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
   localStorage.setItem('auth_token', token);
   try { await writeLog('login', '로그인'); } catch(e) { /* 로그 실패해도 로그인은 진행 */ }
   return user;
@@ -1349,7 +1472,7 @@ async function restoreSession() {
     const users = await sbQuery('users', `?id=eq.${encodeURIComponent(session.user_id)}&is_active=eq.true&limit=1`);
     if (!users.length) { localStorage.removeItem('auth_token'); return false; }
     const user = users[0];
-    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+    window.currentUser = { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
     return true;
   } catch(e) {
     console.error('세션 복원 오류:', e);
@@ -1441,6 +1564,9 @@ function applyUserUI() {
   // 단가 확인 탭(원가·이익률): 관리자는 입력/열람, 열람 권한(access_cost)을 받은 사용자는 열람만
   const costTab = document.getElementById('main-nav-btn-cost');
   if (costTab) costTab.style.display = (isAdmin || window.currentUser.access_cost === true) ? '' : 'none';
+  // 샘플 신청 탭: 열람/신청/주문 취합 권한이 있거나 관리자일 때 표시
+  const sampleTab = document.getElementById('main-nav-btn-sample');
+  if (sampleTab) sampleTab.style.display = (isAdmin || ['view','request','collect'].includes(window.currentUser.access_sample)) ? '' : 'none';
   const appForCost = document.getElementById('app');
   if (appForCost) appForCost.classList.toggle('cost-viewer', !isAdmin);
   // 관리자 전용 요소 일괄 표시/숨김 (class="admin-only" 부여된 모든 요소)
@@ -5871,9 +5997,357 @@ function applyUserUI() {
       if(panelId === 'panel-cost'){
         initCostPanel();
       }
+      // 샘플 신청 탭 진입 시 초기화 (권한 확인 후 데이터 로드)
+      if(panelId === 'panel-sample'){
+        initSamplePanel();
+      }
     });
   });
   let adminPanelInited = false;
+
+  // ══════════════════ 샘플 신청 ══════════════════
+  // 저장: Supabase 테이블 sample_requests (신청 1건 = 1행, 품목은 items(jsonb)).
+  // 권한(users.access_sample): none / view(열람) / request(신청) / collect(주문 취합). 관리자는 항상 collect.
+  //  - 열람: 전체 신청 내역 + 샘플 취합 표 조회  - 신청: 본인 신청만 작성·수정·취소(확인 전까지)
+  //  - 주문 취합: 대리 신청, 신청 확인/확인 취소, 모든 신청 수정·취소, 샘플 취합
+  // 수량은 팩 단위로 입력하고, SKU 관리의 박스입수(boxUnitCount)로 박스 수를 자동 환산한다 (1박스 4팩 → 1팩 = 0.25박스).
+  // 생산 공유 연동용: window.getSampleDemand('YYYY-MM-DD', { confirmedOnly }) → { skuId: { packs, boxes, count } } (출고일 기준)
+  const SAMPLE_RANK = { none: 0, view: 1, request: 2, collect: 3 };
+  const SAMPLE_SETUP_SQL = `ALTER TABLE users ADD COLUMN IF NOT EXISTS access_sample text NOT NULL DEFAULT 'none';
+CREATE TABLE IF NOT EXISTS sample_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz,
+  requester_id uuid, requester_name text,
+  created_by_id uuid, created_by_name text,
+  ship_at timestamptz NOT NULL, ship_method text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  note text,
+  status text NOT NULL DEFAULT '신청',
+  confirmed_by_id uuid, confirmed_by_name text, confirmed_at timestamptz
+);
+ALTER TABLE sample_requests DISABLE ROW LEVEL SECURITY;
+GRANT select, insert, update, delete ON public.sample_requests TO anon, authenticated, service_role;`;
+  let sampleRows = [], sampleUsers = [], sampleInited = false, sampleEditId = null, sampleItems = [], sampleLoadErr = '';
+  const sEl = id => document.getElementById(id);
+  const sampleMe = () => window.currentUser || {};
+  function sampleLevel(){
+    const u = window.currentUser;
+    if(!u) return 'none';
+    if(u.role === 'admin') return 'collect';
+    return SAMPLE_RANK[u.access_sample] !== undefined ? u.access_sample : 'none';
+  }
+  const sampleCan = min => SAMPLE_RANK[sampleLevel()] >= SAMPLE_RANK[min];
+  const sampleWD = ['일', '월', '화', '수', '목', '금', '토'];
+  const sampleFmtShip = iso => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${sampleWD[d.getDay()]}) ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const sampleFmtAt = iso => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const sampleDayKey = d => { d = new Date(d); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+  const sampleLocalInput = d => `${sampleDayKey(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const sampleFmtNum = v => (Math.round(v * 100) / 100).toLocaleString();
+  function sampleUnit(skuId){ const s = dict.find(d => d.id === skuId); const n = s ? Number(s.boxUnitCount) : 0; return n > 0 ? n : 0; }
+  function sampleBoxes(skuId, packs){ const u = sampleUnit(skuId); return u ? Number(packs) / u : null; }
+  const sampleSkuName = (skuId, fallback) => ((dict.find(d => d.id === skuId) || {}).name) || fallback || '(삭제된 품목)';
+
+  // ── 데이터 ──
+  async function sampleLoad(){
+    sampleLoadErr = '';
+    try{
+      let q = '?order=ship_at.desc&limit=1000';
+      if(sampleLevel() === 'request'){ const id = sampleMe().id; q += `&or=(requester_id.eq.${id},created_by_id.eq.${id})`; }
+      sampleRows = await sbQuery('sample_requests', q);
+      if(sampleCan('collect') && !sampleUsers.length){
+        sampleUsers = await sbQuery('users', '?select=id,username,display_name&is_active=eq.true&order=display_name.asc');
+      }
+    }catch(e){ sampleLoadErr = e.message; sampleRows = []; console.error(e); }
+    sampleUpdateMsg();
+  }
+  function sampleUpdateMsg(){
+    sEl('sample-msg').innerHTML = sampleLoadErr
+      ? `⚠ 샘플 신청 데이터를 불러오지 못했습니다. Supabase SQL Editor에서 아래 SQL을 한 번 실행했는지 확인해주세요.<pre class="sample-sql">${escapeHtml(SAMPLE_SETUP_SQL)}</pre>` : '';
+  }
+  async function samplePatch(id, fields, extraFilter){
+    const res = await fetch(`${SB_URL}/rest/v1/sample_requests?id=eq.${encodeURIComponent(id)}${extraFilter || ''}`, {
+      method: 'PATCH', headers: { ...sbHeaders, 'Prefer': 'return=representation' }, body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() })
+    });
+    if(!res.ok){ const t = await res.text().catch(() => ''); throw new Error(`저장 실패 (${res.status}) ${t.slice(0, 80)}`); }
+    return res.json();
+  }
+
+  // ── 화면 전환 ──
+  const SAMPLE_SECTIONS = ['form', 'list', 'sum'];
+  function sampleShow(sec){
+    if(sec === 'form' && !sampleCan('request')) sec = 'list';
+    if(sec === 'sum' && !(sampleCan('view') && sampleLevel() !== 'request')) sec = sampleCan('request') ? 'form' : 'list';
+    SAMPLE_SECTIONS.forEach(s => {
+      sEl('sample-section-' + s).style.display = s === sec ? 'block' : 'none';
+      sEl('sample-tab-' + s + '-btn').classList.toggle('active', s === sec);
+    });
+    if(sec === 'list') sampleRenderList();
+    if(sec === 'sum') sampleRenderSummary();
+  }
+  async function initSamplePanel(){
+    if(!sampleCan('view')) return;
+    const lv = sampleLevel();
+    sEl('sample-tab-form-btn').style.display = sampleCan('request') ? '' : 'none';
+    sEl('sample-tab-sum-btn').style.display = (lv === 'view' || lv === 'collect') ? '' : 'none';
+    sEl('sample-level-note').textContent = lv === 'collect' ? '권한: 주문 취합' : lv === 'request' ? '권한: 신청 (본인 신청만 보입니다)' : '권한: 열람 (조회만 가능)';
+    if(!sampleInited){
+      sampleInited = true;
+      SAMPLE_SECTIONS.forEach(s => sEl('sample-tab-' + s + '-btn').addEventListener('click', async () => { await sampleLoad(); sampleShow(s); }));
+      sEl('sample-ship-method').addEventListener('change', sampleMethodToggle);
+      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '' }); sampleRenderItems(); });
+      sEl('sample-submit').addEventListener('click', sampleSubmit);
+      sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
+      ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
+      ['sample-s-from', 'sample-s-to', 'sample-s-scope'].forEach(id => sEl(id).addEventListener('change', sampleRenderSummary));
+      const t = new Date(); sEl('sample-s-from').value = sampleDayKey(t); t.setDate(t.getDate() + 7); sEl('sample-s-to').value = sampleDayKey(t);
+      sampleResetForm();
+    }
+    await sampleLoad();
+    sampleFillRequesterSelect(); // 직원 목록을 불러온 뒤에 드롭박스를 채운다
+    sampleShow(sampleCan('request') ? 'form' : 'list');
+  }
+
+  // ── 신청 폼 ──
+  function sampleMethodToggle(){ sEl('sample-ship-method-etc').style.display = sEl('sample-ship-method').value === '기타' ? '' : 'none'; }
+  function sampleFillRequesterSelect(){
+    const me = sampleMe(), sel = sEl('sample-requester-select'), fixed = sEl('sample-requester-fixed');
+    fixed.textContent = me.display_name || '';
+    if(!sampleCan('collect')){ sel.style.display = 'none'; fixed.style.display = ''; return; }
+    const prev = sel.value;
+    sel.innerHTML = `<option value="${escapeHtml(me.id)}">본인 (${escapeHtml(me.display_name)})</option>` +
+      sampleUsers.filter(u => u.id !== me.id).map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.display_name || u.username)} (대리 신청)</option>`).join('');
+    if(prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    sel.style.display = ''; fixed.style.display = 'none';
+  }
+  function sampleResetForm(){
+    sampleEditId = null; sampleItems = [{ skuId: '', packs: '' }];
+    const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
+    sEl('sample-ship-at').value = sampleLocalInput(d);
+    sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
+    sEl('sample-note').value = '';
+    sEl('sample-requester-select').value = sampleMe().id || '';
+    sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none';
+    sEl('sample-form-title').textContent = '샘플 신청';
+    sampleRenderItems();
+  }
+  function sampleRenderItems(){
+    const wrap = sEl('sample-items'); wrap.innerHTML = '';
+    sampleItems.forEach((it, i) => {
+      const row = document.createElement('div'); row.className = 'sample-item-row';
+      const sel = document.createElement('select');
+      sel.innerHTML = '<option value="">품목 선택</option>' + dict.map(d => `<option value="${escapeHtml(d.id)}" ${d.id === it.skuId ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('');
+      const qty = document.createElement('input'); qty.type = 'number'; qty.min = '1'; qty.step = '1'; qty.placeholder = '팩'; qty.value = it.packs; qty.className = 'sample-qty';
+      const info = document.createElement('span'); info.className = 'sample-box-info';
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '삭제';
+      const upd = () => {
+        if(!it.skuId){ info.textContent = ''; return; }
+        const u = sampleUnit(it.skuId);
+        if(!u){ info.textContent = '박스입수 미설정 (박스 환산 불가)'; return; }
+        const b = sampleBoxes(it.skuId, it.packs || 0);
+        info.textContent = `= ${sampleFmtNum(b)}박스 (1박스 ${u}팩)`;
+      };
+      sel.addEventListener('change', () => { it.skuId = sel.value; upd(); });
+      qty.addEventListener('input', () => { it.packs = qty.value; upd(); });
+      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '' }); sampleRenderItems(); });
+      upd();
+      row.append(sel, qty, info, del); wrap.appendChild(row);
+    });
+  }
+  function sampleCollectItems(){
+    const m = new Map();
+    sampleItems.forEach(it => { const p = Number(it.packs); if(it.skuId && p > 0) m.set(it.skuId, (m.get(it.skuId) || 0) + p); });
+    return [...m.entries()].map(([skuId, packs]) => {
+      const u = sampleUnit(skuId), b = u ? packs / u : null;
+      return { skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000 };
+    });
+  }
+  async function sampleSubmit(){
+    const me = sampleMe();
+    const shipVal = sEl('sample-ship-at').value;
+    if(!shipVal){ toast('출고일시를 입력해주세요'); return; }
+    let method = sEl('sample-ship-method').value;
+    if(method === '기타'){ method = sEl('sample-ship-method-etc').value.trim(); if(!method){ toast('출고 방식을 입력해주세요'); return; } }
+    const items = sampleCollectItems();
+    if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
+    const note = sEl('sample-note').value.trim();
+    if(method.includes('택배') && !note && !confirm('택배 발송 요청인데 비고에 주소·연락처가 비어 있습니다. 그대로 신청할까요?')) return;
+    const reqId = sampleCan('collect') ? (sEl('sample-requester-select').value || me.id) : me.id;
+    const reqUser = reqId === me.id ? me : (sampleUsers.find(u => u.id === reqId) || {});
+    const reqName = reqId === me.id ? me.display_name : (reqUser.display_name || reqUser.username || '');
+    const btn = sEl('sample-submit'); btn.disabled = true;
+    try{
+      if(sampleEditId){
+        const fields = { ship_at: new Date(shipVal).toISOString(), ship_method: method, items, note };
+        if(sampleCan('collect')){ fields.requester_id = reqId; fields.requester_name = reqName; }
+        // 신청자는 확인 전(신청 상태)일 때만 수정 가능 — 서버 조건으로 한 번 더 확인
+        const out = await samplePatch(sampleEditId, fields, sampleCan('collect') ? '' : '&status=eq.신청');
+        if(!out.length){ toast('이미 확인되었거나 취소된 신청이라 수정할 수 없습니다'); }
+        else { await writeLog('sample_edit', `샘플 신청 수정: ${reqName} ${sampleFmtShip(fields.ship_at)}`); toast('수정했습니다'); }
+      } else {
+        await sbInsert('sample_requests', {
+          requester_id: reqId, requester_name: reqName, created_by_id: me.id, created_by_name: me.display_name,
+          ship_at: new Date(shipVal).toISOString(), ship_method: method, items, note, status: '신청'
+        });
+        await writeLog('sample_request', `샘플 신청: ${reqName}${reqId !== me.id ? ' (대리)' : ''} ${items.map(i => i.name + ' ' + i.packs + '팩').join(', ')}`);
+        toast(reqId !== me.id ? `${reqName} 님 대신 신청했습니다` : '신청했습니다');
+      }
+      sampleResetForm(); await sampleLoad(); sampleShow('list');
+    }catch(e){ toast(e.message); console.error(e); }
+    finally{ btn.disabled = false; }
+  }
+  function sampleStartEdit(r){
+    sampleEditId = r.id;
+    sampleFillRequesterSelect();
+    if(sampleCan('collect')) sEl('sample-requester-select').value = r.requester_id || sampleMe().id;
+    sEl('sample-ship-at').value = sampleLocalInput(new Date(r.ship_at));
+    const opts = [...sEl('sample-ship-method').options].map(o => o.value);
+    if(opts.includes(r.ship_method) && r.ship_method !== '기타'){ sEl('sample-ship-method').value = r.ship_method; sEl('sample-ship-method-etc').value = ''; }
+    else { sEl('sample-ship-method').value = '기타'; sEl('sample-ship-method-etc').value = r.ship_method || ''; }
+    sampleMethodToggle();
+    sEl('sample-note').value = r.note || '';
+    sampleItems = (r.items || []).map(i => ({ skuId: i.skuId, packs: i.packs }));
+    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '' }];
+    sEl('sample-submit').textContent = '수정 저장'; sEl('sample-cancel-edit').style.display = '';
+    sEl('sample-form-title').textContent = '샘플 신청 수정';
+    sampleRenderItems(); sampleShow('form');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── 신청 내역 ──
+  function sampleCanEditRow(r){
+    if(r.status === '취소') return false;
+    if(sampleCan('collect')) return true;
+    const me = sampleMe();
+    return sampleCan('request') && r.status === '신청' && (r.requester_id === me.id || r.created_by_id === me.id);
+  }
+  async function sampleSetStatus(r, patch, logMsg, okMsg){
+    try{
+      const out = await samplePatch(r.id, patch);
+      if(!out.length){ toast('처리하지 못했습니다. 새로고침 후 다시 시도해주세요'); }
+      else { await writeLog('sample_status', logMsg); toast(okMsg); }
+    }catch(e){ toast(e.message); }
+    await sampleLoad(); sampleRenderList();
+    if(sEl('sample-section-sum').style.display !== 'none') sampleRenderSummary();
+  }
+  function sampleRenderList(){
+    const wrap = sEl('sample-list-wrap');
+    sampleUpdateMsg();
+    wrap.innerHTML = '';
+    if(sampleLoadErr) return;
+    const st = sEl('sample-f-status').value, range = sEl('sample-f-range').value;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const from = range === 'upcoming' ? today.getTime() : range === 'recent' ? today.getTime() - 7 * 86400000 : -Infinity;
+    let rows = sampleRows.filter(r => new Date(r.ship_at).getTime() >= from);
+    rows = rows.filter(r => st === 'active' ? r.status !== '취소' : st === 'pending' ? r.status === '신청' : st === 'confirmed' ? r.status === '확인' : st === 'canceled' ? r.status === '취소' : true);
+    rows.sort((a, b) => range === 'all' ? (a.ship_at < b.ship_at ? 1 : -1) : (a.ship_at < b.ship_at ? -1 : 1));
+    const pendingAll = sampleRows.filter(r => r.status === '신청').length;
+    sEl('sample-list-count').textContent = `${rows.length}건 표시${sampleCan('collect') ? ` · 미확인 전체 ${pendingAll}건` : ''}`;
+    if(!rows.length){ wrap.innerHTML = '<div class="empty">조건에 맞는 신청이 없습니다.</div>'; return; }
+    const me = sampleMe();
+    rows.forEach(r => {
+      const proxy = r.created_by_id && r.requester_id && r.created_by_id !== r.requester_id;
+      const pill = r.status === '확인' ? '<span class="sample-pill ok">✅ 확인됨</span>' : r.status === '취소' ? '<span class="sample-pill off">취소됨</span>' : '<span class="sample-pill wait">미확인</span>';
+      const itemsHtml = (r.items || []).map(i => {
+        const b = i.boxes != null ? i.boxes : sampleBoxes(i.skuId, i.packs);
+        return `<li><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩</b>${b != null ? `<small>= ${sampleFmtNum(b)}박스</small>` : ''}</li>`;
+      }).join('');
+      const card = document.createElement('div');
+      card.className = 'sample-card ' + (r.status === '확인' ? 'confirmed' : r.status === '취소' ? 'canceled' : '');
+      card.innerHTML = `
+        <div class="sample-card-head"><div class="when">${escapeHtml(sampleFmtShip(r.ship_at))}<span class="meth">${escapeHtml(r.ship_method || '')}</span></div>${pill}</div>
+        <div class="sample-who">신청자 <b>${escapeHtml(r.requester_name || '')}</b>${proxy ? ` <small>(${escapeHtml(r.created_by_name || '')} 대리 신청)</small>` : ''} · 신청 ${escapeHtml(sampleFmtAt(r.created_at))}</div>
+        <ul class="sample-items-list">${itemsHtml}</ul>
+        ${r.note ? `<div class="sample-note">${escapeHtml(r.note).replace(/\n/g, '<br>')}</div>` : ''}
+        ${r.status === '확인' ? `<div class="sample-confirmed">✅ 확인: ${escapeHtml(r.confirmed_by_name || '')} · ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}
+        <div class="sample-btns"></div>`;
+      const btns = card.querySelector('.sample-btns');
+      const add = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls + ' small-btn'; b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); };
+      if(sampleCan('collect') && r.status === '신청') add('확인 처리', 'btn-primary', () => sampleSetStatus(r,
+        { status: '확인', confirmed_by_id: me.id, confirmed_by_name: me.display_name, confirmed_at: new Date().toISOString() },
+        `샘플 신청 확인: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인 처리했습니다'));
+      if(sampleCan('collect') && r.status === '확인') add('확인 취소', 'btn-ghost', () => sampleSetStatus(r,
+        { status: '신청', confirmed_by_id: null, confirmed_by_name: null, confirmed_at: null },
+        `샘플 신청 확인 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인을 취소했습니다'));
+      if(sampleCanEditRow(r)) add('수정', 'btn-ghost', () => sampleStartEdit(r));
+      if(sampleCanEditRow(r)) add('신청 취소', 'btn-danger', () => {
+        if(!confirm('이 샘플 신청을 취소할까요?')) return;
+        sampleSetStatus(r, { status: '취소' }, `샘플 신청 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '신청을 취소했습니다');
+      });
+      if(!btns.children.length) btns.remove();
+      wrap.appendChild(card);
+    });
+  }
+
+  // ── 샘플 취합 ──
+  // rows: 취소 제외 신청 → { bySku: { skuId: { packs, boxes, count, byDay: { 'YYYY-MM-DD': packs } } }, days: [..] }
+  function sampleAggregate(rows){
+    const bySku = {}, daySet = new Set();
+    rows.forEach(r => {
+      const day = sampleDayKey(r.ship_at); daySet.add(day);
+      const seen = new Set();
+      (r.items || []).forEach(i => {
+        const e = bySku[i.skuId] || (bySku[i.skuId] = { name: sampleSkuName(i.skuId, i.name), packs: 0, boxes: 0, boxMissing: false, count: 0, byDay: {} });
+        const p = Number(i.packs) || 0, b = sampleBoxes(i.skuId, p);
+        e.packs += p; if(b == null) e.boxMissing = true; else e.boxes += b;
+        e.byDay[day] = (e.byDay[day] || 0) + p;
+        if(!seen.has(i.skuId)){ seen.add(i.skuId); e.count++; }
+      });
+    });
+    return { bySku, days: [...daySet].sort() };
+  }
+  function sampleRenderSummary(){
+    const wrap = sEl('sample-sum-wrap');
+    wrap.innerHTML = '';
+    if(sampleLoadErr){ sampleRenderList(); return; }
+    const from = sEl('sample-s-from').value, to = sEl('sample-s-to').value, scope = sEl('sample-s-scope').value;
+    const rows = sampleRows.filter(r => {
+      if(r.status === '취소') return false;
+      if(scope === 'confirmed' && r.status !== '확인') return false;
+      const k = sampleDayKey(r.ship_at);
+      return (!from || k >= from) && (!to || k <= to);
+    });
+    const agg = sampleAggregate(rows);
+    const ids = Object.keys(agg.bySku);
+    sEl('sample-sum-count').textContent = `신청 ${rows.length}건`;
+    if(!ids.length){ wrap.innerHTML = '<div class="empty">해당 기간의 샘플 신청이 없습니다.</div>'; return; }
+    // 정렬: SKU 관리 순서
+    const order = dict.map(d => d.id);
+    ids.sort((a, b) => (order.indexOf(a) < 0 ? 9999 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 9999 : order.indexOf(b)));
+    let totalPacks = 0, totalBoxes = 0, anyMissing = false;
+    let html = '<h3 style="margin-top:4px;">품목별 합계</h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>품목</th><th>박스입수</th><th>총 팩</th><th>박스 환산</th><th>신청 건수</th></tr></thead><tbody>';
+    ids.forEach(id => {
+      const e = agg.bySku[id], u = sampleUnit(id);
+      totalPacks += e.packs; totalBoxes += e.boxes; if(e.boxMissing) anyMissing = true;
+      html += `<tr><td>${escapeHtml(e.name)}</td><td class="num">${u ? u + '팩' : '<span class="sub" style="margin:0;">미설정</span>'}</td><td class="num"><b>${sampleFmtNum(e.packs)}</b></td><td class="num">${e.boxMissing ? '-' : sampleFmtNum(e.boxes)}</td><td class="num">${e.count}</td></tr>`;
+    });
+    html += `</tbody><tfoot><tr><td>합계</td><td></td><td class="num">${sampleFmtNum(totalPacks)}</td><td class="num">${sampleFmtNum(totalBoxes)}${anyMissing ? '+' : ''}</td><td></td></tr></tfoot></table></div>`;
+    html += '<h3 style="margin-top:18px;">출고일별 (팩)</h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>품목</th>' +
+      agg.days.map(d => `<th>${escapeHtml(d.slice(5).replace('-', '/'))}</th>`).join('') + '<th>합계</th></tr></thead><tbody>';
+    ids.forEach(id => {
+      const e = agg.bySku[id];
+      html += `<tr><td>${escapeHtml(e.name)}</td>${agg.days.map(d => `<td class="num">${e.byDay[d] ? sampleFmtNum(e.byDay[d]) : ''}</td>`).join('')}<td class="num"><b>${sampleFmtNum(e.packs)}</b></td></tr>`;
+    });
+    html += `</tbody><tfoot><tr><td>합계</td>${agg.days.map(d => `<td class="num">${sampleFmtNum(ids.reduce((s, id) => s + (agg.bySku[id].byDay[d] || 0), 0))}</td>`).join('')}<td class="num">${sampleFmtNum(totalPacks)}</td></tr></tfoot></table></div>`;
+    if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. SKU 관리에서 박스입수를 입력해주세요.</div>';
+    wrap.innerHTML = html;
+  }
+
+  // ── 생산 공유 연동용: 출고일(dateKey) 하루의 샘플 수요를 SKU별 팩/박스로 돌려준다 ──
+  //  opts.confirmedOnly=true 이면 확인 처리된 건만 포함. 취소된 신청은 항상 제외.
+  window.getSampleDemand = async function(dateKey, opts){
+    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
+    let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}`;
+    if(opts && opts.confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
+    const rows = await sbQuery('sample_requests', q);
+    const out = {};
+    rows.forEach(r => (r.items || []).forEach(i => {
+      const e = out[i.skuId] || (out[i.skuId] = { packs: 0, boxes: 0, count: 0 });
+      const p = Number(i.packs) || 0, b = sampleBoxes(i.skuId, p);
+      e.packs += p; e.boxes += (b == null ? 0 : b); e.count++;
+    }));
+    return out;
+  };
 
   // ══════════════════ 단가 확인 (원가분석 · 원물가/비용 이력 · 이익률) — 관리자 전용 ══════════════════
   // 저장: kv_store(shared) 'cost-config'(구성·비용 이력) / 'raw-price-history'(원물별 주간 시세 이력)
@@ -8268,7 +8742,7 @@ function applyUserUI() {
     try{
       const rows = await sbQuery('users', '?order=created_at.asc');
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
@@ -8279,7 +8753,7 @@ function applyUserUI() {
         const accessCost = u.access_cost === true;
 
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td><td></td><td></td>`;
         const cells = tr.querySelectorAll('td');
 
         function makeToggle(current, field, onLabel, offLabel){
@@ -8351,11 +8825,35 @@ function applyUserUI() {
         } else {
           cells[6].appendChild(makeToggle(accessCost, 'access_cost', '✅ 열람', '⛔ 차단'));
         }
+        // 샘플 신청 권한: 차단 / 열람 / 신청 / 주문 취합 (관리자는 항상 주문 취합)
+        if(u.role === 'admin'){
+          const span = document.createElement('span');
+          span.textContent = '주문 취합 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);';
+          cells[7].appendChild(span);
+        } else {
+          const curS = ['view','request','collect'].includes(u.access_sample) ? u.access_sample : 'none';
+          const selS = document.createElement('select');
+          selS.style.cssText = 'font-size:13px; padding:4px 6px;';
+          [['none','⛔ 차단'],['view','👁 열람'],['request','✍ 신청'],['collect','📋 주문 취합']].forEach(([v, label])=>{
+            const o = document.createElement('option'); o.value = v; o.textContent = label; if(v === curS) o.selected = true; selS.appendChild(o);
+          });
+          selS.addEventListener('change', async ()=>{
+            const next = selS.value;
+            const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${u.id}`, { method:'PATCH', headers: sbHeaders, body: JSON.stringify({ access_sample: next }) });
+            if(!res.ok){
+              alert("권한 변경에 실패했습니다. Supabase users 테이블에 'access_sample' 컬럼이 없는 것 같습니다.\n샘플 신청 탭 상단 안내의 SQL(또는 아래)을 Supabase SQL Editor에서 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS access_sample text NOT NULL DEFAULT 'none';");
+              selS.value = curS; return;
+            }
+            await writeLog('perm_change', `${u.username} 샘플 신청 권한: ${curS} → ${next}`);
+            loadAdminPerms();
+          });
+          cells[7].appendChild(selS);
+        }
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
       wrap.appendChild(table);
-    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files/access_cost/readonly_* 컬럼이 생성되어 있는지 확인하세요)</div>`; }
+    }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message} (Supabase에 access_order/access_sorting/sorting_master_edit/access_files/access_cost/access_sample/readonly_* 컬럼이 생성되어 있는지 확인하세요)</div>`; }
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);
