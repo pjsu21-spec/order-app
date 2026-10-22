@@ -86,6 +86,19 @@
   .imgs-bar .sp{ flex:1; }
   .imgs-bar button{ padding:5px 10px; font-size:12.5px; }
 
+  /* 썸네일 */
+  #th-drop{ border:2px dashed var(--line); border-radius:10px; padding:16px 12px; text-align:center; color:var(--muted);
+    font-size:13.5px; cursor:pointer; background:#fdfcfb; }
+  #th-drop.over{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+  #th-drop b{ color:var(--ink); }
+  .th-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:10px; margin-top:12px; }
+  .th-tile{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+  .th-tile.new{ background:#fffafb; border-color:#f3c9d0; }
+  .th-tile .pic{ width:100%; aspect-ratio:1/1; background:#f1eeec center/cover no-repeat; display:block; }
+  .th-tile .meta{ padding:6px 8px 2px; font-size:11.5px; color:var(--muted); line-height:1.35; word-break:break-all; }
+  .th-tile .btns{ display:flex; gap:4px; padding:4px 8px 8px; }
+  .th-tile .btns button{ flex:1; padding:5px 4px; font-size:12.5px; }
+
   .savebar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .savebar .btn-primary{ padding:12px 18px; font-size:15px; }
   #progress{ display:none; margin-top:12px; }
@@ -203,6 +216,20 @@
         </div>
 
         <div class="card">
+          <h2>썸네일 <span class="hint" style="font-weight:400;">(선택 · 상세 HTML에는 들어가지 않습니다)</span><span class="sp"></span><span class="hint" id="th-count"></span></h2>
+          <div id="th-drop">
+            <b>썸네일을 여기에 끌어다 놓거나 눌러서 선택</b><br>
+            <span style="font-size:12px;">원본 그대로 보관되어, 나중에 이 상세페이지에서 다시 받을 수 있습니다</span>
+          </div>
+          <input type="file" id="th-input" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display:none;">
+          <div class="th-grid" id="th-grid"></div>
+          <div class="imgs-bar" id="th-bar" style="display:none;">
+            <span id="th-summary"></span><span class="sp"></span>
+            <button id="th-zip-btn">전체 받기</button>
+          </div>
+        </div>
+
+        <div class="card">
           <h2>3. 검색용 설명 문구 <span class="hint" style="font-weight:400;">(선택)</span></h2>
           <textarea id="text" rows="4" placeholder="이미지 아래에 글자로 들어갑니다. 상품 특징·원산지·보관법 등을 적어두면 마켓 검색과 AI 추천이 상품 내용을 읽을 수 있습니다."></textarea>
         </div>
@@ -268,6 +295,7 @@ let token = null, me = null;
 let products = [];
 let cur = null;       // 편집 중인 상세페이지 { id, isNew, title, width, text, images:[...] }
 let items = [];       // 편집 목록 [{ kind:'up', file, w, h, size } | { kind:'new', file:File, key, thumb, w, h }]
+let thumbs = [];      // 썸네일 목록 [{ kind:'up', file, w, h, size } | { kind:'new', file:File, key, url }]
 let saved = null;     // 마지막 저장본 (변경 감지용)
 let busy = false;
 
@@ -373,6 +401,7 @@ async function openProduct(id){
 function openEditor(p){
   cur = p ? { ...p, isNew:false } : { id:newId(), isNew:true, title:'', width:860, text:'', images:[] };
   items = (cur.images||[]).map(im => ({ kind:'up', ...im }));
+  thumbs = (cur.thumbs||[]).map(im => ({ kind:'up', ...im }));
   saved = p ? snapshot() : null;
   $('title').value = cur.title || '';
   $('text').value = cur.text || '';
@@ -381,18 +410,20 @@ function openEditor(p){
   const ro = !canEdit();
   ['title','text','opt-width','opt-slice','opt-quality'].forEach(i => $(i).disabled = ro);
   $('drop').style.display = ro ? 'none' : '';
+  $('th-drop').style.display = ro ? 'none' : '';
   $('save-card').style.display = ro ? 'none' : '';
   $('del-btn').style.display = (ro || cur.isNew) ? 'none' : '';
   $('progress').style.display = 'none';
   $('view-list').style.display='none'; $('view-edit').style.display='';
   window.scrollTo(0,0);
-  renderItems(); renderResult();
+  renderItems(); renderThumbs(); renderResult();
 }
 async function backToList(){
   if (busy) { toast('업로드 중에는 나갈 수 없습니다'); return; }
   if (isDirty() && !(await confirmBox('저장하지 않고 나갈까요?', '저장하지 않은 변경사항이 사라집니다.', '나가기', true))) return;
   items.forEach(it => it.thumb && it.kind==='new' && URL.revokeObjectURL(it.thumb));
-  cur = null; items = [];
+  thumbs.forEach(it => it.kind==='new' && URL.revokeObjectURL(it.url));
+  cur = null; items = []; thumbs = [];
   $('view-edit').style.display='none'; $('view-list').style.display='';
   try { await loadList(); } catch(e){ toast(e.message); }
 }
@@ -400,9 +431,10 @@ $('back-btn').onclick = backToList;
 
 function snapshot(){
   return JSON.stringify({ t:$('title').value.trim(), x:$('text').value, w:$('opt-width').value,
-    i: items.map(it => it.kind==='up' ? it.file : 'new:'+it.key) });
+    i: items.map(it => it.kind==='up' ? it.file : 'new:'+it.key),
+    th: thumbs.map(it => it.kind==='up' ? it.file : 'new:'+it.key) });
 }
-function isDirty(){ if (!cur) return false; if (cur.isNew) return items.length>0 || $('title').value.trim()!=='' || $('text').value.trim()!==''; return snapshot() !== saved; }
+function isDirty(){ if (!cur) return false; if (cur.isNew) return items.length>0 || thumbs.length>0 || $('title').value.trim()!=='' || $('text').value.trim()!==''; return snapshot() !== saved; }
 
 ['title','text'].forEach(i => $(i).addEventListener('input', () => { renderResult(); }));
 $('opt-width').addEventListener('change', renderResult);
@@ -456,7 +488,7 @@ $('file-input').onchange = e => { addFiles(e.target.files); e.target.value=''; }
 ['dragleave','drop'].forEach(t => $('drop').addEventListener(t, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
 $('drop').addEventListener('drop', e => addFiles(e.dataTransfer.files));
 document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => { e.preventDefault(); if ($('view-edit').style.display!=='none' && !e.target.closest('#drop')) addFiles(e.dataTransfer.files); });
+document.addEventListener('drop', e => { e.preventDefault(); if ($('view-edit').style.display!=='none' && !e.target.closest('#drop, #th-drop')) addFiles(e.dataTransfer.files); });
 document.addEventListener('paste', e => {
   if ($('view-edit').style.display==='none' || e.target.closest('input,textarea')) return;
   const fs = Array.from(e.clipboardData?.files || []); if (fs.length) addFiles(fs);
@@ -470,6 +502,86 @@ $('clear-btn').onclick = async () => {
   if (!(await confirmBox('이미지 목록을 비울까요?', '목록에서만 빠지고, 이미 마켓에 붙여넣은 HTML의 이미지는 그대로 보입니다.', '비우기', true))) return;
   items.forEach(it => it.kind==='new' && URL.revokeObjectURL(it.thumb)); items = []; renderItems(); renderResult();
 };
+
+// ── 썸네일 (상세 HTML에는 들어가지 않고, 상품 구분 · 다운로드용으로 보관) ──
+const THUMB_MAX_BYTES = 9 * 1024 * 1024;   // 서버 한도(10MB) 안쪽으로 맞춥니다
+const extOfType = (t) => t==='image/png' ? 'png' : t==='image/webp' ? 'webp' : t==='image/gif' ? 'gif' : 'jpg';
+const thumbSrc = (it) => it.kind==='up' ? pubUrl(cur.id, it.file) : it.url;
+function safeTitle(){ const t = (($('title').value || (cur && cur.title) || '')).replace(/[\\/:*?"<>|]/g,'').trim(); return t || (cur ? cur.id : 'thumb'); }
+function triggerDownload(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+async function thumbBlob(it){
+  if (it.kind === 'new') return it.file;
+  const r = await fetch(thumbSrc(it));
+  if (!r.ok) throw new Error('썸네일을 받지 못했습니다');
+  return r.blob();
+}
+const thumbFileName = (it, i) => `${safeTitle()}_썸네일_${String(i+1).padStart(2,'0')}.${it.kind==='up' ? it.file.split('.').pop() : extOfType(it.file.type)}`;
+
+function renderThumbs(){
+  const ro = !canEdit();
+  $('th-grid').innerHTML = thumbs.map((it, i) => {
+    const name = it.kind==='up' ? it.file : it.file.name;
+    const size = it.kind==='up' ? it.size : it.file.size;
+    return `<div class="th-tile ${it.kind==='new'?'new':''}"><div class="pic" style="background-image:url('${esc(thumbSrc(it))}')"></div>
+      <div class="meta">${it.kind==='new' ? '<span class="tag new">새 이미지</span>' : ''}${esc(name.length>24 ? name.slice(0,22)+'…' : name)}<br>${it.w ? it.w+'×'+it.h+'px · ' : ''}${fmtSize(size)}</div>
+      <div class="btns"><button data-a="dl" data-i="${i}">⬇ 받기</button>${ro ? '' : `<button data-a="rm" data-i="${i}" class="btn-danger" title="빼기">✕</button>`}</div></div>`;
+  }).join('');
+  $('th-grid').querySelectorAll('button[data-a]').forEach(b => b.onclick = async () => {
+    const i = Number(b.dataset.i), it = thumbs[i];
+    if (b.dataset.a === 'rm'){ thumbs.splice(i,1); if (it.kind==='new') URL.revokeObjectURL(it.url); renderThumbs(); renderResult(); return; }
+    try { triggerDownload(await thumbBlob(it), thumbFileName(it, i)); } catch(e){ toast(e.message); }
+  });
+  const nNew = thumbs.filter(t => t.kind==='new').length;
+  $('th-count').textContent = thumbs.length ? `${thumbs.length}개${nNew ? ` (새 이미지 ${nNew})` : ''}` : '';
+  $('th-bar').style.display = thumbs.length > 1 ? '' : 'none';
+  $('th-summary').textContent = thumbs.length > 1 ? `썸네일 ${thumbs.length}개` : '';
+}
+function addThumbFiles(fileList){
+  if (!canEdit()) return;
+  const files = Array.from(fileList).filter(f => /^image\/(jpeg|png|webp|gif)$/.test(f.type));
+  if (!files.length){ toast('JPG · PNG · WEBP · GIF 이미지만 넣을 수 있습니다'); return; }
+  files.sort((a,b) => a.name.localeCompare(b.name, 'ko', { numeric:true }));
+  for (const f of files) thumbs.push({ kind:'new', file:f, key:'t'+(++keySeq), url:URL.createObjectURL(f) });
+  renderThumbs(); renderResult();
+}
+$('th-drop').onclick = () => $('th-input').click();
+$('th-input').onchange = e => { addThumbFiles(e.target.files); e.target.value=''; };
+['dragenter','dragover'].forEach(t => $('th-drop').addEventListener(t, e => { e.preventDefault(); $('th-drop').classList.add('over'); }));
+['dragleave','drop'].forEach(t => $('th-drop').addEventListener(t, e => { e.preventDefault(); $('th-drop').classList.remove('over'); }));
+$('th-drop').addEventListener('drop', e => addThumbFiles(e.dataTransfer.files));
+$('th-zip-btn').onclick = async () => {
+  if (!thumbs.length) return;
+  if (typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+  const b = $('th-zip-btn'); b.disabled = true;
+  try {
+    const zip = new JSZip();
+    for (let i=0; i<thumbs.length; i++){ b.textContent = `받는 중… ${i+1}/${thumbs.length}`; zip.file(thumbFileName(thumbs[i], i), await thumbBlob(thumbs[i])); }
+    triggerDownload(await zip.generateAsync({ type:'blob' }), `${safeTitle()}_썸네일.zip`);
+  } catch(e){ toast(e.message); }
+  finally { b.disabled = false; b.textContent = '전체 받기'; }
+};
+
+// 업로드 준비: 원본 그대로 올리고, 서버 한도(10MB)를 넘을 때만 줄여서 JPG로 올립니다.
+async function prepareThumb(file){
+  const bm = await createImageBitmap(file).catch(() => { throw new Error(`${file.name}: 이미지를 열 수 없습니다`); });
+  const w0 = bm.width, h0 = bm.height;
+  if (file.size <= THUMB_MAX_BYTES || file.type === 'image/gif'){
+    bm.close();
+    if (file.size > 10*1024*1024) throw new Error(`${file.name}: 10MB를 넘는 GIF는 올릴 수 없습니다`);
+    return { blob:file, type:file.type, ext:extOfType(file.type), w:w0, h:h0 };
+  }
+  for (const [side, q] of [[3000, 0.92], [2400, 0.85], [1800, 0.8]]){
+    const sc = Math.min(1, side / Math.max(w0, h0)), w = Math.round(w0*sc), h = Math.round(h0*sc);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(bm, 0, 0, w, h);
+    const blob = await canvasToBlob(c, 'image/jpeg', q); c.width = c.height = 0;
+    if (blob.size <= THUMB_MAX_BYTES){ bm.close(); return { blob, type:'image/jpeg', ext:'jpg', w, h }; }
+  }
+  bm.close(); throw new Error(`${file.name}: 용량이 너무 큽니다`);
+}
 
 // ── 이미지 가공 (리사이즈 · 자르기 · 압축) ──
 function pieceHeights(total, slice){
@@ -552,15 +664,30 @@ $('save-btn').onclick = async () => {
       URL.revokeObjectURL(it.thumb);
       it.kind = 'done';
     }
+    // 썸네일 업로드 (원본 그대로)
+    const thResult = [];
+    const newTh = thumbs.filter(t => t.kind==='new');
+    let ti = 0;
+    for (const t of thumbs){
+      if (t.kind === 'up'){ thResult.push({ file:t.file, w:t.w, h:t.h, size:t.size }); continue; }
+      setProgress(`썸네일 올리는 중… (${ti+1}/${newTh.length}) ${t.file.name}`, 90 + ti / newTh.length * 8);
+      const pr = await prepareThumb(t.file);
+      const fname = `t-${stamp()}.${pr.ext}`;
+      const r = await uploadBlob(cur.id, fname, pr.blob, pr.type);
+      const up = { file:fname, w:pr.w, h:pr.h, size:r.size };
+      thResult.push(up); t.pieces = [up]; URL.revokeObjectURL(t.url); t.kind = 'done'; ti++;
+    }
     setProgress('저장 중…', 98);
-    const data = await api(`/api/products/${cur.id}`, { method:'PUT', body: JSON.stringify({ title, width, text:$('text').value, images: result }) });
+    const data = await api(`/api/products/${cur.id}`, { method:'PUT', body: JSON.stringify({ title, width, text:$('text').value, images: result, thumbs: thResult }) });
     cur = { ...data.product, isNew:false };
+    const thumbsSaved = !thResult.length || (Array.isArray(cur.thumbs) && cur.thumbs.length === thResult.length);
+    thumbs = (thumbsSaved ? cur.thumbs : thResult).map(im => ({ kind:'up', ...im }));
     items = cur.images.map(im => ({ kind:'up', ...im }));
     saved = snapshot();
     $('edit-heading').textContent = cur.title;
     $('del-btn').style.display = '';
-    setProgress('완료! 오른쪽의 HTML을 복사해서 마켓에 붙여넣으세요.', 100);
-    toast('저장했습니다');
+    if (thumbsSaved){ setProgress('완료! 오른쪽의 HTML을 복사해서 마켓에 붙여넣으세요.', 100); toast('저장했습니다'); }
+    else { setProgress('⚠ 이미지는 저장됐지만 썸네일 목록이 서버에 저장되지 않았습니다. 서버(Worker)를 최신 detail-worker.js로 업데이트해주세요.', 100); toast('썸네일은 서버 업데이트 후 다시 저장해주세요'); }
   } catch(e){
     // 이미 올라간 조각은 목록에 반영해 두고 다시 저장할 때 이어서 진행
     $('progress-t').textContent = '⚠ ' + e.message;
@@ -569,7 +696,8 @@ $('save-btn').onclick = async () => {
     busy = false; $('save-btn').disabled = false; $('back-btn').disabled = false;
     // 실패한 경우: 다 올라간 이미지는 '올라감'으로 바꿔서 다시 저장할 때 또 올리지 않게 함
     items = items.flatMap(it => it.kind === 'done' ? it.pieces.map(pc => ({ kind:'up', ...pc })) : [it]);
-    renderItems(); renderResult();
+    thumbs = thumbs.flatMap(it => it.kind === 'done' ? it.pieces.map(pc => ({ kind:'up', ...pc })) : [it]);
+    renderItems(); renderThumbs(); renderResult();
   }
 };
 
@@ -657,7 +785,7 @@ $('del-btn').onclick = async () => {
   if (!ok) return;
   try {
     await api(`/api/products/${cur.id}`, { method:'DELETE' });
-    cur = null; items = [];
+    cur = null; items = []; thumbs = [];
     $('view-edit').style.display='none'; $('view-list').style.display='';
     toast('삭제했습니다');
     await loadList();

@@ -135,6 +135,17 @@ async function saveManifest(env, id, body, user) {
     if (!head) return err(`이미지가 서버에 없습니다: ${file}`);
     clean.push({ file, w: Math.round(Number(im.w) || 0), h: Math.round(Number(im.h) || 0), size: head.size });
   }
+  // 썸네일(상세 HTML에는 넣지 않는 대표 이미지) — 이미지와 같은 방식으로 확인합니다.
+  const thumbsIn = Array.isArray(body.thumbs) ? body.thumbs : [];
+  if (thumbsIn.length > 20) return err('썸네일이 너무 많습니다 (최대 20장)');
+  const cleanThumbs = [];
+  for (const im of thumbsIn) {
+    const file = String(im.file || '');
+    if (!FILE_RE.test(file)) return err('잘못된 썸네일 이름이 있습니다');
+    const head = await env.BUCKET.head(`p/${id}/${file}`);
+    if (!head) return err(`썸네일이 서버에 없습니다: ${file}`);
+    cleanThumbs.push({ file, w: Math.round(Number(im.w) || 0), h: Math.round(Number(im.h) || 0), size: head.size });
+  }
   const now = new Date().toISOString();
   const prev = await env.BUCKET.get(`m/${id}.json`);
   const prevData = prev ? await prev.json().catch(() => ({})) : {};
@@ -144,6 +155,7 @@ async function saveManifest(env, id, body, user) {
     width: Math.min(2000, Math.max(300, Math.round(Number(body.width) || 860))),
     text: String(body.text || '').slice(0, 5000),
     images: clean,
+    thumbs: cleanThumbs,
     created_at: prevData.created_at || now,
     created_by: prevData.created_by || user.display_name,
     updated_at: now,
@@ -154,7 +166,7 @@ async function saveManifest(env, id, body, user) {
     customMetadata: {
       title: encodeURIComponent(title),
       count: String(clean.length),
-      thumb: clean[0] ? clean[0].file : '',
+      thumb: cleanThumbs[0] ? cleanThumbs[0].file : (clean[0] ? clean[0].file : ''),
       updated_at: now,
       updated_by: encodeURIComponent(user.display_name),
     },
