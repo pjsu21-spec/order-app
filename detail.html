@@ -249,6 +249,11 @@
 // ══════════════════════════════════════════════════════════════════
 const WORKER_URL = 'https://dareum-detail.karra1307.workers.dev';
 
+// 마켓 HTML에 들어갈 이미지 주소 (Worker를 거치지 않는 R2 공개 주소). 끝에 / 없이.
+// 예: 'https://img.example.com'  → 이미지는 https://img.example.com/p/<상품ID>/<파일> 로 나갑니다.
+// 비워두면 예전처럼 Worker(/i/...)를 통해 나갑니다.
+const IMG_BASE = '';
+
 // 발주 프로그램과 같은 Supabase 프로젝트 (로그인용)
 const SB_URL = 'https://rsgbqlrxtexknhsvkroc.supabase.co';
 const SB_KEY = 'sb_publishable_Es6Y1pOe1friYzEnvT0iSw_gqQQvFvJ';
@@ -269,7 +274,7 @@ function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'), 2800); }
 function fmtSize(n){ n=Number(n||0); if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(0)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
 function fmtDate(s){ const d=new Date(s); return isNaN(d)?'':d.toLocaleString('ko-KR',{year:'2-digit',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
-function pubUrl(id, file){ return `${WORKER_URL}/i/p/${id}/${file}`; }
+function pubUrl(id, file){ return IMG_BASE ? `${IMG_BASE}/p/${id}/${file}` : `${WORKER_URL}/i/p/${id}/${file}`; }
 function canEdit(){ return me && !me.readOnly; }
 
 function confirmBox(title, msg, okText = '확인', danger = false){
