@@ -1316,7 +1316,7 @@
         <input type="text" id="new-user-username" placeholder="아이디" style="width:110px;">
         <input type="text" id="new-user-display" placeholder="이름 (예: 박준수)" style="width:120px;">
         <input type="text" id="new-user-dept" placeholder="부서 (예: 영업팀)" style="width:120px;">
-        <input type="password" id="new-user-pw" placeholder="비밀번호" style="width:110px;">
+        <input type="text" id="new-user-pw" value="1111" placeholder="초기 비밀번호" title="초기 비밀번호 (첫 로그인 때 직원이 직접 바꿉니다)" style="width:110px;">
         <select id="new-user-role">
           <option value="staff">직원</option>
           <option value="admin">관리자</option>
@@ -1324,11 +1324,11 @@
         <button class="btn-primary small-btn" id="admin-add-user-btn">추가</button>
       </div>
       <div style="margin-top:10px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">비밀번호 변경</div>
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">비밀번호 초기화 <span class="sub" style="font-weight:400; margin:0;">(초기화하면 해당 직원은 다음 로그인 때 새 비밀번호를 설정해야 합니다)</span></div>
         <div class="row" style="margin-top:0;">
           <select id="pw-change-user-select" style="min-width:130px;"></select>
-          <input type="password" id="pw-change-new" placeholder="새 비밀번호" style="width:130px;">
-          <button class="btn-ghost small-btn" id="admin-change-pw-btn">변경</button>
+          <input type="text" id="pw-change-new" value="1111" placeholder="초기 비밀번호" style="width:130px;">
+          <button class="btn-ghost small-btn" id="admin-change-pw-btn">초기화</button>
         </div>
       </div>
     </div>
@@ -1345,14 +1345,14 @@
   <!-- 내 비밀번호 변경 -->
   <div id="pw-dialog" style="display:none; position:fixed; inset:0; background:rgba(42,36,38,.45); z-index:900; align-items:center; justify-content:center; padding:16px;">
     <div style="background:#fff; border-radius:12px; padding:22px; width:100%; max-width:340px; border:1px solid var(--line);">
-      <div style="font-size:16px; font-weight:700; margin-bottom:4px;">🔑 비밀번호 변경</div>
-      <div class="sub" style="margin-bottom:14px;">변경하면 다른 기기에서는 자동으로 로그아웃됩니다.</div>
+      <div id="pw-dialog-title" style="font-size:16px; font-weight:700; margin-bottom:4px;">🔑 비밀번호 변경</div>
+      <div id="pw-dialog-sub" class="sub" style="margin-bottom:14px;">변경하면 다른 기기에서는 자동으로 로그아웃됩니다.</div>
       <div id="pw-dialog-error" style="display:none; color:var(--warn); background:var(--warn-soft); border-radius:8px; padding:8px 10px; font-size:13px; margin-bottom:10px;"></div>
       <input type="password" id="pw-dialog-current" placeholder="현재 비밀번호" autocomplete="current-password" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px 10px; font-size:14px;">
       <input type="password" id="pw-dialog-new" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px 10px; font-size:14px;">
       <input type="password" id="pw-dialog-confirm" placeholder="새 비밀번호 한 번 더" autocomplete="new-password" style="width:100%; box-sizing:border-box; margin-bottom:14px; padding:9px 10px; font-size:14px;">
       <div style="display:flex; gap:8px;">
-        <button class="btn-ghost" id="pw-dialog-cancel" style="flex:1;" onclick="closePasswordDialog()">취소</button>
+        <button class="btn-ghost" id="pw-dialog-cancel" style="flex:1;" onclick="pwDialogCancel()">취소</button>
         <button class="btn-primary" id="pw-dialog-save" style="flex:1;" onclick="submitPasswordChange()">변경</button>
       </div>
     </div>
@@ -1517,7 +1517,7 @@ async function sbRpc(name, args) {
 }
 const sessionToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
 function buildCurrentUser(user, token) {
-  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', must_change_password: user.must_change_password === true, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
 }
 // 로그인 → { token, user } (실패 시 예외)
 async function apiLogin(username, hash) {
@@ -1557,6 +1557,7 @@ async function apiChangeOwnPassword(oldHash, newHash) {
   try {
     const r = await sbRpc('app_change_password', { p_token: me.token, p_old_hash: oldHash, p_new_hash: newHash });
     if (r && r.error === 'wrong_password') throw new Error('현재 비밀번호가 올바르지 않습니다');
+    if (r && r.error === 'weak') throw new Error('초기 비밀번호는 사용할 수 없습니다. 다른 비밀번호를 입력해주세요');
     if (!r || !r.ok) throw new Error('계정을 찾을 수 없습니다. 다시 로그인해주세요.');
     return;
   } catch (e) { if (!e.rpcMissing) throw e; }
@@ -1653,14 +1654,28 @@ async function restoreSession() {
 }
 
 // ── 내 비밀번호 변경 (로그인한 본인) ──
-function openPasswordDialog(){
+let pwForced = false;   // 초기 비밀번호로 처음 로그인한 경우: 비밀번호를 바꾸기 전에는 닫을 수 없다
+const INITIAL_PASSWORD = '1111';
+function openPasswordDialog(forced){
   if (!window.currentUser) return;
+  pwForced = forced === true;
   ['pw-dialog-current','pw-dialog-new','pw-dialog-confirm'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('pw-dialog-error').style.display = 'none';
+  document.getElementById('pw-dialog-title').textContent = pwForced ? '🔑 새 비밀번호를 설정해주세요' : '🔑 비밀번호 변경';
+  document.getElementById('pw-dialog-sub').textContent = pwForced
+    ? '초기 비밀번호로 로그인하셨습니다. 안전을 위해 새 비밀번호를 설정해야 사용할 수 있습니다. (6자 이상, 초기 비밀번호와 달라야 합니다)'
+    : '변경하면 다른 기기에서는 자동으로 로그아웃됩니다.';
+  document.getElementById('pw-dialog-current').placeholder = pwForced ? '현재(초기) 비밀번호' : '현재 비밀번호';
+  document.getElementById('pw-dialog-cancel').textContent = pwForced ? '로그아웃' : '취소';
   document.getElementById('pw-dialog').style.display = 'flex';
   setTimeout(() => document.getElementById('pw-dialog-current').focus(), 50);
 }
-function closePasswordDialog(){ document.getElementById('pw-dialog').style.display = 'none'; }
+function closePasswordDialog(){ if (pwForced) return; document.getElementById('pw-dialog').style.display = 'none'; }
+function pwDialogCancel(){ if (pwForced) { pwForced = false; document.getElementById('pw-dialog').style.display = 'none'; logout(); } else closePasswordDialog(); }
+// 초기 비밀번호 상태(관리자가 만들었거나 초기화한 계정)면 비밀번호 변경을 강제한다
+function enforcePasswordChange(){
+  if (window.currentUser && window.currentUser.must_change_password === true) openPasswordDialog(true);
+}
 async function submitPasswordChange(){
   const errEl = document.getElementById('pw-dialog-error');
   const btn = document.getElementById('pw-dialog-save');
@@ -1669,6 +1684,7 @@ async function submitPasswordChange(){
   const next = document.getElementById('pw-dialog-new').value;
   const confirmPw = document.getElementById('pw-dialog-confirm').value;
   if (!cur || !next || !confirmPw) return fail('모든 칸을 입력해주세요');
+  if (next === INITIAL_PASSWORD) return fail('초기 비밀번호는 사용할 수 없습니다. 다른 비밀번호를 입력해주세요');
   if (next.length < 6) return fail('새 비밀번호는 6자 이상으로 입력해주세요');
   if (next !== confirmPw) return fail('새 비밀번호가 서로 다릅니다');
   if (next === cur) return fail('현재 비밀번호와 다른 비밀번호를 입력해주세요');
@@ -1676,7 +1692,9 @@ async function submitPasswordChange(){
   try {
     // 현재 비밀번호 확인 + 변경 + 다른 기기 로그아웃(지금 쓰는 기기만 유지)
     await apiChangeOwnPassword(await hashPassword(cur), await hashPassword(next));
-    await writeLog('password_self_change', '본인 비밀번호 변경');
+    await writeLog('password_self_change', pwForced ? '초기 비밀번호 변경(첫 로그인)' : '본인 비밀번호 변경');
+    pwForced = false;
+    if (window.currentUser) window.currentUser.must_change_password = false;
     closePasswordDialog();
     const t = document.getElementById('toast');
     if (t) { t.textContent = '비밀번호를 변경했습니다'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
@@ -1686,7 +1704,7 @@ async function submitPasswordChange(){
 document.addEventListener('keydown', (e) => {
   const dlg = document.getElementById('pw-dialog');
   if (!dlg || dlg.style.display === 'none') return;
-  if (e.key === 'Escape') closePasswordDialog();
+  if (e.key === 'Escape' && !pwForced) closePasswordDialog();
   if (e.key === 'Enter') submitPasswordChange();
 });
 
@@ -1712,6 +1730,7 @@ function showApp() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('app').classList.remove('in-program'); // 로그인하면 홈 화면부터
   applyUserUI();
+  enforcePasswordChange(); // 초기 비밀번호 상태면 변경 화면부터
   loadHomeOrder(); // 관리자가 정한 타일 순서 불러오기
 }
 
@@ -9057,7 +9076,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       rows.forEach(u=>{
         const tr = document.createElement('tr');
         const dt = new Date(u.created_at).toLocaleDateString('ko-KR');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td class="dept-cell" style="white-space:nowrap;"></td><td>${u.role==='admin'?'관리자':'직원'}</td><td>${u.is_active?'✅ 활성':'🔴 비활성'}</td><td>${dt}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td class="dept-cell" style="white-space:nowrap;"></td><td>${u.role==='admin'?'관리자':'직원'}</td><td>${u.is_active?'✅ 활성':'🔴 비활성'}${u.must_change_password ? ' <span title="아직 비밀번호를 바꾸지 않았습니다 (초기 비밀번호 상태)" style="font-size:11px; font-weight:700; color:#9a6a00; background:#fff3d6; padding:1px 7px; border-radius:100px; white-space:nowrap;">초기 비밀번호</span>' : ''}</td><td>${dt}</td><td></td>`;
         // 부서: 샘플 신청 등에서 '요청 부서'로 자동 입력됩니다 (관리자가 여기서 지정)
         const deptCell = tr.querySelector('.dept-cell');
         const deptInput = document.createElement('input');
@@ -9252,9 +9271,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const hash = await hashPassword(pw);
       await apiCreateUser(username, display, hash, role, dept);
       await writeLog('user_create', `신규 사용자 생성: ${username} (${display})`);
-      ['new-user-username','new-user-display','new-user-dept','new-user-pw'].forEach(id=>{ document.getElementById(id).value=''; });
+      ['new-user-username','new-user-display','new-user-dept'].forEach(id=>{ document.getElementById(id).value=''; });
+      document.getElementById('new-user-pw').value = '1111';
       loadAdminUsers();
-      toast(`${display}(${username}) 계정이 생성되었습니다`);
+      toast(`${display}(${username}) 계정이 생성되었습니다 — 초기 비밀번호로 처음 로그인하면 비밀번호를 바꾸게 됩니다`);
     }catch(e){ toast('생성 실패: '+e.message); }
   });
 
@@ -9266,8 +9286,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const hash = await hashPassword(newPw);
       const targetName = await apiResetPassword(userId, hash);
       await writeLog('pw_change', `비밀번호 변경: ${targetName}`);
-      document.getElementById('pw-change-new').value='';
-      toast('비밀번호가 변경되었습니다');
+      document.getElementById('pw-change-new').value = '1111';
+      toast('비밀번호를 초기화했습니다. 해당 직원은 다음 로그인 때 새 비밀번호를 설정해야 합니다');
     }catch(e){ toast('변경 실패: '+e.message); }
   });
 
