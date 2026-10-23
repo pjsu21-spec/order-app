@@ -262,6 +262,9 @@
   .sample-pill.wait{ background:#fff3d6; color:#9a6a00; }
   .sample-pill.off{ background:#eee; color:#777; }
   .sample-who{ font-size:13px; color:var(--muted); margin-top:6px; }
+  .sample-prod{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:5px; font-size:13px; color:var(--muted); }
+  .sample-prod b{ color:var(--ink); }
+  .sample-prod .pm{ font-weight:700; color:#2f6fb2; background:#e6f0fb; padding:1px 9px; border-radius:100px; font-size:12px; }
   .sample-items-list{ list-style:none; margin:8px 0 0; padding:0; }
   .sample-items-list li{ display:flex; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px dashed var(--line); font-size:14px; }
   .sample-items-list li span{ flex:1; min-width:0; }
@@ -1147,6 +1150,18 @@
         <select id="sample-requester-select" style="min-width:200px; display:none;"></select>
       </div>
       <div class="row" style="align-items:center; flex-wrap:wrap;">
+        <label style="font-size:13px;">생산 요청 부서 :</label>
+        <input type="text" id="sample-dept" list="sample-dept-list" placeholder="예: 영업팀" style="width:180px;">
+        <datalist id="sample-dept-list"></datalist>
+        <label style="font-size:13px;">생산 방식 :</label>
+        <select id="sample-prod-method">
+          <option value="생산본부 생산">생산본부 생산</option>
+          <option value="연구실 생산">연구실 생산</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <input type="text" id="sample-prod-method-etc" placeholder="생산 방식 입력" style="display:none; width:200px;">
+      </div>
+      <div class="row" style="align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">출고일시 :</label>
         <input type="datetime-local" id="sample-ship-at">
         <strong id="sample-ship-wd" class="sample-wd"></strong>
@@ -1198,6 +1213,12 @@
         <select id="sample-s-scope">
           <option value="active">취소 제외 전체</option>
           <option value="confirmed">확인된 건만</option>
+        </select>
+        <select id="sample-s-method">
+          <option value="">생산 방식 전체</option>
+          <option value="생산본부 생산">생산본부 생산</option>
+          <option value="연구실 생산">연구실 생산</option>
+          <option value="__etc">기타</option>
         </select>
         <span id="sample-sum-count" class="sub" style="margin:0;"></span>
       </div>
@@ -1294,6 +1315,7 @@
       <div class="row" style="margin-top:0;">
         <input type="text" id="new-user-username" placeholder="아이디" style="width:110px;">
         <input type="text" id="new-user-display" placeholder="이름 (예: 박준수)" style="width:120px;">
+        <input type="text" id="new-user-dept" placeholder="부서 (예: 영업팀)" style="width:120px;">
         <input type="password" id="new-user-pw" placeholder="비밀번호" style="width:110px;">
         <select id="new-user-role">
           <option value="staff">직원</option>
@@ -1495,7 +1517,7 @@ async function sbRpc(name, args) {
 }
 const sessionToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
 function buildCurrentUser(user, token) {
-  return { id: user.id, username: user.username, display_name: user.display_name, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
 }
 // 로그인 → { token, user } (실패 시 예외)
 async function apiLogin(username, hash) {
@@ -1549,6 +1571,8 @@ async function apiChangeOwnPassword(oldHash, newHash) {
 async function apiUsersBasic() {
   try { const r = await sbRpc('app_list_users_basic', { p_token: sessionToken() }); return Array.isArray(r) ? r : []; }
   catch (e) { if (!e.rpcMissing) throw e; }
+  try { return await sbQuery('users', '?select=id,username,display_name,department,is_active&order=display_name.asc'); }
+  catch (e) { /* department 컬럼이 아직 없으면 부서 없이 */ }
   return sbQuery('users', '?select=id,username,display_name,is_active&order=display_name.asc');
 }
 // ── 관리자 전용 ──
@@ -1569,14 +1593,18 @@ async function apiUpdateUser(id, fields) {
   const res = await fetch(`${SB_URL}/rest/v1/users?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify(fields) });
   return { ok: res.ok };
 }
-async function apiCreateUser(username, display, hash, role) {
+async function apiCreateUser(username, display, hash, role, dept) {
   try {
     const r = await sbRpc('app_admin_create_user', { p_token: sessionToken(), p_username: username, p_display: display, p_hash: hash, p_role: role });
     if (r && r.error === 'duplicate') throw new Error('이미 있는 아이디입니다');
     if (!r || !r.ok) throw new Error('관리자 권한이 필요하거나 입력값이 올바르지 않습니다');
+    // 부서는 생성 뒤 별도로 저장 (실패해도 계정은 만들어짐)
+    if (dept && r.id) { const u = await apiUpdateUser(r.id, { department: dept }); if (!u.ok) throw new Error('계정은 만들었지만 부서를 저장하지 못했습니다 (users.department 컬럼 확인)'); }
     return;
   } catch (e) { if (!e.rpcMissing) throw e; }
-  await sbInsert('users', { username, display_name: display, password_hash: hash, role, is_active: true });
+  const row = { username, display_name: display, password_hash: hash, role, is_active: true };
+  if (dept) row.department = dept;
+  await sbInsert('users', row);
 }
 // 다른 사용자 비밀번호 재설정 → 사용자 아이디
 async function apiResetPassword(id, hash) {
@@ -6293,7 +6321,15 @@ CREATE TABLE IF NOT EXISTS sample_requests (
   confirmed_by_id uuid, confirmed_by_name text, confirmed_at timestamptz
 );
 ALTER TABLE sample_requests DISABLE ROW LEVEL SECURITY;
-GRANT select, insert, update, delete ON public.sample_requests TO anon, authenticated, service_role;`;
+GRANT select, insert, update, delete ON public.sample_requests TO anon, authenticated, service_role;
+-- 생산 요청 부서 / 생산 방식 (나중에 추가된 항목)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS department text;
+ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS requester_dept text;
+ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
+  const SAMPLE_COLUMNS_SQL = `ALTER TABLE users ADD COLUMN IF NOT EXISTS department text;
+ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS requester_dept text;
+ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
+  const SAMPLE_PROD_METHODS = ['생산본부 생산', '연구실 생산'];   // 그 밖의 방식은 '기타(직접 입력)'
   let sampleRows = [], sampleUsers = [], sampleInited = false, sampleEditId = null, sampleItems = [], sampleLoadErr = '';
   const sEl = id => document.getElementById(id);
   const sampleMe = () => window.currentUser || {};
@@ -6319,7 +6355,8 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     sampleLoadErr = '';
     try{
       sampleRows = await sbQuery('sample_requests', '?order=ship_at.desc&limit=1000');
-      if(sampleCan('collect') && !sampleUsers.length){
+      if(!sampleUsers.length){
+        // 대리 신청 목록(주문 취합)과 부서 자동 입력·부서 목록에 쓴다
         sampleUsers = (await apiUsersBasic()).filter(x => x.is_active !== false);
       }
     }catch(e){ sampleLoadErr = e.message; sampleRows = []; console.error(e); }
@@ -6359,23 +6396,41 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
       sampleInited = true;
       SAMPLE_SECTIONS.forEach(s => sEl('sample-tab-' + s + '-btn').addEventListener('click', async () => { await sampleLoad(); sampleShow(s); }));
       sEl('sample-ship-method').addEventListener('change', sampleMethodToggle);
+      sEl('sample-prod-method').addEventListener('change', sampleProdToggle);
+      // 대리 신청으로 신청자를 바꾸면 그 직원의 부서를 자동으로 채운다
+      sEl('sample-requester-select').addEventListener('change', () => { sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value); });
       sEl('sample-ship-at').addEventListener('input', sampleUpdateWd);
       sEl('sample-ship-at').addEventListener('change', sampleUpdateWd);
       sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '' }); sampleRenderItems(); });
       sEl('sample-submit').addEventListener('click', sampleSubmit);
       sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
       ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
-      ['sample-s-from', 'sample-s-to', 'sample-s-scope'].forEach(id => sEl(id).addEventListener('change', sampleRenderSummary));
+      ['sample-s-from', 'sample-s-to', 'sample-s-scope', 'sample-s-method'].forEach(id => sEl(id).addEventListener('change', sampleRenderSummary));
       const t = new Date(); sEl('sample-s-from').value = sampleDayKey(t); t.setDate(t.getDate() + 7); sEl('sample-s-to').value = sampleDayKey(t);
       sampleResetForm();
     }
     await sampleLoad();
     sampleFillRequesterSelect(); // 직원 목록을 불러온 뒤에 드롭박스를 채운다
+    sampleFillDeptList();
+    if(!sampleEditId && !sEl('sample-dept').value) sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value || sampleMe().id);
     sampleShow(sampleCan('request') ? 'form' : 'list');
   }
 
   // ── 신청 폼 ──
   function sampleMethodToggle(){ sEl('sample-ship-method-etc').style.display = sEl('sample-ship-method').value === '기타' ? '' : 'none'; }
+  function sampleProdToggle(){ sEl('sample-prod-method-etc').style.display = sEl('sample-prod-method').value === '기타' ? '' : 'none'; }
+  // 직원의 부서 (로그인 계정에 지정된 부서) — 본인은 로그인 정보, 다른 직원은 직원 목록에서 찾는다
+  function sampleDeptOf(userId){
+    const me = sampleMe();
+    if(!userId || userId === me.id) return me.department || '';
+    return ((sampleUsers.find(u => u.id === userId) || {}).department) || '';
+  }
+  // 부서 입력칸 자동완성 목록 (지정된 부서들)
+  function sampleFillDeptList(){
+    const set = new Set(sampleUsers.map(u => (u.department || '').trim()).filter(Boolean));
+    if(sampleMe().department) set.add(sampleMe().department);
+    sEl('sample-dept-list').innerHTML = [...set].sort().map(d => `<option value="${escapeHtml(d)}"></option>`).join('');
+  }
   // 출고일시 입력칸 옆에 요일 표시 (날짜를 바꾸면 바로 갱신)
   function sampleUpdateWd(){
     const v = sEl('sample-ship-at').value;
@@ -6398,6 +6453,8 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
     sEl('sample-note').value = '';
     sEl('sample-requester-select').value = sampleMe().id || '';
+    sEl('sample-dept').value = sampleDeptOf(sampleMe().id);
+    sEl('sample-prod-method').value = SAMPLE_PROD_METHODS[0]; sEl('sample-prod-method-etc').value = ''; sampleProdToggle();
     sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none';
     sEl('sample-form-title').textContent = '샘플 신청';
     sampleRenderItems();
@@ -6439,6 +6496,9 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     if(!shipVal){ toast('출고일시를 입력해주세요'); return; }
     let method = sEl('sample-ship-method').value;
     if(method === '기타'){ method = sEl('sample-ship-method-etc').value.trim(); if(!method){ toast('출고 방식을 입력해주세요'); return; } }
+    let prod = sEl('sample-prod-method').value;
+    if(prod === '기타'){ prod = sEl('sample-prod-method-etc').value.trim(); if(!prod){ toast('생산 방식을 입력해주세요'); return; } }
+    const dept = sEl('sample-dept').value.trim();
     const items = sampleCollectItems();
     if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
     const note = sEl('sample-note').value.trim();
@@ -6449,7 +6509,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const btn = sEl('sample-submit'); btn.disabled = true;
     try{
       if(sampleEditId){
-        const fields = { ship_at: new Date(shipVal).toISOString(), ship_method: method, items, note };
+        const fields = { ship_at: new Date(shipVal).toISOString(), ship_method: method, requester_dept: dept, production_method: prod, items, note };
         if(sampleCan('collect')){ fields.requester_id = reqId; fields.requester_name = reqName; }
         // 신청자는 확인 전(신청 상태)일 때만 수정 가능 — 서버 조건으로 한 번 더 확인
         const out = await samplePatch(sampleEditId, fields, sampleCan('collect') ? '' : '&status=eq.신청');
@@ -6458,13 +6518,17 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
       } else {
         await sbInsert('sample_requests', {
           requester_id: reqId, requester_name: reqName, created_by_id: me.id, created_by_name: me.display_name,
-          ship_at: new Date(shipVal).toISOString(), ship_method: method, items, note, status: '신청'
+          ship_at: new Date(shipVal).toISOString(), ship_method: method, requester_dept: dept, production_method: prod, items, note, status: '신청'
         });
         await writeLog('sample_request', `샘플 신청: ${reqName}${reqId !== me.id ? ' (대리)' : ''} ${items.map(i => i.name + ' ' + i.packs + '팩').join(', ')}`);
         toast(reqId !== me.id ? `${reqName} 님 대신 신청했습니다` : '신청했습니다');
       }
       sampleResetForm(); await sampleLoad(); sampleShow('list');
-    }catch(e){ toast(e.message); console.error(e); }
+    }catch(e){
+      toast(e.message); console.error(e);
+      // 부서/생산 방식 컬럼이 아직 없는 경우 안내
+      if(/requester_dept|production_method/.test(e.message)) alert('샘플 신청 테이블에 새 항목(생산 요청 부서 / 생산 방식) 컬럼이 아직 없습니다.\nSupabase SQL Editor에서 아래를 실행한 뒤 다시 시도해주세요.\n\n' + SAMPLE_COLUMNS_SQL);
+    }
     finally{ btn.disabled = false; }
   }
   function sampleStartEdit(r){
@@ -6476,6 +6540,10 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     if(opts.includes(r.ship_method) && r.ship_method !== '기타'){ sEl('sample-ship-method').value = r.ship_method; sEl('sample-ship-method-etc').value = ''; }
     else { sEl('sample-ship-method').value = '기타'; sEl('sample-ship-method-etc').value = r.ship_method || ''; }
     sampleMethodToggle();
+    sEl('sample-dept').value = r.requester_dept || '';
+    if(SAMPLE_PROD_METHODS.includes(r.production_method) || !r.production_method){ sEl('sample-prod-method').value = r.production_method || SAMPLE_PROD_METHODS[0]; sEl('sample-prod-method-etc').value = ''; }
+    else { sEl('sample-prod-method').value = '기타'; sEl('sample-prod-method-etc').value = r.production_method; }
+    sampleProdToggle();
     sEl('sample-note').value = r.note || '';
     sampleItems = (r.items || []).map(i => ({ skuId: i.skuId, packs: i.packs }));
     if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '' }];
@@ -6546,6 +6614,7 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
       card.innerHTML = `
         <div class="sample-card-head"><div class="when">${escapeHtml(sampleFmtShip(r.ship_at))}<span class="meth">${escapeHtml(r.ship_method || '')}</span></div>${pill}</div>
         <div class="sample-who">신청자 <b>${escapeHtml(r.requester_name || '')}</b>${proxy ? ` <small>(${escapeHtml(r.created_by_name || '')} 대리 신청)</small>` : ''} · 신청 ${escapeHtml(sampleFmtAt(r.created_at))}</div>
+        ${(r.requester_dept || r.production_method) ? `<div class="sample-prod">${r.requester_dept ? `<span>요청 부서 <b>${escapeHtml(r.requester_dept)}</b></span>` : ''}${r.production_method ? `<span class="pm">${escapeHtml(r.production_method)}</span>` : ''}</div>` : ''}
         <ul class="sample-items-list">${itemsHtml}</ul>
         ${r.note ? `<div class="sample-note">${escapeHtml(r.note).replace(/\n/g, '<br>')}</div>` : ''}
         ${r.status === '확인' ? `<div class="sample-confirmed">✅ 확인: ${escapeHtml(r.confirmed_by_name || '')} · ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}
@@ -6590,10 +6659,13 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     const wrap = sEl('sample-sum-wrap');
     wrap.innerHTML = '';
     if(sampleLoadErr){ sampleRenderList(); return; }
-    const from = sEl('sample-s-from').value, to = sEl('sample-s-to').value, scope = sEl('sample-s-scope').value;
+    const from = sEl('sample-s-from').value, to = sEl('sample-s-to').value, scope = sEl('sample-s-scope').value, pm = sEl('sample-s-method').value;
     const rows = sampleRows.filter(r => {
       if(r.status === '취소') return false;
       if(scope === 'confirmed' && r.status !== '확인') return false;
+      // 생산 방식 필터: '__etc' = 생산본부/연구실 외 기타 방식 (미입력 포함)
+      if(pm === '__etc'){ if(SAMPLE_PROD_METHODS.includes(r.production_method)) return false; }
+      else if(pm && r.production_method !== pm) return false;
       const k = sampleDayKey(r.ship_at);
       return (!from || k >= from) && (!to || k <= to);
     });
@@ -6625,10 +6697,12 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
 
   // ── 생산 공유 연동용: 출고일(dateKey) 하루의 샘플 수요를 SKU별 팩/박스로 돌려준다 ──
   //  opts.confirmedOnly=true 이면 확인 처리된 건만 포함. 취소된 신청은 항상 제외.
+  //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식의 신청만 포함 (예: 생산 공유에는 '생산본부 생산'만).
   window.getSampleDemand = async function(dateKey, opts){
     const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
     let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}`;
     if(opts && opts.confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
+    if(opts && opts.productionMethod) q += `&production_method=eq.${encodeURIComponent(opts.productionMethod)}`;
     const rows = await sbQuery('sample_requests', q);
     const out = {};
     rows.forEach(r => (r.items || []).forEach(i => {
@@ -8978,12 +9052,26 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
     try{
       const rows = await apiUsersAdmin();
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>역할</th><th>상태</th><th>생성일</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>역할</th><th>상태</th><th>생성일</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rows.forEach(u=>{
         const tr = document.createElement('tr');
         const dt = new Date(u.created_at).toLocaleDateString('ko-KR');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td>${u.role==='admin'?'관리자':'직원'}</td><td>${u.is_active?'✅ 활성':'🔴 비활성'}</td><td>${dt}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td class="dept-cell" style="white-space:nowrap;"></td><td>${u.role==='admin'?'관리자':'직원'}</td><td>${u.is_active?'✅ 활성':'🔴 비활성'}</td><td>${dt}</td><td></td>`;
+        // 부서: 샘플 신청 등에서 '요청 부서'로 자동 입력됩니다 (관리자가 여기서 지정)
+        const deptCell = tr.querySelector('.dept-cell');
+        const deptInput = document.createElement('input');
+        deptInput.type = 'text'; deptInput.value = u.department || ''; deptInput.placeholder = '부서'; deptInput.style.cssText = 'width:110px; padding:4px 6px; font-size:13px;';
+        const deptBtn = document.createElement('button');
+        deptBtn.className = 'btn-ghost small-btn'; deptBtn.style.marginLeft = '4px'; deptBtn.textContent = '저장'; deptBtn.style.display = 'none';
+        deptInput.addEventListener('input', ()=>{ deptBtn.style.display = deptInput.value.trim() !== (u.department || '') ? '' : 'none'; });
+        deptBtn.addEventListener('click', async ()=>{
+          const r = await apiUpdateUser(u.id, { department: deptInput.value.trim() });
+          if(!r.ok){ alert("부서를 저장하지 못했습니다. Supabase users 테이블에 'department' 컬럼이 없는 것 같습니다.\n아래를 SQL Editor에서 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS department text;"); return; }
+          await writeLog('user_dept', `${u.username} 부서: ${u.department || '-'} → ${deptInput.value.trim() || '-'}`);
+          loadAdminUsers();
+        });
+        deptCell.append(deptInput, deptBtn);
         const toggleBtn = document.createElement('button');
         toggleBtn.className = u.is_active ? 'btn-danger small-btn' : 'btn-ghost small-btn';
         toggleBtn.textContent = u.is_active ? '비활성화' : '활성화';
@@ -9156,14 +9244,15 @@ GRANT select, insert, update, delete ON public.sample_requests TO anon, authenti
   document.getElementById('admin-add-user-btn').addEventListener('click', async ()=>{
     const username = document.getElementById('new-user-username').value.trim();
     const display = document.getElementById('new-user-display').value.trim();
+    const dept = document.getElementById('new-user-dept').value.trim();
     const pw = document.getElementById('new-user-pw').value;
     const role = document.getElementById('new-user-role').value;
     if(!username||!display||!pw){ toast('모든 항목을 입력해주세요'); return; }
     try{
       const hash = await hashPassword(pw);
-      await apiCreateUser(username, display, hash, role);
+      await apiCreateUser(username, display, hash, role, dept);
       await writeLog('user_create', `신규 사용자 생성: ${username} (${display})`);
-      ['new-user-username','new-user-display','new-user-pw'].forEach(id=>{ document.getElementById(id).value=''; });
+      ['new-user-username','new-user-display','new-user-dept','new-user-pw'].forEach(id=>{ document.getElementById(id).value=''; });
       loadAdminUsers();
       toast(`${display}(${username}) 계정이 생성되었습니다`);
     }catch(e){ toast('생성 실패: '+e.message); }
