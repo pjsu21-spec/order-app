@@ -307,10 +307,10 @@
   .sample-cards-mobile{ display:none; }
   .sample-xl-wrap{ overflow:auto; max-height:72vh; border:1px solid var(--line); border-radius:8px; background:#fff; }
   .sample-xl{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  .sample-xl th{ position:sticky; top:0; z-index:2; background:#f3eeeb; border-bottom:2px solid #d8cac5; border-right:1px solid #e8dedb; padding:8px 8px; text-align:left; white-space:nowrap; font-size:12.5px; }
+  .sample-xl th{ position:sticky; top:0; z-index:2; background:#f3eeeb; border-bottom:2px solid #d8cac5; border-right:1px solid #e8dedb; padding:8px 6px; text-align:left; white-space:nowrap; font-size:12.5px; }
   .sample-xl th.sortable{ cursor:pointer; user-select:none; }
   .sample-xl th.sortable:hover{ background:#ece3df; }
-  .sample-xl td{ padding:6px 8px; border-bottom:1px solid #eee4e0; border-right:1px solid #f3ebe8; vertical-align:top; }
+  .sample-xl td{ padding:6px 6px; border-bottom:1px solid #eee4e0; border-right:1px solid #f3ebe8; vertical-align:top; }
   .sample-xl tr.new-day td{ border-top:2px solid #d8cac5; }
   .sample-xl tr.confirmed td{ background:#f6fbf8; }
   .sample-xl tr.canceled td{ background:#f7f5f4; color:#9a9290; }
@@ -322,14 +322,14 @@
   .sample-xl td.items{ width:1%; white-space:nowrap; }
   .sample-xl td.items .it span, .sample-xl td.items .it b{ white-space:nowrap; }
   .sample-xl td.items .it{ display:flex; justify-content:flex-start; align-items:baseline; gap:10px; padding:1px 0; }
-  .sample-xl td.items .it span{ min-width:150px; }
-  .sample-xl td.items .it b{ min-width:78px; }
+  .sample-xl td.items .it span{ min-width:136px; }
+  .sample-xl td.items .it b{ min-width:68px; }
   .sample-xl td.items .it small{ color:var(--muted); font-weight:400; }
-  .sample-xl td.note{ min-width:110px; color:#5b5250; font-size:12.5px; line-height:1.45; }
+  .sample-xl td.note{ min-width:90px; color:#5b5250; font-size:12.5px; line-height:1.45; }
   .sample-xl td.status{ white-space:nowrap; }
   .sample-xl .sub-line{ font-size:11px; color:var(--muted); margin-top:1px; }
   .sample-xl .pm-tag{ display:inline-block; font-size:12px; font-weight:700; color:#2f6fb2; background:#e6f0fb; padding:1px 8px; border-radius:100px; white-space:nowrap; }
-  .sample-xl td.acts{ min-width:104px; }
+  .sample-xl td.acts{ min-width:96px; }
   .sample-xl td.acts button{ margin:1px 2px 1px 0; padding:3px 7px; font-size:11.5px; }
   @media (max-width: 640px){
     .sample-table-desktop{ display:none; }
@@ -6710,7 +6710,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const SAMPLE_COLS = [
     { key: 'ship', label: '출고일시' }, { key: 'method', label: '출고 방식' }, { key: 'who', label: '신청자' },
     { key: 'dept', label: '요청 부서' }, { key: 'pm', label: '생산 방식' }, { key: null, label: '샘플 품목 (팩 · 박스)' },
-    { key: null, label: '비고' }, { key: 'status', label: '상태' }, { key: null, label: '처리' }
+    { key: null, label: '비고' }, { key: 'status', label: '상태' }, { key: 'confirmer', label: '확인자' }, { key: null, label: '처리' }
   ];
   function sampleSortVal(r, key){
     switch(key){
@@ -6720,6 +6720,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       case 'dept': return r.requester_dept || '';
       case 'pm': return r.production_method || '';
       case 'status': return { '신청': 0, '확인': 1, '취소': 2 }[r.status];
+      case 'confirmer': return r.confirmed_by_name || '';
     }
     return '';
   }
@@ -6790,7 +6791,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         <td class="nw">${r.production_method ? `<span class="pm-tag">${escapeHtml(r.production_method)}</span>` : ''}</td>
         <td class="items">${sampleItemsText(r)}</td>
         <td class="note">${r.note ? escapeHtml(r.note).replace(/\n/g, '<br>') : ''}</td>
-        <td class="status">${pill}${r.status === '확인' ? `<div class="sub-line">${escapeHtml(r.confirmed_by_name || '')} ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}</td>
+        <td class="status">${pill}</td>
+        <td class="nw confirmer">${r.status === '확인' ? `<b>${escapeHtml(r.confirmed_by_name || '')}</b><div class="sub-line">${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}</td>
         <td class="acts"></td>`;
       sampleAppendButtons(tr.querySelector('.acts'), r, true);
       tbody.appendChild(tr);
