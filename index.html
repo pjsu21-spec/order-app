@@ -452,7 +452,7 @@
     <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
     <button class="main-nav-btn" id="main-nav-btn-sample" data-panel="panel-sample" style="display:none;">🧪 샘플 신청</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
-    <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
+    <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트·기준정보</button>
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
     <a id="main-nav-link-detail" href="detail.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">🖼 상세페이지 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
@@ -517,36 +517,13 @@
     </div>
   </div>
 
-  <div class="card">
-    <details id="sku-manage-details">
-      <summary>SKU 관리 (별칭 등록 · 항목 추가/삭제)</summary>
-      <div id="dict-editor" style="margin-top:12px;"></div>
-      <div class="row">
-        <button class="btn-ghost small-btn" id="add-item-btn">+ 품목 추가</button>
-      </div>
-    </details>
+  <div class="card" id="master-moved-note">
+    <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+      <span class="sub" style="margin:0;">📦 품목(SKU)·거래처 관리는 <b>이카운트·기준정보</b> 탭으로 옮겼습니다. (수정은 관리자만 가능)</span>
+      <button class="btn-ghost small-btn" id="order-goto-sku-btn">품목(SKU) 관리 열기</button>
+      <button class="btn-ghost small-btn" id="order-goto-company-btn">거래처 관리 열기</button>
+    </div>
   </div>
-
-  <div class="card">
-    <details id="company-manage-details">
-      <summary>거래처 관리 (업체 목록 추가/삭제)</summary>
-      <div id="company-editor" style="margin-top:12px;"></div>
-      <div class="row">
-        <input type="text" id="new-company-manage-input" placeholder="업체명 입력" style="min-width:180px;">
-        <button class="btn-ghost small-btn" id="add-company-manage-btn">+ 업체 추가</button>
-        <button class="btn-primary small-btn" id="export-codes-btn">품목·거래처 코드표 다운로드</button>
-      </div>
-      <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--line);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">구분 목록 관리</div>
-        <div id="category-editor" style="margin-bottom:8px;"></div>
-        <div class="row" style="margin-top:6px;">
-          <input type="text" id="new-category-input" placeholder="새 구분 입력" style="min-width:180px;">
-          <button class="btn-ghost small-btn" id="add-category-btn">+ 구분 추가</button>
-        </div>
-      </div>
-    </details>
-  </div>
-
   <div class="card">
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">1. 전일 재고 / 원물사용량 입력 <span class="badge">원물 · 제품 별도 관리</span></summary>
@@ -1117,18 +1094,48 @@
   <!-- ───────────── 패널 6: 이카운트 (발주취합/원물선별 공용 ERP 연동) ───────────── -->
   <div id="panel-ecount" class="main-tab-panel">
 
-  <h1 style="margin-bottom:4px;">이카운트 연동</h1>
-  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">발주취합·원물선별에서 발생한 매출/구매 데이터를 이카운트 ERP 양식으로 내려받고, 품목·거래처 코드 및 부가 설정을 관리합니다.</div></details>
+  <h1 style="margin-bottom:4px;">이카운트 · 기준정보</h1>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">품목(SKU)·거래처 기준정보를 한 곳에서 관리하고(수정은 관리자만), 발주취합·원물선별 데이터를 이카운트 ERP 양식으로 내려받습니다. 발주취합·샘플 신청·단가 확인이 같은 품목 목록을 씁니다.</div></details>
+
+  <div class="card master-banner" id="master-readonly-banner" style="display:none;">
+    <span class="sub" style="margin:0;">👁 품목(SKU)·거래처 정보는 <b>관리자만 수정</b>할 수 있습니다. (조회와 코드표 다운로드는 가능합니다)</span>
+  </div>
+  <div class="card">
+    <details id="sku-manage-details">
+      <summary>SKU 관리 (별칭 등록 · 항목 추가/삭제)</summary>
+      <div id="dict-editor" style="margin-top:12px;"></div>
+      <div class="row">
+        <button class="btn-ghost small-btn" id="add-item-btn">+ 품목 추가</button>
+      </div>
+    </details>
+  </div>
 
   <div class="card">
-    <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">코드 관리는 각 원본 화면에서 — 바로가기</div>
-    <div class="row" style="margin-top:0;">
-      <button class="btn-ghost small-btn" id="ecount-goto-sku-btn">→ SKU 관리로 이동</button>
-      <button class="btn-ghost small-btn" id="ecount-goto-company-btn">→ 거래처 관리로 이동</button>
+    <details id="company-manage-details">
+      <summary>거래처 관리 (업체 목록 추가/삭제)</summary>
+      <div id="company-editor" style="margin-top:12px;"></div>
+      <div class="row">
+        <input type="text" id="new-company-manage-input" placeholder="업체명 입력" style="min-width:180px;">
+        <button class="btn-ghost small-btn" id="add-company-manage-btn">+ 업체 추가</button>
+        <button class="btn-primary small-btn" id="export-codes-btn">품목·거래처 코드표 다운로드</button>
+      </div>
+      <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--line);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">구분 목록 관리</div>
+        <div id="category-editor" style="margin-bottom:8px;"></div>
+        <div class="row" style="margin-top:6px;">
+          <input type="text" id="new-category-input" placeholder="새 구분 입력" style="min-width:180px;">
+          <button class="btn-ghost small-btn" id="add-category-btn">+ 구분 추가</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+      <span class="sub" style="margin:0;">원물선별 품목·거래처 등은 원물선별 마스터관리에서</span>
       <button class="btn-ghost small-btn" id="ecount-goto-sorting-master-btn">→ 원물선별 마스터관리로 이동</button>
     </div>
   </div>
-
   <div class="card">
     <details open>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 판매입력 엑셀 다운로드</summary>
@@ -1838,6 +1845,7 @@ function applyUserUI() {
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
+  if (window.applyMasterReadOnly) window.applyMasterReadOnly(); // 품목·거래처 수정 잠금(관리자만)
   renderHome();
 }
 
@@ -1850,7 +1858,7 @@ const HOME_TILES = [
   { key: 'sample', icon: '🧪', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
   { key: 'order', icon: '📋', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
-  { key: 'ecount', icon: '🧾', name: '이카운트', desc: '이카운트 양식 · 코드 관리', nav: '#main-nav-btn-ecount' },
+  { key: 'ecount', icon: '🧾', name: '이카운트·기준정보', desc: '품목·거래처 관리 · 이카운트 양식', nav: '#main-nav-btn-ecount' },
   { key: 'cost', icon: '💰', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
   { key: 'detail', icon: '🖼', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'files', icon: '📁', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
@@ -5033,7 +5041,7 @@ function goHome() {
         previewHtml += `<div style="margin-left:12px;margin-bottom:2px;">• ${escapeHtml(companyName)}: ${escapeHtml(itemStrs)}</div>`;
       });
     });
-    if(parseErrors > 0) previewHtml += `<div style="color:var(--muted);margin-top:6px;font-size:11px;">※ 품목 미매칭 ${parseErrors}건은 제외됩니다 (SKU 관리에서 별칭 추가 후 재시도)</div>`;
+    if(parseErrors > 0) previewHtml += `<div style="color:var(--muted);margin-top:6px;font-size:11px;">※ 품목 미매칭 ${parseErrors}건은 제외됩니다 (이카운트·기준정보 탭의 SKU 관리에서 별칭 추가 후 재시도)</div>`;
 
     previewHtml += `<div class="row" style="margin-top:10px;">
       <button class="btn-primary small-btn" id="tracking-import-confirm-btn">✓ 실적 등록 확정</button>
@@ -6354,7 +6362,6 @@ function goHome() {
       if(panelId === 'panel-ecount'){
         renderPriceMapEditor();
         renderDeliveryFeeEditor();
-        renderEcountStaffDeptEditor();
       }
       // 단가 확인 탭 진입 시 초기화 (관리자만, 최초 1회 로드 / 이후 진입 시 SKU 목록·계산 갱신)
       if(panelId === 'panel-cost'){
@@ -6881,7 +6888,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       html += `<tr><td>${escapeHtml(e.name)}</td>${agg.days.map(d => `<td class="num">${e.byDay[d] ? sampleFmtNum(e.byDay[d]) : ''}</td>`).join('')}<td class="num"><b>${sampleFmtNum(e.packs)}</b></td></tr>`;
     });
     html += `</tbody><tfoot><tr><td>합계</td>${agg.days.map(d => `<td class="num">${sampleFmtNum(ids.reduce((s, id) => s + (agg.bySku[id].byDay[d] || 0), 0))}</td>`).join('')}<td class="num">${sampleFmtNum(totalPacks)}</td></tr></tfoot></table></div>`;
-    if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. SKU 관리에서 박스입수를 입력해주세요.</div>';
+    if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. 이카운트·기준정보 탭의 SKU 관리에서 박스입수를 입력해주세요.</div>';
     wrap.innerHTML = html;
   }
 
@@ -7764,18 +7771,42 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     wrap.appendChild(table);
   }
 
-  // ── 이카운트 탭: 코드 원본 화면으로 바로가기 ──
-  function goToOrderDetails(detailsId){
-    document.querySelector('.main-nav-btn[data-panel="panel-order-group"]').click();
-    document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]').click();
+  // ── 품목(SKU)·거래처 관리는 이카운트·기준정보 탭에 있다 (발주 입력 화면에서 바로가기) ──
+  function goToMasterDetails(detailsId){
+    document.getElementById('main-nav-btn-ecount').click();
     const details = document.getElementById(detailsId);
     if(details){
       details.open = true;
-      details.scrollIntoView({ behavior:'smooth', block:'start' });
+      setTimeout(()=> details.scrollIntoView({ behavior:'smooth', block:'start' }), 60);
     }
   }
-  document.getElementById('ecount-goto-sku-btn').addEventListener('click', ()=> goToOrderDetails('sku-manage-details'));
-  document.getElementById('ecount-goto-company-btn').addEventListener('click', ()=> goToOrderDetails('company-manage-details'));
+  document.getElementById('order-goto-sku-btn').addEventListener('click', ()=> goToMasterDetails('sku-manage-details'));
+  document.getElementById('order-goto-company-btn').addEventListener('click', ()=> goToMasterDetails('company-manage-details'));
+
+  // ── 품목(SKU)·거래처 정보 수정은 관리자만: 관리자가 아니면 입력칸·버튼을 잠그고 조회·코드표 다운로드만 허용 ──
+  const MASTER_AREAS = ['sku-manage-details', 'company-manage-details'];
+  const MASTER_ALWAYS_ENABLED = ['export-codes-btn'];
+  function applyMasterReadOnly(){
+    const isAdmin = !!(window.currentUser && window.currentUser.role === 'admin');
+    MASTER_AREAS.forEach(id=>{
+      const root = document.getElementById(id);
+      if(!root) return;
+      root.classList.toggle('master-readonly', !isAdmin);
+      root.querySelectorAll('input, select, textarea, button').forEach(el=>{
+        if(MASTER_ALWAYS_ENABLED.includes(el.id)) return;
+        el.disabled = !isAdmin;
+      });
+    });
+    const banner = document.getElementById('master-readonly-banner');
+    if(banner) banner.style.display = isAdmin ? 'none' : '';
+  }
+  // 목록이 다시 그려질 때마다(추가·삭제·불러오기) 잠금 상태를 다시 적용
+  ['dict-editor', 'company-editor', 'category-editor'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) new MutationObserver(()=> applyMasterReadOnly()).observe(el, { childList: true, subtree: true });
+  });
+  window.applyMasterReadOnly = applyMasterReadOnly;
+  applyMasterReadOnly();
   document.getElementById('ecount-goto-sorting-master-btn').addEventListener('click', ()=>{
     document.getElementById('main-nav-btn-sorting').click();
     const masterBtn = document.getElementById('sorting-tab-master-btn');
