@@ -6486,7 +6486,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sEl('sample-requester-select').value = sampleMe().id || '';
     sEl('sample-dept').value = sampleDeptOf(sampleMe().id);
     sEl('sample-prod-method').value = SAMPLE_PROD_METHODS[0]; sEl('sample-prod-method-etc').value = ''; sampleProdToggle();
-    sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none';
+    sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none'; sEl('sample-cancel-edit').textContent = '수정 취소';
     sEl('sample-form-title').textContent = '샘플 신청';
     sampleRenderItems();
   }
@@ -6562,8 +6562,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }
     finally{ btn.disabled = false; }
   }
-  function sampleStartEdit(r){
-    sampleEditId = r.id;
+  // 신청 내용(부서·생산 방식·출고 방식·품목·비고)을 폼에 채운다 — 수정과 복사에서 함께 사용
+  function sampleFillFromRow(r){
     sampleFillRequesterSelect();
     if(sampleCan('collect')) sEl('sample-requester-select').value = r.requester_id || sampleMe().id;
     sEl('sample-ship-at').value = sampleLocalInput(new Date(r.ship_at)); sampleUpdateWd();
@@ -6578,11 +6578,32 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sEl('sample-note').value = r.note || '';
     sampleItems = (r.items || []).map(i => ({ skuId: i.skuId, packs: i.packs }));
     if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '' }];
+    sampleRenderItems();
+  }
+  function sampleStartEdit(r){
+    sampleEditId = r.id;
+    sampleFillFromRow(r);
     sEl('sample-submit').textContent = '수정 저장'; sEl('sample-cancel-edit').style.display = '';
     sEl('sample-form-title').textContent = '샘플 신청 수정';
-    sampleRenderItems(); sampleShow('form');
+    sampleShow('form');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  // 신청 복사: 같은 내용을 새 신청으로 채워 두고, 출고일시만 바꿔서 여러 번 등록할 수 있게 한다
+  function sampleStartCopy(r){
+    sampleEditId = null;
+    sampleFillFromRow(r);
+    // 출고일시: 원래 신청의 다음 날 같은 시각 (이미 지난 날짜면 내일 같은 시각)
+    const orig = new Date(r.ship_at);
+    let d = new Date(orig.getTime()); d.setDate(d.getDate() + 1);
+    if(d.getTime() < Date.now()){ d = new Date(); d.setDate(d.getDate() + 1); d.setHours(orig.getHours(), orig.getMinutes(), 0, 0); }
+    sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
+    sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = ''; sEl('sample-cancel-edit').textContent = '복사 취소';
+    sEl('sample-form-title').textContent = '샘플 신청 (복사) — 출고일시를 확인하고 신청하세요';
+    sampleShow('form');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast('이전 신청 내용을 복사했습니다. 출고일시를 바꿔서 신청하세요');
+  }
+  const sampleIsMine = r => { const me = sampleMe(); return r.requester_id === me.id || r.created_by_id === me.id; };
 
   // ── 신청 내역 ──
   function sampleCanEditRow(r){
@@ -6659,6 +6680,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         { status: '신청', confirmed_by_id: null, confirmed_by_name: null, confirmed_at: null },
         `샘플 신청 확인 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인을 취소했습니다'));
       if(sampleCanEditRow(r)) add('수정', 'btn-ghost', () => sampleStartEdit(r));
+      if(sampleCan('request') && (sampleCan('collect') || sampleIsMine(r))) add('복사', 'btn-ghost', () => sampleStartCopy(r));
       if(sampleCanEditRow(r)) add('신청 취소', 'btn-danger', () => {
         if(!confirm('이 샘플 신청을 취소할까요?')) return;
         sampleSetStatus(r, { status: '취소' }, `샘플 신청 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '신청을 취소했습니다');
