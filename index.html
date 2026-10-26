@@ -303,6 +303,36 @@
     #panel-sample #sample-submit{ width:100%; padding:13px 14px; font-size:15px; }
     .sample-list{ grid-template-columns:1fr; }
   }
+  /* 샘플 신청 내역: 엑셀 같은 표 (PC) / 카드 (휴대폰) */
+  .sample-cards-mobile{ display:none; }
+  .sample-xl-wrap{ overflow:auto; max-height:72vh; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .sample-xl{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .sample-xl th{ position:sticky; top:0; z-index:2; background:#f3eeeb; border-bottom:2px solid #d8cac5; border-right:1px solid #e8dedb; padding:8px 8px; text-align:left; white-space:nowrap; font-size:12.5px; }
+  .sample-xl th.sortable{ cursor:pointer; user-select:none; }
+  .sample-xl th.sortable:hover{ background:#ece3df; }
+  .sample-xl td{ padding:6px 8px; border-bottom:1px solid #eee4e0; border-right:1px solid #f3ebe8; vertical-align:top; }
+  .sample-xl tr.new-day td{ border-top:2px solid #d8cac5; }
+  .sample-xl tr.confirmed td{ background:#f6fbf8; }
+  .sample-xl tr.canceled td{ background:#f7f5f4; color:#9a9290; }
+  .sample-xl tr:hover td{ background:#fdf3f4; }
+  .sample-xl td.when{ white-space:nowrap; font-weight:700; }
+  .sample-xl td, .sample-xl th{ text-align:left; }
+  .sample-xl td.nw{ white-space:nowrap; }
+  .sample-xl td.dept{ max-width:92px; }
+  .sample-xl td.items{ min-width:228px; }
+  .sample-xl td.items .it span, .sample-xl td.items .it b{ white-space:nowrap; }
+  .sample-xl td.items .it{ display:flex; justify-content:space-between; gap:14px; padding:1px 0; }
+  .sample-xl td.items .it small{ color:var(--muted); font-weight:400; }
+  .sample-xl td.note{ min-width:100px; max-width:140px; color:#5b5250; font-size:12.5px; line-height:1.45; }
+  .sample-xl td.status{ white-space:nowrap; }
+  .sample-xl .sub-line{ font-size:11px; color:var(--muted); margin-top:1px; }
+  .sample-xl .pm-tag{ display:inline-block; font-size:12px; font-weight:700; color:#2f6fb2; background:#e6f0fb; padding:1px 8px; border-radius:100px; white-space:nowrap; }
+  .sample-xl td.acts{ min-width:104px; }
+  .sample-xl td.acts button{ margin:1px 2px 1px 0; padding:3px 7px; font-size:11.5px; }
+  @media (max-width: 640px){
+    .sample-table-desktop{ display:none; }
+    .sample-cards-mobile{ display:grid; }
+  }
   /* 단가 확인: 휴대폰에서는 표 대신 카드로 보여준다 (표는 PC용, 카드는 모바일용) */
   .cost-cards{ display:none; }
   .cost-card{ border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; background:#fff; }
@@ -1213,9 +1243,16 @@
           <option value="canceled">취소됨</option>
           <option value="all">전체</option>
         </select>
+        <select id="sample-f-method">
+          <option value="">생산 방식 전체</option>
+          <option value="생산본부 생산">생산본부 생산</option>
+          <option value="연구실 생산">연구실 생산</option>
+          <option value="__etc">기타</option>
+        </select>
+        <input type="search" id="sample-f-q" placeholder="신청자·부서·품목·비고 검색" style="min-width:200px;">
         <span id="sample-list-count" class="sub" style="margin:0;"></span>
       </div>
-      <div id="sample-list-wrap" class="sample-list" style="margin-top:10px;"></div>
+      <div id="sample-list-wrap" style="margin-top:10px;"></div>
     </div>
 
     <div id="sample-section-sum" style="display:none;">
@@ -6436,6 +6473,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       sEl('sample-submit').addEventListener('click', sampleSubmit);
       sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
       ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
+      sEl('sample-f-method').addEventListener('change', sampleRenderList);
+      sEl('sample-f-q').addEventListener('input', sampleRenderList);
       ['sample-s-from', 'sample-s-to', 'sample-s-scope', 'sample-s-method'].forEach(id => sEl(id).addEventListener('change', sampleRenderSummary));
       const t = new Date(); sEl('sample-s-from').value = sampleDayKey(t); t.setDate(t.getDate() + 7); sEl('sample-s-to').value = sampleDayKey(t);
       sampleResetForm();
@@ -6639,21 +6678,127 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     await sampleLoad(); sampleRenderList();
     if(sEl('sample-section-sum').style.display !== 'none') sampleRenderSummary();
   }
+  // 신청 한 건에 대해 지금 사용자가 할 수 있는 처리 목록 (표와 카드에서 같이 사용)
+  function sampleActions(r){
+    const me = sampleMe(), a = [];
+    if(sampleCan('collect') && r.status === '신청') a.push({ label: '확인 처리', short: '확인', cls: 'btn-primary', fn: () => sampleSetStatus(r,
+      { status: '확인', confirmed_by_id: me.id, confirmed_by_name: me.display_name, confirmed_at: new Date().toISOString() },
+      `샘플 신청 확인: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인 처리했습니다') });
+    if(sampleCan('collect') && r.status === '확인') a.push({ label: '확인 취소', short: '확인취소', cls: 'btn-ghost', fn: () => sampleSetStatus(r,
+      { status: '신청', confirmed_by_id: null, confirmed_by_name: null, confirmed_at: null },
+      `샘플 신청 확인 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인을 취소했습니다') });
+    if(sampleCanEditRow(r)) a.push({ label: '수정', short: '수정', cls: 'btn-ghost', fn: () => sampleStartEdit(r) });
+    if(sampleCan('request') && (sampleCan('collect') || sampleIsMine(r))) a.push({ label: '복사', short: '복사', cls: 'btn-ghost', fn: () => sampleStartCopy(r) });
+    if(sampleCanEditRow(r)) a.push({ label: '신청 취소', short: '취소', cls: 'btn-danger', fn: () => {
+      if(!confirm('이 샘플 신청을 취소할까요?')) return;
+      sampleSetStatus(r, { status: '취소' }, `샘플 신청 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '신청을 취소했습니다');
+    } });
+    if(sampleCanDelete(r)) a.push({ label: '완전 삭제', short: '삭제', cls: 'btn-danger', fn: () => sampleDelete(r) });
+    return a;
+  }
+  function sampleAppendButtons(container, r, short){
+    sampleActions(r).forEach(x => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = x.cls + ' small-btn'; b.textContent = short ? x.short : x.label;
+      b.title = x.label; b.addEventListener('click', x.fn); container.appendChild(b);
+    });
+  }
+
+  // 신청 내역 표(PC) 정렬: 머리글을 누르면 그 열 기준으로 정렬 (다시 누르면 반대 방향)
+  let sampleSort = { key: null, dir: 1 };
+  const SAMPLE_COLS = [
+    { key: 'ship', label: '출고일시' }, { key: 'method', label: '출고 방식' }, { key: 'who', label: '신청자' },
+    { key: 'dept', label: '요청 부서' }, { key: 'pm', label: '생산 방식' }, { key: null, label: '샘플 품목 (팩 · 박스)' },
+    { key: null, label: '비고' }, { key: 'status', label: '상태' }, { key: null, label: '처리' }
+  ];
+  function sampleSortVal(r, key){
+    switch(key){
+      case 'ship': return r.ship_at;
+      case 'method': return r.ship_method || '';
+      case 'who': return r.requester_name || '';
+      case 'dept': return r.requester_dept || '';
+      case 'pm': return r.production_method || '';
+      case 'status': return { '신청': 0, '확인': 1, '취소': 2 }[r.status];
+    }
+    return '';
+  }
+  function sampleFilteredRows(){
+    const st = sEl('sample-f-status').value, range = sEl('sample-f-range').value, pm = sEl('sample-f-method').value;
+    const q = sEl('sample-f-q').value.trim().toLowerCase();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const from = range === 'upcoming' ? today.getTime() : range === 'recent' ? today.getTime() - 7 * 86400000 : -Infinity;
+    let rows = sampleRows.filter(r => new Date(r.ship_at).getTime() >= from);
+    rows = rows.filter(r => st === 'active' ? r.status !== '취소' : st === 'pending' ? r.status === '신청' : st === 'confirmed' ? r.status === '확인' : st === 'canceled' ? r.status === '취소' : true);
+    if(pm === '__etc') rows = rows.filter(r => !SAMPLE_PROD_METHODS.includes(r.production_method));
+    else if(pm) rows = rows.filter(r => r.production_method === pm);
+    if(q) rows = rows.filter(r => [r.requester_name, r.created_by_name, r.requester_dept, r.production_method, r.ship_method, r.note,
+      ...(r.items || []).map(i => sampleSkuName(i.skuId, i.name))].join(' ').toLowerCase().includes(q));
+    // 기본 정렬: 앞으로의 출고는 가까운 날짜부터, '전체'는 최신순. 머리글을 누르면 그 열 기준.
+    const key = sampleSort.key || 'ship';
+    const dir = sampleSort.key ? sampleSort.dir : (range === 'all' ? -1 : 1);
+    rows.sort((a, b) => {
+      const x = sampleSortVal(a, key), y = sampleSortVal(b, key);
+      const c = x < y ? -1 : x > y ? 1 : 0;
+      return c ? c * dir : (a.ship_at < b.ship_at ? -1 : a.ship_at > b.ship_at ? 1 : 0);
+    });
+    return { rows, key, dir };
+  }
+  function sampleItemsText(r){
+    return (r.items || []).map(i => {
+      const b = i.boxes != null ? i.boxes : sampleBoxes(i.skuId, i.packs);
+      return `<div class="it"><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` <small>(${sampleFmtNum(b)}박스)</small>` : ''}</b></div>`;
+    }).join('');
+  }
   function sampleRenderList(){
     const wrap = sEl('sample-list-wrap');
     sampleUpdateMsg();
     wrap.innerHTML = '';
     if(sampleLoadErr) return;
-    const st = sEl('sample-f-status').value, range = sEl('sample-f-range').value;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const from = range === 'upcoming' ? today.getTime() : range === 'recent' ? today.getTime() - 7 * 86400000 : -Infinity;
-    let rows = sampleRows.filter(r => new Date(r.ship_at).getTime() >= from);
-    rows = rows.filter(r => st === 'active' ? r.status !== '취소' : st === 'pending' ? r.status === '신청' : st === 'confirmed' ? r.status === '확인' : st === 'canceled' ? r.status === '취소' : true);
-    rows.sort((a, b) => range === 'all' ? (a.ship_at < b.ship_at ? 1 : -1) : (a.ship_at < b.ship_at ? -1 : 1));
+    const { rows, key, dir } = sampleFilteredRows();
     const pendingAll = sampleRows.filter(r => r.status === '신청').length;
     sEl('sample-list-count').textContent = `${rows.length}건 표시${sampleCan('collect') ? ` · 미확인 전체 ${pendingAll}건` : ''}`;
     if(!rows.length){ wrap.innerHTML = '<div class="empty">조건에 맞는 신청이 없습니다.</div>'; return; }
-    const me = sampleMe();
+
+    // ── PC: 엑셀 같은 표 ──
+    const tw = document.createElement('div'); tw.className = 'sample-xl-wrap';
+    const table = document.createElement('table'); table.className = 'sample-xl';
+    const thead = document.createElement('thead'), htr = document.createElement('tr');
+    SAMPLE_COLS.forEach(c => {
+      const th = document.createElement('th');
+      th.textContent = c.label + (c.key && c.key === key ? (dir > 0 ? ' ▲' : ' ▼') : '');
+      if(c.key){ th.className = 'sortable'; th.title = '눌러서 정렬'; th.addEventListener('click', () => {
+        sampleSort = { key: c.key, dir: (sampleSort.key === c.key ? -sampleSort.dir : 1) }; sampleRenderList();
+      }); }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    let prevDay = '';
+    rows.forEach(r => {
+      const proxy = r.created_by_id && r.requester_id && r.created_by_id !== r.requester_id;
+      const day = sampleDayKey(r.ship_at);
+      const tr = document.createElement('tr');
+      tr.className = (r.status === '확인' ? 'confirmed ' : r.status === '취소' ? 'canceled ' : '') + (key === 'ship' && day !== prevDay ? 'new-day' : '');
+      prevDay = day;
+      const pill = r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : r.status === '취소' ? '<span class="sample-pill off">취소됨</span>' : '<span class="sample-pill wait">미확인</span>';
+      tr.innerHTML = `
+        <td class="when">${escapeHtml(sampleFmtShip(r.ship_at))}</td>
+        <td class="nw">${escapeHtml(r.ship_method || '')}</td>
+        <td class="nw" title="신청 ${escapeHtml(sampleFmtAt(r.created_at))}"><b>${escapeHtml(r.requester_name || '')}</b>${proxy ? `<div class="sub-line">${escapeHtml(r.created_by_name || '')} 대리</div>` : ''}</td>
+        <td class="dept">${escapeHtml(r.requester_dept || '')}</td>
+        <td class="nw">${r.production_method ? `<span class="pm-tag">${escapeHtml(r.production_method)}</span>` : ''}</td>
+        <td class="items">${sampleItemsText(r)}</td>
+        <td class="note">${r.note ? escapeHtml(r.note).replace(/\n/g, '<br>') : ''}</td>
+        <td class="status">${pill}${r.status === '확인' ? `<div class="sub-line">${escapeHtml(r.confirmed_by_name || '')} ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}</td>
+        <td class="acts"></td>`;
+      sampleAppendButtons(tr.querySelector('.acts'), r, true);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); tw.appendChild(table);
+    const desktop = document.createElement('div'); desktop.className = 'sample-table-desktop'; desktop.appendChild(tw);
+    wrap.appendChild(desktop);
+
+    // ── 휴대폰: 카드 ──
+    const cards = document.createElement('div'); cards.className = 'sample-list sample-cards-mobile';
     rows.forEach(r => {
       const proxy = r.created_by_id && r.requester_id && r.created_by_id !== r.requester_id;
       const pill = r.status === '확인' ? '<span class="sample-pill ok">✅ 확인됨</span>' : r.status === '취소' ? '<span class="sample-pill off">취소됨</span>' : '<span class="sample-pill wait">미확인</span>';
@@ -6672,23 +6817,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         ${r.status === '확인' ? `<div class="sample-confirmed">✅ 확인: ${escapeHtml(r.confirmed_by_name || '')} · ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}
         <div class="sample-btns"></div>`;
       const btns = card.querySelector('.sample-btns');
-      const add = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls + ' small-btn'; b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); };
-      if(sampleCan('collect') && r.status === '신청') add('확인 처리', 'btn-primary', () => sampleSetStatus(r,
-        { status: '확인', confirmed_by_id: me.id, confirmed_by_name: me.display_name, confirmed_at: new Date().toISOString() },
-        `샘플 신청 확인: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인 처리했습니다'));
-      if(sampleCan('collect') && r.status === '확인') add('확인 취소', 'btn-ghost', () => sampleSetStatus(r,
-        { status: '신청', confirmed_by_id: null, confirmed_by_name: null, confirmed_at: null },
-        `샘플 신청 확인 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '확인을 취소했습니다'));
-      if(sampleCanEditRow(r)) add('수정', 'btn-ghost', () => sampleStartEdit(r));
-      if(sampleCan('request') && (sampleCan('collect') || sampleIsMine(r))) add('복사', 'btn-ghost', () => sampleStartCopy(r));
-      if(sampleCanEditRow(r)) add('신청 취소', 'btn-danger', () => {
-        if(!confirm('이 샘플 신청을 취소할까요?')) return;
-        sampleSetStatus(r, { status: '취소' }, `샘플 신청 취소: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`, '신청을 취소했습니다');
-      });
-      if(sampleCanDelete(r)) add('완전 삭제', 'btn-danger', () => sampleDelete(r));
+      sampleAppendButtons(btns, r, false);
       if(!btns.children.length) btns.remove();
-      wrap.appendChild(card);
+      cards.appendChild(card);
     });
+    wrap.appendChild(cards);
   }
 
   // ── 샘플 취합 ──
