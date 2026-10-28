@@ -211,6 +211,12 @@
   #app.ro-order #panel-ecount .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
+  /* 접어두는 구역을 본문 소제목과 구분하는 박스 */
+  .fold-box{ margin:18px 0; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; background:var(--hover); padding:0 14px; }
+  .fold-box > summary{ cursor:pointer; padding:11px 0; font-size:15px; font-weight:700; color:var(--fg); }
+  .fold-box > summary .fold-hint{ font-size:12px; font-weight:400; color:var(--muted); }
+  .fold-box[open]{ padding-bottom:14px; }
+  .fold-box[open] > summary .fold-hint{ display:none; }
   /* 3PL 거래명세서 (표시·JPG 저장 공용) */
   .stm-sheet{ width:708px; box-sizing:border-box; background:#fff; color:#111; font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:13px; padding:4px; line-height:1.3; }
   .stm-sheet table{ border-collapse:collapse; }
@@ -530,6 +536,7 @@
   <nav class="order-sub-nav">
     <button class="order-sub-nav-btn active" data-order-panel="panel-order">📋 발주 입력</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-agg">📊 집계 / 출고</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-ship">📨 송장/명세서</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-sales">📈 실적 / 매출</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-settings">⚙️ 설정</button>
   </nav>
@@ -685,8 +692,8 @@
       </div>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div></details>
 
-      <details id="return-details" style="margin-top:14px;">
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">반품 / 환불 등록·내역</summary>
+      <details id="return-details" class="fold-box">
+      <summary>↩ 반품 / 환불 등록·내역 <span class="fold-hint">(눌러서 펼치기)</span></summary>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div></details>
       <div class="row" style="margin-top:0; flex-wrap:wrap; gap:8px;">
         <div>
@@ -780,15 +787,6 @@
         <div id="tracking-import-preview" style="display:none; margin-top:10px; padding:10px 12px; background:var(--hover); border-radius:8px; font-size:13px;"></div>
       </div>
 
-      <h3>업체 원본 양식 + 운송장번호 다운로드</h3>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">업로드했던 업체의 원본 파일 형식 그대로, 운송장번호를 지정한 열에 채워서 그 업체에 회신할 파일을 받습니다.</div></details>
-      <div class="row">
-        <select id="original-file-company-select" style="min-width:180px;"></select>
-        <label style="font-size:13px;">운송장번호 삽입 열 :</label>
-        <input type="text" id="original-tracking-col" placeholder="예: L" style="width:60px; text-transform:uppercase;" title="원본 파일에서 운송장번호를 기입할 열 (예: L). 비워두면 마지막 열 뒤에 추가됩니다.">
-        <button class="btn-primary small-btn" id="export-original-format-btn">업체 양식으로 다운로드</button>
-      </div>
-
       <h3>택배 건수 집계 (업체별 / 사이즈별)</h3>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">운송장번호가 매칭된 주문 기준으로 극소(1~4팩) / 소(5~8팩) 사이즈별 건수를 집계합니다. 업체에 택배비 청구 시 활용하세요.</div></details>
       <div id="delivery-count-wrap"></div>
@@ -822,6 +820,74 @@
 
   </div><!-- close agg card -->
   </div><!-- /panel-agg -->
+
+  <!-- ───────────── 패널: 송장 / 명세서 ───────────── -->
+  <div id="panel-ship" class="order-sub-panel">
+  <div class="card">
+    <h2>업체 송장 회신</h2>
+    <div class="row" style="margin-top:0;">
+      <span style="font-size:13px;color:var(--muted);">택배사 운송장번호 파일 업로드·매칭은 <b>집계 / 출고 → 3PL 출고 집계</b>에서 합니다.</span>
+      <button class="btn-ghost small-btn" id="ship-goto-tracking-btn">→ 운송장번호 업로드로 이동</button>
+    </div>
+      <h3>업체 원본 양식 + 운송장번호 다운로드</h3>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">업로드했던 업체의 원본 파일 형식 그대로, 운송장번호를 지정한 열에 채워서 그 업체에 회신할 파일을 받습니다.</div></details>
+      <div class="row">
+        <select id="original-file-company-select" style="min-width:180px;"></select>
+        <label style="font-size:13px;">운송장번호 삽입 열 :</label>
+        <input type="text" id="original-tracking-col" placeholder="예: L" style="width:60px; text-transform:uppercase;" title="원본 파일에서 운송장번호를 기입할 열 (예: L). 비워두면 마지막 열 뒤에 추가됩니다.">
+        <button class="btn-primary small-btn" id="export-original-format-btn">업체 양식으로 다운로드</button>
+      </div>
+
+  </div>
+
+  <div class="card" id="stm-card">
+    <h2>거래명세서 만들기(JPG)</h2>
+      <div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
+        <div class="row" style="margin-top:0;">
+          <span style="font-size:13px;">대상 일자 : <b id="stm-date"></b></span>
+          <button class="btn-ghost small-btn" id="stm-refresh-btn">↻ 새로고침</button>
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="stm-show-all"> 3PL이 아닌 업체도 표시</label>
+        </div>
+        <div class="row" style="margin:8px 0 0;"><button class="btn-ghost small-btn" id="stm-select-all">발주 있는 업체 일괄 선택</button><button class="btn-ghost small-btn" id="stm-select-none">선택 해제</button></div>
+        <div id="stm-list" style="margin-top:4px;"></div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn-primary small-btn" id="stm-zip-btn">선택한 업체 JPG 다운받기</button>
+          <span id="stm-zip-msg" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div id="stm-preview" style="margin-top:12px;overflow-x:auto;"></div>
+
+        <details id="stm-setup" style="margin-top:14px;">
+          <summary style="cursor:pointer;font-size:14px;font-weight:700;">명세서 설정 (공급자 정보 · 인감 · 업체 정보 · 품목명)</summary>
+          <div style="margin-top:10px;">
+            <h3 style="margin:0 0 6px;">공급자 정보</h3>
+            <div class="sub" id="stm-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
+            <div id="stm-supplier" style="display:grid;grid-template-columns:110px 1fr;gap:6px 8px;max-width:560px;align-items:center;"></div>
+            <div class="row" style="margin-top:8px;">
+              <label style="font-size:13px;">인감 도장 이미지 :</label>
+              <input type="file" id="stm-stamp-file" accept="image/png,image/jpeg">
+              <button class="btn-ghost small-btn" id="stm-stamp-clear">제거</button>
+              <img id="stm-stamp-thumb" alt="" style="height:44px;display:none;">
+            </div>
+            <div class="sub" style="margin:2px 0 0;">※ 인감 이미지는 <b>이 PC의 브라우저에만</b> 저장되고 서버·공개 저장소에는 올라가지 않습니다. 명세서를 만드는 PC마다 한 번씩 등록해주세요. (배경이 투명한 PNG 권장)</div>
+
+            <h3 style="margin:16px 0 6px;">업체 정보 (이카운트 거래처 엑셀로 불러오기)</h3>
+            <div class="sub" style="margin:0 0 6px;">이카운트 거래처 리스트 엑셀(거래처코드·거래처명·전화번호 열 포함)을 올리면, 거래처 코드(없으면 이름)가 같은 업체에 상호·전화번호가 채워집니다. 업체 주소는 명세서에 넣지 않습니다.</div>
+            <div class="row" style="margin-top:0;">
+              <input type="file" id="stm-import-file" accept=".xlsx,.xls,.csv">
+              <span id="stm-import-msg" style="font-size:12px;color:var(--muted);"></span>
+            </div>
+            <div id="stm-company-info" style="margin-top:8px;max-height:300px;overflow:auto;"></div>
+
+            <h3 style="margin:16px 0 6px;">명세서에 표시할 품목명</h3>
+            <div class="sub" style="margin:0 0 6px;">비워두면 SKU 품목명을 그대로 씁니다. 이카운트와 같은 이름(예: [2kg] 투맛토(스테비아) [500g*4팩])으로 적어두세요.</div>
+            <div id="stm-item-names" style="max-height:300px;overflow:auto;"></div>
+          </div>
+        </details>
+      </div>
+  </div>
+
+  </div><!-- /panel-ship -->
 
   <!-- ───────────── 패널 3: 실적 / 매출 ───────────── -->
   <div id="panel-sales" class="order-sub-panel">
@@ -1197,55 +1263,6 @@
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div></details>
     <div id="delivery-fee-editor"></div>
-      </div>
-    </details>
-  </div>
-
-  <div class="card" id="stm-card">
-    <details>
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">거래명세서 만들기(JPG)</summary>
-      <div style="margin-top:10px;">
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
-        <div class="row" style="margin-top:0;">
-          <span style="font-size:13px;">대상 일자 : <b id="stm-date"></b></span>
-          <button class="btn-ghost small-btn" id="stm-refresh-btn">↻ 새로고침</button>
-          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="stm-show-all"> 3PL이 아닌 업체도 표시</label>
-        </div>
-        <div class="row" style="margin:8px 0 0;"><button class="btn-ghost small-btn" id="stm-select-all">발주 있는 업체 일괄 선택</button><button class="btn-ghost small-btn" id="stm-select-none">선택 해제</button></div>
-        <div id="stm-list" style="margin-top:4px;"></div>
-        <div class="row" style="margin-top:8px;">
-          <button class="btn-primary small-btn" id="stm-zip-btn">선택한 업체 JPG 다운받기</button>
-          <span id="stm-zip-msg" style="font-size:12px;color:var(--muted);"></span>
-        </div>
-        <div id="stm-preview" style="margin-top:12px;overflow-x:auto;"></div>
-
-        <details id="stm-setup" style="margin-top:14px;">
-          <summary style="cursor:pointer;font-size:14px;font-weight:700;">명세서 설정 (공급자 정보 · 인감 · 업체 정보 · 품목명)</summary>
-          <div style="margin-top:10px;">
-            <h3 style="margin:0 0 6px;">공급자 정보</h3>
-            <div class="sub" id="stm-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
-            <div id="stm-supplier" style="display:grid;grid-template-columns:110px 1fr;gap:6px 8px;max-width:560px;align-items:center;"></div>
-            <div class="row" style="margin-top:8px;">
-              <label style="font-size:13px;">인감 도장 이미지 :</label>
-              <input type="file" id="stm-stamp-file" accept="image/png,image/jpeg">
-              <button class="btn-ghost small-btn" id="stm-stamp-clear">제거</button>
-              <img id="stm-stamp-thumb" alt="" style="height:44px;display:none;">
-            </div>
-            <div class="sub" style="margin:2px 0 0;">※ 인감 이미지는 <b>이 PC의 브라우저에만</b> 저장되고 서버·공개 저장소에는 올라가지 않습니다. 명세서를 만드는 PC마다 한 번씩 등록해주세요. (배경이 투명한 PNG 권장)</div>
-
-            <h3 style="margin:16px 0 6px;">업체 정보 (이카운트 거래처 엑셀로 불러오기)</h3>
-            <div class="sub" style="margin:0 0 6px;">이카운트 거래처 리스트 엑셀(거래처코드·거래처명·전화번호 열 포함)을 올리면, 거래처 코드(없으면 이름)가 같은 업체에 상호·전화번호가 채워집니다. 업체 주소는 명세서에 넣지 않습니다.</div>
-            <div class="row" style="margin-top:0;">
-              <input type="file" id="stm-import-file" accept=".xlsx,.xls,.csv">
-              <span id="stm-import-msg" style="font-size:12px;color:var(--muted);"></span>
-            </div>
-            <div id="stm-company-info" style="margin-top:8px;max-height:300px;overflow:auto;"></div>
-
-            <h3 style="margin:16px 0 6px;">명세서에 표시할 품목명</h3>
-            <div class="sub" style="margin:0 0 6px;">비워두면 SKU 품목명을 그대로 씁니다. 이카운트와 같은 이름(예: [2kg] 투맛토(스테비아) [500g*4팩])으로 적어두세요.</div>
-            <div id="stm-item-names" style="max-height:300px;overflow:auto;"></div>
-          </div>
-        </details>
       </div>
     </details>
   </div>
@@ -5790,10 +5807,14 @@ function goHome() {
   document.getElementById('stm-refresh-btn').addEventListener('click', stmRenderList);
   document.getElementById('stm-show-all').addEventListener('change', stmRenderList);
   document.getElementById('stm-zip-btn').addEventListener('click', stmDownloadZip);
+  document.getElementById('ship-goto-tracking-btn').addEventListener('click', () => {
+    document.querySelector('.order-sub-nav-btn[data-order-panel="panel-agg"]').click();
+    document.getElementById('tab-3pl-btn').click();
+    document.getElementById('tracking-dropzone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   const stmSetAll = on => document.querySelectorAll('#stm-list input[type=checkbox]').forEach(c => { c.checked = on; });
   document.getElementById('stm-select-all').addEventListener('click', () => stmSetAll(true));
   document.getElementById('stm-select-none').addEventListener('click', () => stmSetAll(false));
-  document.getElementById('stm-card').querySelector('details').addEventListener('toggle', e => { if(e.target.open && e.target === e.currentTarget) stmRenderList(); });
   document.getElementById('stm-setup').addEventListener('toggle', e => {
     if(!e.target.open) return;
     stmLoad().then(() => { stmRenderSupplier(); stmRenderStampThumb(); stmRenderCompanyInfo(); stmRenderItemNames(); });
@@ -8089,6 +8110,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       btn.classList.add('active');
       const panelId = btn.dataset.orderPanel;
       document.getElementById(panelId).classList.add('active');
+      if(panelId === 'panel-ship') stmRenderList();
       // 실적/매출 탭 진입 시 날짜 기본값 세팅
       if(panelId === 'panel-sales'){
         const now = new Date();
