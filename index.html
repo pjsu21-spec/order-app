@@ -692,65 +692,6 @@
       </div>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div></details>
 
-      <details id="return-details" class="fold-box">
-      <summary>↩ 반품 / 환불 등록·내역 <span class="fold-hint">(눌러서 펼치기)</span></summary>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div></details>
-      <div class="row" style="margin-top:0; flex-wrap:wrap; gap:8px;">
-        <div>
-          <label style="font-size:12px;color:var(--muted);">반품 접수일</label>
-          <input type="date" id="return-date" style="width:140px;">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">원래 배송일</label>
-          <input type="date" id="return-original-date" style="width:140px;">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">업체명</label>
-          <select id="return-company" style="min-width:150px;"></select>
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">품목</label>
-          <select id="return-item" style="min-width:150px;"></select>
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">수량(팩)</label>
-          <input type="number" id="return-qty" min="1" style="width:70px;" placeholder="수량">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">반품사유</label>
-          <select id="return-reason">
-            <option value="파손">파손</option>
-            <option value="품질불량">품질불량</option>
-            <option value="오배송">오배송</option>
-            <option value="단순변심">단순변심</option>
-            <option value="기타">기타</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);">처리방법</label>
-          <select id="return-process">
-            <option value="환불">환불</option>
-            <option value="교환">교환</option>
-            <option value="부분환불">부분환불</option>
-          </select>
-        </div>
-        <div style="flex:1; min-width:150px;">
-          <label style="font-size:12px;color:var(--muted);">비고</label>
-          <input type="text" id="return-note" placeholder="비고 (선택)" style="width:100%;">
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <button class="btn-primary small-btn" id="return-add-btn">반품 등록</button>
-      </div>
-
-      <h3>반품 내역</h3>
-      <div id="return-list-wrap"><div class="empty">등록된 반품 내역이 없습니다.</div></div>
-      <div class="row" style="margin-top:6px;">
-        <button class="btn-ghost small-btn" id="return-refresh-btn">새로고침</button>
-        <button class="btn-primary small-btn" id="return-export-btn">반품 내역 엑셀 다운로드</button>
-      </div>
-      </details>
-
       <h3>운송장번호 업로드</h3>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">택배사에서 발급된 운송장번호 파일을 업로드하면 개별 주문과 자동 매칭됩니다.</div></details>
       <div class="dropzone" id="tracking-dropzone">
@@ -816,6 +757,65 @@
         <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">각 SKU가 파일에서 어느 열(예: J, K, AA)에 해당하는지 지정하세요. 파일의 13행 헤더를 보고 맞춰주세요.</div></details>
         <div id="sku-column-map-editor"></div>
       </div>
+    </details>
+
+    <details id="return-details" class="fold-box">
+    <summary>↩ 반품 / 환불 등록·내역 <span class="fold-hint">(눌러서 펼치기)</span></summary>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원래 배송일 실적에서 차감됩니다. 월간 합계에도 자동 반영됩니다.</div></details>
+    <div class="row" style="margin-top:0; flex-wrap:wrap; gap:8px;">
+      <div>
+        <label style="font-size:12px;color:var(--muted);">반품 접수일</label>
+        <input type="date" id="return-date" style="width:140px;">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">원래 배송일</label>
+        <input type="date" id="return-original-date" style="width:140px;">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">업체명</label>
+        <select id="return-company" style="min-width:150px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">품목</label>
+        <select id="return-item" style="min-width:150px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">수량(팩)</label>
+        <input type="number" id="return-qty" min="1" style="width:70px;" placeholder="수량">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">반품사유</label>
+        <select id="return-reason">
+          <option value="파손">파손</option>
+          <option value="품질불량">품질불량</option>
+          <option value="오배송">오배송</option>
+          <option value="단순변심">단순변심</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">처리방법</label>
+        <select id="return-process">
+          <option value="환불">환불</option>
+          <option value="교환">교환</option>
+          <option value="부분환불">부분환불</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:150px;">
+        <label style="font-size:12px;color:var(--muted);">비고</label>
+        <input type="text" id="return-note" placeholder="비고 (선택)" style="width:100%;">
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn-primary small-btn" id="return-add-btn">반품 등록</button>
+    </div>
+
+    <h3>반품 내역</h3>
+    <div id="return-list-wrap"><div class="empty">등록된 반품 내역이 없습니다.</div></div>
+    <div class="row" style="margin-top:6px;">
+      <button class="btn-ghost small-btn" id="return-refresh-btn">새로고침</button>
+      <button class="btn-primary small-btn" id="return-export-btn">반품 내역 엑셀 다운로드</button>
+    </div>
     </details>
 
   </div><!-- close agg card -->
