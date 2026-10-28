@@ -211,6 +211,41 @@
   #app.ro-order #panel-ecount .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
+  /* 3PL 거래명세서 (표시·JPG 저장 공용) */
+  .stm-sheet{ width:708px; box-sizing:border-box; background:#fff; color:#111; font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:13px; padding:4px; line-height:1.3; }
+  .stm-sheet table{ border-collapse:collapse; }
+  .stm-sheet td, .stm-sheet th{ box-sizing:border-box; }
+  .stm-sheet .stm-top{ display:flex; align-items:flex-start; }
+  .stm-sheet .stm-left{ width:305px; flex:none; }
+  .stm-sheet .stm-title{ height:56px; line-height:56px; text-align:center; font-size:27px; font-weight:800; letter-spacing:1px; }
+  .stm-sheet .stm-to{ border:1px solid #222; height:68px; box-sizing:border-box; padding:3px 6px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-weight:700; font-size:13px; line-height:1.35; overflow:hidden; }
+  .stm-sheet .stm-to .nm{ font-size:15px; }
+  .stm-sheet .stm-sup{ width:368px; margin-left:20px; flex:none; table-layout:fixed; }
+  .stm-sheet .stm-sup td{ border:1px solid #444; padding:2px 4px; height:30px; font-size:12px; vertical-align:middle; position:relative; }
+  .stm-sheet .stm-sup td.lb{ text-align:center; font-size:12px; padding:2px 1px; }
+  .stm-sheet .stm-sup td.lb.b{ font-weight:700; }
+  .stm-sheet .stm-sup td.vt{ text-align:center; font-weight:700; line-height:1.6; width:26px; padding:0; }
+  .stm-sheet .stm-stamp{ position:absolute; right:2px; top:-14px; width:64px; height:64px; object-fit:contain; }
+  .stm-sheet .stm-amt{ margin-top:5px; border:2px solid #111; padding:5px 10px; display:flex; justify-content:space-between; font-size:17px; font-weight:800; }
+  .stm-sheet .stm-items{ margin-top:5px; width:100%; table-layout:fixed; }
+  .stm-sheet .stm-items th{ border:1px solid #444; height:28px; font-size:12.5px; font-weight:700; padding:1px 2px; line-height:1.15; }
+  .stm-sheet .stm-items td{ border:1px solid #999; height:17.5px; padding:0 4px; font-size:12px; white-space:nowrap; overflow:hidden; }
+  .stm-sheet .stm-items td.c{ text-align:center; }
+  .stm-sheet .stm-items td.r{ text-align:right; }
+  .stm-sheet .stm-foot{ width:100%; table-layout:fixed; margin-top:3px; border:2px solid #222; }
+  .stm-sheet .stm-foot td{ border:1px solid #333; height:24px; padding:0 5px; font-size:12.5px; }
+  .stm-sheet .stm-foot td.lb{ text-align:center; font-weight:700; }
+  .stm-sheet .stm-foot td.r{ text-align:right; }
+  .stm-sheet .stm-bank{ margin-top:8px; font-size:16px; padding-left:3px; }
+  .stm-row{ display:flex; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .stm-row .nm{ font-weight:700; min-width:150px; }
+  .stm-row .meta{ font-size:12px; color:var(--muted); }
+  .stm-row .warn{ font-size:12px; color:var(--warn); }
+  .stm-row .acts{ margin-left:auto; display:flex; gap:4px; }
+  .stm-info-tbl{ width:100%; border-collapse:collapse; font-size:12px; }
+  .stm-info-tbl td, .stm-info-tbl th{ border-bottom:1px solid var(--line); padding:3px 4px; text-align:left; }
+  .stm-info-tbl input{ width:100%; box-sizing:border-box; }
+  @media (max-width: 640px){ #stm-card .stm-row .acts{ margin-left:0; } }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   /* 메인 네비게이션 탭 */
@@ -1182,6 +1217,54 @@
     </details>
   </div>
 
+  <div class="card" id="stm-card">
+    <details>
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">3PL 거래명세서 만들기 (JPG)</summary>
+      <div style="margin-top:10px;">
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
+        <div class="row" style="margin-top:0;">
+          <span style="font-size:13px;">대상 일자 : <b id="stm-date"></b></span>
+          <button class="btn-ghost small-btn" id="stm-refresh-btn">↻ 새로고침</button>
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="stm-show-all"> 3PL이 아닌 업체도 표시</label>
+        </div>
+        <div id="stm-list" style="margin-top:8px;"></div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn-primary small-btn" id="stm-zip-btn">선택 업체 JPG 한 번에 받기 (ZIP)</button>
+          <span id="stm-zip-msg" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+        <div id="stm-preview" style="margin-top:12px;overflow-x:auto;"></div>
+
+        <details id="stm-setup" style="margin-top:14px;">
+          <summary style="cursor:pointer;font-size:14px;font-weight:700;">명세서 설정 (공급자 정보 · 인감 · 업체 정보 · 품목명)</summary>
+          <div style="margin-top:10px;">
+            <h3 style="margin:0 0 6px;">공급자 정보</h3>
+            <div class="sub" id="stm-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
+            <div id="stm-supplier" style="display:grid;grid-template-columns:110px 1fr;gap:6px 8px;max-width:560px;align-items:center;"></div>
+            <div class="row" style="margin-top:8px;">
+              <label style="font-size:13px;">인감 도장 이미지 :</label>
+              <input type="file" id="stm-stamp-file" accept="image/png,image/jpeg">
+              <button class="btn-ghost small-btn" id="stm-stamp-clear">제거</button>
+              <img id="stm-stamp-thumb" alt="" style="height:44px;display:none;">
+            </div>
+            <div class="sub" style="margin:2px 0 0;">※ 인감 이미지는 <b>이 PC의 브라우저에만</b> 저장되고 서버·공개 저장소에는 올라가지 않습니다. 명세서를 만드는 PC마다 한 번씩 등록해주세요. (배경이 투명한 PNG 권장)</div>
+
+            <h3 style="margin:16px 0 6px;">업체 정보 (이카운트 거래처 엑셀로 불러오기)</h3>
+            <div class="sub" style="margin:0 0 6px;">이카운트 거래처 리스트 엑셀(거래처코드·거래처명·전화번호 열 포함)을 올리면, 거래처 코드(없으면 이름)가 같은 업체에 상호·전화번호가 채워집니다. 업체 주소는 명세서에 넣지 않습니다.</div>
+            <div class="row" style="margin-top:0;">
+              <input type="file" id="stm-import-file" accept=".xlsx,.xls,.csv">
+              <span id="stm-import-msg" style="font-size:12px;color:var(--muted);"></span>
+            </div>
+            <div id="stm-company-info" style="margin-top:8px;max-height:300px;overflow:auto;"></div>
+
+            <h3 style="margin:16px 0 6px;">명세서에 표시할 품목명</h3>
+            <div class="sub" style="margin:0 0 6px;">비워두면 SKU 품목명을 그대로 씁니다. 이카운트와 같은 이름(예: [2kg] 투맛토(스테비아) [500g*4팩])으로 적어두세요.</div>
+            <div id="stm-item-names" style="max-height:300px;overflow:auto;"></div>
+          </div>
+        </details>
+      </div>
+    </details>
+  </div>
+
   <div class="card">
     <details>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 구매입력 (원물 구매) — 준비 중</summary>
@@ -1432,6 +1515,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
 // Supabase 어댑터 + 인증 시스템
@@ -5607,6 +5691,345 @@ function goHome() {
   });
 
 
+
+  // ══════════════════ 3PL 거래명세서 (JPG) ══════════════════
+  // 당일 집계(이카운트 판매입력과 같은 기준)를 업체별 1장으로 만들어 JPG로 저장한다.
+  //  - 업체 정보(상호·전화)는 이카운트 거래처 엑셀로 불러온다. 업체 주소는 넣지 않는다.
+  //  - 일련번호는 'YYYY/MM/DD -N' (날짜별 1,2,3…). 한 번 부여한 번호는 다시 만들어도 유지한다.
+  const STM_DEFAULTS = {
+    bizNo: '106-88-01737', name: '주식회사다름달음', rep: '이상현',
+    address: '경기도 안성시 공도읍 신두만곡로 134 다름달음', tel: '02-406-1122',
+    bank: '기업은행 954-032148-04-012  주식회사 다름달음'
+  };
+  const STM_SUPPLIER_FIELDS = [['bizNo', '사업자등록번호'], ['name', '상호'], ['rep', '성명(대표)'], ['tel', 'TEL'], ['address', '주소'], ['bank', '계좌번호']];
+  const STM_MIN_ROWS = 15;
+  let stmSettings = Object.assign({}, STM_DEFAULTS), stmSeq = {}, stmLoaded = false, stmPreviewName = '';
+
+  async function stmLoad(){
+    if(stmLoaded) return;
+    stmLoaded = true;
+    try{ const s = await window.storage.get('statement-settings', true); if(s) stmSettings = Object.assign({}, STM_DEFAULTS, JSON.parse(s.value)); }catch(e){}
+    try{ const q = await window.storage.get('statement-seq', true); if(q) stmSeq = JSON.parse(q.value) || {}; }catch(e){}
+  }
+  const stmIsAdmin = () => !!(window.currentUser && window.currentUser.role === 'admin');
+  const stmDate = () => getDeliveryDateLabel() || currentDateKey;
+  const stmFmt = n => Number(n || 0).toLocaleString('en-US');
+  function stmStamp(){ try{ return localStorage.getItem('stm-stamp') || ''; }catch(e){ return ''; } }
+
+  // 금액 한글 표기: 198000 → 일십구만팔천원, 1100000 → 일백일십만원
+  function stmKoreanMoney(n){
+    n = Math.round(Math.abs(Number(n) || 0));
+    if(n === 0) return '영원';
+    const D = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'], U = ['천', '백', '십', ''], G = ['', '만', '억', '조'];
+    let s = '', g = 0;
+    while(n > 0){
+      const part = n % 10000; n = Math.floor(n / 10000);
+      if(part){
+        const ds = String(part).padStart(4, '0'); let t = '';
+        for(let i = 0; i < 4; i++){ const d = +ds[i]; if(d) t += D[d] + U[i]; }
+        s = t + G[g] + s;
+      }
+      g++;
+    }
+    return s + '원';
+  }
+
+  // 일련번호: 이미 부여된 번호가 있으면 그 번호, 없으면 그날의 다음 번호 (persist=true 일 때만 저장)
+  function stmSeqNo(dateLabel, name, persist){
+    const day = stmSeq[dateLabel] || {};
+    if(day[name]) return day[name];
+    const next = Math.max(0, ...Object.values(day)) + 1;
+    if(persist){ stmSeq[dateLabel] = Object.assign(day, { [name]: next }); }
+    return next;
+  }
+  async function stmSaveSeq(){ try{ await window.storage.set('statement-seq', JSON.stringify(stmSeq), true); }catch(e){ console.error(e); } }
+  const stmSeqLabel = (dateLabel, n) => `${dateLabel.replace(/-/g, '/')} -${n}`;
+
+  // 택배비 건수(업체·사이즈별) — 이카운트 판매입력과 같은 방식
+  function stmFeeCounts(){
+    const out = {};
+    const tracked = currentLineItems().filter(r => r.trackingNo && r.trackingNo.trim());
+    Object.entries(buildTrackingSetByCompany(tracked)).forEach(([cn, trackMap]) => {
+      out[cn] = {};
+      trackMap.forEach(({ size }) => { out[cn][size] = (out[cn][size] || 0) + 1; });
+    });
+    return out;
+  }
+
+  // 한 업체의 명세서 내용: 품목 줄 + 택배비 줄 + 합계
+  function stmBuild(companyName, feeCounts){
+    const dateLabel = stmDate();
+    const day = dateLabel.slice(5).replace('-', '/');
+    const co = companies.find(c => c.name === companyName) || {};
+    const priceMap = co.priceMap || {};
+    const orders = currentOrders()[companyName] || {};
+    const lines = [], warn = [];
+    dict.forEach(item => {
+      const packs = Number(orders[item.id]) || 0;
+      if(packs === 0) return;
+      const boxN = Number(item.boxUnitCount) || 0;
+      const qty = boxN > 0 ? parseFloat((packs / boxN).toFixed(2)) : packs;
+      const price = priceMap[item.id];
+      const hasPrice = price !== undefined && price !== '' && price !== null;
+      const supply = hasPrice ? Math.round(Number(price) * qty) : 0;
+      if(!hasPrice) warn.push(`단가 미설정: ${item.name}`);
+      lines.push({ day, name: item.statementName || item.name, qty, qtyText: stmFmt(qty) + (boxN > 0 ? '박스' : '팩'), price: hasPrice ? Number(price) : '', supply, vat: 0, note: '' });
+    });
+    const feeBySize = {};
+    deliveryFeeItems.forEach(fi => { feeBySize[fi.size] = fi; });
+    Object.entries((feeCounts || {})[companyName] || {}).forEach(([size, count]) => {
+      const fi = feeBySize[size];
+      if(!fi || !fi.name) return;
+      const raw = fi.price !== '' ? Number(fi.price) : 0;
+      let supply = raw * count, vat = 0;
+      if(co.courierTaxable && raw > 0){ supply = Math.round(raw * count / 1.1); vat = Math.round(raw * count - supply); }
+      lines.push({ day, name: fi.name, qty: count, qtyText: stmFmt(count) + '건', price: raw || '', supply, vat, note: `택배비(${size})` });
+    });
+    const sum = k => lines.reduce((a, l) => a + (Number(l[k]) || 0), 0);
+    const t = { qty: sum('qty'), supply: sum('supply'), vat: sum('vat') };
+    t.total = t.supply + t.vat;
+    return { dateLabel, co, lines, totals: t, warn };
+  }
+
+  function stmSheetHtml(companyName, st, seqLabel){
+    const S = stmSettings, co = st.co, e = escapeHtml;
+    const toName = co.ecName || companyName;
+    const stamp = stmStamp();
+    const rows = st.lines.map(l => `<tr><td class="c">${e(l.day)}</td><td>${e(l.name)}</td><td class="r">${e(l.qtyText)}</td><td class="r">${l.price === '' ? '' : stmFmt(l.price)}</td><td class="r">${stmFmt(l.supply)}</td><td class="r">${l.vat ? stmFmt(l.vat) : ''}</td><td>${e(l.note)}</td></tr>`);
+    while(rows.length < STM_MIN_ROWS) rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+    return `<div class="stm-sheet">
+      <div class="stm-top">
+        <div class="stm-left"><div class="stm-title">거래명세서</div>
+          <div class="stm-to"><div class="nm">${e(toName)} 貴 中</div>${co.tel ? `<div>☎ ${e(co.tel)}</div>` : ''}</div></div>
+        <table class="stm-sup">
+          <colgroup><col style="width:26px"><col style="width:72px"><col style="width:128px"><col style="width:46px"><col style="width:96px"></colgroup>
+          <tr><td class="vt" rowspan="4">공<br>급<br>자</td><td class="lb">일련번호</td><td>${e(seqLabel)}</td><td class="lb b">TEL</td><td>${e(S.tel)}</td></tr>
+          <tr><td class="lb" style="height:36px">사업자등록<br>번호</td><td>${e(S.bizNo)}</td><td class="lb b">성명</td><td>${e(S.rep)}${stamp ? `<img class="stm-stamp" src="${stamp}" alt="">` : ''}</td></tr>
+          <tr><td class="lb">상호</td><td colspan="3">${e(S.name)}</td></tr>
+          <tr><td class="lb">주소</td><td colspan="3">${e(S.address)}</td></tr>
+        </table>
+      </div>
+      <div class="stm-amt"><span>금 액 : ${stmKoreanMoney(st.totals.total)} 정</span><span>(₩${stmFmt(st.totals.total)})</span></div>
+      <table class="stm-items">
+        <colgroup><col style="width:68px"><col style="width:262px"><col style="width:62px"><col style="width:65px"><col style="width:86px"><col style="width:68px"><col style="width:89px"></colgroup>
+        <tr><th>일자</th><th>품목명[규격]</th><th>수량(단위<br>포함)</th><th>단가</th><th>공급가액</th><th>부가세</th><th>적요</th></tr>
+        ${rows.join('')}
+      </table>
+      <table class="stm-foot"><tr>
+        <td class="lb" style="width:52px">수량</td><td class="r" style="width:70px">${stmFmt(st.totals.qty)}</td>
+        <td class="lb" style="width:64px">공급가액</td><td class="r" style="width:96px">${stmFmt(st.totals.supply)}</td>
+        <td class="lb" style="width:44px">VAT</td><td class="r" style="width:96px">${stmFmt(st.totals.vat)}</td>
+        <td class="lb" style="width:50px">합계</td><td class="r" style="width:96px">${stmFmt(st.totals.total)}</td>
+        <td class="lb" style="width:48px">인수</td><td class="r">인</td></tr></table>
+      <div class="stm-bank">계좌번호 : ${e(S.bank)}</div>
+    </div>`;
+  }
+
+  // 명세서를 만들 업체 목록 (그날 발주가 있는 업체)
+  function stmCandidates(){
+    const showAll = document.getElementById('stm-show-all').checked;
+    const fc = stmFeeCounts();
+    return Object.keys(currentOrders()).filter(n => n !== '_meta').map(n => {
+      const co = companies.find(c => c.name === n) || {};
+      return { name: n, co, st: stmBuild(n, fc) };
+    }).filter(x => x.st.lines.length && (showAll || x.co.isThirdParty));
+  }
+
+  async function stmRenderList(){
+    await stmLoad();
+    const dateLabel = stmDate();
+    document.getElementById('stm-date').textContent = dateLabel;
+    const wrap = document.getElementById('stm-list');
+    const checked = new Set(Array.from(wrap.querySelectorAll('input[type=checkbox]:checked')).map(c => c.dataset.name));
+    const first = !wrap.children.length;
+    const list = stmCandidates();
+    wrap.innerHTML = '';
+    if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:8px 0;">이 날짜에 명세서를 만들 3PL 발주가 없습니다.</div>'; return; }
+    list.forEach(x => {
+      const row = document.createElement('div'); row.className = 'stm-row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.name = x.name;
+      cb.checked = first ? true : checked.has(x.name);
+      const warns = [...x.st.warn]; if(!x.co.tel) warns.push('전화번호 없음');
+      const num = stmSeqNo(dateLabel, x.name, false);
+      row.innerHTML = `<span class="nm">${escapeHtml(x.co.ecName || x.name)}</span>
+        <span class="meta">${x.st.lines.length}줄 · 합계 ₩${stmFmt(x.st.totals.total)} · 일련번호 ${escapeHtml(stmSeqLabel(dateLabel, num))}${(stmSeq[dateLabel] || {})[x.name] ? '' : ' (예정)'}</span>
+        ${warns.length ? `<span class="warn">⚠ ${escapeHtml(warns.join(' / '))}</span>` : ''}
+        <span class="acts"></span>`;
+      row.prepend(cb);
+      const acts = row.querySelector('.acts');
+      [['미리보기', 'btn-ghost', () => stmPreview(x.name)], ['JPG 저장', 'btn-primary', () => stmDownloadOne(x.name)]].forEach(([t, c, fn]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = c + ' small-btn'; b.textContent = t; b.addEventListener('click', fn); acts.appendChild(b);
+      });
+      wrap.appendChild(row);
+    });
+    if(stmPreviewName && list.some(x => x.name === stmPreviewName)) stmPreview(stmPreviewName); else document.getElementById('stm-preview').innerHTML = '';
+  }
+
+  function stmPreview(name){
+    stmPreviewName = name;
+    const st = stmBuild(name, stmFeeCounts());
+    const seq = stmSeqLabel(st.dateLabel, stmSeqNo(st.dateLabel, name, false));
+    document.getElementById('stm-preview').innerHTML = stmSheetHtml(name, st, seq);
+  }
+
+  async function stmRenderBlob(name, seqNo){
+    const st = stmBuild(name, stmFeeCounts());
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;';
+    holder.innerHTML = stmSheetHtml(name, st, stmSeqLabel(st.dateLabel, seqNo));
+    document.body.appendChild(holder);
+    try{
+      const canvas = await html2canvas(holder.firstElementChild, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    } finally { holder.remove(); }
+  }
+  const stmFileName = (name, dateLabel) => `거래명세서_${dateLabel.replace(/-/g, '')}_${name.replace(/[\\/:*?"<>|]/g, '').trim()}.jpg`;
+  function stmSaveBlob(blob, filename){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  async function stmDownloadOne(name){
+    await stmLoad();
+    const dateLabel = stmDate();
+    const n = stmSeqNo(dateLabel, name, true);
+    try{
+      stmSaveBlob(await stmRenderBlob(name, n), stmFileName(name, dateLabel));
+      await stmSaveSeq(); toast('거래명세서 JPG를 저장했습니다'); stmRenderList();
+    }catch(e){ console.error(e); toast('명세서 이미지를 만들지 못했습니다'); }
+  }
+
+  async function stmDownloadZip(){
+    await stmLoad();
+    const names = Array.from(document.querySelectorAll('#stm-list input[type=checkbox]:checked')).map(c => c.dataset.name);
+    if(!names.length){ toast('명세서를 만들 업체를 선택해주세요'); return; }
+    if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    const dateLabel = stmDate(), zip = new JSZip(), msg = document.getElementById('stm-zip-msg'), btn = document.getElementById('stm-zip-btn');
+    btn.disabled = true;
+    try{
+      for(let i = 0; i < names.length; i++){
+        msg.textContent = `만드는 중… ${i + 1}/${names.length}`;
+        const n = stmSeqNo(dateLabel, names[i], true);
+        zip.file(stmFileName(names[i], dateLabel), await stmRenderBlob(names[i], n));
+      }
+      stmSaveBlob(await zip.generateAsync({ type: 'blob' }), `거래명세서_${dateLabel.replace(/-/g, '')}.zip`);
+      await stmSaveSeq(); msg.textContent = `${names.length}개 업체 명세서를 저장했습니다`; stmRenderList();
+    }catch(e){ console.error(e); msg.textContent = ''; toast('명세서를 만들지 못했습니다'); }
+    btn.disabled = false;
+  }
+
+  // ── 설정: 공급자 정보 / 인감 / 업체 정보 / 품목명 ──
+  function stmRenderSupplier(){
+    const admin = stmIsAdmin();
+    document.getElementById('stm-admin-note').style.display = admin ? 'none' : '';
+    const box = document.getElementById('stm-supplier'); box.innerHTML = '';
+    STM_SUPPLIER_FIELDS.forEach(([k, label]) => {
+      const l = document.createElement('label'); l.style.fontSize = '13px'; l.textContent = label;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = stmSettings[k] || ''; inp.disabled = !admin;
+      inp.addEventListener('change', async () => {
+        stmSettings[k] = inp.value.trim();
+        try{ await window.storage.set('statement-settings', JSON.stringify(stmSettings), true); toast('공급자 정보를 저장했습니다'); }catch(e){ console.error(e); }
+        if(stmPreviewName) stmPreview(stmPreviewName);
+      });
+      box.append(l, inp);
+    });
+    document.getElementById('stm-import-file').disabled = !admin;
+  }
+  function stmRenderStampThumb(){
+    const img = document.getElementById('stm-stamp-thumb'), s = stmStamp();
+    img.style.display = s ? '' : 'none'; if(s) img.src = s;
+  }
+  function stmRenderCompanyInfo(){
+    const admin = stmIsAdmin(), wrap = document.getElementById('stm-company-info');
+    const list = companies.filter(c => c.isThirdParty);
+    if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:6px 0;">3PL로 지정된 업체가 없습니다.</div>'; return; }
+    const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
+    tbl.innerHTML = '<thead><tr><th>업체(시스템)</th><th>명세서 상호</th><th>전화번호</th></tr></thead>';
+    const tb = document.createElement('tbody');
+    list.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td></td><td></td>`;
+      [['ecName', 1, c.name], ['tel', 2, '']].forEach(([k, i, ph]) => {
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = c[k] || ''; inp.placeholder = ph; inp.disabled = !admin;
+        inp.addEventListener('change', () => { c[k] = inp.value.trim(); saveCompanies(); stmRenderList(); });
+        tr.children[i].appendChild(inp);
+      });
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); wrap.innerHTML = ''; wrap.appendChild(tbl);
+  }
+  function stmRenderItemNames(){
+    const admin = stmIsAdmin(), wrap = document.getElementById('stm-item-names');
+    const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
+    tbl.innerHTML = '<thead><tr><th>SKU 품목명</th><th>명세서 품목명</th></tr></thead>';
+    const tb = document.createElement('tbody');
+    dict.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(item.name)}</td><td></td>`;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = item.statementName || ''; inp.placeholder = item.name; inp.disabled = !admin;
+      inp.addEventListener('change', () => { item.statementName = inp.value.trim(); saveDict(); stmRenderList(); });
+      tr.children[1].appendChild(inp); tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); wrap.innerHTML = ''; wrap.appendChild(tbl);
+  }
+
+  // 이카운트 거래처 엑셀 → 3PL 업체의 상호·전화번호 반영 (코드 우선, 없으면 이름으로 매칭)
+  async function stmImportCompanyInfo(file){
+    const msg = document.getElementById('stm-import-msg');
+    try{
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      const norm = s => String(s).replace(/\s/g, '');
+      const hi = rows.findIndex(r => r.some(c => ['거래처코드', '거래처명'].includes(norm(c))));
+      if(hi < 0){ msg.textContent = '거래처코드·거래처명 열을 찾지 못했습니다'; return; }
+      const head = rows[hi].map(norm);
+      const iCode = head.indexOf('거래처코드'), iName = head.indexOf('거래처명'), iTel = head.indexOf('전화번호');
+      const digits = s => String(s).replace(/\D/g, '');
+      const byCode = {}, byName = {};
+      companies.forEach(c => { if(digits(c.code)) byCode[digits(c.code)] = c; byName[norm(c.name)] = c; });
+      let matched = 0;
+      const hit = new Set();
+      rows.slice(hi + 1).forEach(r => {
+        const code = iCode >= 0 ? digits(r[iCode]) : '', nm = iName >= 0 ? String(r[iName]).trim() : '';
+        const c = (code && byCode[code]) || (nm && byName[norm(nm)]);
+        if(!c) return;
+        matched++; hit.add(c);
+        if(nm) c.ecName = nm;
+        const tel = iTel >= 0 ? String(r[iTel]).trim() : '';
+        if(tel) c.tel = tel;
+      });
+      await saveCompanies();
+      const miss = companies.filter(c => c.isThirdParty && !hit.has(c)).map(c => c.name);
+      msg.textContent = `${matched}개 업체 정보를 반영했습니다${miss.length ? ` · 매칭 안 된 3PL 업체 ${miss.length}곳: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? ' 외' : ''}` : ''}`;
+      stmRenderCompanyInfo(); stmRenderList();
+    }catch(e){ console.error(e); msg.textContent = '엑셀을 읽지 못했습니다'; }
+  }
+
+  document.getElementById('stm-refresh-btn').addEventListener('click', stmRenderList);
+  document.getElementById('stm-show-all').addEventListener('change', stmRenderList);
+  document.getElementById('stm-zip-btn').addEventListener('click', stmDownloadZip);
+  document.getElementById('stm-card').querySelector('details').addEventListener('toggle', e => { if(e.target.open && e.target === e.currentTarget) stmRenderList(); });
+  document.getElementById('stm-setup').addEventListener('toggle', e => {
+    if(!e.target.open) return;
+    stmLoad().then(() => { stmRenderSupplier(); stmRenderStampThumb(); stmRenderCompanyInfo(); stmRenderItemNames(); });
+  });
+  document.getElementById('stm-stamp-file').addEventListener('change', e => {
+    const f = e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      try{ localStorage.setItem('stm-stamp', fr.result); toast('인감 이미지를 등록했습니다 (이 PC에만 저장)'); }catch(err){ toast('이미지가 너무 큽니다. 더 작은 파일을 사용해주세요'); }
+      stmRenderStampThumb(); if(stmPreviewName) stmPreview(stmPreviewName);
+    };
+    fr.readAsDataURL(f); e.target.value = '';
+  });
+  document.getElementById('stm-stamp-clear').addEventListener('click', () => {
+    try{ localStorage.removeItem('stm-stamp'); }catch(e){}
+    stmRenderStampThumb(); if(stmPreviewName) stmPreview(stmPreviewName);
+  });
+  document.getElementById('stm-import-file').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) stmImportCompanyInfo(f); e.target.value = '';
+  });
 
   // 업체 원본 양식 그대로 + 운송장번호만 채워서 그 업체에 회신할 파일
   document.getElementById('export-original-format-btn').addEventListener('click', ()=>{
