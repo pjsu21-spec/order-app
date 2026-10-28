@@ -295,6 +295,7 @@
     #panel-sample .row.sample-tabstrip{ flex-direction:row; flex-wrap:wrap; }
     #panel-sample .sample-item-row{ flex-direction:column; align-items:stretch; }
     #panel-sample .sample-item-row select{ flex:0 0 auto; min-width:0; }
+    #panel-sample .sample-pm-sel, #panel-sample .sample-pm-etc{ min-width:0; }
     #panel-sample input:not([type="checkbox"]), #panel-sample select, #panel-sample textarea{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; }
     #panel-sample .tab-btn{ padding:10px 14px; font-size:13px; }
     #panel-sample .card{ padding:12px; }
@@ -321,7 +322,7 @@
   .sample-xl td.dept{ max-width:92px; }
   .sample-xl td.items{ width:1%; white-space:nowrap; }
   .sample-xl td.items .it span, .sample-xl td.items .it b{ white-space:nowrap; }
-  .sample-xl td.items .it{ display:flex; justify-content:flex-start; align-items:baseline; gap:10px; padding:1px 0; }
+  .sample-xl td.items .it{ display:flex; justify-content:flex-start; align-items:baseline; gap:10px; padding:0; }
   .sample-xl td.items .it span{ min-width:136px; }
   .sample-xl td.items .it b{ min-width:68px; }
   .sample-xl td.items .it small{ color:var(--muted); font-weight:400; }
@@ -330,6 +331,17 @@
   .sample-xl .sub-line{ font-size:11px; color:var(--muted); margin-top:1px; }
   .sample-xl .pm-tag{ display:inline-block; font-size:12px; font-weight:700; color:#2f6fb2; background:#e6f0fb; padding:1px 8px; border-radius:100px; white-space:nowrap; }
   .sample-xl td.acts{ min-width:96px; }
+  .sample-xl .pm-tag.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
+  .sample-xl .pm-tag.pm-etc{ color:#7a5a1f; background:#f7eedb; }
+  .sample-xl td.items .it, .sample-xl .pm-line{ height:20px; line-height:20px; }
+  .sample-items-list .pm-mini{ font-size:11px; font-weight:700; padding:1px 7px; border-radius:100px; color:#2f6fb2; background:#e6f0fb; white-space:nowrap; }
+  .sample-items-list .pm-mini.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
+  .sample-items-list .pm-mini.pm-etc{ color:#7a5a1f; background:#f7eedb; }
+  .sample-table .pm-tag{ font-size:12px; font-weight:700; padding:1px 8px; border-radius:100px; color:#2f6fb2; background:#e6f0fb; white-space:nowrap; }
+  .sample-table .pm-tag.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
+  .sample-table .pm-tag.pm-etc{ color:#7a5a1f; background:#f7eedb; }
+  #panel-sample .sample-pm-sel{ min-width:130px; }
+  #panel-sample .sample-pm-etc{ width:130px; }
   .sample-xl td.acts button{ margin:1px 2px 1px 0; padding:3px 7px; font-size:11.5px; }
   @media (max-width: 640px){
     .sample-table-desktop{ display:none; }
@@ -1204,13 +1216,6 @@
         <label style="font-size:13px;">생산 요청 부서 :</label>
         <input type="text" id="sample-dept" list="sample-dept-list" placeholder="예: 영업팀" style="width:180px;">
         <datalist id="sample-dept-list"></datalist>
-        <label style="font-size:13px;">생산 방식 :</label>
-        <select id="sample-prod-method">
-          <option value="생산본부 생산">생산본부 생산</option>
-          <option value="연구실 생산">연구실 생산</option>
-          <option value="기타">기타 (직접 입력)</option>
-        </select>
-        <input type="text" id="sample-prod-method-etc" placeholder="생산 방식 입력" style="display:none; width:200px;">
       </div>
       <div class="row" style="align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">출고일시 :</label>
@@ -1225,7 +1230,13 @@
         </select>
         <input type="text" id="sample-ship-method-etc" placeholder="출고 방식 입력" style="display:none; width:200px;">
       </div>
-      <h3 style="margin-top:16px;">신청 샘플 <span class="sub" style="font-weight:400; margin:0;">(팩 단위 · SKU 등록 품목)</span></h3>
+      <h3 style="margin-top:16px;">신청 샘플 <span class="sub" style="font-weight:400; margin:0;">(팩 단위 · SKU 등록 품목 · 품목별 생산 방식)</span></h3>
+      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
+        <label style="font-size:13px;">생산 방식 한 번에 지정 :</label>
+        <button type="button" class="btn-ghost small-btn" id="sample-bulk-hq">전체 생산본부 생산</button>
+        <button type="button" class="btn-ghost small-btn" id="sample-bulk-lab">전체 연구실 생산</button>
+        <span class="sub" style="margin:0;">품목마다 아래에서 따로 바꿀 수도 있습니다</span>
+      </div>
       <div id="sample-items"></div>
       <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
       <h3 style="margin-top:16px;">비고 <span class="sub" style="font-weight:400; margin:0;">(용도 · 포장방법 · 택배 발송 시 주소/연락처)</span></h3>
@@ -6407,6 +6418,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS requester_dept text;
 ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const SAMPLE_PROD_METHODS = ['생산본부 생산', '연구실 생산'];   // 그 밖의 방식은 '기타(직접 입력)'
+  let sampleDefaultPm = SAMPLE_PROD_METHODS[0];   // 새로 추가하는 품목 줄의 기본 생산 방식 (일괄 지정 버튼으로 바뀜)
+  // 품목 한 줄의 생산 방식: 품목에 지정된 값 → 없으면(예전 신청) 신청 전체의 생산 방식
+  const sampleItemPm = (r, it) => (it && it.production_method) || (r && r.production_method) || '';
+  const samplePmShort = m => m === '생산본부 생산' ? '생산본부' : m === '연구실 생산' ? '연구실' : (m || '');
+  // 생산 방식 필터: '' 전체 / 방식 이름 / '__etc' = 생산본부·연구실 외(미지정 포함)
+  const samplePmMatch = (m, pm) => !pm || (pm === '__etc' ? !SAMPLE_PROD_METHODS.includes(m) : m === pm);
+  // 신청 전체 요약값: 모두 같으면 그 방식, 섞여 있으면 '혼합' (목록 정렬·예전 화면 호환용)
+  const sampleSummaryPm = items => { const s = [...new Set(items.map(i => i.production_method).filter(Boolean))]; return s.length === 1 ? s[0] : (s.length > 1 ? '혼합' : ''); };
   let sampleRows = [], sampleUsers = [], sampleInited = false, sampleEditId = null, sampleItems = [], sampleLoadErr = '';
   const sEl = id => document.getElementById(id);
   const sampleMe = () => window.currentUser || {};
@@ -6473,12 +6492,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       sampleInited = true;
       SAMPLE_SECTIONS.forEach(s => sEl('sample-tab-' + s + '-btn').addEventListener('click', async () => { await sampleLoad(); sampleShow(s); }));
       sEl('sample-ship-method').addEventListener('change', sampleMethodToggle);
-      sEl('sample-prod-method').addEventListener('change', sampleProdToggle);
+      sEl('sample-bulk-hq').addEventListener('click', () => sampleBulkPm('생산본부 생산'));
+      sEl('sample-bulk-lab').addEventListener('click', () => sampleBulkPm('연구실 생산'));
       // 대리 신청으로 신청자를 바꾸면 그 직원의 부서를 자동으로 채운다
       sEl('sample-requester-select').addEventListener('change', () => { sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value); });
       sEl('sample-ship-at').addEventListener('input', sampleUpdateWd);
       sEl('sample-ship-at').addEventListener('change', sampleUpdateWd);
-      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '' }); sampleRenderItems(); });
+      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '' }); sampleRenderItems(); });
       sEl('sample-submit').addEventListener('click', sampleSubmit);
       sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
       ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
@@ -6497,7 +6517,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
   // ── 신청 폼 ──
   function sampleMethodToggle(){ sEl('sample-ship-method-etc').style.display = sEl('sample-ship-method').value === '기타' ? '' : 'none'; }
-  function sampleProdToggle(){ sEl('sample-prod-method-etc').style.display = sEl('sample-prod-method').value === '기타' ? '' : 'none'; }
+  // 모든 품목 줄의 생산 방식을 한 번에 지정 (새로 추가하는 줄의 기본값도 같이 바뀐다)
+  function sampleBulkPm(method){
+    sampleDefaultPm = method;
+    sampleItems.forEach(it => { it.pm = method; it.pmEtc = ''; });
+    sampleRenderItems();
+    toast(`모든 품목을 '${method}'으로 지정했습니다`);
+  }
   // 직원의 부서 (로그인 계정에 지정된 부서) — 본인은 로그인 정보, 다른 직원은 직원 목록에서 찾는다
   function sampleDeptOf(userId){
     const me = sampleMe();
@@ -6526,14 +6552,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sel.style.display = ''; fixed.style.display = 'none';
   }
   function sampleResetForm(){
-    sampleEditId = null; sampleItems = [{ skuId: '', packs: '' }];
+    sampleEditId = null; sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '' }];
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
     sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
     sEl('sample-note').value = '';
     sEl('sample-requester-select').value = sampleMe().id || '';
     sEl('sample-dept').value = sampleDeptOf(sampleMe().id);
-    sEl('sample-prod-method').value = SAMPLE_PROD_METHODS[0]; sEl('sample-prod-method-etc').value = ''; sampleProdToggle();
+    sampleDefaultPm = SAMPLE_PROD_METHODS[0];
     sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none'; sEl('sample-cancel-edit').textContent = '수정 취소';
     sEl('sample-form-title').textContent = '샘플 신청';
     sampleRenderItems();
@@ -6545,6 +6571,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const sel = document.createElement('select');
       sel.innerHTML = '<option value="">품목 선택</option>' + dict.map(d => `<option value="${escapeHtml(d.id)}" ${d.id === it.skuId ? 'selected' : ''}>${escapeHtml(d.name)}${Number(d.boxUnitCount) > 0 ? ` (1박스 ${Number(d.boxUnitCount)}팩)` : ''}</option>`).join('');
       const qty = document.createElement('input'); qty.type = 'number'; qty.min = '1'; qty.step = '1'; qty.placeholder = '팩'; qty.value = it.packs; qty.className = 'sample-qty';
+      const pmSel = document.createElement('select'); pmSel.className = 'sample-pm-sel';
+      pmSel.innerHTML = SAMPLE_PROD_METHODS.map(m => `<option value="${m}" ${it.pm === m ? 'selected' : ''}>${m}</option>`).join('') + `<option value="기타" ${it.pm === '기타' ? 'selected' : ''}>기타 (직접 입력)</option>`;
+      const pmEtc = document.createElement('input'); pmEtc.type = 'text'; pmEtc.className = 'sample-pm-etc'; pmEtc.placeholder = '생산 방식 입력'; pmEtc.value = it.pmEtc || '';
+      pmEtc.style.display = it.pm === '기타' ? '' : 'none';
+      pmSel.addEventListener('change', () => { it.pm = pmSel.value; pmEtc.style.display = it.pm === '기타' ? '' : 'none'; if(it.pm !== '기타') it.pmEtc = ''; });
+      pmEtc.addEventListener('input', () => { it.pmEtc = pmEtc.value; });
       const info = document.createElement('span'); info.className = 'sample-box-info';
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '삭제';
       const upd = () => {
@@ -6556,17 +6588,27 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       };
       sel.addEventListener('change', () => { it.skuId = sel.value; upd(); });
       qty.addEventListener('input', () => { it.packs = qty.value; upd(); });
-      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '' }); sampleRenderItems(); });
+      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '' }); sampleRenderItems(); });
       upd();
-      row.append(sel, qty, info, del); wrap.appendChild(row);
+      row.append(sel, qty, pmSel, pmEtc, info, del); wrap.appendChild(row);
     });
   }
+  // 품목 줄 → 저장할 품목 목록. 같은 품목+같은 생산 방식은 수량을 합치고, 방식이 다르면 별도 줄로 둔다.
+  // 생산 방식을 '기타'로 하고 내용을 안 적은 줄이 있으면 { error } 를 돌려준다.
   function sampleCollectItems(){
     const m = new Map();
-    sampleItems.forEach(it => { const p = Number(it.packs); if(it.skuId && p > 0) m.set(it.skuId, (m.get(it.skuId) || 0) + p); });
-    return [...m.entries()].map(([skuId, packs]) => {
+    for(const it of sampleItems){
+      const p = Number(it.packs);
+      if(!(it.skuId && p > 0)) continue;
+      const pm = it.pm === '기타' ? (it.pmEtc || '').trim() : (it.pm || SAMPLE_PROD_METHODS[0]);
+      if(!pm) return { error: '생산 방식을 입력해주세요 (기타 선택 시 내용 필수)' };
+      const key = it.skuId + '|' + pm;
+      const cur = m.get(key) || { skuId: it.skuId, pm, packs: 0 };
+      cur.packs += p; m.set(key, cur);
+    }
+    return [...m.values()].map(({ skuId, pm, packs }) => {
       const u = sampleUnit(skuId), b = u ? packs / u : null;
-      return { skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000 };
+      return { skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000, production_method: pm };
     });
   }
   async function sampleSubmit(){
@@ -6575,11 +6617,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!shipVal){ toast('출고일시를 입력해주세요'); return; }
     let method = sEl('sample-ship-method').value;
     if(method === '기타'){ method = sEl('sample-ship-method-etc').value.trim(); if(!method){ toast('출고 방식을 입력해주세요'); return; } }
-    let prod = sEl('sample-prod-method').value;
-    if(prod === '기타'){ prod = sEl('sample-prod-method-etc').value.trim(); if(!prod){ toast('생산 방식을 입력해주세요'); return; } }
     const dept = sEl('sample-dept').value.trim();
     const items = sampleCollectItems();
+    if(items.error){ toast(items.error); return; }
     if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
+    const prod = sampleSummaryPm(items);   // 신청 전체 요약(모두 같으면 그 방식, 섞이면 '혼합')
     const note = sEl('sample-note').value.trim();
     if(method.includes('택배') && !note && !confirm('택배 발송 요청인데 비고에 주소·연락처가 비어 있습니다. 그대로 신청할까요?')) return;
     const reqId = sampleCan('collect') ? (sEl('sample-requester-select').value || me.id) : me.id;
@@ -6620,12 +6662,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     else { sEl('sample-ship-method').value = '기타'; sEl('sample-ship-method-etc').value = r.ship_method || ''; }
     sampleMethodToggle();
     sEl('sample-dept').value = r.requester_dept || '';
-    if(SAMPLE_PROD_METHODS.includes(r.production_method) || !r.production_method){ sEl('sample-prod-method').value = r.production_method || SAMPLE_PROD_METHODS[0]; sEl('sample-prod-method-etc').value = ''; }
-    else { sEl('sample-prod-method').value = '기타'; sEl('sample-prod-method-etc').value = r.production_method; }
-    sampleProdToggle();
     sEl('sample-note').value = r.note || '';
-    sampleItems = (r.items || []).map(i => ({ skuId: i.skuId, packs: i.packs }));
-    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '' }];
+    sampleItems = (r.items || []).map(i => {
+      const m = sampleItemPm(r, i) || SAMPLE_PROD_METHODS[0];
+      return SAMPLE_PROD_METHODS.includes(m) ? { skuId: i.skuId, packs: i.packs, pm: m, pmEtc: '' } : { skuId: i.skuId, packs: i.packs, pm: '기타', pmEtc: m };
+    });
+    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '' }];
+    if(sampleItems.length) sampleDefaultPm = sampleItems[0].pm === '기타' ? SAMPLE_PROD_METHODS[0] : sampleItems[0].pm;
     sampleRenderItems();
   }
   function sampleStartEdit(r){
@@ -6725,7 +6768,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       case 'method': return r.ship_method || '';
       case 'who': return r.requester_name || '';
       case 'dept': return r.requester_dept || '';
-      case 'pm': return r.production_method || '';
+      case 'pm': return sampleSummaryPm(r.items || []) || r.production_method || '';
       case 'status': return { '신청': 0, '확인': 1, '취소': 2 }[r.status];
       case 'confirmer': return r.confirmed_by_name || '';
     }
@@ -6738,9 +6781,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const from = range === 'upcoming' ? today.getTime() : range === 'recent' ? today.getTime() - 7 * 86400000 : -Infinity;
     let rows = sampleRows.filter(r => new Date(r.ship_at).getTime() >= from);
     rows = rows.filter(r => st === 'active' ? r.status !== '취소' : st === 'pending' ? r.status === '신청' : st === 'confirmed' ? r.status === '확인' : st === 'canceled' ? r.status === '취소' : true);
-    if(pm === '__etc') rows = rows.filter(r => !SAMPLE_PROD_METHODS.includes(r.production_method));
-    else if(pm) rows = rows.filter(r => r.production_method === pm);
-    if(q) rows = rows.filter(r => [r.requester_name, r.created_by_name, r.requester_dept, r.production_method, r.ship_method, r.note,
+    // 생산 방식 필터: 품목 중 하나라도 그 방식이면 표시 (품목별로 지정할 수 있으므로)
+    if(pm) rows = rows.filter(r => (r.items || []).some(i => samplePmMatch(sampleItemPm(r, i), pm)));
+    if(q) rows = rows.filter(r => [r.requester_name, r.created_by_name, r.requester_dept, r.production_method, ...(r.items || []).map(i => i.production_method), r.ship_method, r.note,
       ...(r.items || []).map(i => sampleSkuName(i.skuId, i.name))].join(' ').toLowerCase().includes(q));
     // 기본 정렬: 앞으로의 출고는 가까운 날짜부터, '전체'는 최신순. 머리글을 누르면 그 열 기준.
     const key = sampleSort.key || 'ship';
@@ -6757,6 +6800,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const b = i.boxes != null ? i.boxes : sampleBoxes(i.skuId, i.packs);
       return `<div class="it"><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` <small>(${sampleFmtNum(b)}박스)</small>` : ''}</b></div>`;
     }).join('');
+  }
+  const samplePmClass = m => m === '생산본부 생산' ? 'pm-hq' : m === '연구실 생산' ? 'pm-lab' : 'pm-etc';
+  const samplePmTag = m => m ? `<span class="pm-tag ${samplePmClass(m)}" title="${escapeHtml(m)}">${escapeHtml(samplePmShort(m))}</span>` : '';
+  // 생산 방식 열: 품목이 모두 같은 방식이면 태그 하나, 섞여 있으면 품목 줄과 같은 높이로 줄마다 표시
+  function samplePmCell(r){
+    const items = r.items || [];
+    const ms = items.map(i => sampleItemPm(r, i));
+    if(new Set(ms).size <= 1) return samplePmTag(ms[0] || r.production_method || '');
+    return ms.map(m => `<div class="pm-line">${samplePmTag(m)}</div>`).join('');
   }
   function sampleRenderList(){
     const wrap = sEl('sample-list-wrap');
@@ -6795,7 +6847,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         <td class="nw">${escapeHtml(r.ship_method || '')}</td>
         <td class="nw" title="신청 ${escapeHtml(sampleFmtAt(r.created_at))}"><b>${escapeHtml(r.requester_name || '')}</b>${proxy ? `<div class="sub-line">${escapeHtml(r.created_by_name || '')} 대리</div>` : ''}</td>
         <td class="dept">${escapeHtml(r.requester_dept || '')}</td>
-        <td class="nw">${r.production_method ? `<span class="pm-tag">${escapeHtml(r.production_method)}</span>` : ''}</td>
+        <td class="nw">${samplePmCell(r)}</td>
         <td class="items">${sampleItemsText(r)}</td>
         <td class="note">${r.note ? escapeHtml(r.note).replace(/\n/g, '<br>') : ''}</td>
         <td class="status">${pill}</td>
@@ -6815,7 +6867,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const pill = r.status === '확인' ? '<span class="sample-pill ok">✅ 확인됨</span>' : r.status === '취소' ? '<span class="sample-pill off">취소됨</span>' : '<span class="sample-pill wait">미확인</span>';
       const itemsHtml = (r.items || []).map(i => {
         const b = i.boxes != null ? i.boxes : sampleBoxes(i.skuId, i.packs);
-        return `<li><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` (${sampleFmtNum(b)}박스)` : ''}</b></li>`;
+        const pmT = sampleItemPm(r, i);
+        return `<li><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` (${sampleFmtNum(b)}박스)` : ''}</b>${pmT ? `<span class="pm-mini ${samplePmClass(pmT)}">${escapeHtml(samplePmShort(pmT))}</span>` : ''}</li>`;
       }).join('');
       const card = document.createElement('div');
       card.className = 'sample-card ' + (r.status === '확인' ? 'confirmed' : r.status === '취소' ? 'canceled' : '');
@@ -6857,15 +6910,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     wrap.innerHTML = '';
     if(sampleLoadErr){ sampleRenderList(); return; }
     const from = sEl('sample-s-from').value, to = sEl('sample-s-to').value, scope = sEl('sample-s-scope').value, pm = sEl('sample-s-method').value;
-    const rows = sampleRows.filter(r => {
+    const base = sampleRows.filter(r => {
       if(r.status === '취소') return false;
       if(scope === 'confirmed' && r.status !== '확인') return false;
-      // 생산 방식 필터: '__etc' = 생산본부/연구실 외 기타 방식 (미입력 포함)
-      if(pm === '__etc'){ if(SAMPLE_PROD_METHODS.includes(r.production_method)) return false; }
-      else if(pm && r.production_method !== pm) return false;
       const k = sampleDayKey(r.ship_at);
       return (!from || k >= from) && (!to || k <= to);
     });
+    // 생산 방식은 품목별로 지정되므로, 선택한 방식의 품목만 모아서 집계한다 ('__etc' = 생산본부·연구실 외, 미지정 포함)
+    const rows = base.map(r => ({ ...r, items: (r.items || []).filter(i => samplePmMatch(sampleItemPm(r, i), pm)) })).filter(r => r.items.length);
     const agg = sampleAggregate(rows);
     const ids = Object.keys(agg.bySku);
     sEl('sample-sum-count').textContent = `신청 ${rows.length}건`;
@@ -6874,7 +6926,20 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const order = dict.map(d => d.id);
     ids.sort((a, b) => (order.indexOf(a) < 0 ? 9999 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 9999 : order.indexOf(b)));
     let totalPacks = 0, totalBoxes = 0, anyMissing = false;
-    let html = '<h3 style="margin-top:4px;">품목별 합계</h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>품목</th><th>박스입수</th><th>총 팩</th><th>박스 환산</th><th>신청 건수</th></tr></thead><tbody>';
+    // 생산 방식별 합계 (방식 필터를 고르지 않았을 때만): 생산본부 / 연구실 / 기타가 각각 몇 팩인지
+    let pmHtml = '';
+    if(!pm){
+      const byPm = {};
+      rows.forEach(r => r.items.forEach(i => {
+        const m = sampleItemPm(r, i) || '(미지정)';
+        const e = byPm[m] || (byPm[m] = { packs: 0, boxes: 0, miss: false });
+        const p = Number(i.packs) || 0, b = sampleBoxes(i.skuId, p);
+        e.packs += p; if(b == null) e.miss = true; else e.boxes += b;
+      }));
+      const ms = Object.keys(byPm);
+      pmHtml = '<h3 style="margin-top:4px;">생산 방식별 합계</h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>생산 방식</th><th>총 팩</th><th>박스 환산</th></tr></thead><tbody>' +
+        ms.map(m => `<tr><td>${samplePmTag(m)} ${escapeHtml(m)}</td><td class="num"><b>${sampleFmtNum(byPm[m].packs)}</b></td><td class="num">${sampleFmtNum(byPm[m].boxes)}${byPm[m].miss ? '+' : ''}</td></tr>`).join('') + '</tbody></table></div>';
+    }    let html = pmHtml + '<h3 style="margin-top:'+(pmHtml ? '18' : '4')+'px;">품목별 합계</h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>품목</th><th>박스입수</th><th>총 팩</th><th>박스 환산</th><th>신청 건수</th></tr></thead><tbody>';
     ids.forEach(id => {
       const e = agg.bySku[id], u = sampleUnit(id);
       totalPacks += e.packs; totalBoxes += e.boxes; if(e.boxMissing) anyMissing = true;
@@ -6894,15 +6959,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
   // ── 생산 공유 연동용: 출고일(dateKey) 하루의 샘플 수요를 SKU별 팩/박스로 돌려준다 ──
   //  opts.confirmedOnly=true 이면 확인 처리된 건만 포함. 취소된 신청은 항상 제외.
-  //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식의 신청만 포함 (예: 생산 공유에는 '생산본부 생산'만).
+  //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식으로 지정된 품목만 포함 (예: 생산 공유에는 '생산본부 생산'만).
   window.getSampleDemand = async function(dateKey, opts){
     const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
     let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}`;
     if(opts && opts.confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
-    if(opts && opts.productionMethod) q += `&production_method=eq.${encodeURIComponent(opts.productionMethod)}`;
     const rows = await sbQuery('sample_requests', q);
     const out = {};
     rows.forEach(r => (r.items || []).forEach(i => {
+      if(opts && opts.productionMethod && sampleItemPm(r, i) !== opts.productionMethod) return;   // 품목별 생산 방식으로 거른다
       const e = out[i.skuId] || (out[i.skuId] = { packs: 0, boxes: 0, count: 0 });
       const p = Number(i.packs) || 0, b = sampleBoxes(i.skuId, p);
       e.packs += p; e.boxes += (b == null ? 0 : b); e.count++;
