@@ -211,6 +211,10 @@
   #app.ro-order #panel-ecount .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
+  /* 업로드 파일 미리보기: 긴 글(주소 등)은 한 줄로 줄여서 표시 (전체 내용은 마우스를 올리면 보임) */
+  .col-preview{ width:max-content; min-width:100%; }
+  .col-preview th, .col-preview td{ white-space:nowrap; max-width:130px; overflow:hidden; text-overflow:ellipsis; font-size:12px; padding:4px 7px; text-align:left; }
+  .col-preview th{ text-align:center; }
   /* 접어두는 구역을 본문 소제목과 구분하는 박스 */
   .fold-box{ margin:18px 0; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; background:var(--hover); padding:0 14px; }
   .fold-box > summary{ cursor:pointer; padding:11px 0; font-size:15px; font-weight:700; color:var(--fg); }
@@ -3814,13 +3818,13 @@ function goHome() {
   function buildColumnPreviewTable(sheetData, containerId){
     const maxCols = sheetData.reduce((m, r) => Math.max(m, r.length), 0);
     const previewRows = sheetData.slice(0, 6);
-    let html = '<table><thead><tr><th></th>';
+    let html = '<table class="col-preview"><thead><tr><th></th>';
     for(let i = 0; i < maxCols; i++) html += `<th>${colLetter(i)}</th>`;
     html += '</tr></thead><tbody>';
     previewRows.forEach((row, ridx) => {
       html += `<tr><td class="totals-col">${ridx + 1}</td>`;
       for(let i = 0; i < maxCols; i++){
-        html += `<td>${escapeHtml((row[i] ?? '').toString())}</td>`;
+        { const v = escapeHtml((row[i] ?? '').toString()); html += `<td title="${v}">${v}</td>`; }
       }
       html += '</tr>';
     });
