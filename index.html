@@ -223,6 +223,13 @@
   .col-preview{ width:max-content; min-width:100%; }
   .col-preview th, .col-preview td{ white-space:nowrap; max-width:130px; overflow:hidden; text-overflow:ellipsis; font-size:12px; padding:4px 7px; text-align:left; }
   .col-preview th{ text-align:center; }
+  /* 업체 양식 다운로드: 원본 파일 미리보기(운송장 열 고르기) */
+  #orig-preview-wrap{ margin-top:8px; overflow:auto; max-width:100%; }
+  #orig-preview-wrap:has(table){ border:1px solid var(--line); border-radius:8px; }
+  .orig-prev th.pick{ cursor:pointer; user-select:none; }
+  .orig-prev th.pick:hover{ background:var(--accent-soft, var(--hover)); }
+  .orig-prev th.sel, .orig-prev td.sel{ background:#fff3bf; color:#5c4400; font-weight:700; }
+  .orig-prev tr.hdr td{ background:var(--hover); font-weight:600; }
   /* 접어두는 구역을 본문 소제목과 구분하는 박스 */
   .fold-box{ margin:18px 0; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; background:var(--hover); padding:0 14px; }
   .fold-box > summary{ cursor:pointer; padding:11px 0; font-size:15px; font-weight:700; color:var(--fg); }
@@ -849,6 +856,8 @@
         <input type="text" id="original-tracking-col" placeholder="예: L" style="width:60px; text-transform:uppercase;" title="원본 파일에서 운송장번호를 기입할 열 (예: L). 비워두면 마지막 열 뒤에 추가됩니다.">
         <button class="btn-primary small-btn" id="export-original-format-btn">업체 양식으로 다운로드</button>
       </div>
+      <div class="sub" id="orig-preview-note" style="margin:6px 0 0;"></div>
+      <div id="orig-preview-wrap"></div>
 
   </div>
 
@@ -3780,6 +3789,7 @@ function goHome() {
       const opt = document.createElement('option');
       opt.value = ''; opt.textContent = '(업로드된 원본 파일 없음)';
       sel.appendChild(opt);
+      renderOriginalPreview();
       return;
     }
     names.forEach(name=>{
@@ -3788,6 +3798,47 @@ function goHome() {
       sel.appendChild(opt);
     });
     if(names.includes(prevVal)) sel.value = prevVal;
+    renderOriginalPreview();
+  }
+
+  // 선택한 업체가 올렸던 원본 파일의 첫 몇 줄을 보여주고, 열 머리글(A, B, C…)을 누르면 운송장 삽입 열로 지정
+  function renderOriginalPreview(){
+    const wrap = document.getElementById('orig-preview-wrap');
+    const note = document.getElementById('orig-preview-note');
+    if(!wrap) return;
+    const companyName = document.getElementById('original-file-company-select').value;
+    const entry = companyName ? currentOriginalFiles()[companyName] : null;
+    if(!entry){ wrap.innerHTML = ''; if(note) note.textContent = ''; return; }
+    const batches = Array.isArray(entry) ? entry : [entry];
+    const batch = batches[batches.length - 1];
+    const aoa = batch.aoa || [];
+    const startRow = batch.startRow || 1;
+    const from = Math.max(0, startRow - 3);
+    const to = Math.min(aoa.length, startRow + 2);
+    const shown = aoa.slice(from, to);
+    const maxCols = shown.reduce((m, r) => Math.max(m, r.length), 0);
+    const sel = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
+    const selIdx = /^[A-Z]{1,3}$/.test(sel) ? letterToIndex(sel) : -1;
+    let html = '<table class="col-preview orig-prev"><thead><tr><th></th>';
+    for(let i = 0; i < maxCols; i++) html += `<th class="pick${i === selIdx ? ' sel' : ''}" data-col="${colLetter(i)}" title="${colLetter(i)}열에 운송장번호 넣기">${colLetter(i)}</th>`;
+    html += '</tr></thead><tbody>';
+    shown.forEach((row, k) => {
+      const rowNo = from + k + 1;
+      html += `<tr${rowNo < startRow ? ' class="hdr"' : ''}><td class="totals-col">${rowNo}</td>`;
+      for(let i = 0; i < maxCols; i++){
+        const v = escapeHtml((row[i] ?? '').toString());
+        html += `<td${i === selIdx ? ' class="sel"' : ''} title="${v}">${v}</td>`;
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    if(note){
+      const multi = batches.length > 1 ? ` (업로드 ${batches.length}회 중 마지막 파일 기준)` : '';
+      note.textContent = (selIdx >= 0
+        ? `노란색 ${sel}열에 운송장번호가 들어갑니다.`
+        : '운송장번호를 넣을 열의 머리글(A, B, C…)을 누르세요. 지정하지 않으면 마지막 열 뒤에 추가됩니다.') + multi;
+    }
   }
 
   function formatBoxBreakdown(qty, boxUnitCount){
@@ -5846,6 +5897,15 @@ function goHome() {
   });
   document.getElementById('stm-import-file').addEventListener('change', e => {
     const f = e.target.files[0]; if(f) stmImportCompanyInfo(f); e.target.value = '';
+  });
+
+  document.getElementById('original-file-company-select').addEventListener('change', renderOriginalPreview);
+  document.getElementById('original-tracking-col').addEventListener('input', renderOriginalPreview);
+  document.getElementById('orig-preview-wrap').addEventListener('click', e => {
+    const th = e.target.closest('th.pick'); if(!th) return;
+    const inp = document.getElementById('original-tracking-col');
+    inp.value = (inp.value.trim().toUpperCase() === th.dataset.col) ? '' : th.dataset.col;
+    renderOriginalPreview();
   });
 
   // 업체 원본 양식 그대로 + 운송장번호만 채워서 그 업체에 회신할 파일
