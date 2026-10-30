@@ -211,6 +211,14 @@
   #app.ro-order #panel-ecount .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
+  /* 긴 표: 한 줄씩 표시 + 표 안에서 스크롤(머리글 고정). 긴 글은 줄여서 보이고 마우스를 올리면 전체가 보임 */
+  .tbl-scroll{ max-height:68vh; overflow:auto; }
+  .tbl-scroll:has(table){ border:1px solid var(--line); border-radius:8px; }
+  .tbl-scroll table{ width:max-content; min-width:100%; }
+  .tbl-scroll th, .tbl-scroll td{ white-space:nowrap; }
+  .tbl-scroll thead th{ position:sticky; top:0; z-index:2; box-shadow:0 1px 0 var(--line); }
+  .tbl-scroll td.clip{ max-width:190px; overflow:hidden; text-overflow:ellipsis; }
+  .tbl-scroll td select{ max-width:190px; }
   /* 업로드 파일 미리보기: 긴 글(주소 등)은 한 줄로 줄여서 표시 (전체 내용은 마우스를 올리면 보임) */
   .col-preview{ width:max-content; min-width:100%; }
   .col-preview th, .col-preview td{ white-space:nowrap; max-width:130px; overflow:hidden; text-overflow:ellipsis; font-size:12px; padding:4px 7px; text-align:left; }
@@ -667,7 +675,7 @@
       <button class="tab-btn active" id="tab-all-btn">전체 집계</button>
       <button class="tab-btn" id="tab-3pl-btn">3PL 출고 집계</button>
     </div>
-    <div id="agg-table-wrap"></div>
+    <div id="agg-table-wrap" class="tbl-scroll"></div>
     <div class="row" id="agg-bulk-bar" style="display:none;">
       <button class="btn-danger small-btn" id="agg-bulk-delete-btn">선택 항목 삭제</button>
     </div>
@@ -676,7 +684,7 @@
       <h3>품목별 합계</h3>
       <div id="agg-3pl-summary-wrap"></div>
       <h3>개별 주문(택배) 리스트</h3>
-      <div id="agg-3pl-detail-wrap"></div>
+      <div id="agg-3pl-detail-wrap" class="tbl-scroll"></div>
       <div class="row" id="detail-bulk-bar" style="display:none;">
         <button class="btn-danger small-btn" id="detail-bulk-delete-btn">선택 항목 삭제</button>
         <span class="company-bulk-delete-ui" style="margin-left:18px; font-size:13px; color:var(--muted);">업체 단위 삭제 :</span>
@@ -815,7 +823,7 @@
     </div>
 
     <h3>반품 내역</h3>
-    <div id="return-list-wrap"><div class="empty">등록된 반품 내역이 없습니다.</div></div>
+    <div id="return-list-wrap" class="tbl-scroll"><div class="empty">등록된 반품 내역이 없습니다.</div></div>
     <div class="row" style="margin-top:6px;">
       <button class="btn-ghost small-btn" id="return-refresh-btn">새로고침</button>
       <button class="btn-primary small-btn" id="return-export-btn">반품 내역 엑셀 다운로드</button>
@@ -4198,8 +4206,8 @@ function goHome() {
       tr.appendChild(internalNoTd);
 
       const companyTd = document.createElement('td');
-      companyTd.className = 'name-cell';
-      companyTd.textContent = r.company;
+      companyTd.className = 'name-cell clip';
+      companyTd.textContent = r.company; companyTd.title = r.company;
       tr.appendChild(companyTd);
 
       const staffTd = document.createElement('td');
@@ -4219,8 +4227,8 @@ function goHome() {
       tr.appendChild(phoneTd);
 
       const addrTd = document.createElement('td');
-      addrTd.className = 'name-cell';
-      addrTd.textContent = r.address;
+      addrTd.className = 'name-cell clip';
+      addrTd.textContent = r.address; addrTd.title = r.address || '';
       tr.appendChild(addrTd);
 
       const itemTd = document.createElement('td');
@@ -4267,8 +4275,8 @@ function goHome() {
       tr.appendChild(boxTd);
 
       const noteTd = document.createElement('td');
-      noteTd.className = 'name-cell';
-      noteTd.textContent = r.note;
+      noteTd.className = 'name-cell clip';
+      noteTd.textContent = r.note; noteTd.title = r.note || '';
       tr.appendChild(noteTd);
 
       const trackTd = document.createElement('td');
@@ -6027,11 +6035,11 @@ function goHome() {
       rows.forEach(r=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${r.return_date}</td><td>${r.original_date}</td>
-          <td class="name-cell">${escapeHtml(r.company_name)}</td>
-          <td class="name-cell">${escapeHtml(r.item_name)}</td>
+          <td class="name-cell clip" title="${escapeHtml(r.company_name)}">${escapeHtml(r.company_name)}</td>
+          <td class="name-cell clip" title="${escapeHtml(r.item_name)}">${escapeHtml(r.item_name)}</td>
           <td style="color:var(--danger,#b5482e);font-weight:700;">-${r.qty}</td>
           <td>${escapeHtml(r.reason)}</td><td>${escapeHtml(r.process)}</td>
-          <td class="name-cell" style="font-size:12px;">${escapeHtml(r.note||'')}</td>
+          <td class="name-cell clip" style="font-size:12px;" title="${escapeHtml(r.note||'')}">${escapeHtml(r.note||'')}</td>
           <td style="font-size:12px;">${escapeHtml(r.entered_by||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className='btn-danger small-btn'; delBtn.textContent='삭제';
