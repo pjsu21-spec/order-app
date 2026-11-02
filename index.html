@@ -9813,8 +9813,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const [y, m, d] = input.date.split('-').map(Number);
     poSetNum(ctx, 'B2', Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000));
     // 2) 업체 행: 이전 값 지우고 채움
+    // 재고사용 열은 아직 앱에서 채우지 않으므로 비워서 내려받음 (서식에 남아 있던 이전 메모도 지움)
+    let stockUseCol = '';
+    for(let r = 1; r <= 16 && !stockUseCol; r++){
+      for(let n = PO_LAST_COL + 1; n <= PO_LAST_COL + 14; n++){ if(poNorm(poText(ctx, colLetter(n - 1) + r)) === '재고사용'){ stockUseCol = colLetter(n - 1); break; } }
+    }
     scan.companyRows.forEach(r => {
       for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++) poClear(ctx, colLetter(n - 1) + r.row);
+      if(stockUseCol) poClear(ctx, stockUseCol + r.row);
     });
     const used = new Set();
     const usedCols = new Set(Object.keys(input.stockByCol || {}).filter(c => input.stockByCol[c] > 0)); // 수량이나 재고가 있는 품목 열
@@ -9901,6 +9907,127 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(n < max) parts.push(mk(n + 1, max));
     parts.forEach(p => colsEl.insertBefore(p, el));
     colsEl.removeChild(el);
+  }
+
+  // 서식의 로고 그림(왓더프룻)을 글자로 바꾸고 그림은 뺌. 그림은 특정 칸에 떠 있어서 열을 숨기면 엉뚱한 곳에 보이기 때문.
+  // 그림이 놓여 있던 묶음 머리글 칸(예: "500G")의 윗줄에 빨간 글씨로 "왓더프룻"을 넣음. 바꾼 로고 개수를 돌려줌
+  const PO_LOGO_TEXT = '왓더프룻';
+  async function poReplaceLogos(ctx){
+    const parse = x => new DOMParser().parseFromString(x, 'application/xml');
+    const resolve = (base, target) => {
+      if(target.startsWith('/')) return target.slice(1);
+      const parts = base.split('/').slice(0, -1);
+      target.split('/').forEach(seg => { if(seg === '..') parts.pop(); else if(seg !== '.') parts.push(seg); });
+      return parts.join('/');
+    };
+    const relPath = ctx.sheetPath.replace(/worksheets\/([^/]+)$/, 'worksheets/_rels/$1.rels');
+    const relFile = ctx.zip.file(relPath);
+    if(!relFile) return 0;
+    const relDoc = parse(await relFile.async('string'));
+    const rel = [...relDoc.getElementsByTagName('Relationship')].find(r => /\/drawing$/.test(r.getAttribute('Type') || ''));
+    if(!rel) return 0;
+    const dPath = resolve(ctx.sheetPath, rel.getAttribute('Target'));
+    const dFile = ctx.zip.file(dPath);
+    if(!dFile) return 0;
+    const dDoc = parse(await dFile.async('string'));
+    const anchors = [...dDoc.documentElement.childNodes].filter(n => /Anchor$/.test(n.localName || ''));
+    const pics = anchors.filter(a => [...a.getElementsByTagName('*')].some(e => e.localName === 'pic'));
+    if(!pics.length) return 0;
+
+    // 스타일: 묶음 머리글 칸의 서식을 복사하되 줄바꿈·세로 가운데 정렬을 켠 것을 새로 추가
+    const stFile = ctx.zip.file('xl/styles.xml');
+    const stDoc = parse(await stFile.async('string'));
+    const cellXfs = stDoc.getElementsByTagName('cellXfs')[0];
+    const fonts = [...stDoc.getElementsByTagName('fonts')[0].childNodes].filter(n => n.localName === 'font');
+    const xfs = () => [...cellXfs.childNodes].filter(n => n.localName === 'xf');
+    const wrapped = new Map();
+    const wrapStyle = sid => {
+      if(wrapped.has(sid)) return wrapped.get(sid);
+      const src = xfs()[sid];
+      const nx = src.cloneNode(true);
+      let al = [...nx.childNodes].find(n => n.localName === 'alignment');
+      if(!al){ al = stDoc.createElementNS(PO_NS, 'alignment'); nx.insertBefore(al, nx.firstChild); }
+      al.setAttribute('horizontal', 'center'); al.setAttribute('vertical', 'center'); al.setAttribute('wrapText', '1');
+      nx.setAttribute('applyAlignment', '1');
+      cellXfs.appendChild(nx);
+      const id = xfs().length - 1;
+      cellXfs.setAttribute('count', String(id + 1));
+      wrapped.set(sid, id);
+      return id;
+    };
+    const runProps = (fontEl, red) => {
+      const rpr = ctx.doc.createElementNS(PO_NS, 'rPr');
+      [...(fontEl ? fontEl.childNodes : [])].forEach(ch => {
+        if(ch.localName === 'color' && red) return;
+        const el = ctx.doc.createElementNS(PO_NS, ch.localName === 'name' ? 'rFont' : ch.localName);
+        [...ch.attributes].forEach(a => el.setAttribute(a.name, a.value));
+        rpr.appendChild(el);
+      });
+      if(red){ const col = ctx.doc.createElementNS(PO_NS, 'color'); col.setAttribute('rgb', 'FFFF0000'); rpr.appendChild(col); }
+      return rpr;
+    };
+    const run = (rpr, text) => {
+      const r = ctx.doc.createElementNS(PO_NS, 'r');
+      r.appendChild(rpr);
+      const t = ctx.doc.createElementNS(PO_NS, 't');
+      t.setAttribute('xml:space', 'preserve');
+      t.textContent = text;
+      r.appendChild(t);
+      return r;
+    };
+
+    const done = new Set();
+    pics.forEach(a => {
+      const from = [...a.childNodes].find(n => n.localName === 'from');
+      if(!from) return;
+      const num = name => { const el = [...from.childNodes].find(n => n.localName === name); return el ? Number(el.textContent) : NaN; };
+      const col = num('col'), row = num('row');
+      if(isNaN(col) || isNaN(row)) return;
+      const addr = colLetter(col) + (row + 1);
+      const master = ctx.mergeMaster.get(addr) || addr;
+      if(done.has(master)) return;
+      done.add(master);
+      const cell = poEnsureCell(ctx, master);
+      if(poHasFormula(cell)) return;
+      const label = poText(ctx, master).trim();
+      const sid = Number(cell.getAttribute('s')) || 0;
+      const xf = xfs()[sid];
+      const font = xf ? fonts[Number(xf.getAttribute('fontId')) || 0] : null;
+      poWipe(cell);
+      cell.setAttribute('s', String(wrapStyle(sid)));
+      cell.setAttribute('t', 'inlineStr');
+      const is = ctx.doc.createElementNS(PO_NS, 'is');
+      is.appendChild(run(runProps(font, true), PO_LOGO_TEXT));
+      is.appendChild(run(runProps(font, false), label ? '\n' + label : ''));
+      cell.appendChild(is);
+    });
+    ctx.zip.file('xl/styles.xml', new XMLSerializer().serializeToString(stDoc), { createFolders: false });
+
+    // 그림 제거 (다른 도형이 없으면 그림 파일과 연결 정보까지 삭제)
+    pics.forEach(a => dDoc.documentElement.removeChild(a));
+    const left = [...dDoc.documentElement.childNodes].filter(n => /Anchor$/.test(n.localName || ''));
+    if(left.length){
+      ctx.zip.file(dPath, new XMLSerializer().serializeToString(dDoc), { createFolders: false });
+    } else {
+      const drawEl = ctx.doc.getElementsByTagName('drawing')[0];
+      if(drawEl) drawEl.parentNode.removeChild(drawEl);
+      rel.parentNode.removeChild(rel);
+      ctx.zip.file(relPath, new XMLSerializer().serializeToString(relDoc), { createFolders: false });
+      const dRelPath = dPath.replace(/drawings\/([^/]+)$/, 'drawings/_rels/$1.rels');
+      const dRelFile = ctx.zip.file(dRelPath);
+      if(dRelFile){
+        const dRelDoc = parse(await dRelFile.async('string'));
+        [...dRelDoc.getElementsByTagName('Relationship')].forEach(r => { const p = resolve(dPath, r.getAttribute('Target') || ''); if(ctx.zip.file(p)) ctx.zip.remove(p); });
+        ctx.zip.remove(dRelPath);
+      }
+      ctx.zip.remove(dPath);
+      const ctFile = ctx.zip.file('[Content_Types].xml');
+      if(ctFile){
+        const ct = (await ctFile.async('string')).replace(new RegExp('<Override[^>]*PartName="/' + dPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"[^>]*/>'), '');
+        ctx.zip.file('[Content_Types].xml', ct, { createFolders: false });
+      }
+    }
+    return done.size;
   }
 
   async function poSave(ctx){
@@ -10142,6 +10269,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap });
       if(built.entries.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, extras: built.extras });
+      const logos = await poReplaceLogos(ctx);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -10150,6 +10278,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
       const r = res.rep;
       const lines = [{ text: `✅ ${r.placed.length}개 업체를 서식에 채웠습니다 (${poFileName(dateKey)})` }];
+      if(logos) lines.push({ text: `서식의 로고 그림 ${logos}개는 글자(왓더프룻)로 바꿨습니다` });
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
