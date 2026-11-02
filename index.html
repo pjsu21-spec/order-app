@@ -10913,6 +10913,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const h = headers.find(x => x.col === col);
     if(!h) return '서식에 없는 열입니다';
     if(!poSuggestCol(item, headers)) return ''; // 서식에 이 품목의 열이 따로 없으면(새 품목) 원하는 열을 직접 고른 것이므로 경고하지 않음
+    if(poSuggestCol(item, headers) === col) return ''; // 서식에서 이 품목에 맞는 열이 바로 이 열이면 문제 없음
     // 용량이 다른 열(예: 150g 품목을 500G 열에)도 어긋난 지정
     const label = item.shortName || item.name || '';
     const wm = label.match(/(\d+(?:\.\d+)?)\s*g\b/i);
@@ -10940,12 +10941,16 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const hw = hm ? Number(hm[1]) : null;
       return !(weight && hw && weight !== hw);
     };
+    // 같은 이름의 열이 하나뿐이면 용량 표기가 서식과 달라도(예: 서식 머리글 500g, 실제 750g) 그 열로 봄. 용량은 같은 이름의 열이 여러 개일 때만 구분에 씀
+    const sameName = headers.filter(h => strip(h.header) === key && poIsStyroHeader(h) === styro);
+    if(sameName.length === 1) return sameName[0].col;
     const exact = headers.filter(h => strip(h.header) === key && fits(h));
     if(exact.length) return exact[0].col;
     // 이름이 완전히 같은 열이 없으면, 한쪽이 다른 쪽을 포함하는 열(예: "왓더프레시/대추방울토마토" ↔ "대추방울토마토", "투래곤후르츠(망고향)" ↔ "투래곤후르츠")을 찾음
     if(key.length < 4) return '';
-    const loose = headers.filter(h => { const hk = strip(h.header); return hk.length >= 4 && hk !== key && (hk.includes(key) || key.includes(hk)) && fits(h); })
-      .map(h => ({ h, d: Math.abs(strip(h.header).length - key.length) })).sort((a, b) => a.d - b.d);
+    const looseAll = headers.filter(h => { const hk = strip(h.header); return hk.length >= 4 && hk !== key && (hk.includes(key) || key.includes(hk)) && poIsStyroHeader(h) === styro; });
+    const looseOk = looseAll.length === 1 ? looseAll : looseAll.filter(fits); // 후보가 하나뿐이면 용량 표기가 달라도 인정
+    const loose = looseOk.map(h => ({ h, d: Math.abs(strip(h.header).length - key.length) })).sort((a, b) => a.d - b.d);
     if(loose.length && (loose.length === 1 || loose[0].d < loose[1].d)) return loose[0].h.col;
     return '';
   }
