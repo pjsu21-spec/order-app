@@ -10274,9 +10274,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       // 다른 시트가 이 시트의 특정 행·열을 직접 가리키면(전체 열 참조 J:J 는 제외) 행·열을 끼워 넣을 때 그 수식도 고쳐야 하므로, 안전하게 끼워 넣지 않음
       ctx.insertOk = true;
       const nameRe = new RegExp("(?:'" + ctx.sheetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "'|" + ctx.sheetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ")!\\$?[A-Z]{1,3}\\$?\\d");
+      ctx.refDocs = []; // 이 시트를 가리키는 수식이 있는 다른 시트 (열을 끼워 넣으면 그 수식도 같이 밀어야 함)
+      const esc = ctx.sheetName.replace(/[.*+?^|()[\]\\{}$]/g, '\\$&');
+      const nameAny = new RegExp("(?:'" + esc + "'|" + esc + ")!");
       for(const f of Object.keys(zip.files)){
         if(!/^xl\/worksheets\/[^/]+\.xml$/.test(f) || f === sheetPath) continue;
-        if(nameRe.test(await zip.file(f).async('string'))){ ctx.insertOk = false; break; }
+        const xmlText = await zip.file(f).async('string');
+        if(nameRe.test(xmlText)){ ctx.insertOk = false; break; }
+        if(nameAny.test(xmlText)) ctx.refDocs.push({ path: f, doc: parse(xmlText) });
       }
       return ctx;
     };
@@ -10382,13 +10387,19 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // ── 서식에 행 끼워 넣기 (엑셀에서 "행 삽입"을 한 것과 같게: 수식·병합·조건부 서식의 범위를 함께 밀어 줌) ──
   // 수식 안의 셀·범위 참조(A1, $A$1, A1:B2, '시트'!A1)를 찾아 fn으로 바꿈. 따옴표 안의 글자는 건드리지 않음.
   // homeName을 주면 이 시트를 가리키는 참조만(이름 없는 참조 포함), null이면 모든 참조를 바꿈
-  const PO_REF_RE = /"(?:[^"]|"")*"|(?<![A-Za-z0-9_.$!])((?:'(?:[^']|'')+'|[^\s'!()+\-*\/,&=<>^:;"$]+)!)?(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g;
-  function poMapFormula(f, homeName, fn){
-    return String(f).replace(PO_REF_RE, (m, pre, ca1, c1, ra1, r1, ca2, c2, ra2, r2) => {
+  const PO_REF_RE = /"(?:[^"]|"")*"|(?<![A-Za-z0-9_.$!])((?:'(?:[^']|'')+'|[^\s'!()+\-*\/,&=<>^:;"$]+)!)?(?:(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?|(\$?)([A-Z]{1,3}):(\$?)([A-Z]{1,3}))(?![A-Za-z0-9_(])/g;
+  function poMapFormula(f, homeName, fn, qualOnly){
+    return String(f).replace(PO_REF_RE, (m, pre, ca1, c1, ra1, r1, ca2, c2, ra2, r2, cca1, cc1, cca2, cc2) => {
       if(m[0] === '"') return m;
+      if(qualOnly && !pre) return m; // 다른 시트의 수식에서 시트 이름 없는 참조는 그 시트 자신의 칸
       if(homeName && pre){
         const nm = pre.slice(0, -1).replace(/^'|'$/g, '').replace(/''/g, "'");
         if(poNorm(nm) !== poNorm(homeName)) return m;
+      }
+      if(cc1){ // 열 전체 범위 (J:J, $AL:$AL)
+        const cr = { colOnly: true, range: true, c1: cc1, ca1: !!cca1, c2: cc2, ca2: !!cca2, r1: 0, r2: 0, ra1: false, ra2: false };
+        fn(cr);
+        return (pre || '') + (cr.ca1 ? '$' : '') + cr.c1 + ':' + (cr.ca2 ? '$' : '') + cr.c2;
       }
       const ref = { c1, r1: +r1, ca1: !!ca1, ra1: !!ra1, range: !!c2, c2, r2: r2 ? +r2 : 0, ca2: !!ca2, ra2: !!ra2 };
       fn(ref);
@@ -10417,7 +10428,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   function poExpandShared(ctx){
     if(ctx.sharedExpanded) return;
     ctx.sharedExpanded = true;
-    const fs = [...ctx.doc.getElementsByTagName('f')].filter(f => f.getAttribute('t') === 'shared');
+    poExpandSharedDoc(ctx.doc);
+  }
+  function poExpandSharedDoc(doc){
+    if(doc.__sharedExpanded) return;
+    doc.__sharedExpanded = true;
+    const fs = [...doc.getElementsByTagName('f')].filter(f => f.getAttribute('t') === 'shared');
     const masters = new Map();
     fs.forEach(f => { if(f.textContent) masters.set(f.getAttribute('si'), { addr: f.parentNode.getAttribute('r'), text: f.textContent }); });
     fs.forEach(f => {
@@ -10512,6 +10528,185 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     else { const bt = poText(ctx, 'B' + src); for(let k = 1; k <= n; k++) if(bt && !ctx.mergeMaster.has('B' + (src + k))) poSetStr(ctx, 'B' + (src + k), bt); } // 구분 칸이 병합이 아니라 행마다 적혀 있으면 새 행에도 같은 구분을 적음
     ctx.structureChanged = true;
     return true;
+  }
+
+  // ── 서식에 열 끼워 넣기 (새 품목용): 엑셀의 "열 삽입"과 같게 수식·병합·조건부 서식·열 너비를 함께 밀어 줌 ──
+  // at열(1부터) 앞에 한 열을 끼워 넣을 때의 수식 참조 이동. ext: 합계 칸(왼쪽 G·H열의 SUM 등)이 at-1열에서 끝나는 범위는 새 열까지 늘림
+  function poInsertColsInFormula(f, homeName, at, ext, qualOnly){
+    const num = c => letterToIndex(c) + 1;
+    const sh = c => num(c) >= at ? colLetter(num(c)) : c; // 한 칸 오른쪽
+    return poMapFormula(f, homeName, ref => {
+      if(!ref.range){ ref.c1 = sh(ref.c1); return; }
+      const n1 = num(ref.c1), n2 = num(ref.c2);
+      const grow = ext && n2 === at - 1 && n1 < n2;
+      ref.c1 = sh(ref.c1); ref.c2 = grow ? colLetter(at - 1) : sh(ref.c2);
+    }, qualOnly);
+  }
+  // 수식 안에서 fromCol 열을 가리키는 참조를 toCol 열로 바꿈 ($로 고정된 것도) — 조건부 서식을 새 열용으로 복제할 때
+  function poRetargetCol(f, fromCol, toCol){
+    return poMapFormula(f, null, ref => { if(ref.c1 === fromCol) ref.c1 = toCol; if(ref.range && ref.c2 === fromCol) ref.c2 = toCol; });
+  }
+
+  // srcCol열(1부터) 바로 오른쪽에 한 열을 끼워 넣음. 새 열은 srcCol열의 모양(서식·수식·세로 병합)을 복사하고 값은 비움.
+  //  - 기본: 새 열이 srcCol열의 묶음 머리글(위쪽 병합 칸)에 합류 → 묶음 병합이 한 칸 늘고 묶음 총수량 수식에 새 열이 더해짐
+  //  - opts.newGroup: 새 열이 자기만의 묶음(병합 머리글)을 가짐
+  // 다른 시트가 이 시트를 열 단위(J:J 등)로 가리키는 수식도 함께 밀어 줌. 성공하면 true
+  function poInsertColsAfter(ctx, srcCol, opts){
+    opts = opts || {};
+    if(ctx.insertOk === false || srcCol < 1) return false;
+    poExpandShared(ctx);
+    (ctx.refDocs || []).forEach(r => poExpandSharedDoc(r.doc));
+    const doc = ctx.doc, home = ctx.sheetName, at = srcCol + 1;
+    const Y = poLayout(ctx);
+    const srcL = colLetter(srcCol - 1), newL = colLetter(at - 1);
+    const isBand = g => g.r1 >= Y.groupRow && g.r2 <= Y.totBandEnd;
+    // 1) 수식 참조를 밀고, at열 이후 셀 번호를 하나씩 밀고, 새 열 셀을 복사해 넣음
+    [...ctx.sheetData.getElementsByTagName('row')].forEach(row => {
+      const rn = +row.getAttribute('r');
+      row.removeAttribute('spans');
+      const cs = [...row.childNodes].filter(x => x.localName === 'c').map(c => ({ c, col: poSplitAddr(c.getAttribute('r')).col }));
+      let srcCell = null;
+      cs.forEach(({ c, col }) => {
+        const f = [...c.childNodes].find(x => x.localName === 'f');
+        if(f && f.textContent) f.textContent = poInsertColsInFormula(f.textContent, home, at, col < Y.firstCol && rn > Y.hdrRow + 1);
+        if(col === srcCol) srcCell = c;
+        if(col >= at) c.setAttribute('r', colLetter(col) + rn); // colLetter는 0부터라 col(1부터)이 곧 한 칸 오른쪽 글자
+      });
+      if(srcCell){
+        const nc = doc.createElementNS(PO_NS, 'c');
+        nc.setAttribute('r', newL + rn);
+        if(srcCell.getAttribute('s')) nc.setAttribute('s', srcCell.getAttribute('s'));
+        const f = [...srcCell.childNodes].find(x => x.localName === 'f');
+        if(f && f.textContent){
+          const nf = doc.createElementNS(PO_NS, 'f');
+          nf.textContent = poTranslateFormula(f.textContent, 0, 1);
+          nc.appendChild(nf);
+        }
+        row.insertBefore(nc, srcCell.nextSibling);
+      }
+    });
+    // 2) 병합
+    const mcs = doc.getElementsByTagName('mergeCells')[0];
+    if(mcs){
+      const added = [];
+      [...mcs.getElementsByTagName('mergeCell')].forEach(m => {
+        const g = poParseRange(m.getAttribute('ref'));
+        const one = (r1, r2) => poRangeStr({ c1: at, r1, c2: at, r2 });
+        if(g.c1 >= at){ g.c1++; g.c2++; }
+        else if(g.c2 >= at){ g.c2++; }
+        else if(g.c2 === srcCol && isBand(g) && g.c1 >= Y.firstCol){
+          if(opts.newGroup) added.push(one(g.r1, g.r2)); else g.c2++;      // 새 묶음이면 자기 칸만, 아니면 묶음이 한 칸 늘어남
+        }
+        else if(g.c1 === srcCol && g.c2 === srcCol && g.r1 !== g.r2){ added.push(one(g.r1, g.r2)); } // 머리글 세로 병합 등은 새 열에도
+        m.setAttribute('ref', poRangeStr(g));
+      });
+      added.forEach(ref => { const el = doc.createElementNS(PO_NS, 'mergeCell'); el.setAttribute('ref', ref); mcs.appendChild(el); });
+      mcs.setAttribute('count', String(mcs.getElementsByTagName('mergeCell').length));
+    }
+    // 3) 조건부 서식: 범위 이동, srcCol 한 열에만 걸린 규칙은 새 열에도 같은 규칙을 만듦
+    let maxPri = 0;
+    [...doc.getElementsByTagName('cfRule')].forEach(r => { maxPri = Math.max(maxPri, +r.getAttribute('priority') || 0); });
+    const cfs = [...doc.getElementsByTagName('conditionalFormatting')];
+    const clones = [];
+    cfs.forEach(cf => {
+      const rgs = (cf.getAttribute('sqref') || '').split(/\s+/).filter(Boolean).map(rg => {
+        const g = poParseRange(rg);
+        if(g.c1 >= at){ g.c1++; g.c2++; }
+        else if(g.c2 >= at){ g.c2++; }
+        else if(g.c2 === srcCol && g.c1 < srcCol){ g.c2++; } // 여러 열에 걸친 범위가 srcCol에서 끝나면 새 열까지
+        return g;
+      });
+      [...cf.getElementsByTagName('formula')].forEach(fe => { fe.textContent = poInsertColsInFormula(fe.textContent, null, at, false); });
+      const inSrc = rgs.filter(g => g.c1 === srcCol && g.c2 === srcCol);
+      cf.setAttribute('sqref', rgs.map(poRangeStr).join(' '));
+      if(!inSrc.length) return;
+      const reSrc = new RegExp('(?<![A-Za-z$])\\$?' + srcL + '\\$?\\d');
+      const refsSrc = [...cf.getElementsByTagName('formula')].some(fe => reSrc.test(fe.textContent)); // 이 열을 가리키는 수식이 있는 규칙
+      const newRg = inSrc.map(g => poRangeStr({ c1: at, r1: g.r1, c2: at, r2: g.r2 }));
+      if(!refsSrc){ cf.setAttribute('sqref', rgs.map(poRangeStr).concat(newRg).join(' ')); return; } // 수식 없는 규칙(값>0 등)은 범위만 늘림
+      const cl = cf.cloneNode(true);
+      cl.setAttribute('sqref', newRg.join(' '));
+      [...cl.getElementsByTagName('formula')].forEach(fe => { fe.textContent = poRetargetCol(fe.textContent, srcL, newL); });
+      [...cl.getElementsByTagName('cfRule')].forEach(r => { r.setAttribute('priority', String(++maxPri)); });
+      clones.push([cf, cl]);
+    });
+    clones.forEach(([cf, cl]) => cf.parentNode.insertBefore(cl, cf.nextSibling));
+    // 4) 열 너비·숨김 정의(<cols>)
+    const colsEl = doc.getElementsByTagName('cols')[0];
+    if(colsEl){
+      const list = [...colsEl.getElementsByTagName('col')];
+      let srcDef = null;
+      list.forEach(c => {
+        const mn = +c.getAttribute('min'), mx = +c.getAttribute('max');
+        if(mn <= srcCol && srcCol <= mx) srcDef = c;
+        if(mn >= at){ c.setAttribute('min', String(mn + 1)); c.setAttribute('max', String(Math.min(mx + 1, 16384))); }
+        else if(mx >= at){ c.setAttribute('max', String(mx + 1)); }
+      });
+      // srcCol이 정의의 끝이면 새 열에는 정의가 없으므로 srcCol과 같은 너비로 따로 만듦 (숨김은 빼고)
+      if(srcDef && +srcDef.getAttribute('max') < at){
+        const e = srcDef.cloneNode(false);
+        e.setAttribute('min', String(at)); e.setAttribute('max', String(at)); e.removeAttribute('hidden');
+        srcDef.parentNode.insertBefore(e, srcDef.nextSibling);
+      }
+    }
+    // 5) 시트 범위 표시
+    const dim = doc.getElementsByTagName('dimension')[0];
+    const dm = dim && /^([A-Z]+\d+):([A-Z]+)(\d+)$/.exec(dim.getAttribute('ref') || '');
+    if(dm) dim.setAttribute('ref', `${dm[1]}:${colLetter(letterToIndex(dm[2]) + 1)}${dm[3]}`);
+    // 6) 다른 시트에서 이 시트를 가리키는 수식
+    (ctx.refDocs || []).forEach(r => {
+      [...r.doc.getElementsByTagName('f')].forEach(f => { if(f.textContent) f.textContent = poInsertColsInFormula(f.textContent, home, at, false, true); });
+    });
+    poReindex(ctx);
+    ctx.layout = null;
+    ctx.structureChanged = true;
+    // 7) 묶음 총수량 수식(예: "총수량 : "&J15+K15+L15+M15&"박스")에 새 열 더하기, 또는 새 묶음이면 자기 열만
+    const tr = Y.totalsRow, hostAddr = ctx.mergeMaster.get(newL + Y.totBandStart) || (newL + Y.totBandStart);
+    const host = ctx.cells.get(hostAddr);
+    const hf = host && [...host.childNodes].find(x => x.localName === 'f');
+    if(hf && hf.textContent){
+      if(opts.newGroup){
+        hf.textContent = `"총수량 : "&${newL}${tr}&"박스"`;
+      }else if(!new RegExp('\\b' + newL + tr + '\\b').test(hf.textContent)){
+        const ms = [...hf.textContent.matchAll(new RegExp('\\b[A-Z]{1,3}' + tr + '\\b', 'g'))];
+        if(ms.length){ const last = ms[ms.length - 1], end = last.index + last[0].length; hf.textContent = hf.textContent.slice(0, end) + '+' + newL + tr + hf.textContent.slice(end); }
+      }
+    }
+    return true;
+  }
+
+  // 오늘 주문이 있는데 서식에 열이 없는 품목마다 서식에 열을 끼워 넣음.
+  //  - 같은 이름(브랜드)·같은 용량의 묶음 머리글이 있으면 그 묶음의 맨 오른쪽, 없으면 마지막 품목 열 뒤에 새 묶음으로
+  //  - colMap: { 품목id: 열문자 } (끼워 넣은 열 뒤쪽 열 글자는 자동으로 한 칸씩 밀어서 돌려줌)
+  // 반환: { colMap, added: [{ item, col, group }], failed: [item], remap(열문자 → 새 열문자) }
+  function poAddItemColumns(ctx, items, colMap){
+    const map = Object.assign({}, colMap), inserts = [], added = [], failed = [];
+    const num = L => letterToIndex(L) + 1;
+    items.forEach(d => {
+      const Y = poLayout(ctx);
+      const brandKey = poItemKey(poHeaderLabel(d).split('\n')[0]);
+      const w = poItemWeight(d), styro = poIsStyroItem(d);
+      const hit = brandKey ? poTemplateGroups(ctx).find(g => {
+        const gk = poItemKey(g.label);
+        if(!gk || !(gk.includes(brandKey) || brandKey.includes(gk))) return false;
+        if(/스티로폼/.test(g.label) !== styro) return false;
+        const gw = g.label.match(/(\d+(?:\.\d+)?)\s*g/i);
+        return !w || !gw || Number(gw[1]) === w;
+      }) : null;
+      const src = hit ? hit.c2 : Y.lastCol;
+      const label = (poHeaderLabel(d).split('\n')[0] || '').trim() + (w ? '\n' + w + 'g' : '');
+      if(!poInsertColsAfter(ctx, src, hit ? null : { newGroup: true })){ failed.push(d); return; }
+      const at = src + 1, newL = colLetter(at - 1), Y2 = poLayout(ctx);
+      Object.keys(map).forEach(k => { const n = num(map[k]); if(n >= at) map[k] = colLetter(n); });
+      map[d.id] = newL;
+      inserts.push(at);
+      poSetStr(ctx, newL + Y2.hdrRow, poHeaderLabel(d));
+      if(!hit) poSetStr(ctx, newL + Y2.groupRow, label);
+      ctx.layout = null; // 머리글을 적었으니 품목 열 범위를 다시 계산
+      added.push({ item: d, col: newL, group: hit ? hit.label : '새 묶음' });
+    });
+    const remap = L => { let n = num(L); inserts.forEach(at => { if(n >= at) n++; }); return colLetter(n - 1); };
+    return { colMap: map, added, failed, remap };
   }
 
   // 품목 열 머리글: [{ col:'J', header:'투맛토 (스테비아)', group:'투맛토 /500G' }]
@@ -11047,6 +11242,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const xml = d => { const s = ser.serializeToString(d); return /^<\?xml/.test(s) ? s : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + s; };
     ctx.zip.file(ctx.sheetPath, xml(ctx.doc), { createFolders: false });
     ctx.zip.file('xl/workbook.xml', xml(ctx.wbDoc), { createFolders: false });
+    if(ctx.structureChanged) (ctx.refDocs || []).forEach(r => ctx.zip.file(r.path, xml(r.doc), { createFolders: false }));
     // 행·열을 끼워 넣었으면 수식 계산 순서 목록(calcChain)이 어긋나므로 지움 (엑셀이 열 때 다시 만듦)
     if(ctx.structureChanged && ctx.zip.file('xl/calcChain.xml')){
       ctx.zip.remove('xl/calcChain.xml');
@@ -11439,14 +11635,23 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const byCol = {};
     used.forEach(d => { const c = colMap[d.id]; if(c) (byCol[c] = byCol[c] || []).push(nm(d)); });
     Object.entries(byCol).filter(([, v]) => v.length > 1).forEach(([c, v]) => add('err', '한 열에 품목 여러 개', `${c}열에 ${v.join(', ')}이(가) 함께 지정돼 수량이 합쳐집니다. 품목마다 다른 열을 지정해주세요`));
-    used.forEach(d => { const c = colMap[d.id]; if(c && !hdrs.some(h => h.col === c)) add('err', '서식에 없는 열', `${nm(d)} → ${c}열은 서식의 품목 열이 아닙니다. 열 지정을 바꿔주세요`); });
+    used.forEach(d => { const c = colMap[d.id]; if(c && !hdrs.some(h => h.col === c)){ delete colMap[d.id]; } }); // 서식에 없는 열을 가리키면 열이 없는 품목으로 보고 아래에서 열을 추가
 
+    // 서식에 열이 없는 품목은 열을 끼워 넣어 본 결과로 점검
+    let colMapU = colMap, remapU = L => L;
+    const needColU = used.filter(d => !colMap[d.id]);
+    if(needColU.length){
+      const ac = poAddItemColumns(ctx, needColU, colMap);
+      colMapU = ac.colMap; remapU = ac.remap;
+      ac.added.forEach(x => add('info', '새 품목 열 자동 추가', `${nm(x.item)} → ${x.col}열 (${x.group}${x.group === '새 묶음' ? '' : ' 묶음 오른쪽'}) — 서식에 열을 끼워 넣어 채웁니다`));
+      if(ac.failed.length) add('err', '서식에 열을 추가하지 못한 품목', `${ac.failed.map(nm).join(', ')} — 서식에 열을 직접 추가하거나 다른 열을 지정해주세요`);
+    }
     let sampleRows = [];
     if(typeof window.getSampleRequestsForDate === 'function'){
       try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }
       catch(e){ add('warn', '샘플 신청을 불러오지 못함', `${e.message || e} — 다운로드하면 샘플은 빠집니다`); }
     }
-    const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: colMapU, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
     if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ add('info', '발주 데이터 없음', '이 날짜에는 서식에 채울 주문이 없습니다'); return issues; }
     if(built.unmapped.length) add('err', '서식에 열이 없는 품목', `${built.unmapped.join(', ')} — 서식에 열을 추가해 다시 등록하고 열을 지정하거나, 서식의 다른 열을 지정해주세요. 안 하면 파일 맨 아래 표에만 적힙니다`);
     if(built.noUnit.length) add('warn', '박스입수 없음', `${built.noUnit.join(', ')} — 박스 수가 아니라 팩 수 그대로 들어갑니다. SKU 관리에서 박스입수를 입력해주세요`);
@@ -11454,7 +11659,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 실제로 채워 보고(저장은 하지 않음) 결과를 읽음. 머리글·용량 바꾸기는 지정된 열 기준이라 잠깐 임시 지정으로 바꿔서 확인
     const saved = skuColumnMap;
     try{
-      skuColumnMap = colMap;
+      skuColumnMap = colMapU;
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const r = res.rep;
       if(r.noCategory && r.noCategory.length) add('err', '발주 구분이 비어 있는 거래처', `${r.noCategory.join(', ')} — 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요. 안 하면 이 업체 수량이 빠집니다`);
@@ -11469,7 +11674,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(built.sampleNames.length) add('info', '샘플 포함', `${built.sampleNames.join(', ')} → 샘플 행`);
       if(r.dispatch && r.dispatch.placed.length) add('info', '쿠팡 출고일 블록', `${r.dispatch.placed.join(', ')}`);
       const groupOverride = {};
-      dict.forEach(d => { const c = colMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = g; });
+      dict.forEach(d => { const c = colMapU[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = remapU(g); });
       poRelabelHeaders(ctx, r.usedCols).forEach(x => add('info', '머리글 바뀜', `${x.col}열 "${x.from}" → "${x.to}" (서식의 다른 품목 열을 빌려 씀)`));
       poRegroupHeaders(ctx, r.usedCols, groupOverride).forEach(x => add('info', '묶음 머리글', x));
       poRelabelWeights(ctx, r.usedCols, groupOverride).forEach(x => add('info', '용량 표기 바뀜', `${x.col}열 ${x.from} → ${x.to}`));
@@ -11517,6 +11722,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       return;
     }
     toast('생산본부 발주취합 생성 중...');
+    let savedColMap = null; // 새 품목 열을 끼워 넣은 동안만 열 지정을 바꿔 쓰고 끝나면 되돌림
     try{
       const ctx = await poLoadTemplate(productionTemplateB64);
       // 주문이 있는 품목의 열 지정이 비었거나 종이/스티로폼이 어긋나 있으면 서식 머리글에 맞춰 자동으로 바로잡음 (결과는 안내에 표시)
@@ -11530,6 +11736,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(sug && sug !== cur){ skuColumnMap[d.id] = sug; autoFixed.push(`${d.shortName || d.name}: ${cur ? cur + ' → ' : ''}${sug}열`); }
       });
       if(autoFixed.length){ saveSkuColumnMap(); renderSkuColumnMapEditor(); }
+      // 오늘 주문이 있는데 서식에 열이 없는 새 품목은 서식에 열을 끼워 넣음 (같은 이름·용량 묶음의 오른쪽, 없으면 맨 끝에 새 묶음).
+      // 끼워 넣은 열은 이 파일에만 있으므로 열 지정 저장값은 바꾸지 않고 이번 다운로드에서만 씀
+      let remapCol = L => L, addedCols = [], failedCols = [];
+      const needCol = dict.filter(d => Object.keys(ordersToday).some(n => n !== '_meta' && Number((ordersToday[n] || {})[d.id]) > 0) && !(skuColumnMap[d.id] && tplHdrs.some(h => h.col === skuColumnMap[d.id])));
+      if(needCol.length){
+        const ac = poAddItemColumns(ctx, needCol, skuColumnMap);
+        addedCols = ac.added; failedCols = ac.failed; remapCol = ac.remap;
+        savedColMap = skuColumnMap; skuColumnMap = ac.colMap;
+      }
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
       // 샘플 신청 중 오늘 출고분(생산본부 생산으로 지정된 품목만)
       let sampleRows = [], sampleErr = '';
@@ -11543,7 +11758,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const logos = await poReplaceLogos(ctx);
       const relabeled = poRelabelHeaders(ctx, res.rep.usedCols);
       const groupOverride = {};
-      dict.forEach(d => { const c = skuColumnMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = g; });
+      dict.forEach(d => { const c = skuColumnMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = remapCol(g); });
       const regrouped = poRegroupHeaders(ctx, res.rep.usedCols, groupOverride);
       const reweighed = poRelabelWeights(ctx, res.rep.usedCols, groupOverride);
       if(built.unmapped.length) await poAddNote(ctx, `※ 서식에 열이 없는 품목: ${built.unmapped.join(', ')} — 파일 맨 아래 "서식에 열이 없는 품목" 표 참고`);
@@ -11559,6 +11774,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(regrouped.length) lines.push({ text: `위쪽 묶음 머리글을 지정한 대로 합쳤습니다: ${regrouped.join(' / ')}` });
       if(relabeled.length) lines.push({ text: `다른 품목 열에 지정한 품목은 그 열의 머리글을 품목 이름으로 바꿨습니다: ${relabeled.map(x => `${x.col}열 "${x.from}" → "${x.to}"`).join(' / ')}` });
       if(reweighed.length) lines.push({ text: `서식의 용량 표기를 실제 1팩 용량으로 바꿨습니다: ${reweighed.map(x => `${x.col}열 ${x.from} → ${x.to}`).join(' / ')}` });
+      if(addedCols.length) lines.push({ text: `서식에 없는 새 품목은 열을 추가해 넣었습니다: ${addedCols.map(x => `${x.item.shortName || x.item.name} → ${x.col}열 (${x.group}${x.group === '새 묶음' ? '' : ' 묶음 오른쪽'})`).join(' / ')}` });
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
@@ -11584,6 +11800,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const bad = lines.filter(l => l.warn).length;
       toast(bad ? `다운로드 완료 — 확인이 필요한 항목 ${bad}건이 있습니다 (버튼 아래 안내 참고)` : '✅ 생산본부 발주취합 다운로드 완료');
     }catch(e){ toast('오류: ' + e.message); console.error(e); }
+    finally{ if(savedColMap) skuColumnMap = savedColMap; }
   });
 
   async function doLogin(){
