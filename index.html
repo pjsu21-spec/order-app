@@ -10993,6 +10993,37 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return out;
   }
 
+  // 품목 1팩의 g 수: 이름의 "750g" → 750, 없으면 "3kg" ÷ 박스입수 (대추방울토마토 3kg ÷ 4 = 750g). 알 수 없으면 0
+  function poItemWeight(d){
+    const label = d.shortName || d.name || '';
+    const wm = label.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+    if(wm) return Number(wm[1]);
+    const km = (d.name || '').match(/(\d+(?:\.\d+)?)\s*kg/i);
+    const n = Number(d.boxUnitCount);
+    return km && n > 0 ? Math.round(Number(km[1]) * 1000 / n) : 0;
+  }
+  // 그 품목 하나만 있는 묶음 머리글에 적힌 용량(예: 대추방울토마토 500g)이 실제 1팩 용량(750g)과 다르면 실제 용량으로 바꿔 표시.
+  // 투맛토 500g처럼 여러 열이 함께 쓰는 묶음은 그대로 둠. 바꾼 목록 [{ col, from, to }]을 돌려줌
+  function poRelabelWeights(ctx, usedCols, regroupedCols){
+    const byCol = {};
+    dict.forEach(d => { const c = skuColumnMap[d.id]; if(c) (byCol[c] = byCol[c] || []).push(d); });
+    const Y = poLayout(ctx), out = [];
+    poTemplateGroups(ctx).forEach(g => {
+      if(g.c1 !== g.c2) return;
+      const col = g.master;
+      const items = byCol[col] || [];
+      if(items.length !== 1 || !(usedCols && usedCols.has(col)) || (regroupedCols && regroupedCols[col])) return; // 머리글 묶음을 지정한 열은 그 묶음 이름을 따름
+      const w = poItemWeight(items[0]);
+      const m = /(\d+(?:\.\d+)?)\s*(g)\b/i.exec(poText(ctx, col + Y.groupRow));
+      if(!w || !m || Number(m[1]) === w) return;
+      if(!poSameItem(items[0].shortName || items[0].name, poText(ctx, col + Y.hdrRow))) return; // 다른 품목이 빌려 쓰는 열은 머리글 바꾸기 쪽에서 처리
+      const addr = col + Y.groupRow;
+      const from = poText(ctx, addr);
+      if(poSetStr(ctx, addr, from.replace(m[0], w + m[2]))) out.push({ col, from: m[1] + 'g', to: w + 'g' });
+    });
+    return out;
+  }
+
   function renderSkuColumnMapEditor(){
     const wrap = document.getElementById('sku-column-map-editor');
     if(!wrap) return;
@@ -11153,6 +11184,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const groupOverride = {};
       dict.forEach(d => { const c = skuColumnMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = g; });
       const regrouped = poRegroupHeaders(ctx, res.rep.usedCols, groupOverride);
+      const reweighed = poRelabelWeights(ctx, res.rep.usedCols, groupOverride);
       if(built.unmapped.length) await poAddNote(ctx, `※ 서식에 열이 없는 품목: ${built.unmapped.join(', ')} — 파일 맨 아래 "서식에 열이 없는 품목" 표 참고`);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
@@ -11165,6 +11197,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(logos) lines.push({ text: `서식의 로고 그림 ${logos}개는 글자(왓더프룻)로 바꿨습니다` });
       if(regrouped.length) lines.push({ text: `위쪽 묶음 머리글을 지정한 대로 합쳤습니다: ${regrouped.join(' / ')}` });
       if(relabeled.length) lines.push({ text: `다른 품목 열에 지정한 품목은 그 열의 머리글을 품목 이름으로 바꿨습니다: ${relabeled.map(x => `${x.col}열 "${x.from}" → "${x.to}"`).join(' / ')}` });
+      if(reweighed.length) lines.push({ text: `서식의 용량 표기를 실제 1팩 용량으로 바꿨습니다: ${reweighed.map(x => `${x.col}열 ${x.from} → ${x.to}`).join(' / ')}` });
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
