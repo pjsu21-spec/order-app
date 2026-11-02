@@ -169,13 +169,13 @@ function normalizeParent(v) {
 
 async function ensureFolder(db, parentId) {
   if (!parentId) return;
-  const rows = await db.get(`shared_files?id=eq.${parentId}&is_folder=eq.true&select=id&limit=1`);
+  const rows = await db.get(`shared_files?id=eq.${parentId}&is_folder=eq.true&deleted_at=is.null&select=id&limit=1`);
   if (!rows.length) throw new HttpError(404, '폴더를 찾을 수 없습니다. 새로고침 해주세요.');
 }
 
 // 같은 폴더에 같은 이름이 있으면 "이름 (2).확장자" 식으로 바꿉니다.
 async function uniqueName(db, parentId, name, exceptId) {
-  const siblings = await db.getAll(`shared_files?${parentFilter(parentId)}&select=id,name`);
+  const siblings = await db.getAll(`shared_files?${parentFilter(parentId)}&deleted_at=is.null&select=id,name`);
   const taken = new Set(siblings.filter(r => r.id !== exceptId).map(r => r.name.toLowerCase()));
   if (!taken.has(name.toLowerCase())) return name;
   const dot = name.lastIndexOf('.');
@@ -216,6 +216,25 @@ function sizedBody(request) {
   return { size: len, stream: request.body.pipeThrough(new FixedLengthStream(len)) };
 }
 
+// ── 휴지통 ──
+// 삭제하면 shared_files 행에 deleted_at 등을 기록해 휴지통으로 보내고(파일 본문은 R2에 그대로),
+// TRASH_DAYS가 지나면 자동으로 완전히 지웁니다. (SQL: 공유폴더_휴지통_SQL.sql)
+const TRASH_DAYS = 30;
+const TRASH_SQL_MSG = '휴지통 설정(DB)이 아직 적용되지 않았습니다. 관리자가 「공유폴더_휴지통_SQL」을 Supabase에서 실행해주세요.';
+
+// 휴지통 항목을 되살리거나 완전히 지울 수 있는 사람: 관리자, 또는 본인이 올린 파일의 올린 사람
+const canManageTrash = (user, row) => user.isAdmin || (!row.is_folder && row.uploaded_by === user.id);
+
+// 행들을 DB와 R2에서 완전히 지웁니다 (rows는 자식 → 부모 순서가 안전)
+async function purgeRows(env, db, rows) {
+  const keys = rows.map(r => r.r2_key).filter(Boolean);
+  for (let i = 0; i < keys.length; i += 1000) await env.BUCKET.delete(keys.slice(i, i + 1000));
+  const ids = rows.map(r => r.id);
+  for (let i = 0; i < ids.length; i += 100) {
+    await db.del(`shared_files?id=in.(${ids.slice(i, i + 100).join(',')})`);
+  }
+}
+
 // ── 라우팅 ──
 async function route(request, env) {
   const url = new URL(request.url);
@@ -229,10 +248,30 @@ async function route(request, env) {
 
   // 목록 전체 (폴더 구조는 화면에서 조립)
   if (method === 'GET' && path === '/api/list') {
-    const items = await db.getAll('shared_files?select=id,parent_id,name,is_folder,size,mime,uploaded_by,uploaded_by_name,created_at&order=name.asc');
-    const used = items.reduce((s, r) => s + (r.is_folder ? 0 : Number(r.size || 0)), 0);
+    let items, trashRows;
+    try {
+      items = await db.getAll('shared_files?deleted_at=is.null&select=id,parent_id,name,is_folder,size,mime,uploaded_by,uploaded_by_name,created_at&order=name.asc');
+      trashRows = await db.getAll('shared_files?deleted_at=not.is.null&select=id,size,is_folder,r2_key,uploaded_by,deleted_at,trash_root_id');
+    } catch (e) {
+      if (/deleted_at/.test(e.message)) throw new HttpError(500, TRASH_SQL_MSG);
+      throw e;
+    }
+    // 보관 기간이 지난 휴지통 항목은 여기서 함께 정리합니다
+    const cutoff = Date.now() - TRASH_DAYS * 86400000;
+    const expired = trashRows.filter(r => new Date(r.deleted_at).getTime() < cutoff);
+    if (expired.length) {
+      try {
+        await purgeRows(env, db, expired);
+        const gone = new Set(expired.map(r => r.id));
+        trashRows = trashRows.filter(r => !gone.has(r.id));
+      } catch (e) { console.warn('휴지통 자동 정리 실패', e.message); }
+    }
+    const fileBytes = (rows) => rows.reduce((s, r) => s + (r.is_folder ? 0 : Number(r.size || 0)), 0);
+    const used = fileBytes(items) + fileBytes(trashRows); // 휴지통 파일도 R2 용량을 차지합니다
+    const roots = trashRows.filter(r => r.id === r.trash_root_id && canManageTrash(user, r));
     return json({
       items, used, limit: MAX_TOTAL_BYTES,
+      trashEnabled: true, trashDays: TRASH_DAYS, trash: { count: roots.length, bytes: fileBytes(trashRows) },
       me: { id: user.id, display_name: user.display_name, isAdmin: user.isAdmin, readOnly: user.readOnly }
     });
   }
@@ -340,7 +379,7 @@ async function route(request, env) {
   if (method === 'POST' && path === '/api/rename') {
     const body = await request.json();
     if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
-    const rows = await db.get(`shared_files?id=eq.${body.id}&limit=1`);
+    const rows = await db.get(`shared_files?id=eq.${body.id}&deleted_at=is.null&limit=1`);
     if (!rows.length) throw new HttpError(404, '항목을 찾을 수 없습니다');
     const row = rows[0];
     if (!user.isAdmin && row.uploaded_by !== user.id) throw new HttpError(403, '올린 사람 또는 관리자만 이름을 바꿀 수 있습니다');
@@ -355,7 +394,7 @@ async function route(request, env) {
     const body = await request.json();
     if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
     const destId = normalizeParent(body.parent_id);
-    const all = await db.getAll('shared_files?select=id,parent_id,name,is_folder,uploaded_by');
+    const all = await db.getAll('shared_files?deleted_at=is.null&select=id,parent_id,name,is_folder,uploaded_by');
     const byId = new Map(all.map(r => [r.id, r]));
     const row = byId.get(body.id);
     if (!row) throw new HttpError(404, '항목을 찾을 수 없습니다');
@@ -380,11 +419,11 @@ async function route(request, env) {
     return json({ item: updated[0] });
   }
 
-  // 삭제 (파일: 올린 사람 또는 관리자 / 폴더: 관리자만, 안의 내용까지 함께 삭제)
+  // 삭제 → 휴지통으로 이동 (파일: 올린 사람 또는 관리자 / 폴더: 관리자만, 안의 내용도 함께)
   if (method === 'POST' && path === '/api/delete') {
     const body = await request.json();
     if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
-    const all = await db.getAll('shared_files?select=id,parent_id,name,is_folder,r2_key,uploaded_by');
+    const all = await db.getAll('shared_files?deleted_at=is.null&select=id,parent_id,name,is_folder,uploaded_by');
     const target = all.find(r => r.id === body.id);
     if (!target) throw new HttpError(404, '항목을 찾을 수 없습니다');
     if (target.is_folder) {
@@ -404,22 +443,91 @@ async function route(request, env) {
       doomed.push(r);
       for (const c of children.get(r.id) || []) stack.push(c);
     }
-    const keys = doomed.map(r => r.r2_key).filter(Boolean);
-    for (let i = 0; i < keys.length; i += 1000) await env.BUCKET.delete(keys.slice(i, i + 1000));
     const ids = doomed.map(r => r.id);
+    const mark = { deleted_at: new Date().toISOString(), deleted_by: user.id, deleted_by_name: user.display_name, trash_root_id: target.id };
     for (let i = 0; i < ids.length; i += 100) {
-      await db.del(`shared_files?id=in.(${ids.slice(i, i + 100).join(',')})`);
+      await db.patch(`shared_files?id=in.(${ids.slice(i, i + 100).join(',')})`, mark);
     }
     await writeLog(env, user, 'file_delete',
-      `공유폴더: ${target.is_folder ? '폴더' : '파일'} 삭제 '${target.name}'` + (doomed.length > 1 ? ` (하위 ${doomed.length - 1}개 포함)` : ''));
-    return json({ ok: true, deleted: ids });
+      `공유폴더: ${target.is_folder ? '폴더' : '파일'} 휴지통으로 이동 '${target.name}'` + (doomed.length > 1 ? ` (하위 ${doomed.length - 1}개 포함)` : ''));
+    return json({ ok: true, trashed: ids });
+  }
+
+  // 휴지통 목록 (관리자: 전부 / 그 외: 내가 올린 파일)
+  if (method === 'GET' && path === '/api/trash') {
+    const all = await db.getAll('shared_files?select=id,parent_id,name,is_folder,size,uploaded_by,uploaded_by_name,deleted_at,deleted_by_name,trash_root_id');
+    const byId = new Map(all.map(r => [r.id, r]));
+    const stats = new Map(); // 삭제한 묶음(trash_root_id)별 파일 수·용량
+    for (const r of all) {
+      if (!r.deleted_at || r.is_folder) continue;
+      const s = stats.get(r.trash_root_id) || { size: 0, files: 0 };
+      s.size += Number(r.size || 0); s.files++;
+      stats.set(r.trash_root_id, s);
+    }
+    const origPath = (r) => {
+      const names = [];
+      for (let cur = r.parent_id ? byId.get(r.parent_id) : null, g = 0; cur && g < 100; cur = cur.parent_id ? byId.get(cur.parent_id) : null, g++) names.unshift(cur.name);
+      return names.length ? names.join(' › ') : '전체';
+    };
+    const items = all.filter(r => r.deleted_at && r.id === r.trash_root_id && canManageTrash(user, r))
+      .map(r => {
+        const s = stats.get(r.id) || { size: 0, files: 0 };
+        return { id: r.id, name: r.name, is_folder: r.is_folder, size: r.is_folder ? s.size : Number(r.size || 0), files: s.files,
+          uploaded_by_name: r.uploaded_by_name, deleted_at: r.deleted_at, deleted_by_name: r.deleted_by_name, orig_path: origPath(r) };
+      })
+      .sort((a, b) => String(b.deleted_at).localeCompare(String(a.deleted_at)));
+    return json({ items, days: TRASH_DAYS });
+  }
+
+  // 휴지통에서 복원 (원래 폴더가 없어졌으면 맨 위 「전체」로)
+  if (method === 'POST' && path === '/api/restore') {
+    const body = await request.json();
+    if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
+    const all = await db.getAll('shared_files?select=id,parent_id,name,is_folder,uploaded_by,deleted_at,trash_root_id');
+    const byId = new Map(all.map(r => [r.id, r]));
+    const root = byId.get(body.id);
+    if (!root || !root.deleted_at || root.trash_root_id !== root.id) throw new HttpError(404, '휴지통에서 항목을 찾을 수 없습니다');
+    if (!canManageTrash(user, root)) throw new HttpError(403, '올린 사람 또는 관리자만 복원할 수 있습니다');
+    const parent = root.parent_id ? byId.get(root.parent_id) : null;
+    const parentId = parent && !parent.deleted_at ? parent.id : null;
+    const name = await uniqueName(db, parentId, root.name, root.id);
+    const clear = { deleted_at: null, deleted_by: null, deleted_by_name: null, trash_root_id: null };
+    const updated = await db.patch(`shared_files?id=eq.${root.id}`, { ...clear, parent_id: parentId, name });
+    await db.patch(`shared_files?trash_root_id=eq.${root.id}`, clear);
+    await writeLog(env, user, 'file_restore', `공유폴더: 휴지통에서 복원 '${name}'`);
+    return json({ item: updated[0], movedToRoot: !!root.parent_id && !parentId });
+  }
+
+  // 휴지통에서 완전 삭제 (되돌릴 수 없음)
+  if (method === 'POST' && path === '/api/trash/purge') {
+    const body = await request.json();
+    if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
+    const all = await db.getAll('shared_files?select=id,parent_id,name,is_folder,r2_key,uploaded_by,deleted_at,trash_root_id');
+    const root = all.find(r => r.id === body.id);
+    if (!root || !root.deleted_at || root.trash_root_id !== root.id) throw new HttpError(404, '휴지통에서 항목을 찾을 수 없습니다');
+    if (!canManageTrash(user, root)) throw new HttpError(403, '올린 사람 또는 관리자만 완전히 삭제할 수 있습니다');
+    const children = new Map();
+    for (const r of all) {
+      if (!children.has(r.parent_id)) children.set(r.parent_id, []);
+      children.get(r.parent_id).push(r);
+    }
+    const doomed = []; // 폴더면 그 아래(이미 휴지통에 있던 것 포함)까지. 휴지통 밖 항목은 건드리지 않음
+    const stack = [root];
+    while (stack.length) {
+      const r = stack.pop();
+      doomed.push(r);
+      for (const c of children.get(r.id) || []) if (c.deleted_at) stack.push(c);
+    }
+    await purgeRows(env, db, doomed.reverse());
+    await writeLog(env, user, 'file_purge', `공유폴더: 휴지통에서 완전 삭제 '${root.name}'` + (doomed.length > 1 ? ` (하위 ${doomed.length - 1}개 포함)` : ''));
+    return json({ ok: true });
   }
 
   // 내려받기 / 미리보기
   if (method === 'GET' && path.startsWith('/dl/')) {
     const id = path.slice(4);
     if (!isUuid(id)) throw new HttpError(400, '잘못된 요청입니다');
-    const rows = await db.get(`shared_files?id=eq.${id}&is_folder=eq.false&limit=1`);
+    const rows = await db.get(`shared_files?id=eq.${id}&is_folder=eq.false&deleted_at=is.null&limit=1`);
     if (!rows.length) throw new HttpError(404, '파일을 찾을 수 없습니다');
     const row = rows[0];
     const range = request.headers.get('Range');

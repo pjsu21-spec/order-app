@@ -87,6 +87,16 @@
   .item.picked{ background:var(--accent-soft); }
   body.selecting .item .main{ user-select:none; }
 
+  /* 휴지통 */
+  .trash-list{ max-height:52vh; overflow:auto; }
+  .trash-row{ display:flex; align-items:center; gap:8px; padding:10px 4px; border-bottom:1px solid #eee9dc; flex-wrap:wrap; }
+  .trash-row .icon{ font-size:20px; width:26px; text-align:center; flex:none; }
+  .trash-row .main{ flex:1 1 150px; min-width:0; }
+  .trash-row .name{ font-weight:600; word-break:break-all; line-height:1.35; }
+  .trash-row .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .trash-row .acts{ display:flex; gap:6px; margin-left:auto; }
+  .trash-row .acts button{ padding:6px 10px; font-size:13px; }
+
   /* 메뉴 / 대화상자 */
   .overlay{ position:fixed; inset:0; background:rgba(42,36,38,.4); display:none; align-items:flex-end; justify-content:center; z-index:50; }
   .overlay.show{ display:flex; }
@@ -136,6 +146,7 @@
     <button class="btn-primary" id="upload-btn">⬆ 파일 올리기</button>
     <button id="folder-btn">＋ 새 폴더</button>
     <button id="select-btn">☑ 선택</button>
+    <button id="trash-btn" style="display:none;">🗑 휴지통</button>
     <input type="search" id="search" placeholder="전체에서 이름 검색">
     <input type="file" id="file-input" multiple style="display:none;">
   </div>
@@ -183,6 +194,7 @@ let selectMode = false;  // 여러 개 선택 모드
 const selected = new Set(); // 선택한 항목 id
 let visibleRows = [];     // 지금 화면에 보이는 항목 (전체선택·Shift 범위선택용)
 let lastPickIdx = -1;
+let trashEnabled = false, trashDays = 30, trashCount = 0; // 휴지통(Worker가 지원할 때만 켜짐)
 
 const $ = (id) => document.getElementById(id);
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -301,7 +313,10 @@ async function refresh(){
   $('upload-btn').style.display = me.readOnly ? 'none' : '';
   $('folder-btn').style.display = me.readOnly ? 'none' : '';
   const pct = Math.min(100, data.used / data.limit * 100);
-  $('usage-text').textContent = `사용량 ${fmtSize(data.used)} / ${fmtSize(data.limit)} (${pct.toFixed(1)}%)`;
+  $('usage-text').textContent = `사용량 ${fmtSize(data.used)} / ${fmtSize(data.limit)} (${pct.toFixed(1)}%)${data.trash && data.trash.bytes ? ` · 휴지통 ${fmtSize(data.trash.bytes)} 포함` : ''}`;
+  trashEnabled = !!data.trashEnabled; trashDays = data.trashDays || 30; trashCount = (data.trash && data.trash.count) || 0;
+  $('trash-btn').style.display = trashEnabled && !me.readOnly ? '' : 'none';
+  $('trash-btn').textContent = `🗑 휴지통${trashCount ? ` (${trashCount})` : ''}`;
   $('usage-bar').firstElementChild.style.width = pct + '%';
   $('usage-bar').classList.toggle('full', pct >= 90);
   render();
@@ -379,7 +394,7 @@ function showMenu(it){
     ${!it.is_folder && canPreview(it) ? '<button class="sheet-btn" data-act="preview">👁 바로 보기</button>' : ''}
     ${canMove ? '<button class="sheet-btn" data-act="move">📂 다른 폴더로 이동</button>' : ''}
     ${canRename ? '<button class="sheet-btn" data-act="rename">✏ 이름 바꾸기</button>' : ''}
-    ${canDelete ? '<button class="sheet-btn danger" data-act="delete">🗑 삭제</button>' : ''}
+    ${canDelete ? '<button class="sheet-btn danger" data-act="delete">🗑 ' + (trashEnabled ? '휴지통으로 보내기' : '삭제') + '</button>' : ''}
     <div class="row"><button data-act="close">닫기</button></div>`);
   sheet.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
     const act = b.dataset.act; closeSheet();
@@ -436,13 +451,14 @@ function askMove(it){
 }
 
 function askDelete(it){
-  const sheet = openSheet(`<h3>삭제할까요?</h3>
-    <p>${it.is_folder ? `폴더 「${escapeHtml(it.name)}」와 그 안의 모든 파일이 삭제됩니다.` : `「${escapeHtml(it.name)}」 파일이 삭제됩니다.`}<br>삭제한 뒤에는 되돌릴 수 없습니다.</p>
-    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">삭제</button></div>`);
+  const T = trashEnabled;
+  const sheet = openSheet(`<h3>${T ? '휴지통으로 보낼까요?' : '삭제할까요?'}</h3>
+    <p>${it.is_folder ? `폴더 「${escapeHtml(it.name)}」와 그 안의 모든 파일이 ` : `「${escapeHtml(it.name)}」 파일이 `}${T ? '휴지통으로 이동합니다.' : '삭제됩니다.'}<br>${T ? `휴지통에서 ${trashDays}일 안에는 복원할 수 있습니다.` : '삭제한 뒤에는 되돌릴 수 없습니다.'}</p>
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">${T ? '휴지통으로' : '삭제'}</button></div>`);
   sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
   sheet.querySelector('[data-act=ok]').addEventListener('click', async () => {
     closeSheet();
-    try { await api('/api/delete', { method:'POST', body: JSON.stringify({ id: it.id }) }); toast('삭제했습니다'); await refresh(); }
+    try { await api('/api/delete', { method:'POST', body: JSON.stringify({ id: it.id }) }); toast(T ? '휴지통으로 보냈습니다' : '삭제했습니다'); await refresh(); }
     catch (e) { toast(e.message); }
   });
 }
@@ -564,21 +580,75 @@ function askMoveMany(){
 }
 
 function askDeleteMany(){
+  const T = trashEnabled;
   const { targets, skipped } = editTargets();
-  if (!targets.length) { toast('삭제할 수 있는 항목이 없습니다 (권한 없음)'); return; }
+  if (!targets.length) { toast(`${T ? '휴지통으로 보낼' : '삭제할'} 수 있는 항목이 없습니다 (권한 없음)`); return; }
   const nFolder = targets.filter(x => x.is_folder).length, nFile = targets.length - nFolder;
   const what = [nFile ? `파일 ${nFile}개` : '', nFolder ? `폴더 ${nFolder}개(안의 모든 파일 포함)` : ''].filter(Boolean).join(', ');
-  const sheet = openSheet(`<h3>${targets.length}개를 삭제할까요?</h3>
-    <p>${what}가 삭제됩니다.${skipped ? `<br>권한이 없는 ${skipped}개는 제외됩니다.` : ''}<br>삭제한 뒤에는 되돌릴 수 없습니다.</p>
-    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">삭제</button></div>`);
+  const sheet = openSheet(`<h3>${targets.length}개를 ${T ? '휴지통으로 보낼까요?' : '삭제할까요?'}</h3>
+    <p>${what}가 ${T ? '휴지통으로 이동합니다.' : '삭제됩니다.'}${skipped ? `<br>권한이 없는 ${skipped}개는 제외됩니다.` : ''}<br>${T ? `휴지통에서 ${trashDays}일 안에는 복원할 수 있습니다.` : '삭제한 뒤에는 되돌릴 수 없습니다.'}</p>
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">${T ? '휴지통으로' : '삭제'}</button></div>`);
   sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
   sheet.querySelector('[data-act=ok]').addEventListener('click', async () => {
-    closeSheet(); toast('삭제하는 중…');
+    closeSheet(); toast(T ? '휴지통으로 보내는 중…' : '삭제하는 중…');
     const r = await runBulk(targets, it => api('/api/delete', { method:'POST', body: JSON.stringify({ id: it.id }) }));
-    selected.clear(); toast(bulkSummary('삭제했습니다', r, skipped));
+    selected.clear(); toast(bulkSummary(T ? '휴지통으로 보냈습니다' : '삭제했습니다', r, skipped));
     try { await refresh(); } catch (e) { toast(e.message); }
   });
 }
+
+// ── 휴지통 ──
+function confirmClick(btn, label, fn){ // 버튼을 한 번 누르면 문구가 바뀌고, 3초 안에 한 번 더 누르면 실행
+  let armed = false, timer = null; const orig = btn.textContent;
+  btn.addEventListener('click', () => {
+    if (!armed) { armed = true; btn.textContent = label; timer = setTimeout(() => { armed = false; btn.textContent = orig; }, 3000); }
+    else { clearTimeout(timer); armed = false; btn.textContent = orig; fn(); }
+  });
+}
+async function openTrash(){
+  openSheet('<h3>🗑 휴지통</h3><p style="color:var(--muted);">불러오는 중…</p>');
+  let data;
+  try { data = await api('/api/trash'); } catch (e) { closeSheet(); toast(e.message); return; }
+  renderTrash(data);
+}
+function renderTrash(data){
+  const days = data.days || trashDays, now = Date.now();
+  const rows = data.items.map(t => {
+    const left = Math.max(0, Math.ceil(days - (now - new Date(t.deleted_at).getTime()) / 86400000));
+    const meta = `${t.is_folder ? `폴더 · 파일 ${t.files}개 · ` : ''}${fmtSize(t.size)} · ${escapeHtml(t.deleted_by_name || '')} ${fmtDate(t.deleted_at)} 삭제 · <b>${left}일 뒤 완전 삭제</b>`;
+    return `<div class="trash-row" data-id="${t.id}">
+      <div class="icon">${iconFor({ name: t.name, mime: '', is_folder: t.is_folder })}</div>
+      <div class="main"><div class="name">${escapeHtml(t.name)}</div><div class="meta">${meta}</div><div class="meta">원래 위치: ${escapeHtml(t.orig_path)}</div></div>
+      <div class="acts"><button data-act="restore">복원</button><button class="btn-danger" data-act="purge">완전삭제</button></div>
+    </div>`;
+  }).join('');
+  const sheet = openSheet(`<h3>🗑 휴지통</h3>
+    <p style="color:var(--muted);font-size:13px;">삭제한 항목은 ${days}일 동안 보관된 뒤 자동으로 완전히 삭제됩니다. 관리자는 모든 항목, 그 외에는 내가 올린 파일만 보입니다.</p>
+    <div class="trash-list">${rows || '<div class="empty">휴지통이 비어 있습니다.</div>'}</div>
+    <div class="row">${data.items.length ? '<button class="btn-danger" data-act="empty">휴지통 비우기</button>' : ''}<button data-act="close">닫기</button></div>`);
+  sheet.querySelector('[data-act=close]').addEventListener('click', closeSheet);
+  const reload = async () => { try { await refresh(); } catch (e) { toast(e.message); } openTrash(); };
+  const purge = (id) => api('/api/trash/purge', { method:'POST', body: JSON.stringify({ id }) });
+  sheet.querySelectorAll('.trash-row').forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector('[data-act=restore]').addEventListener('click', async () => {
+      try {
+        const r = await api('/api/restore', { method:'POST', body: JSON.stringify({ id }) });
+        toast(r.movedToRoot ? '복원했습니다 (원래 폴더가 없어 「전체」에 복원)' : '복원했습니다'); await reload();
+      } catch (e) { toast(e.message); }
+    });
+    confirmClick(row.querySelector('[data-act=purge]'), '정말 삭제', async () => {
+      try { await purge(id); toast('완전히 삭제했습니다'); await reload(); } catch (e) { toast(e.message); }
+    });
+  });
+  const emptyBtn = sheet.querySelector('[data-act=empty]');
+  if (emptyBtn) confirmClick(emptyBtn, '정말 비우기', async () => {
+    toast('비우는 중…');
+    const r = await runBulk(data.items, t => purge(t.id));
+    toast(bulkSummary('완전히 삭제했습니다', r, 0)); await reload();
+  });
+}
+$('trash-btn').addEventListener('click', openTrash);
 
 $('select-btn').addEventListener('click', () => setSelectMode(!selectMode));
 $('sel-done').addEventListener('click', () => setSelectMode(false));
