@@ -10123,13 +10123,53 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // (xlsx 안의 시트 XML을 직접 수정하므로 원본 서식이 깨지지 않음)
   const PO_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
   const PO_REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const PO_FIRST_COL = 10, PO_LAST_COL = 33; // J ~ AG : 품목 수량 열
-  const PO_HEADER_ROW = 13, PO_GROUP_ROW = 3; // 품목 머리글 행, 그 위 묶음 이름 행
+  const PO_FIRST_COL = 10, PO_LAST_COL = 33; // 기본값(예전 서식): J ~ AG 품목 수량 열. 실제 위치는 poLayout()이 서식에서 찾음
+  const PO_HEADER_ROW = 13, PO_GROUP_ROW = 3; // 기본값: 품목 머리글 행, 그 위 묶음 이름 행
   const poNorm = s => String(s == null ? '' : s).replace(/\s+/g, '').toLowerCase();
   // 업체 이름 비교용: 공백과 괄호 위치 차이를 무시 ("상장(생명)" = "(상장)생명")
   const poNameKey = s => poNorm(s).replace(/[()（）\[\]]/g, '');
   const poColNum = letters => letterToIndex(letters) + 1;
   const poSplitAddr = addr => { const m = /^([A-Z]+)(\d+)$/.exec(addr); return { col: poColNum(m[1]), row: +m[2], letters: m[1] }; };
+
+  // 서식의 구조(머리글 행, 묶음 머리글 행, 품목 열 범위 등)를 서식에서 직접 찾음. 서식이 바뀌어 행·열이 밀려도 맞게 읽기 위함.
+  //  - '구분' 머리글 블록(B열): 첫 줄이 품목별 총수량(박스) 행, 그 아래 품목 이름 머리글 행
+  //  - 오른쪽 패널('납품담당')이 시작하기 전까지가 품목 열, 위쪽 병합 머리글(예: 500G)이 묶음 머리글
+  function poLayout(ctx){
+    if(ctx.layout) return ctx.layout;
+    const D = { ok: false, firstCol: PO_FIRST_COL, lastCol: PO_LAST_COL, hdrRow: PO_HEADER_ROW, groupRow: PO_GROUP_ROW, groupBandEnd: 5, totBandStart: 6, totBandEnd: 10, totalsRow: 11, blockStart: 11, blockEnd: 14 };
+    ctx.layout = D;
+    try{
+      let bs = 0, be = 0;
+      for(let r = 1; r <= Math.min(ctx.maxRow, 60); r++){
+        if(poNorm(poText(ctx, 'B' + r)) === '구분'){ if(!bs) bs = r; be = r; } else if(bs) break;
+      }
+      if(!bs) return D;
+      let panel = 0;
+      for(let r = bs; r <= be && !panel; r++) for(let c = 20; c <= 70; c++){ if(poNorm(poText(ctx, colLetter(c - 1) + r)) === '납품담당'){ panel = c; break; } }
+      const maxC = panel ? panel - 1 : PO_LAST_COL;
+      let hdr = 0;
+      for(let r = bs; r <= be + 1 && !hdr; r++){
+        let n = 0;
+        for(let c = PO_FIRST_COL; c <= maxC; c++){ const t = poText(ctx, colLetter(c - 1) + r).trim(); if(t && isNaN(Number(t))) n++; }
+        if(n >= 5) hdr = r;
+      }
+      if(!hdr) return D;
+      let last = PO_FIRST_COL;
+      for(let c = PO_FIRST_COL; c <= maxC; c++) if(poText(ctx, colLetter(c - 1) + hdr).trim()) last = c;
+      // 위쪽 묶음 머리글: 품목 열 영역에서 높이 3줄 이상으로 병합된 칸 중 가장 위쪽 줄
+      const ms = poMergeRanges(ctx).filter(m => m.c1 >= PO_FIRST_COL && m.c2 <= last && m.r2 < bs && m.r1 >= 2 && m.r2 - m.r1 >= 2);
+      let groupRow = D.groupRow, groupBandEnd = D.groupBandEnd, totBandStart = D.totBandStart, totBandEnd = D.totBandEnd;
+      if(ms.length){
+        groupRow = ms.reduce((a, m) => Math.min(a, m.r1), 999);
+        groupBandEnd = ms.filter(m => m.r1 === groupRow).reduce((a, m) => Math.max(a, m.r2), groupRow);
+        totBandStart = groupBandEnd + 1;
+        const tm = ms.filter(m => m.r1 === totBandStart);
+        totBandEnd = tm.length ? tm.reduce((a, m) => Math.max(a, m.r2), totBandStart) : Math.min(bs - 1, totBandStart + 4);
+      }
+      Object.assign(D, { ok: true, firstCol: PO_FIRST_COL, lastCol: last, hdrRow: hdr, groupRow, groupBandEnd, totBandStart, totBandEnd, totalsRow: bs, blockStart: bs, blockEnd: be });
+    }catch(e){ /* 기본값(예전 서식 구조)으로 */ }
+    return D;
+  }
 
   async function poLoadTemplate(b64){
     if(typeof JSZip === 'undefined') throw new Error('압축 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요');
@@ -10137,15 +10177,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const parse = xml => new DOMParser().parseFromString(xml, 'application/xml');
     const wbDoc = parse(await zip.file('xl/workbook.xml').async('string'));
     const sheets = [...wbDoc.getElementsByTagName('sheet')];
-    const sh = sheets.find(s => /발주취합/.test(s.getAttribute('name') || '')) || sheets[0];
-    if(!sh) throw new Error('서식 파일에서 시트를 찾지 못했습니다');
-    const rid = sh.getAttributeNS(PO_REL_NS, 'id');
+    if(!sheets.length) throw new Error('서식 파일에서 시트를 찾지 못했습니다');
     const relsDoc = parse(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
-    const rel = [...relsDoc.getElementsByTagName('Relationship')].find(r => r.getAttribute('Id') === rid);
-    if(!rel) throw new Error('서식 파일의 시트 경로를 찾지 못했습니다');
-    let target = rel.getAttribute('Target');
-    const sheetPath = target.startsWith('/') ? target.slice(1) : 'xl/' + target;
-    const doc = parse(await zip.file(sheetPath).async('string'));
     // 공유 문자열
     const sst = [];
     const sstFile = zip.file('xl/sharedStrings.xml');
@@ -10160,23 +10193,42 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         sst.push(t);
       });
     }
-    const ctx = { zip, wbDoc, sheetName: sh.getAttribute('name'), sheetPath, doc, sst, cells: new Map(), rows: new Map(), mergeMaster: new Map(), maxRow: 0 };
-    const sheetData = doc.getElementsByTagName('sheetData')[0];
-    ctx.sheetData = sheetData;
-    [...sheetData.getElementsByTagName('row')].forEach(r => {
-      const n = +r.getAttribute('r');
-      ctx.rows.set(n, r);
-      if(n > ctx.maxRow) ctx.maxRow = n;
-    });
-    [...sheetData.getElementsByTagName('c')].forEach(c => ctx.cells.set(c.getAttribute('r'), c));
-    [...doc.getElementsByTagName('mergeCell')].forEach(m => {
-      const [a, b] = m.getAttribute('ref').split(':');
-      if(!b) return;
-      const p = poSplitAddr(a), q = poSplitAddr(b);
-      if((q.col - p.col + 1) * (q.row - p.row + 1) > 4000) return;
-      for(let r = p.row; r <= q.row; r++) for(let c = p.col; c <= q.col; c++) ctx.mergeMaster.set(colLetter(c - 1) + r, a);
-    });
-    return ctx;
+    const build = async sh => {
+      const rid = sh.getAttributeNS(PO_REL_NS, 'id');
+      const rel = [...relsDoc.getElementsByTagName('Relationship')].find(r => r.getAttribute('Id') === rid);
+      if(!rel) throw new Error('서식 파일의 시트 경로를 찾지 못했습니다');
+      const target = rel.getAttribute('Target');
+      const sheetPath = target.startsWith('/') ? target.slice(1) : 'xl/' + target;
+      const doc = parse(await zip.file(sheetPath).async('string'));
+      const ctx = { zip, wbDoc, sheetName: sh.getAttribute('name'), sheetPath, doc, sst, cells: new Map(), rows: new Map(), mergeMaster: new Map(), maxRow: 0 };
+      const sheetData = doc.getElementsByTagName('sheetData')[0];
+      ctx.sheetData = sheetData;
+      [...sheetData.getElementsByTagName('row')].forEach(r => {
+        const n = +r.getAttribute('r');
+        ctx.rows.set(n, r);
+        if(n > ctx.maxRow) ctx.maxRow = n;
+      });
+      [...sheetData.getElementsByTagName('c')].forEach(c => ctx.cells.set(c.getAttribute('r'), c));
+      [...doc.getElementsByTagName('mergeCell')].forEach(m => {
+        const [a, b] = m.getAttribute('ref').split(':');
+        if(!b) return;
+        const p = poSplitAddr(a), q = poSplitAddr(b);
+        if((q.col - p.col + 1) * (q.row - p.row + 1) > 4000) return;
+        for(let r = p.row; r <= q.row; r++) for(let c = p.col; c <= q.col; c++) ctx.mergeMaster.set(colLetter(c - 1) + r, a);
+      });
+      return ctx;
+    };
+    // 서식 시트 찾기: 이름에 '발주'가 들어간 시트부터 차례로, 구분 머리글 블록과 품목 열이 읽히는 첫 시트
+    const ordered = [...sheets.filter(s => /발주/.test(s.getAttribute('name') || '')), ...sheets.filter(s => !/발주/.test(s.getAttribute('name') || ''))];
+    let firstCtx = null;
+    for(const sh of ordered){
+      let c;
+      try{ c = await build(sh); }catch(e){ continue; }
+      if(!firstCtx) firstCtx = c;
+      if(poLayout(c).ok) return c;
+    }
+    if(firstCtx) return firstCtx;
+    throw new Error('서식 파일의 시트 경로를 찾지 못했습니다');
   }
 
   // 셀 글자 (병합된 칸은 대표 칸 값, 수식은 저장된 결과값)
@@ -10250,11 +10302,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 품목 열 머리글: [{ col:'J', header:'투맛토 (스테비아)', group:'투맛토 /500G' }]
   function poTemplateHeaders(ctx){
     const out = [];
-    for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++){
+    for(let n = poLayout(ctx).firstCol; n <= poLayout(ctx).lastCol; n++){
       const L = colLetter(n - 1);
-      const header = poText(ctx, L + PO_HEADER_ROW).replace(/\s*\n\s*/g, ' ').trim();
+      const header = poText(ctx, L + poLayout(ctx).hdrRow).replace(/\s*\n\s*/g, ' ').trim();
       if(!header || !isNaN(Number(header))) continue;
-      out.push({ col: L, header, group: poText(ctx, L + PO_GROUP_ROW).replace(/\s*\n\s*/g, ' ').trim() });
+      out.push({ col: L, header, group: poText(ctx, L + poLayout(ctx).groupRow).replace(/\s*\n\s*/g, ' ').trim() });
     }
     return out;
   }
@@ -10343,11 +10395,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 2) 업체 행: 이전 값 지우고 채움
     // 재고사용 열은 아직 앱에서 채우지 않으므로 비워서 내려받음 (서식에 남아 있던 이전 메모도 지움)
     let stockUseCol = '';
-    for(let r = 1; r <= 16 && !stockUseCol; r++){
-      for(let n = PO_LAST_COL + 1; n <= PO_LAST_COL + 14; n++){ if(poNorm(poText(ctx, colLetter(n - 1) + r)) === '재고사용'){ stockUseCol = colLetter(n - 1); break; } }
+    for(let r = 1; r <= poLayout(ctx).blockEnd && !stockUseCol; r++){
+      for(let n = poLayout(ctx).lastCol + 1; n <= poLayout(ctx).lastCol + 14; n++){ if(poNorm(poText(ctx, colLetter(n - 1) + r)) === '재고사용'){ stockUseCol = colLetter(n - 1); break; } }
     }
     scan.companyRows.forEach(r => {
-      for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++) poClear(ctx, colLetter(n - 1) + r.row);
+      for(let n = poLayout(ctx).firstCol; n <= poLayout(ctx).lastCol; n++) poClear(ctx, colLetter(n - 1) + r.row);
       if(stockUseCol) poClear(ctx, stockUseCol + r.row);
     });
     const used = new Set();
@@ -10363,10 +10415,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       used.add(row);
     });
-    // 3) 전일재고(G5~G9): 같은 행의 '출고 후 재고' 수식이 가리키는 품목 열의 재고를 합산
-    for(let r = 5; r <= 9; r++){
+    // 3) 전일재고(G열): 같은 행의 '출고 후 재고' 수식이 가리키는 품목 열의 재고를 합산
+    const Yl = poLayout(ctx);
+    const totRe = new RegExp('\\b([A-Z]{1,3})' + Yl.totalsRow + '\\b', 'g');
+    for(let r = Yl.groupRow; r < Yl.blockStart; r++){
       const f = poFormulaText(ctx, 'H' + r);
-      const cols = [...f.matchAll(/\b([A-Z]{1,2})11\b/g)].map(x => x[1]);
+      const cols = [...f.matchAll(totRe)].map(x => x[1]);
       if(!cols.length) continue;
       const total = cols.reduce((s, c) => s + (input.stockByCol[c] || 0), 0);
       const g = ctx.cells.get('G' + r);
@@ -10388,15 +10442,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 5) 품목 열: 수량이나 재고가 있는 열만 보이게 하고 나머지는 숨김 (서식에 평소 안 쓰는 열을 숨겨 두는 방식과 같음).
     //    서식에서 숨겨져 있던 열이라도 오늘 쓰면 펼침 → 스티로폼, 150g, 신규 품목 등은 쓰는 날에만 보임
     rep.hiddenCols = 0; rep.hiddenStyro = 0;
-    for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++){
+    for(let n = poLayout(ctx).firstCol; n <= poLayout(ctx).lastCol; n++){
       const L = colLetter(n - 1);
-      const header = poText(ctx, L + PO_HEADER_ROW).trim();
+      const header = poText(ctx, L + poLayout(ctx).hdrRow).trim();
       if(!header) continue; // 품목 사이의 좁은 빈 열은 그대로 둠
       const inUse = usedCols.has(L);
       poSetColHidden(ctx, n, !inUse);
       if(!inUse){
         rep.hiddenCols++;
-        if(/스티로폼/.test(poText(ctx, L + PO_GROUP_ROW) + ' ' + header)) rep.hiddenStyro++;
+        if(/스티로폼/.test(poText(ctx, L + poLayout(ctx).groupRow) + ' ' + header)) rep.hiddenStyro++;
       }
     }
     // 6) 서식에 열이 없는 품목은 파일 맨 아래에 따로 적음
@@ -10434,7 +10488,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!rows.length){ res.unplaced = dRows.slice(); return res; }
     // 이전 값 지움 (품목 수량·재고사용·출고일)
     rows.forEach(r => {
-      for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++) poClear(ctx, colLetter(n - 1) + r.row);
+      for(let n = poLayout(ctx).firstCol; n <= poLayout(ctx).lastCol; n++) poClear(ctx, colLetter(n - 1) + r.row);
       if(stockUseCol) poClear(ctx, stockUseCol + r.row);
     });
     const alias = k => (k === '쿠팡' ? 'coupang' : k);
@@ -10616,18 +10670,19 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 품목 열 영역의 묶음 머리글 목록: [{ master:'J', c1, c2, label:'500G' }]
   function poTemplateGroups(ctx){
     return poMergeRanges(ctx)
-      .filter(m => m.r1 === PO_GROUP_ROW && m.c1 >= PO_FIRST_COL && m.c2 <= PO_LAST_COL)
+      .filter(m => m.r1 === poLayout(ctx).groupRow && m.c1 >= poLayout(ctx).firstCol && m.c2 <= poLayout(ctx).lastCol)
       .sort((a, b) => a.c1 - b.c1)
-      .map(m => ({ master: colLetter(m.c1 - 1), c1: m.c1, c2: m.c2, label: poText(ctx, colLetter(m.c1 - 1) + PO_GROUP_ROW).replace(/\s*\n\s*/g, ' ').trim() }));
+      .map(m => ({ master: colLetter(m.c1 - 1), c1: m.c1, c2: m.c2, label: poText(ctx, colLetter(m.c1 - 1) + poLayout(ctx).groupRow).replace(/\s*\n\s*/g, ' ').trim() }));
   }
   // override: { 열문자: 묶음 기준 열문자 }. 지정한 열이 오늘 쓰이는 경우에만 적용. 바꾼 내용 목록을 돌려줌
   function poRegroupHeaders(ctx, usedCols, override){
     const out = [];
     if(!override || !Object.keys(override).length) return out;
+    const Y = poLayout(ctx);
     const groups = poTemplateGroups(ctx);
     const gOf = n => groups.find(g => n >= g.c1 && n <= g.c2);
-    const hasHeader = n => !!poText(ctx, colLetter(n - 1) + PO_HEADER_ROW).trim();
-    const cols = [...usedCols].map(L => letterToIndex(L) + 1).filter(n => n >= PO_FIRST_COL && n <= PO_LAST_COL && hasHeader(n)).sort((a, b) => a - b);
+    const hasHeader = n => !!poText(ctx, colLetter(n - 1) + poLayout(ctx).hdrRow).trim();
+    const cols = [...usedCols].map(L => letterToIndex(L) + 1).filter(n => n >= poLayout(ctx).firstCol && n <= poLayout(ctx).lastCol && hasHeader(n)).sort((a, b) => a - b);
     const eff = n => { const o = override[colLetter(n - 1)]; if(o && groups.some(g => g.master === o)) return o; const g = gOf(n); return g ? g.master : null; };
     if(!cols.some(n => { const o = override[colLetter(n - 1)]; const g = gOf(n); return o && g && o !== g.master && groups.some(x => x.master === o); })) return out;
 
@@ -10635,12 +10690,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const snap = {};
     groups.forEach(g => {
       const styles = {};
-      for(let r = 3; r <= 10; r++){
+      for(let r = Y.groupRow; r <= Y.totBandEnd; r++){
         styles[r] = {};
         for(let c = g.c1; c <= g.c2; c++){ const el = ctx.cells.get(colLetter(c - 1) + r); styles[r][c] = el ? el.getAttribute('s') : null; }
       }
-      const m3 = ctx.cells.get(g.master + PO_GROUP_ROW);
-      snap[g.master] = { g, styles, m3: m3 ? m3.cloneNode(true) : null, f6: poFormulaText(ctx, g.master + '6') };
+      const m3 = ctx.cells.get(g.master + poLayout(ctx).groupRow);
+      snap[g.master] = { g, styles, m3: m3 ? m3.cloneNode(true) : null, f6: poFormulaText(ctx, g.master + Y.totBandStart) };
     });
     // 같은 묶음으로 이어지는 열끼리 한 덩어리로
     const runs = [];
@@ -10652,7 +10707,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 기존 묶음 머리글 병합(3~5행, 6~10행)을 풀고 새로 병합
     const mergeCellsEl = ctx.doc.getElementsByTagName('mergeCells')[0];
     if(!mergeCellsEl) return out;
-    poMergeRanges(ctx).filter(m => (m.r1 === PO_GROUP_ROW || m.r1 === 6) && m.c1 >= PO_FIRST_COL && m.c2 <= PO_LAST_COL).forEach(m => {
+    poMergeRanges(ctx).filter(m => (m.r1 === Y.groupRow || m.r1 === Y.totBandStart) && m.c1 >= poLayout(ctx).firstCol && m.c2 <= poLayout(ctx).lastCol).forEach(m => {
       m.el.parentNode.removeChild(m.el);
       for(let r = m.r1; r <= m.r2; r++) for(let c = m.c1; c <= m.c2; c++) ctx.mergeMaster.delete(colLetter(c - 1) + r);
     });
@@ -10664,7 +10719,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const sc1 = sn.g.c1, sc2 = sn.g.c2, sMid = sc2 > sc1 ? sc1 + 1 : sc1;
       for(let c = first; c <= last; c++){
         const srcC = c === first ? sc1 : (c === last ? sc2 : sMid);
-        for(let r = 3; r <= 10; r++){
+        for(let r = Y.groupRow; r <= Y.totBandEnd; r++){
           const cell = poEnsureCell(ctx, colLetter(c - 1) + r);
           const s = sn.styles[r][srcC];
           if(s != null) cell.setAttribute('s', s);
@@ -10673,19 +10728,19 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       }
       const L1 = colLetter(first - 1), L2 = colLetter(last - 1);
       // 머리글 글자: 원래 묶음의 머리글을 그대로 가져옴
-      const head = ctx.cells.get(L1 + PO_GROUP_ROW);
+      const head = ctx.cells.get(L1 + poLayout(ctx).groupRow);
       if(sn.m3){
         if(sn.m3.getAttribute('t')) head.setAttribute('t', sn.m3.getAttribute('t'));
         [...sn.m3.childNodes].forEach(ch => head.appendChild(ch.cloneNode(true)));
       }
       // 묶음 총수량 칸: 이 묶음에 들어간 열들의 합계
       const unit = (/&"([^"&]*)"\s*$/.exec(sn.f6 || '') || [])[1] || '박스';
-      const tot = ctx.cells.get(L1 + '6');
+      const tot = ctx.cells.get(L1 + Y.totBandStart);
       const f = ctx.doc.createElementNS(PO_NS, 'f');
-      f.textContent = `"총수량 : "&${run.cols.map(c => colLetter(c - 1) + '11').join('+')}&"${unit}"`;
+      f.textContent = `"총수량 : "&${run.cols.map(c => colLetter(c - 1) + Y.totalsRow).join('+')}&"${unit}"`;
       tot.appendChild(f);
       tot.setAttribute('t', 'str');
-      [[PO_GROUP_ROW, 5], [6, 10]].forEach(([r1, r2]) => {
+      [[Y.groupRow, Y.groupBandEnd], [Y.totBandStart, Y.totBandEnd]].forEach(([r1, r2]) => {
         const mc = ctx.doc.createElementNS(PO_NS, 'mergeCell');
         mc.setAttribute('ref', `${L1}${r1}:${L2}${r2}`);
         mergeCellsEl.appendChild(mc);
@@ -10879,18 +10934,30 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const wm = label.match(/(\d+(?:\.\d+)?)\s*g\b/i);
     if(wm) weight = Number(wm[1]); else if(/\[\s*2\s*kg\s*\]|2kg/i.test((item.name || '') + label)) weight = 500; // 2kg 박스 = 500g 4팩
     const styro = poIsStyroItem(item);
-    const cands = headers.filter(h => {
-      if(strip(h.header) !== key) return false;
+    const fits = h => {
       if(poIsStyroHeader(h) !== styro) return false;
       const hm = h.header.match(/\[\s*(\d+(?:\.\d+)?)\s*g\s*\]/i) || (h.group || '').match(/(\d+(?:\.\d+)?)\s*g/i);
       const hw = hm ? Number(hm[1]) : null;
       return !(weight && hw && weight !== hw);
-    });
-    return cands.length ? cands[0].col : '';
+    };
+    const exact = headers.filter(h => strip(h.header) === key && fits(h));
+    if(exact.length) return exact[0].col;
+    // 이름이 완전히 같은 열이 없으면, 한쪽이 다른 쪽을 포함하는 열(예: "왓더프레시/대추방울토마토" ↔ "대추방울토마토", "투래곤후르츠(망고향)" ↔ "투래곤후르츠")을 찾음
+    if(key.length < 4) return '';
+    const loose = headers.filter(h => { const hk = strip(h.header); return hk.length >= 4 && hk !== key && (hk.includes(key) || key.includes(hk)) && fits(h); })
+      .map(h => ({ h, d: Math.abs(strip(h.header).length - key.length) })).sort((a, b) => a.d - b.d);
+    if(loose.length && (loose.length === 1 || loose[0].d < loose[1].d)) return loose[0].h.col;
+    return '';
   }
 
   // 머리글 비교용 키 (poSuggestCol과 같은 기준)
   const poItemKey = s => String(s || '').replace(/\[[^\]]*\]/g, '').replace(/[\s/]+/g, '').replace(/\d+(?:\.\d+)?(?:kg|g)/gi, '').replace(/스티로폼|종이박스|종이/g, '').toLowerCase();
+  // 품목 이름과 머리글이 같은 품목인지 (이름이 같거나, 한쪽이 다른 쪽을 포함: "왓더프레시/대추방울토마토" ↔ "대추방울토마토")
+  function poSameItem(a, b){
+    const ka = poItemKey(a), kb = poItemKey(b);
+    if(!ka || !kb) return false;
+    return ka === kb || (ka.length >= 4 && kb.length >= 4 && (ka.includes(kb) || kb.includes(ka)));
+  }
   // 서식 머리글에 넣을 품목 이름: "투맛토(복숭아향) 500g" → "투맛토\n(복숭아향)" (서식의 기존 머리글 모양과 같게)
   function poHeaderLabel(item){
     const label = (item.shortName || item.name || '').replace(/\s*\d+(?:\.\d+)?\s*(?:kg|g)\s*$/i, '').replace(/^\[[^\]]*\]\s*/, '').trim();
@@ -10906,9 +10973,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     Object.entries(byCol).forEach(([col, items]) => {
       if(items.length !== 1 || !(usedCols && usedCols.has(col))) return;
       const d = items[0];
-      const oldText = poText(ctx, col + PO_HEADER_ROW);
+      const oldText = poText(ctx, col + poLayout(ctx).hdrRow);
       if(!oldText) return;
-      if(poItemKey(d.shortName || d.name) === poItemKey(oldText)) return; // 이미 같은 품목의 열
+      if(poSameItem(d.shortName || d.name, oldText)) return; // 이미 같은 품목의 열
       const to = poHeaderLabel(d);
       const re = new RegExp('^' + col + '\\d+$');
       [...ctx.cells.keys()].filter(a => re.test(a)).forEach(a => {
@@ -10930,7 +10997,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const info = document.createElement('div');
     info.style.cssText = 'font-size:12px;margin-bottom:10px;padding:8px 12px;border-radius:6px;' + (headers.length ? 'color:var(--accent);background:var(--hover);' : 'color:var(--warn,#b7770d);background:#fef9e7;');
     info.textContent = headers.length
-      ? `✅ 서식 파일의 ${PO_HEADER_ROW}행 머리글 ${headers.length}개를 읽었습니다. 품목마다 들어갈 열을 골라주세요. (스티로폼 박스용 열은 스티로폼 품목에 지정)`
+      ? `✅ 서식 파일의 품목 머리글 ${headers.length}개를 읽었습니다. 품목마다 들어갈 열을 골라주세요. (스티로폼 박스용 열은 스티로폼 품목에 지정)`
       : (productionTemplateB64 ? '서식 파일에서 품목 열 머리글을 읽지 못했습니다. 열 문자를 직접 입력해주세요 (예: J, K, AA).' : '⚠ 서식 파일을 먼저 등록하면 아래에서 열을 고를 수 있습니다.');
     wrap.appendChild(info);
 
@@ -10952,7 +11019,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         const m = skuColumnMap[item.id];
         const h = headers.find(x => x.col === m);
         const warn = m && headers.length ? poColumnProblem(item, m, headers) : '';
-        const relabel = m && h && !warn && poItemKey(item.shortName || item.name) !== poItemKey(h.header);
+        const relabel = m && h && !warn && !poSameItem(item.shortName || item.name, h.header);
         badge.textContent = m ? `${warn ? '⚠' : '✓'} ${m}열${h ? ' — ' + (h.group ? h.group + ' · ' : '') + h.header : ''}${warn ? ' — ' + warn : ''}${relabel ? ` → 파일 머리글은 "${poHeaderLabel(item).replace(/\n/g, ' ')}"(으)로 바뀌어 표시됩니다` : ''}` : '미설정';
         badge.style.color = warn ? 'var(--danger,#c0392b)' : (m ? 'var(--accent)' : 'var(--muted)');
         badge.style.fontWeight = warn ? '700' : '400';
@@ -11011,7 +11078,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         productionTemplateB64 = btoa(b64);
         try{
           const ctx = await poLoadTemplate(productionTemplateB64);
-          if(poTemplateHeaders(ctx).length === 0) throw new Error(`${PO_HEADER_ROW}행에서 품목 열 머리글을 찾지 못했습니다`);
+          if(poTemplateHeaders(ctx).length === 0) throw new Error('품목 열 머리글을 찾지 못했습니다');
         }catch(e){
           productionTemplateB64 = prev;
           toast('서식 파일을 읽지 못했습니다: ' + e.message);
