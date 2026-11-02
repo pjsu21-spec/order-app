@@ -191,6 +191,13 @@
   .dict-row input[type=text]{ flex:1; }
   /* 거래처 관리: 업체명 칸이 화면 끝까지 늘어나 다른 칸과 헷갈리지 않도록 고정 폭 */
   .dict-row input.company-name-input{ flex:0 0 300px; width:300px; max-width:100%; }
+  /* 거래처 관리 표: 머리글 줄과 칸 너비를 맞춤 */
+  .co-cell{ flex:0 0 auto; min-width:0; box-sizing:border-box; }
+  .dict-row .co-cell input[type=text], .dict-row .co-cell select, .dict-row .co-cell input.company-name-input{ width:100%; max-width:100%; flex:none; box-sizing:border-box; }
+  .co-name{ width:200px; } .co-tpl{ width:50px; } .co-code{ width:92px; } .co-cat{ width:126px; } .co-region{ width:84px; }
+  .co-market{ width:96px; } .co-listed{ width:130px; } .co-disp{ width:96px; } .co-tax{ width:90px; } .co-del{ width:48px; }
+  .co-head{ display:flex; gap:8px; align-items:flex-end; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:4px; line-height:1.3; }
+  .co-head .co-map{ display:block; font-weight:500; color:var(--accent); }
   .empty{ color:var(--muted); font-size:13px; padding:20px; text-align:center; }
   .small-btn{ padding:4px 8px; font-size:11.5px; }
   .totals-col{ background:#f7f4ea; font-weight:700; }
@@ -1285,6 +1292,15 @@
   <div class="card">
     <details id="company-manage-details">
       <summary>거래처 관리 (업체 목록 추가/삭제)</summary>
+      <details class="help"><summary>ⓘ 각 칸이 들어가는 곳 (ERP · 발주취합)</summary><div class="sub" style="margin:0 0 8px;">
+        이 목록은 이카운트(ERP) 거래처와 발주취합 서식에 같이 쓰입니다. 칸마다 발주취합 서식의 어느 열에 들어가는지 위쪽 머리글에 적혀 있습니다.<br>
+        · <b>거래처명</b> — ERP 거래처명과 똑같이 입력 → 발주취합 <b>F열</b><br>
+        · <b>발주 구분</b> — 목록에서 선택(직거래·도매·SP 등). 목록에 없으면 <b>기타(직접입력)</b>으로 직접 적기 → 발주취합 <b>B열</b><br>
+        · <b>지역</b> — 수도권 / 지방 중에서만 선택 → 발주취합 <b>C열</b><br>
+        · <b>시장명</b> — 가락, 구리, 대구처럼 시장·지역 이름 → 발주취합 <b>D열</b><br>
+        · <b>상장청과명</b> — (상장)중앙청과처럼 도매 법인 이름 → 발주취합 <b>E열</b><br>
+        발주취합 서식에 자리가 없는 새 거래처는 같은 구분 맨 아래에 행이 자동으로 추가되고, 위 값들이 해당 칸에 채워집니다. (구분 목록은 아래 "구분 목록 관리"에서 추가·수정)
+      </div></details>
       <div class="row" style="margin-top:10px;">
         <input type="search" id="company-search-input" placeholder="등록된 거래처 검색 (예: 생명, 경동) — 이미 등록됐는지 확인" style="min-width:300px; flex:0 1 420px;">
         <span id="company-search-result" style="font-size:13px; font-weight:600;"></span>
@@ -3418,6 +3434,27 @@ function goHome() {
 
     let dragSrcIdx = null;
 
+    // 예전에 지역 칸에 적던 값(가락, 구리 …)은 수도권/지방만 남기고 나머지는 시장명(D열) 칸으로 옮김
+    let migrated = false;
+    companies.forEach(c => {
+      const r = (c.region || '').trim();
+      if(!r || r === '수도권' || r === '지방') return;
+      const area = /수도권/.test(r) ? '수도권' : (/지방/.test(r) ? '지방' : '');
+      const rest = r.replace(/수도권|지방/g, '').replace(/[\/·,\s]+/g, ' ').trim();
+      c.region = area;
+      if(rest && !c.marketName) c.marketName = rest;
+      migrated = true;
+    });
+    if(migrated) saveCompanies();
+
+    // 머리글 줄: 어느 칸이 발주취합 서식의 어느 열에 들어가는지 표시
+    const head = document.createElement('div');
+    head.className = 'co-head';
+    const hc = (key, title, map) => { const d = document.createElement('div'); d.className = 'co-cell co-' + key; d.innerHTML = escapeHtml(title) + (map ? `<span class="co-map">${escapeHtml(map)}</span>` : ''); return d; };
+    const sp = document.createElement('div'); sp.style.flex = '0 0 28px'; head.appendChild(sp);
+    [['name', '거래처명', 'ERP 거래처명 → 취합 F열'], ['tpl', '3PL', ''], ['code', '코드', ''], ['cat', '발주 구분', '→ 취합 B열'], ['region', '지역', '→ 취합 C열'], ['market', '시장명', '→ 취합 D열'], ['listed', '상장청과명', '→ 취합 E열'], ['disp', '', ''], ['tax', '', '']].forEach(([k, t, m]) => head.appendChild(hc(k, t, m)));
+    wrap.appendChild(head);
+
     companies.forEach((company, idx)=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
@@ -3493,45 +3530,73 @@ function goHome() {
       const codeInput = document.createElement('input');
       codeInput.type = 'text';
       codeInput.placeholder = '코드';
-      codeInput.style.maxWidth = '70px';
+      codeInput.title = '사업자번호 등 이카운트 거래처 코드';
       codeInput.value = company.code || '';
       codeInput.addEventListener('change', (e)=>{
         company.code = e.target.value.trim();
         saveCompanies();
       });
 
+      // 발주 구분 → 발주취합 B열. 목록에서 고르거나 "기타(직접 입력)"으로 새 구분을 적음
+      const CUSTOM_CAT = '__custom__';
+      const catBox = document.createElement('div');
+      catBox.style.cssText = 'display:flex;flex-direction:column;gap:3px;';
       const categorySelect = document.createElement('select');
-      categorySelect.title = '생산본부 양식 구분';
-      const categories = ['(구분선택)', ...companyCategories];
-      categories.forEach(cat=>{
+      categorySelect.title = '발주취합 서식 B열(구분)에 들어갑니다';
+      const customCat = !!company.category && !companyCategories.includes(company.category);
+      const catOpts = [['', '발주 구분 선택'], ...companyCategories.map(c => [c, c]), [CUSTOM_CAT, '기타(직접입력)']];
+      catOpts.forEach(([v, t])=>{
         const opt = document.createElement('option');
-        opt.value = cat === '(구분선택)' ? '' : cat;
-        opt.textContent = cat;
-        if((company.category || '') === opt.value) opt.selected = true;
+        opt.value = v; opt.textContent = t;
+        if(v === (customCat ? CUSTOM_CAT : (company.category || ''))) opt.selected = true;
         categorySelect.appendChild(opt);
       });
+      const customCatInput = document.createElement('input');
+      customCatInput.type = 'text';
+      customCatInput.placeholder = '구분 직접 입력';
+      customCatInput.title = '직접 입력한 구분이 발주취합 서식 B열에 그대로 들어갑니다 (서식에 없는 구분이면 맨 아래에 새 행으로 추가)';
+      customCatInput.value = customCat ? company.category : '';
+      customCatInput.style.display = customCat ? '' : 'none';
+      customCatInput.addEventListener('change', (e)=>{ company.category = e.target.value.trim(); saveCompanies(); });
       categorySelect.addEventListener('change', (e)=>{
-        company.category = e.target.value;
-        saveCompanies();
-        // 모든 구분에서 지역/상장청과명 입력 가능 (직거래도 포함)
-      });
-
-      const regionInput = document.createElement('input');
-      regionInput.type = 'text';
-      regionInput.placeholder = '지역(예:가락/수도권)';
-      regionInput.style.maxWidth = '100px';
-      regionInput.value = company.region || '';
-      regionInput.addEventListener('change', (e)=>{
-        company.region = e.target.value.trim();
+        if(e.target.value === CUSTOM_CAT){
+          company.category = customCatInput.value.trim();
+          customCatInput.style.display = '';
+          customCatInput.focus();
+        }else{
+          company.category = e.target.value;
+          customCatInput.style.display = 'none';
+        }
         saveCompanies();
       });
+      catBox.appendChild(categorySelect);
+      catBox.appendChild(customCatInput);
 
+      // 지역 → 발주취합 C열 (수도권/지방만)
+      const regionSelect = document.createElement('select');
+      regionSelect.title = '발주취합 서식 C열(지역)에 들어갑니다 — 수도권 / 지방';
+      [['', '지역 선택'], ['수도권', '수도권'], ['지방', '지방']].forEach(([v, t])=>{
+        const opt = document.createElement('option');
+        opt.value = v; opt.textContent = t;
+        if((company.region || '') === v) opt.selected = true;
+        regionSelect.appendChild(opt);
+      });
+      regionSelect.addEventListener('change', (e)=>{ company.region = e.target.value; saveCompanies(); });
+
+      // 시장명 → 발주취합 D열 (가락, 구리 등)
+      const marketInput = document.createElement('input');
+      marketInput.type = 'text';
+      marketInput.placeholder = '예: 가락';
+      marketInput.title = '발주취합 서식 D열에 넣을 시장·지역명 (예: 가락, 구리, 대구)';
+      marketInput.value = company.marketName || '';
+      marketInput.addEventListener('change', (e)=>{ company.marketName = e.target.value.trim(); saveCompanies(); });
+
+      // 상장청과명 → 발주취합 E열
       const listedInput = document.createElement('input');
       listedInput.type = 'text';
-      listedInput.placeholder = '상장청과명(도매)';
-      listedInput.style.maxWidth = '120px';
+      listedInput.placeholder = '예: (상장)서울청과';
       listedInput.value = company.listedMarketName || '';
-      listedInput.title = '도매 상장청과명 (예: (상장)중앙청과)';
+      listedInput.title = '도매 상장청과명 (예: (상장)중앙청과) — 발주취합 서식 E열에 들어갑니다';
       listedInput.addEventListener('change', (e)=>{
         company.listedMarketName = e.target.value.trim();
         saveCompanies();
@@ -3551,6 +3616,7 @@ function goHome() {
       const taxCheck = document.createElement('input');
       taxCheck.type = 'checkbox';
       taxCheck.title = '택배비를 과세(거래유형 11)로 처리. 입력한 단가는 VAT 포함 금액으로 처리됩니다.';
+      taxLabel.title = taxCheck.title;
       taxCheck.checked = !!company.courierTaxable;
       taxCheck.addEventListener('change', (e)=>{
         company.courierTaxable = e.target.checked;
@@ -3558,10 +3624,6 @@ function goHome() {
       });
       taxLabel.appendChild(taxCheck);
       taxLabel.appendChild(document.createTextNode('택배 과세'));
-      const taxHint = document.createElement('span');
-      taxHint.style.cssText = 'font-size:10px;color:var(--muted);';
-      taxHint.textContent = '(거래유형 11)';
-      taxLabel.appendChild(taxHint);
 
       // 출고일 지정 업체(쿠팡 등): 발주 입력에서 우리 회사 출고일을 따로 적고, 발주취합 파일의 쿠팡 블록에 출고일별로 들어감
       const dispLabel = document.createElement('label');
@@ -3569,21 +3631,25 @@ function goHome() {
       const dispCheck = document.createElement('input');
       dispCheck.type = 'checkbox';
       dispCheck.title = '쿠팡처럼 우리 회사 출고일을 따로 적는 업체. 발주 입력에서 출고일을 지정하고, 발주취합 파일의 쿠팡 블록에 출고일별로 채워집니다.';
+      dispLabel.title = dispCheck.title;
       dispCheck.checked = !!company.dispatchByDate;
       dispCheck.addEventListener('change', (e)=>{ company.dispatchByDate = e.target.checked; saveCompanies(); });
       dispLabel.appendChild(dispCheck);
       dispLabel.appendChild(document.createTextNode('출고일 지정'));
 
+      // 머리글 줄과 칸 너비를 맞추기 위해 칸마다 너비를 고정
+      const cell = (key, el) => { const d = document.createElement('div'); d.className = 'co-cell co-' + key; d.appendChild(el); return d; };
       row.appendChild(handle);
-      row.appendChild(nameInput);
-      row.appendChild(label);
-      row.appendChild(codeInput);
-      row.appendChild(categorySelect);
-      row.appendChild(regionInput);
-      row.appendChild(listedInput);
-      row.appendChild(dispLabel);
-      row.appendChild(taxLabel);
-      row.appendChild(delBtn);
+      row.appendChild(cell('name', nameInput));
+      row.appendChild(cell('tpl', label));
+      row.appendChild(cell('code', codeInput));
+      row.appendChild(cell('cat', catBox));
+      row.appendChild(cell('region', regionSelect));
+      row.appendChild(cell('market', marketInput));
+      row.appendChild(cell('listed', listedInput));
+      row.appendChild(cell('disp', dispLabel));
+      row.appendChild(cell('tax', taxLabel));
+      row.appendChild(cell('del', delBtn));
       wrap.appendChild(row);
     });
     applyCompanySearch();
@@ -10374,7 +10440,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
   // src행 바로 아래에 n개 행을 끼워 넣음. 새 행은 src행의 모양(서식·수식·가로 병합)을 그대로 복사하고 값은 비움.
   // src행에서 끝나는 세로 병합(구분·지역 칸)과 조건부 서식 범위, 소계 합계 범위는 새 행까지 늘어남. 성공하면 true
-  function poInsertRowsAfter(ctx, src, n){
+  function poInsertRowsAfter(ctx, src, n, opts){
     if(ctx.insertOk === false || !ctx.rows.get(src)) return false;
     poExpandShared(ctx);
     const doc = ctx.doc, home = ctx.sheetName, at = src + 1;
@@ -10419,7 +10485,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         const g = poParseRange(m.getAttribute('ref'));
         if(g.r1 >= at){ g.r1 += n; g.r2 += n; }
         else if(g.r2 >= at){ g.r2 += n; }                                        // 끼운 자리를 가로지르는 병합은 늘어남
-        else if(g.r2 === src && g.r1 < src && (g.c1 <= 3 || g.c1 > Y.lastCol)){ g.r2 += n; } // 구분·지역(B,C)·오른쪽 패널의 세로 병합
+        else if(g.r2 === src && g.r1 < src && (g.c1 <= 3 || g.c1 > Y.lastCol) && !(opts && opts.category && g.c1 <= 3)){ g.r2 += n; } // 새 구분 행이면 B·C 병합은 늘리지 않음 // 구분·지역(B,C)·오른쪽 패널의 세로 병합
         else if(g.r1 === src && g.r2 === src){ for(let k = 1; k <= n; k++) added.push(poRangeStr({ c1: g.c1, r1: src + k, c2: g.c2, r2: src + k })); }
         m.setAttribute('ref', poRangeStr(g));
       });
@@ -10442,6 +10508,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const dm = dim && /^([A-Z]+\d+):([A-Z]+)(\d+)$/.exec(dim.getAttribute('ref') || '');
     if(dm) dim.setAttribute('ref', `${dm[1]}:${dm[2]}${+dm[3] + n}`);
     poReindex(ctx);
+    if(opts && opts.category) for(let k = 1; k <= n; k++) poSetStr(ctx, 'B' + (src + k), opts.category); // 직접 입력한 구분을 B열에
+    else { const bt = poText(ctx, 'B' + src); for(let k = 1; k <= n; k++) if(bt && !ctx.mergeMaster.has('B' + (src + k))) poSetStr(ctx, 'B' + (src + k), bt); } // 구분 칸이 병합이 아니라 행마다 적혀 있으면 새 행에도 같은 구분을 적음
     ctx.structureChanged = true;
     return true;
   }
@@ -10506,6 +10574,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       let S = find(key);
       if(!S.length && e.corp) S = find(poNameKey(e.corp));
       if(S.length > 1 && e.corp){ const k = poNameKey(e.corp); const s2 = S.filter(r => r.F === k || r.E === k); if(s2.length) S = s2; }
+      if(S.length > 1 && e.market){ const k = poNameKey(e.market); const s2 = S.filter(r => r.D === k); if(s2.length) S = s2; }
       if(S.length > 1 && e.region){ const k = poNameKey(e.region); const s2 = S.filter(r => r.D === k || r.C === k || r.F === k); if(s2.length) S = s2; }
       if(S.length > 1){
         const firstFree = S.find(r => !assigned.has(r.row));
@@ -10523,7 +10592,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         // 같은 구분의 빈 행에 업체명을 적어 넣음
         const cands = free().filter(r => r.category === poNorm(e.category));
         const f = (e.region && cands.find(r => r.C === poNameKey(e.region))) || cands[0];
-        if(f){ hit = f; f.claimed = true; f.newName = e.name; rep.newRows.push(e.name); }
+        if(f){ hit = f; f.claimed = true; f.newName = e.name; f.newCorp = e.corp || ''; f.newMarket = e.market || ''; rep.newRows.push(e.name); }
       }
       if(hit){ take(hit.row, e); rep.placed.push(e.name); }
       else rep.unplaced.push(e.name);
@@ -10536,23 +10605,33 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     let scan = poScanRows(ctx);
     let { rep, assigned } = poPlan(scan, input.entries);
     // 서식에 자리가 없는 업체는 같은 구분(도매·직거래·SP 등)의 맨 아래에 행을 끼워 넣어 새로 적어 넣음 (소계·합계 수식은 같이 늘어남)
-    const addedRows = [];
-    for(let guard = 0; guard < 60 && rep.unplaced.length; guard++){
-      const e = input.entries.find(x => x.name === rep.unplaced[0]);
+    const addedRows = [], noCategory = [], skipped = new Set();
+    for(let guard = 0; guard < 80; guard++){
+      const nm = rep.unplaced.find(n => !skipped.has(n));
+      if(!nm) break;
+      const e = input.entries.find(x => x.name === nm);
       const cat = poNorm(e && e.category);
-      const sec = e && cat ? scan.companyRows.filter(r => r.category === cat) : [];
-      if(!sec.length) break; // 서식에 그런 구분이 없음 → 아래 안내로
+      if(!e || !cat){ noCategory.push(nm); skipped.add(nm); continue; } // 발주 구분이 비어 있음 → 아래 안내로
+      let sec = scan.companyRows.filter(r => r.category === cat);
+      let custom = false;
+      if(!sec.length){
+        // 서식에 없는 구분(직접 입력한 구분): 직거래 블록 맨 아래(없으면 마지막 업체 행)에 새 구분 행으로 추가
+        const base = scan.companyRows.filter(r => r.category === '직거래');
+        sec = base.length ? base : scan.companyRows.filter(r => !r.category.startsWith('3pl') && r.category !== '샘플' && r.category !== '개인구매');
+        if(!sec.length){ skipped.add(nm); continue; }
+        custom = true;
+      }
       const rk = poNameKey(e.region);
       const sameRegion = rk ? sec.filter(r => r.C === rk) : [];
       const anchor = (sameRegion.length ? sameRegion : sec).reduce((a, r) => r.row > a.row ? r : a);
-      if(!poInsertRowsAfter(ctx, anchor.row, 1)) break;
+      if(!poInsertRowsAfter(ctx, anchor.row, 1, custom ? { category: e.category } : null)){ skipped.add(nm); continue; }
       const before = rep.unplaced.length;
       scan = poScanRows(ctx);
       ({ rep, assigned } = poPlan(scan, input.entries));
       addedRows.push(e.name);
-      if(rep.unplaced.length >= before) break; // 넣었는데도 자리가 안 잡히면 중단
+      if(rep.unplaced.length >= before) skipped.add(nm); // 넣었는데도 자리가 안 잡히면 이 업체는 건너뜀
     }
-    rep.addedRows = addedRows;
+    rep.addedRows = addedRows; rep.noCategory = noCategory;
     rep.newRows = rep.newRows.filter(n => !addedRows.includes(n));
     const warn = [];
     // 1) 납품일 (B2)
@@ -10576,7 +10655,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const rowInfo = scan.companyRows.find(r => r.row === row);
       if(rowInfo && rowInfo.newName){
         poSetStr(ctx, rowInfo.nameAddr, rowInfo.newName);
-        if(rowInfo.nameAddr === 'F' + row && !poText(ctx, 'E' + row)) poSetStr(ctx, 'E' + row, rowInfo.newName); // 법인 칸이 비어 있으면 같은 이름으로
+        if(rowInfo.nameAddr === 'F' + row){
+          if(!poText(ctx, 'E' + row)) poSetStr(ctx, 'E' + row, rowInfo.newCorp || rowInfo.newName); // 상장청과명(E열), 없으면 업체명
+          if(rowInfo.newMarket && !poText(ctx, 'D' + row)) poSetStr(ctx, 'D' + row, rowInfo.newMarket); // 시장명(D열)
+        }
       }
       Object.entries(sum).forEach(([col, q]) => {
         const v = Math.round(q * 100) / 100;
@@ -11001,7 +11083,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(unitOf(d) <= 0) noUnit.add(label(d));
         colQty[col] = (colQty[col] || 0) + toBox(d, q);
       });
-      if(Object.keys(colQty).length) entries.push({ name, category: meta.category || '', region: meta.region || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
+      if(Object.keys(colQty).length) entries.push({ name, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
     });
     // 샘플 신청(생산본부 생산으로 지정된 품목만): 신청자(부서)별로 묶어 서식의 샘플 행에 넣음. 영업 부서는 '영업용', 그 외는 '본사' 칸
     const sampleMap = new Map();
@@ -11375,7 +11457,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       skuColumnMap = colMap;
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const r = res.rep;
-      if(r.unplaced.length) add('err', '서식에 자리가 없는 업체', `${r.unplaced.join(', ')} — 서식에 행을 추가한 뒤 다시 등록해주세요. 안 하면 이 업체 수량이 빠집니다`);
+      if(r.noCategory && r.noCategory.length) add('err', '발주 구분이 비어 있는 거래처', `${r.noCategory.join(', ')} — 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요. 안 하면 이 업체 수량이 빠집니다`);
+      const unp = r.unplaced.filter(n => !(r.noCategory || []).includes(n));
+      if(unp.length) add('err', '서식에 자리가 없는 업체', `${unp.join(', ')} — 서식에 행을 추가한 뒤 다시 등록해주세요. 안 하면 이 업체 수량이 빠집니다`);
       if(r.dispatch && r.dispatch.unplaced.length) add('err', '쿠팡 블록에 자리가 없는 출고', `${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} — 서식에 쿠팡 행을 추가해주세요`);
       if(r.ambiguous.length) add('warn', '이름이 같은 행이 여러 개', `${r.ambiguous.join(', ')} — 첫 빈 행에 들어갑니다. 위치를 확인해주세요`);
       if(res.warn.length) add('warn', '수식 칸', `수식이 들어 있어 값을 쓰지 못하는 칸: ${res.warn.join(', ')}`);
@@ -11484,7 +11568,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
-      if(r.unplaced.length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
+      if(r.noCategory && r.noCategory.length) lines.push({ warn: true, text: `※ 발주 구분이 비어 있어 서식에 못 넣은 업체: ${r.noCategory.join(', ')} → 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요` });
+      if(r.unplaced.filter(n => !(r.noCategory || []).includes(n)).length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.filter(n => !(r.noCategory || []).includes(n)).join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
       if(r.hiddenCols) lines.push({ text: `수량·재고가 없는 품목 열 ${r.hiddenCols}개는 숨겼습니다${r.hiddenStyro ? ` (스티로폼 열 ${r.hiddenStyro}개 포함)` : ''}` });
       if(built.unmapped.length) lines.push({ warn: true, text: `※ 서식에 열이 지정되지 않은 품목은 열에 못 넣고 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다: ${built.unmapped.join(', ')} → 서식에 열을 추가해 다시 등록하고 열을 지정하면 해당 열에 들어갑니다` });
       if(built.noUnit.length) lines.push({ warn: true, text: `※ 박스입수가 없어 팩 수 그대로 들어간 품목: ${built.noUnit.join(', ')} → SKU 관리에서 박스입수를 입력하면 박스 수로 계산됩니다` });
