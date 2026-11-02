@@ -804,9 +804,11 @@
     <div class="row">
       <button class="btn-primary" id="export-btn">전체 엑셀 다운로드</button>
       <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 생산본부 발주취합 다운로드</button>
+      <button class="btn-ghost small-btn" id="po-check-btn" title="다운로드 전에, 오늘 주문이 서식에 제대로 들어갈지 미리 점검합니다 (파일은 만들지 않고 아무것도 바꾸지 않습니다)">🩺 서식 점검</button>
       <button class="btn-primary" id="export-3pl-btn" style="display:none;">3PL 엑셀 다운로드</button>
       <button class="btn-danger" id="reset-all-btn">이 날짜 초기화</button>
     </div>
+    <div id="po-check-report" style="font-size:12px;margin:8px 0 0;"></div>
     <div id="po-report" style="font-size:12px;margin:8px 0 0;"></div>
 
     <details id="po-template-details" style="margin-top:14px;">
@@ -11146,6 +11148,105 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     note.style.color = 'var(--muted)';
     note.textContent = (changes.length ? `✅ ${changes.length}개 품목의 열을 지정했습니다 — ${changes.join(' / ')}. 아래에서 맞는지 확인해주세요. ` : '바꿀 품목이 없습니다. ')
       + (none.length ? `추천할 열을 찾지 못한 품목(직접 지정 필요): ${none.join(', ')}` : '');
+  });
+
+  // ── 서식 점검: 다운로드와 같은 과정을 파일 저장·설정 변경 없이 미리 돌려 보고, 문제를 한눈에 정리 ──
+  // 반환: [{ level: 'err' | 'warn' | 'info', title, text }] (err 필수 확인 · warn 확인 권장 · info 자동 처리됨)
+  async function poInspect(dateKey){
+    const issues = [];
+    const add = (level, title, text) => issues.push({ level, title, text });
+    if(!productionTemplateB64){ add('err', '서식 없음', '발주취합 서식 파일이 등록되지 않았습니다. 아래 "발주취합 서식"에서 먼저 올려주세요.'); return issues; }
+    let ctx;
+    try{ ctx = await poLoadTemplate(productionTemplateB64); }
+    catch(e){ add('err', '서식을 읽지 못함', e.message || String(e)); return issues; }
+    const Y = poLayout(ctx);
+    const hdrs = poTemplateHeaders(ctx);
+    if(!hdrs.length){ add('err', '품목 열 머리글 없음', '서식에서 품목 열 머리글을 찾지 못했습니다. 서식 파일이 맞는지 확인해주세요.'); return issues; }
+
+    // 오늘 주문이 있는 품목 (출고일 지정·샘플은 아래에서 따로 봄)
+    const ordersToday = currentOrders();
+    const has = d => Object.keys(ordersToday).some(n => n !== '_meta' && Number((ordersToday[n] || {})[d.id]) > 0);
+    const nm = d => d.shortName || d.name;
+    const used = dict.filter(has);
+    const colMap = Object.assign({}, skuColumnMap);
+    used.forEach(d => {
+      const cur = colMap[d.id];
+      if(cur && !poColumnProblem(d, cur, hdrs)) return;
+      const sug = poSuggestCol(d, hdrs);
+      if(sug && sug !== cur){
+        colMap[d.id] = sug;
+        add('info', '열 자동 지정', `${nm(d)}: ${cur ? cur + '열(' + poColumnProblem(d, cur, hdrs) + ') → ' : ''}${sug}열 — 다운로드할 때 자동으로 바로잡습니다`);
+      }
+    });
+    // 같은 열에 두 품목이 지정되면 수량이 한 열에 합쳐짐
+    const byCol = {};
+    used.forEach(d => { const c = colMap[d.id]; if(c) (byCol[c] = byCol[c] || []).push(nm(d)); });
+    Object.entries(byCol).filter(([, v]) => v.length > 1).forEach(([c, v]) => add('err', '한 열에 품목 여러 개', `${c}열에 ${v.join(', ')}이(가) 함께 지정돼 수량이 합쳐집니다. 품목마다 다른 열을 지정해주세요`));
+    used.forEach(d => { const c = colMap[d.id]; if(c && !hdrs.some(h => h.col === c)) add('err', '서식에 없는 열', `${nm(d)} → ${c}열은 서식의 품목 열이 아닙니다. 열 지정을 바꿔주세요`); });
+
+    let sampleRows = [];
+    if(typeof window.getSampleRequestsForDate === 'function'){
+      try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }
+      catch(e){ add('warn', '샘플 신청을 불러오지 못함', `${e.message || e} — 다운로드하면 샘플은 빠집니다`); }
+    }
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
+    if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ add('info', '발주 데이터 없음', '이 날짜에는 서식에 채울 주문이 없습니다'); return issues; }
+    if(built.unmapped.length) add('err', '서식에 열이 없는 품목', `${built.unmapped.join(', ')} — 서식에 열을 추가해 다시 등록하고 열을 지정하거나, 서식의 다른 열을 지정해주세요. 안 하면 파일 맨 아래 표에만 적힙니다`);
+    if(built.noUnit.length) add('warn', '박스입수 없음', `${built.noUnit.join(', ')} — 박스 수가 아니라 팩 수 그대로 들어갑니다. SKU 관리에서 박스입수를 입력해주세요`);
+
+    // 실제로 채워 보고(저장은 하지 않음) 결과를 읽음. 머리글·용량 바꾸기는 지정된 열 기준이라 잠깐 임시 지정으로 바꿔서 확인
+    const saved = skuColumnMap;
+    try{
+      skuColumnMap = colMap;
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
+      const r = res.rep;
+      if(r.unplaced.length) add('err', '서식에 자리가 없는 업체', `${r.unplaced.join(', ')} — 서식에 행을 추가한 뒤 다시 등록해주세요. 안 하면 이 업체 수량이 빠집니다`);
+      if(r.dispatch && r.dispatch.unplaced.length) add('err', '쿠팡 블록에 자리가 없는 출고', `${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} — 서식에 쿠팡 행을 추가해주세요`);
+      if(r.ambiguous.length) add('warn', '이름이 같은 행이 여러 개', `${r.ambiguous.join(', ')} — 첫 빈 행에 들어갑니다. 위치를 확인해주세요`);
+      if(res.warn.length) add('warn', '수식 칸', `수식이 들어 있어 값을 쓰지 못하는 칸: ${res.warn.join(', ')}`);
+      if(r.newRows.length) add('info', '새 행에 업체명 기재', `서식의 빈 행에 업체명을 적어 넣습니다: ${r.newRows.join(', ')}`);
+      if(r.aggregated.length) add('info', '3PL 합산', `${r.aggregated.join(', ')} → 서식의 3PL 출고 행에 합산`);
+      if(built.sampleNames.length) add('info', '샘플 포함', `${built.sampleNames.join(', ')} → 샘플 행`);
+      if(r.dispatch && r.dispatch.placed.length) add('info', '쿠팡 출고일 블록', `${r.dispatch.placed.join(', ')}`);
+      const groupOverride = {};
+      dict.forEach(d => { const c = colMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = g; });
+      poRelabelHeaders(ctx, r.usedCols).forEach(x => add('info', '머리글 바뀜', `${x.col}열 "${x.from}" → "${x.to}" (서식의 다른 품목 열을 빌려 씀)`));
+      poRegroupHeaders(ctx, r.usedCols, groupOverride).forEach(x => add('info', '묶음 머리글', x));
+      poRelabelWeights(ctx, r.usedCols, groupOverride).forEach(x => add('info', '용량 표기 바뀜', `${x.col}열 ${x.from} → ${x.to}`));
+    }catch(e){
+      add('err', '점검 중 오류', e.message || String(e));
+    }finally{
+      skuColumnMap = saved;
+    }
+    // 서식 자체의 간단한 확인
+    const idle = dict.filter(d => !has(d) && !skuColumnMap[d.id] && !poSuggestCol(d, hdrs));
+    if(idle.length) add('info', '오늘 주문 없는 품목 중 열이 없는 것', `${idle.map(nm).join(', ')} — 오늘은 영향 없습니다. 주문이 들어오면 서식에 열을 만들거나 열을 지정해야 합니다`);
+    add('info', '서식 인식', `시트 「${ctx.sheetName}」 · 품목 머리글 ${Y.hdrRow}행 · 품목 열 ${hdrs.length}개 · 오늘 주문 품목 ${used.length}개`);
+    return issues;
+  }
+  function poRenderInspect(issues){
+    const el = document.getElementById('po-check-report');
+    if(!el) return;
+    const groups = [
+      { lv: 'err', head: '🔴 꼭 확인해야 할 것', color: '#c0392b' },
+      { lv: 'warn', head: '🟡 확인하면 좋은 것', color: '#b7770d' },
+      { lv: 'info', head: 'ℹ 자동으로 처리되는 것', color: 'var(--muted)' },
+    ];
+    const hasErr = issues.some(i => i.level === 'err'), hasWarn = issues.some(i => i.level === 'warn');
+    let html = `<div style="font-weight:700;margin-bottom:4px;color:${hasErr ? '#c0392b' : (hasWarn ? '#b7770d' : 'var(--accent)')};">🩺 서식 점검 결과 — ${hasErr ? '고쳐야 할 항목이 있습니다' : (hasWarn ? '확인할 항목이 있습니다' : '✅ 이대로 다운로드해도 됩니다')}</div>`;
+    groups.forEach(g => {
+      const list = issues.filter(i => i.level === g.lv);
+      if(!list.length) return;
+      html += `<div style="margin:6px 0 2px;font-weight:600;color:${g.color};">${g.head}</div>` +
+        list.map(i => `<div style="color:${g.color};padding-left:10px;">· <b>${escapeHtml(i.title)}</b> — ${escapeHtml(i.text)}</div>`).join('');
+    });
+    el.innerHTML = html;
+  }
+  document.getElementById('po-check-btn').addEventListener('click', async ()=>{
+    const el = document.getElementById('po-check-report');
+    if(el) el.textContent = '서식 점검 중...';
+    try{ poRenderInspect(await poInspect(currentDateKey)); }
+    catch(e){ if(el) el.innerHTML = `<div style="color:#c0392b;">서식 점검에 실패했습니다: ${escapeHtml(e.message || String(e))}</div>`; }
   });
 
   document.getElementById('export-production-order-btn').addEventListener('click', async ()=>{
