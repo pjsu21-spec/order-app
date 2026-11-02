@@ -189,6 +189,8 @@
   .raw-line{ color:var(--muted); font-size:11.5px; flex-basis:100%; }
   .dict-row{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
   .dict-row input[type=text]{ flex:1; }
+  /* 거래처 관리: 업체명 칸이 화면 끝까지 늘어나 다른 칸과 헷갈리지 않도록 고정 폭 */
+  .dict-row input.company-name-input{ flex:0 0 300px; width:300px; max-width:100%; }
   .empty{ color:var(--muted); font-size:13px; padding:20px; text-align:center; }
   .small-btn{ padding:4px 8px; font-size:11.5px; }
   .totals-col{ background:#f7f4ea; font-weight:700; }
@@ -1244,6 +1246,10 @@
   <div class="card">
     <details id="company-manage-details">
       <summary>거래처 관리 (업체 목록 추가/삭제)</summary>
+      <div class="row" style="margin-top:10px;">
+        <input type="search" id="company-search-input" placeholder="등록된 거래처 검색 (예: 생명, 경동) — 이미 등록됐는지 확인" style="min-width:300px; flex:0 1 420px;">
+        <span id="company-search-result" style="font-size:13px; font-weight:600;"></span>
+      </div>
       <div id="company-editor" style="margin-top:12px;"></div>
       <div class="row">
         <input type="text" id="new-company-manage-input" placeholder="업체명 입력" style="min-width:180px;">
@@ -3232,6 +3238,7 @@ function goHome() {
     populateUploadCompanySelect();
     if(companies.length === 0){
       wrap.innerHTML = '<div class="empty" style="padding:10px 0;">등록된 업체가 없습니다. 아래에서 추가하거나, 발주를 확정할 때 자동으로 등록됩니다.</div>';
+      applyCompanySearch();
       return;
     }
 
@@ -3271,7 +3278,9 @@ function goHome() {
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
+      nameInput.className = 'company-name-input';
       nameInput.value = company.name;
+      nameInput.title = company.name;
       nameInput.addEventListener('change', (e)=>{
         const newName = e.target.value.trim();
         if(!newName){ nameInput.value = company.name; return; }
@@ -3391,6 +3400,40 @@ function goHome() {
       row.appendChild(delBtn);
       wrap.appendChild(row);
     });
+    applyCompanySearch();
+  }
+
+  // 거래처 검색: 이름(상장청과명·코드 포함)에 입력한 글자가 들어 있는 업체만 보여주고, 등록 여부를 알려 줌 (공백·괄호 위치 무시)
+  function applyCompanySearch(){
+    const inp = document.getElementById('company-search-input');
+    const out = document.getElementById('company-search-result');
+    if(!inp || !out) return;
+    const key = s => String(s || '').replace(/[\s()（）\[\]]/g, '').toLowerCase();
+    const q = key(inp.value);
+    const rows = [...document.querySelectorAll('#company-editor .dict-row')];
+    if(!q){
+      rows.forEach(r => { r.style.display = ''; });
+      out.textContent = `등록된 거래처 ${companies.length}곳`;
+      out.style.color = 'var(--muted)';
+      return;
+    }
+    let hit = 0;
+    rows.forEach(r => {
+      const c = companies[Number(r.dataset.idx)];
+      const on = !!c && [c.name, c.listedMarketName, c.code].some(v => { const k = key(v); return k && k.includes(q); });
+      r.style.display = on ? '' : 'none';
+      if(on) hit++;
+    });
+    if(hit){
+      out.textContent = `✅ 이미 등록된 거래처가 ${hit}곳 있습니다`;
+      out.style.color = 'var(--accent)';
+    } else {
+      const m = matchCompanyName(inp.value);
+      out.textContent = m.candidates.length
+        ? `등록된 업체가 없습니다 — 비슷한 업체: ${m.candidates.join(', ')}`
+        : '❌ 등록된 업체가 없습니다 (아래 "+ 업체 추가"로 등록)';
+      out.style.color = 'var(--danger,#c0392b)';
+    }
   }
 
   function renderRawStockEditor(){
@@ -4886,10 +4929,14 @@ function goHome() {
     // 같은 이름이라도 구분(거래방식)이 다르면 별도 등록 허용
     // → 중복 체크 제거 (등록 후 구분 선택으로 차별화)
     companies.push({ name: val, isThirdParty: false, code: '', category: '', region: '', listedMarketName: '' });
+    const searchBox = document.getElementById('company-search-input');
+    if(searchBox) searchBox.value = ''; // 검색 필터에 가려져 새 업체가 안 보이지 않도록
     saveCompanies(); renderCompanyManager(); renderPriceMapEditor();
     input.value = '';
     toast(`"${val}" 업체가 추가됐습니다. 아래에서 구분(거래방식)을 설정해주세요.`);
   });
+
+  document.getElementById('company-search-input').addEventListener('input', applyCompanySearch);
 
   document.getElementById('add-category-btn').addEventListener('click', ()=>{
     const input = document.getElementById('new-category-input');
