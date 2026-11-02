@@ -229,6 +229,7 @@
   .orig-prev th.pick{ cursor:pointer; user-select:none; }
   .orig-prev th.pick:hover{ background:var(--accent-soft, var(--hover)); }
   .orig-prev th.sel, .orig-prev td.sel{ background:#fff3bf; color:#5c4400; font-weight:700; }
+  .orig-prev th.sel2, .orig-prev td.sel2{ background:#d0ebff; color:#0b3a66; font-weight:700; }
   .orig-prev tr.hdr td{ background:var(--hover); font-weight:600; }
   /* 접어두는 구역을 본문 소제목과 구분하는 박스 */
   .fold-box{ margin:18px 0; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; background:var(--hover); padding:0 14px; }
@@ -644,7 +645,7 @@
           <label style="font-size:13px;">데이터 시작 행 :</label>
           <input type="number" id="upload-start-row" min="1" style="width:60px;" value="2">
         </div>
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:6px 0 0;">업체마다 파일 형식이 달라도 괜찮습니다 — 한 번 지정해두면 같은 업체 파일은 다음부터 자동으로 같은 열을 사용합니다.</div></details>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:6px 0 0;">업체마다 파일 형식이 달라도 괜찮습니다 — 한 번 지정해두면 같은 업체 파일은 다음부터 자동으로 같은 열을 사용합니다. 온라인몰(토스쇼핑 등)은 <b>옵션 관리 코드 열</b>을 지정하면 "투맛토(망고향) 1팩 + (자몽향) 1팩"처럼 묶인 옵션을 품목별로 나누고, 수량 열(주문건수)만큼 곱합니다.</div></details>
         <div id="upload-file-preview" style="margin-top:10px; overflow-x:auto;"></div>
         <div class="row">
           <button class="btn-primary small-btn" id="upload-apply-btn">이 매핑으로 불러오기</button>
@@ -854,6 +855,9 @@
         <select id="original-file-company-select" style="min-width:180px;"></select>
         <label style="font-size:13px;">운송장번호 삽입 열 :</label>
         <input type="text" id="original-tracking-col" placeholder="예: L" style="width:60px; text-transform:uppercase;" title="원본 파일에서 운송장번호를 기입할 열 (예: L). 비워두면 마지막 열 뒤에 추가됩니다.">
+        <label style="font-size:13px;">택배사 열 :</label>
+        <input type="text" id="original-courier-col" placeholder="예: H" style="width:60px; text-transform:uppercase;" title="택배사 이름을 기입할 열 (선택). 토스쇼핑처럼 택배사 칸이 따로 있는 업체용입니다.">
+        <input type="text" id="original-courier-name" placeholder="택배사 이름 (예: CJ대한통운)" style="width:170px;">
         <button class="btn-primary small-btn" id="export-original-format-btn">업체 양식으로 다운로드</button>
       </div>
       <div class="sub" id="orig-preview-note" style="margin:6px 0 0;"></div>
@@ -2119,7 +2123,8 @@ function goHome() {
     { key: 'recipientPhone', label: '받는사람 전화번호 열', optional: true },
     { key: 'address', label: '배송지 주소 열', optional: true },
     { key: 'item', label: '품목명 열' },
-    { key: 'qty', label: '수량(팩) 열' },
+    { key: 'qty', label: '수량(팩) 열 (옵션 코드 사용 시: 주문건수)' },
+    { key: 'optionCode', label: '옵션 관리 코드 열 (묶음·팩수 분해, 선택)', optional: true, noDefault: true },
     { key: 'note', label: '배송시 요청사항 열', optional: true },
   ];
   const BOX_CAPACITY = 8; // max units in one box; above this splits into additional boxes
@@ -2660,6 +2665,83 @@ function goHome() {
     });
     if(partial.length === 1) return partial[0].id;
     return null;
+  }
+
+  // ── 온라인몰(토스쇼핑 등) 주문 파일 보조 ──
+  // 옵션 관리 코드 한 칸("투맛토(망고향) 1팩 + (자몽향) 2팩")을 품목별 줄로 풀어줌. 해석 못 하면 null.
+  // hintText(상품명)에 용량(500g)이 하나만 있으면 용량이 빠진 품목명의 모호함을 푸는 데 쓰고,
+  // setQty(주문건수=세트 수)만큼 수량을 곱함. "(자몽향)"처럼 앞 품목 이름이 생략된 항목은 앞 품목의 이름을 이어받음.
+  function parseOptionCode(code, hintText, setQty){
+    const parts = String(code || '').split(/[+＋\n]/).map(s=>s.trim()).filter(Boolean);
+    if(parts.length === 0) return null;
+    const weights = [...new Set((String(hintText || '').match(/\d+\s*g(?![a-z])/gi) || []).map(w=>w.replace(/\s+/g, '').toLowerCase()))];
+    const weight = weights.length === 1 ? weights[0] : '';
+    const out = [];
+    let prevName = '';
+    for(const p of parts){
+      const m = p.match(/^(.*?)[\s*×xX]*(\d+(?:\.\d+)?)\s*(?:팩|개|ea|EA|박스|box|BOX)?$/);
+      if(!m) return null;
+      const name = m[1].trim().replace(/[-:,]+$/, '').trim();
+      const packs = parseFloat(m[2]);
+      if(!name || !(packs > 0)) return null;
+      const cands = [name];
+      const k = prevName.search(/[(（]/);
+      if(/^[(（]/.test(name) && k > 0) cands.push(prevName.slice(0, k) + name);
+      let itemText = name, itemId = null;
+      for(const c of cands){
+        itemId = matchItem(c) || (weight ? matchItem(c + ' ' + weight) : null);
+        if(itemId){ itemText = c; break; }
+      }
+      if(!itemId) itemText = cands[cands.length - 1];
+      out.push({ itemText, itemId, qty: packs * setQty });
+      prevName = itemText;
+    }
+    return out;
+  }
+
+  // 3PL 주문 파일 한 행 → 품목 줄들 [{ itemText, itemId, qty }].
+  // 옵션 관리 코드가 있으면 풀어서, 없으면 품목 열·수량 열 그대로 한 줄.
+  function expandThirdPartyRow(optRaw, itemTextRaw, qtyRaw){
+    const qty = parseFloat(qtyRaw);
+    if(optRaw){
+      const lines = parseOptionCode(optRaw, itemTextRaw, qty > 0 ? qty : 1);
+      if(lines) return lines;
+      // 해석 불가: 코드 그대로 한 줄로 남겨 미매칭이면 직접 지정하게 함
+      return [{ itemText: optRaw, itemId: /[+＋]/.test(optRaw) ? null : matchItem(optRaw), qty: qty > 0 ? qty : 1 }];
+    }
+    if(!itemTextRaw || isNaN(qty) || qty <= 0) return [];
+    return [{ itemText: itemTextRaw, itemId: matchItem(itemTextRaw), qty }];
+  }
+
+  // 업체 파일의 '수정 불가/수정 가능' 같은 안내 줄은 머리글·데이터가 아님
+  const NOTE_ROW_WORDS = ['수정불가','수정가능','필수','선택','필수입력','선택입력'];
+  function isNoteRow(row){
+    const cells = (row || []).map(v=> String(v ?? '').replace(/\s+/g, '')).filter(Boolean);
+    return cells.length >= 2 && cells.filter(c=> NOTE_ROW_WORDS.includes(c)).length >= cells.length * 0.7;
+  }
+  function guessStartRow(aoa){ return (aoa && aoa.length > 2 && isNoteRow(aoa[1])) ? 3 : 2; }
+  function findHeaderRowIdx(aoa, startRowNum){
+    let i = startRowNum - 2;
+    while(i > 0 && isNoteRow((aoa || [])[i])) i--;
+    return i;
+  }
+  // 머리글 이름이 정확히 같으면 그 열을 기본값으로 (저장된 매핑이 없을 때만 사용)
+  const HEADER_HINTS = {
+    orderNo: ['주문번호','고객주문번호'],
+    recipientName: ['수령인명','수취인명','받는사람','받는분'],
+    recipientPhone: ['수령인연락처','수취인연락처','받는사람전화번호'],
+    address: ['배송지','배송지주소','주소'],
+    item: ['상품명','품목명','품목'],
+    qty: ['주문건수','수량'],
+    note: ['주문요청사항','배송시요청사항','배송메세지'],
+    optionCode: ['옵션관리코드']
+  };
+  function headerColumnFor(key, headerRow){
+    const hints = HEADER_HINTS[key];
+    if(!hints) return -1;
+    const norm = (headerRow || []).map(v=> String(v ?? '').replace(/\s+/g, ''));
+    for(const h of hints){ const i = norm.indexOf(h); if(i >= 0) return i; }
+    return -1;
   }
 
   const NUM_REGEX = /(\d+(?:\.\d+)?)/;
@@ -3815,6 +3897,7 @@ function goHome() {
     const wrap = document.getElementById('orig-preview-wrap');
     const note = document.getElementById('orig-preview-note');
     if(!wrap) return;
+    loadOriginalPrefs();
     const companyName = document.getElementById('original-file-company-select').value;
     const entry = companyName ? currentOriginalFiles()[companyName] : null;
     if(!entry){ wrap.innerHTML = ''; if(note) note.textContent = ''; return; }
@@ -3828,15 +3911,18 @@ function goHome() {
     const maxCols = shown.reduce((m, r) => Math.max(m, r.length), 0);
     const sel = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
     const selIdx = /^[A-Z]{1,3}$/.test(sel) ? letterToIndex(sel) : -1;
+    const csel = (document.getElementById('original-courier-col').value || '').trim().toUpperCase();
+    const cIdx = /^[A-Z]{1,3}$/.test(csel) ? letterToIndex(csel) : -1;
+    const colCls = i => i === selIdx ? 'sel' : (i === cIdx ? 'sel2' : '');
     let html = '<table class="col-preview orig-prev"><thead><tr><th></th>';
-    for(let i = 0; i < maxCols; i++) html += `<th class="pick${i === selIdx ? ' sel' : ''}" data-col="${colLetter(i)}" title="${colLetter(i)}열에 운송장번호 넣기">${colLetter(i)}</th>`;
+    for(let i = 0; i < maxCols; i++) html += `<th class="pick ${colCls(i)}" data-col="${colLetter(i)}" title="클릭: ${colLetter(i)}열에 운송장번호 / Shift+클릭: ${colLetter(i)}열에 택배사">${colLetter(i)}</th>`;
     html += '</tr></thead><tbody>';
     shown.forEach((row, k) => {
       const rowNo = from + k + 1;
       html += `<tr${rowNo < startRow ? ' class="hdr"' : ''}><td class="totals-col">${rowNo}</td>`;
       for(let i = 0; i < maxCols; i++){
         const v = escapeHtml((row[i] ?? '').toString());
-        html += `<td${i === selIdx ? ' class="sel"' : ''} title="${v}">${v}</td>`;
+        html += `<td${colCls(i) ? ` class="${colCls(i)}"` : ''} title="${v}">${v}</td>`;
       }
       html += '</tr>';
     });
@@ -3846,8 +3932,37 @@ function goHome() {
       const multi = batches.length > 1 ? ` (업로드 ${batches.length}회 중 마지막 파일 기준)` : '';
       note.textContent = (selIdx >= 0
         ? `노란색 ${sel}열에 운송장번호가 들어갑니다.`
-        : '운송장번호를 넣을 열의 머리글(A, B, C…)을 누르세요. 지정하지 않으면 마지막 열 뒤에 추가됩니다.') + multi;
+        : '운송장번호를 넣을 열의 머리글(A, B, C…)을 누르세요. 지정하지 않으면 마지막 열 뒤에 추가됩니다.')
+        + (cIdx >= 0 ? ` 파란색 ${csel}열에는 택배사 이름이 들어갑니다.` : ' 택배사 칸이 따로 있는 업체는 그 열의 머리글을 Shift+클릭하세요.') + multi;
     }
+  }
+
+  // 업체별로 운송장 열·택배사 열 설정을 기억 (companies[].originalExport)
+  let origPrefsFor = null;
+  function origPrefsCompany(){
+    const name = document.getElementById('original-file-company-select').value;
+    return name ? companies.find(c => c.name === name) : null;
+  }
+  function loadOriginalPrefs(){
+    const name = document.getElementById('original-file-company-select').value;
+    if(name === origPrefsFor) return;
+    origPrefsFor = name;
+    const p = (origPrefsCompany() || {}).originalExport || {};
+    document.getElementById('original-tracking-col').value = p.trackingCol || '';
+    document.getElementById('original-courier-col').value = p.courierCol || '';
+    document.getElementById('original-courier-name').value = p.courierName || '';
+  }
+  function saveOriginalPrefs(){
+    const c = origPrefsCompany();
+    if(!c) return;
+    const next = {
+      trackingCol: (document.getElementById('original-tracking-col').value || '').trim().toUpperCase(),
+      courierCol: (document.getElementById('original-courier-col').value || '').trim().toUpperCase(),
+      courierName: (document.getElementById('original-courier-name').value || '').trim()
+    };
+    if(JSON.stringify(c.originalExport || {}) === JSON.stringify(next)) return;
+    c.originalExport = next;
+    saveCompanies();
   }
 
   function formatBoxBreakdown(qty, boxUnitCount){
@@ -3917,9 +4032,12 @@ function goHome() {
     fieldWrap.innerHTML = '';
     const savedMapping = (companyObj && companyObj.uploadMapping) || {};
 
-    // Read header row (startRow-1, 0-indexed = startRow-2) to show column names in dropdowns
-    const startRowNum = parseInt(document.getElementById('upload-start-row').value, 10) || 2;
-    const headerRowIdx = startRowNum - 2;
+    // 데이터 시작 행: 저장값 → 없으면 '수정 불가/가능' 안내 줄을 건너뛴 첫 데이터 행으로 추정
+    const startInput = document.getElementById('upload-start-row');
+    startInput.value = savedMapping.startRow || guessStartRow(uploadedSheetData);
+    const startRowNum = parseInt(startInput.value, 10) || 2;
+    // 드롭다운에 보여줄 열 이름은 시작 행 위쪽의 머리글 줄에서 읽음 (안내 줄은 건너뜀)
+    const headerRowIdx = findHeaderRowIdx(uploadedSheetData, startRowNum);
     const headerRow = (headerRowIdx >= 0 && uploadedSheetData[headerRowIdx]) ? uploadedSheetData[headerRowIdx] : [];
 
     fieldDefs.forEach((f, i)=>{
@@ -3942,11 +4060,16 @@ function goHome() {
         opt.textContent = headerName ? `${letter} [${headerName.slice(0,12)}]` : letter;
         sel.appendChild(opt);
       }
-      sel.value = (savedMapping[f.key] !== undefined) ? savedMapping[f.key] : (maxCols > i ? colLetter(i) : 'A');
+      let defVal;
+      if(savedMapping[f.key] !== undefined) defVal = savedMapping[f.key];
+      else {
+        const hi = headerColumnFor(f.key, headerRow);
+        defVal = hi >= 0 ? colLetter(hi) : (f.noDefault ? '' : (maxCols > i ? colLetter(i) : 'A'));
+      }
+      sel.value = defVal;
       fieldWrap.appendChild(label);
       fieldWrap.appendChild(sel);
     });
-    document.getElementById('upload-start-row').value = savedMapping.startRow || 2;
   }
 
   function renderAggTable(){
@@ -4725,37 +4848,39 @@ function goHome() {
       if(row.every(v=> v == null || v.toString().trim() === '')) continue;
       const itemTextRaw = (row[idx.item] ?? '').toString().trim();
       const qtyRaw = row[idx.qty];
-      if(!itemTextRaw) continue;
-      const qty = parseFloat(qtyRaw);
-      if(isNaN(qty) || qty <= 0) continue;
+      const optRaw = idx.optionCode >= 0 ? cleanCell(row[idx.optionCode]) : '';
+      // 옵션 관리 코드가 있으면 "품목 N팩 + 품목 N팩"을 품목별 줄로 풀고, 수량은 주문건수(세트 수)만큼 곱함
+      const orderLines = expandThirdPartyRow(optRaw, itemTextRaw, qtyRaw);
+      if(orderLines.length === 0) continue;
 
       const orderNo = idx.orderNo !== undefined && idx.orderNo >= 0 ? cleanCell(row[idx.orderNo]) : '';
       const recipientName = idx.recipientName !== undefined && idx.recipientName >= 0 ? cleanCell(row[idx.recipientName]) : '';
       const recipientPhone = idx.recipientPhone !== undefined && idx.recipientPhone >= 0 ? cleanCell(row[idx.recipientPhone]) : '';
       const address = idx.address !== undefined && idx.address >= 0 ? cleanCell(row[idx.address]) : '';
       const note = idx.note !== undefined && idx.note >= 0 ? cleanCell(row[idx.note]) : '';
-      const itemId = matchItem(itemTextRaw);
-      const internalOrderNo = getNextInternalOrderNo(); // one per original order line
 
-      const boxQtys = splitIntoBoxes(qty); // only splits if qty > 8
-      boxQtys.forEach((boxQty, boxIdx)=>{
-        newRows.push({
-          id: cryptoId(),
-          internalOrderNo,
-          company: companyName,
-          orderNo,
-          recipientName,
-          recipientPhone,
-          address,
-          itemNameRaw: itemTextRaw,
-          itemId,
-          qty: boxQty,
-          note,
-          trackingNo: '',
-          enteredBy: getStaffName(),
-          boxIndex: boxIdx + 1,
-          boxTotal: boxQtys.length,
-          sourceRowIndex: r
+      orderLines.forEach(line=>{
+        const internalOrderNo = getNextInternalOrderNo(); // one per order line (옵션 코드가 여러 품목이면 품목마다 1개)
+        const boxQtys = splitIntoBoxes(line.qty); // only splits if qty > 8
+        boxQtys.forEach((boxQty, boxIdx)=>{
+          newRows.push({
+            id: cryptoId(),
+            internalOrderNo,
+            company: companyName,
+            orderNo,
+            recipientName,
+            recipientPhone,
+            address,
+            itemNameRaw: line.itemText,
+            itemId: line.itemId,
+            qty: boxQty,
+            note,
+            trackingNo: '',
+            enteredBy: getStaffName(),
+            boxIndex: boxIdx + 1,
+            boxTotal: boxQtys.length,
+            sourceRowIndex: r
+          });
         });
       });
     }
@@ -5936,10 +6061,13 @@ function goHome() {
 
   document.getElementById('original-file-company-select').addEventListener('change', renderOriginalPreview);
   document.getElementById('original-tracking-col').addEventListener('input', renderOriginalPreview);
+  document.getElementById('original-courier-col').addEventListener('input', renderOriginalPreview);
+  ['original-tracking-col', 'original-courier-col', 'original-courier-name'].forEach(id => document.getElementById(id).addEventListener('change', saveOriginalPrefs));
   document.getElementById('orig-preview-wrap').addEventListener('click', e => {
     const th = e.target.closest('th.pick'); if(!th) return;
-    const inp = document.getElementById('original-tracking-col');
+    const inp = document.getElementById(e.shiftKey ? 'original-courier-col' : 'original-tracking-col');
     inp.value = (inp.value.trim().toUpperCase() === th.dataset.col) ? '' : th.dataset.col;
+    saveOriginalPrefs();
     renderOriginalPreview();
   });
 
@@ -5954,6 +6082,11 @@ function goHome() {
     const batches = Array.isArray(origEntry) ? origEntry : [origEntry];
 
     const trackingColRaw = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
+    const courierCol = (document.getElementById('original-courier-col').value || '').trim().toUpperCase();
+    const courierName = (document.getElementById('original-courier-name').value || '').trim();
+    if(courierCol && !courierName){ toast('택배사 열을 지정했으면 택배사 이름도 입력해주세요'); return; }
+    if(courierCol && courierCol === trackingColRaw){ toast('운송장 열과 택배사 열이 같습니다. 다른 열을 지정해주세요'); return; }
+    saveOriginalPrefs();
 
     // Produce one output file per batch (if multiple uploads, create a zip-like multi-sheet wb)
     const wb = XLSX.utils.book_new();
@@ -6021,6 +6154,16 @@ function goHome() {
           if(idx === headerRowIdx) newRow.push('운송장번호');
           else if(idx >= startRow - 1) newRow.push(trackingStrByRowIdx[idx] || '');
           return newRow;
+        });
+      }
+
+      // 택배사 칸이 따로 있는 업체(토스쇼핑 등): 운송장이 들어간 행에 택배사 이름도 채움
+      if(courierCol && courierName){
+        const cIdx = letterToIndex(courierCol);
+        outRows.forEach((row, idx)=>{
+          if(idx < startRow - 1 || !trackingStrByRowIdx[idx]) return;
+          while(row.length <= cIdx) row.push('');
+          row[cIdx] = courierName;
         });
       }
 
