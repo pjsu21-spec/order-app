@@ -650,6 +650,7 @@
         <div class="row">
           <button class="btn-primary small-btn" id="upload-apply-btn">이 매핑으로 불러오기</button>
         </div>
+        <div class="sub" id="upload-dup-note" style="margin:6px 0 0;"></div>
       </div>
     </div>
   </div>
@@ -2212,6 +2213,8 @@ function goHome() {
   const DEFAULT_CATEGORIES = ['편의점','도매','직거래','SP','3PL(제이엠로지스)','3PL(비티원)','개인구매','샘플','기타'];
   let companyCategories = [...DEFAULT_CATEGORIES]; // user-editable list
   let deliveryFeeItems = []; // [{ id, size, name, code, price }] size: '극소'|'소'
+  let uploadFingerprints = {};      // { 업체명: [{ h, dateKey, at }] } - 이미 불러온 파일 지문(같은 파일 재업로드 경고용)
+  let dupConfirmKey = '';           // 같은 파일 경고 후 '그래도 불러오기' 확인 대기 중인 키
   let deliveryCourierName = ''; // 3PL 택배사명(예: CJ대한통운) - 택배사 칸이 따로 있는 업체 회신 파일에 자동 입력
   let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
@@ -2438,6 +2441,11 @@ function goHome() {
       const v = dcn ? JSON.parse(dcn.value) : '';
       deliveryCourierName = typeof v === 'string' ? v : '';
     }catch(e){ deliveryCourierName = ''; }
+    try{
+      const ufp = await window.storage.get('upload-fingerprints', true);
+      const v = ufp ? JSON.parse(ufp.value) : {};
+      uploadFingerprints = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    }catch(e){ uploadFingerprints = {}; }
     // Ensure defaults exist (극소, 소)
     if(!deliveryFeeItems.find(d=>d.size==='극소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
@@ -2522,6 +2530,9 @@ function goHome() {
   }
   async function saveDeliveryCourierName(){
     try{ await window.storage.set('delivery-courier-name', JSON.stringify(deliveryCourierName), true); }catch(e){ console.error(e); }
+  }
+  async function saveUploadFingerprints(){
+    try{ await window.storage.set('upload-fingerprints', JSON.stringify(uploadFingerprints), true); }catch(e){ console.error(e); }
   }
   async function saveRetentionMonths(){
     const months = parseInt(document.getElementById('retention-months').value, 10) || 3;
@@ -2725,6 +2736,61 @@ function goHome() {
     }
     if(!itemTextRaw || isNaN(qty) || qty <= 0) return [];
     return [{ itemText: itemTextRaw, itemId: matchItem(itemTextRaw), qty }];
+  }
+
+  // ── 중복 불러오기 방지 ──
+  // (1) 주문번호 열이 있는 3PL/온라인몰: 이미 불러온 주문 줄(업체+주문번호+품목+수령인+수량)은 건너뜀
+  // (2) 그 외 업체: 같은 내용 파일을 다시 올리면 경고 후 한 번 더 눌러야 불러옴
+  function orderLineKey(company, orderNo, itemText, recipientName, qty){
+    return [company, orderNo, normalize(itemText), recipientName, Number(qty) || 0].join('|');
+  }
+  function existingOrderLineCounts(companyName){
+    const counts = new Map();
+    Object.values(thirdPartyLineItems).forEach(rows=>{
+      const byLine = {};
+      (rows || []).forEach(r=>{
+        if(r.company !== companyName || !r.orderNo) return;
+        const k = r.internalOrderNo || r.id;
+        const g = byLine[k] || (byLine[k] = { r, qty: 0 });
+        g.qty += Number(r.qty) || 0; // 박스가 나뉜 줄은 합쳐서 한 줄로 취급
+      });
+      Object.values(byLine).forEach(g=>{
+        const key = orderLineKey(companyName, g.r.orderNo, g.r.itemNameRaw, g.r.recipientName || '', g.qty);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+    });
+    return counts;
+  }
+  // 올린 파일의 데이터 행(시작 행부터) 내용으로 만든 짧은 지문
+  function fileFingerprint(startRow){
+    let h = 5381, n = 0;
+    for(let r = startRow - 1; r < uploadedSheetData.length; r++){
+      const cells = (uploadedSheetData[r] || []).map(v=> cleanCell(v));
+      while(cells.length && !cells[cells.length - 1]) cells.pop();
+      if(cells.length === 0) continue;
+      const line = cells.join('\u0001') + '\n';
+      for(let i = 0; i < line.length; i++) h = ((h * 33) ^ line.charCodeAt(i)) >>> 0;
+      n++;
+    }
+    return n + ':' + h.toString(36);
+  }
+  function recordFingerprint(company, fp){
+    const list = uploadFingerprints[company] || (uploadFingerprints[company] = []);
+    if(list.some(e=> e.h === fp)) return;
+    list.push({ h: fp, dateKey: currentDateKey, at: new Date().toISOString() });
+    const cutoff = Date.now() - 180 * 86400000;
+    uploadFingerprints[company] = list.filter(e=> Date.parse(e.at) >= cutoff).slice(-300);
+    saveUploadFingerprints();
+  }
+  function showUploadDupNote(text){
+    const el = document.getElementById('upload-dup-note');
+    if(el) el.textContent = text || '';
+  }
+  function resetDupConfirm(){
+    dupConfirmKey = '';
+    const btn = document.getElementById('upload-apply-btn');
+    if(btn) btn.textContent = '이 매핑으로 불러오기';
+    showUploadDupNote('');
   }
 
   // 업체 파일의 '수정 불가/수정 가능' 같은 안내 줄은 머리글·데이터가 아님
@@ -4561,6 +4627,7 @@ function goHome() {
     const companyName = document.getElementById('upload-company-select').value;
     if(!companyName){ toast('먼저 업체를 선택해주세요'); return; }
     document.getElementById('upload-fname').textContent = file.name;
+    resetDupConfirm();
     readSheetFile(file, (aoa)=>{
       uploadedSheetData = aoa;
       renderUploadMapping();
@@ -4806,6 +4873,7 @@ function goHome() {
   });
 
   document.getElementById('upload-company-select').addEventListener('change', ()=>{
+    resetDupConfirm();
     if(uploadedSheetData) renderUploadMapping();
   });
 
@@ -4832,6 +4900,22 @@ function goHome() {
     const idx = {};
     fieldDefs.forEach(f=>{ idx[f.key] = letterToIndex(mapping[f.key]); });
 
+    // 중복 불러오기 방지: 주문번호 열이 있는 3PL/온라인몰은 주문 줄 단위로 거르고, 그 외는 같은 파일 재업로드를 경고
+    const orderDedupe = isThreePl && idx.orderNo >= 0;
+    const fp = orderDedupe ? '' : fileFingerprint(startRow);
+    if(!orderDedupe){
+      const prevLoad = (uploadFingerprints[companyName] || []).find(e=> e.h === fp);
+      const confirmKey = companyName + '|' + fp;
+      if(prevLoad && dupConfirmKey !== confirmKey){
+        dupConfirmKey = confirmKey;
+        document.getElementById('upload-apply-btn').textContent = '그래도 불러오기';
+        showUploadDupNote(`⚠ 이 업체의 같은 내용 파일을 ${prevLoad.dateKey} 발주에 이미 불러왔습니다. 중복이 아니라면 "그래도 불러오기"를 누르세요.`);
+        toast('이미 불러온 파일과 같은 내용입니다');
+        return;
+      }
+    }
+    resetDupConfirm();
+
     if(!isThreePl){
       const items = [];
       for(let r = startRow - 1; r < uploadedSheetData.length; r++){
@@ -4847,6 +4931,7 @@ function goHome() {
         items.push({ raw: `${itemTextRaw} / ${qtyRaw}`, itemText: itemTextRaw, qty, unit: '박스', matchedId });
       }
       if(items.length === 0){ toast('인식된 품목이 없습니다. 열/시작 행 설정을 확인해주세요'); return; }
+      recordFingerprint(companyName, fp);
       renderParsed({ company: companyName, items });
       document.getElementById('preview-card').scrollIntoView({ behavior: 'smooth' });
       toast(`${items.length}개 행을 불러왔습니다. 아래에서 확인 후 확정해주세요`);
@@ -4859,6 +4944,8 @@ function goHome() {
     // If a single line has qty > 8 it splits into multiple box rows (same internalOrderNo),
     // but different order lines (different products/items for the same customer) stay separate rows.
     const newRows = [];
+    const existingLines = orderDedupe ? existingOrderLineCounts(companyName) : null;
+    let dupSkipped = 0;
     for(let r = startRow - 1; r < uploadedSheetData.length; r++){
       const row = uploadedSheetData[r] || [];
       if(row.every(v=> v == null || v.toString().trim() === '')) continue;
@@ -4876,6 +4963,12 @@ function goHome() {
       const note = idx.note !== undefined && idx.note >= 0 ? cleanCell(row[idx.note]) : '';
 
       orderLines.forEach(line=>{
+        if(existingLines && orderNo){
+          // 이전에 불러온 같은 주문 줄이 있으면 건너뜀 (같은 파일 안의 같은 줄끼리는 건드리지 않음)
+          const dk = orderLineKey(companyName, orderNo, line.itemText, recipientName, line.qty);
+          const left = existingLines.get(dk) || 0;
+          if(left > 0){ existingLines.set(dk, left - 1); dupSkipped++; return; }
+        }
         const internalOrderNo = getNextInternalOrderNo(); // one per order line (옵션 코드가 여러 품목이면 품목마다 1개)
         const boxQtys = splitIntoBoxes(line.qty); // only splits if qty > 8
         boxQtys.forEach((boxQty, boxIdx)=>{
@@ -4901,7 +4994,15 @@ function goHome() {
       });
     }
 
-    if(newRows.length === 0){ toast('인식된 주문 행이 없습니다. 열/시작 행 설정을 확인해주세요'); return; }
+    if(newRows.length === 0){
+      if(dupSkipped > 0){
+        showUploadDupNote(`이미 불러온 주문입니다 — ${dupSkipped}줄 모두 제외했습니다. 새로 추가된 주문이 없습니다.`);
+        toast(`새 주문이 없습니다 (이미 불러온 ${dupSkipped}줄 제외)`);
+      } else toast('인식된 주문 행이 없습니다. 열/시작 행 설정을 확인해주세요');
+      return;
+    }
+    if(!orderDedupe) recordFingerprint(companyName, fp);
+    if(dupSkipped > 0) showUploadDupNote(`새 주문 ${newRows.length}건 추가, 이미 불러온 ${dupSkipped}줄은 제외했습니다.`);
     saveInternalOrderCounters();
     const splitCount = newRows.filter(r=>r.boxTotal > 1).length;
 
@@ -4937,7 +5038,7 @@ function goHome() {
 
     renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems();
     document.getElementById('tab-3pl-btn').click();
-    toast(`${newRows.length}건의 3PL 주문이 추가되었습니다${splitCount > 0 ? ` (${splitCount}건은 박스 분리됨)` : ''}`);
+    toast(`${newRows.length}건의 3PL 주문이 추가되었습니다${splitCount > 0 ? ` (${splitCount}건은 박스 분리됨)` : ''}${dupSkipped > 0 ? ` · 이미 불러온 ${dupSkipped}줄 제외` : ''}`);
   });
 
   setupDropzone(
