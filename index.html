@@ -9750,6 +9750,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++) poClear(ctx, colLetter(n - 1) + r.row);
     });
     const used = new Set();
+    const usedCols = new Set(Object.keys(input.stockByCol || {}).filter(c => input.stockByCol[c] > 0)); // 수량이나 재고가 있는 품목 열
     assigned.forEach((list, row) => {
       const sum = {};
       list.forEach(e => Object.entries(e.colQty).forEach(([col, q]) => { sum[col] = (sum[col] || 0) + q; }));
@@ -9757,7 +9758,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(rowInfo && rowInfo.newName) poSetStr(ctx, rowInfo.nameAddr, rowInfo.newName);
       Object.entries(sum).forEach(([col, q]) => {
         const v = Math.round(q * 100) / 100;
-        if(v > 0 && !poSetNum(ctx, col + row, v)) warn.push(`${col}${row}`);
+        if(v > 0){ usedCols.add(col); if(!poSetNum(ctx, col + row, v)) warn.push(`${col}${row}`); }
       });
       used.add(row);
     });
@@ -9780,7 +9781,59 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const spacer = s.row + 1;
       if(spacer < scan.endRow && !poNorm(poText(ctx, 'B' + spacer))) hide(spacer, !any);
     });
+    // 5) 품목 열: 수량이나 재고가 있는 열만 보이게 하고 나머지는 숨김 (서식에 평소 안 쓰는 열을 숨겨 두는 방식과 같음).
+    //    서식에서 숨겨져 있던 열이라도 오늘 쓰면 펼침 → 스티로폼, 150g, 신규 품목 등은 쓰는 날에만 보임
+    rep.hiddenCols = 0; rep.hiddenStyro = 0;
+    for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++){
+      const L = colLetter(n - 1);
+      const header = poText(ctx, L + PO_HEADER_ROW).trim();
+      if(!header) continue; // 품목 사이의 좁은 빈 열은 그대로 둠
+      const inUse = usedCols.has(L);
+      poSetColHidden(ctx, n, !inUse);
+      if(!inUse){
+        rep.hiddenCols++;
+        if(/스티로폼/.test(poText(ctx, L + PO_GROUP_ROW) + ' ' + header)) rep.hiddenStyro++;
+      }
+    }
+    // 6) 서식에 열이 없는 품목은 파일 맨 아래에 따로 적음
+    if(input.extras && input.extras.length){
+      let r = ctx.maxRow + 2;
+      poSetStr(ctx, 'B' + r, '※ 서식에 열이 없는 품목 (서식에 열을 추가하고 열 지정을 하면 해당 열에 들어갑니다)'); r++;
+      [['B', '업체'], ['E', '품목'], ['G', '수량'], ['H', '단위']].forEach(([c, t]) => poSetStr(ctx, c + r, t)); r++;
+      input.extras.forEach(x => {
+        poSetStr(ctx, 'B' + r, x.company); poSetStr(ctx, 'E' + r, x.item); poSetNum(ctx, 'G' + r, x.qty); poSetStr(ctx, 'H' + r, x.unit); r++;
+      });
+      const dim = ctx.doc.getElementsByTagName('dimension')[0];
+      const dm = dim && /^([A-Z]+\d+):([A-Z]+)(\d+)$/.exec(dim.getAttribute('ref') || '');
+      if(dm && +dm[3] < r - 1) dim.setAttribute('ref', `${dm[1]}:${dm[2]}${r - 1}`);
+    }
     return { rep, warn, scan };
+  }
+
+  // 열 숨김/표시. <cols>의 한 항목이 여러 열을 덮고 있으면 쪼개서 해당 열만 바꿈
+  function poSetColHidden(ctx, n, on){
+    const colsEl = ctx.doc.getElementsByTagName('cols')[0];
+    if(!colsEl) return;
+    const setH = e => { if(on) e.setAttribute('hidden', '1'); else e.removeAttribute('hidden'); };
+    const list = [...colsEl.getElementsByTagName('col')];
+    const el = list.find(c => +c.getAttribute('min') <= n && n <= +c.getAttribute('max'));
+    if(!el){
+      if(!on) return;
+      const e = ctx.doc.createElementNS(PO_NS, 'col');
+      e.setAttribute('min', String(n)); e.setAttribute('max', String(n)); e.setAttribute('width', '9'); e.setAttribute('hidden', '1');
+      colsEl.insertBefore(e, list.find(c => +c.getAttribute('min') > n) || null);
+      return;
+    }
+    const min = +el.getAttribute('min'), max = +el.getAttribute('max');
+    if((el.getAttribute('hidden') === '1') === on) return;
+    if(min === max){ setH(el); return; }
+    const mk = (a, b) => { const c = el.cloneNode(false); c.setAttribute('min', String(a)); c.setAttribute('max', String(b)); return c; };
+    const parts = [];
+    if(n > min) parts.push(mk(min, n - 1));
+    const mid = mk(n, n); setH(mid); parts.push(mid);
+    if(n < max) parts.push(mk(n + 1, max));
+    parts.forEach(p => colsEl.insertBefore(p, el));
+    colsEl.removeChild(el);
   }
 
   async function poSave(ctx){
@@ -9801,7 +9854,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
     const label = d => (d.shortName || d.name || '').trim();
     const unmapped = new Set(), noUnit = new Set();
-    const entries = [];
+    const entries = [], extras = [];
     Object.keys(orders || {}).forEach(name => {
       if(name === '_meta') return;
       const meta = companies.find(c => c.name === name) || {};
@@ -9810,7 +9863,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         const q = Number((orders[name] || {})[d.id]) || 0;
         if(q <= 0) return;
         const col = colMap[d.id];
-        if(!col){ unmapped.add(label(d)); return; }
+        if(!col){
+          // 서식에 열이 없는 품목: 빠뜨리지 않고 파일 맨 아래 표에 따로 적음
+          unmapped.add(label(d));
+          extras.push({ company: name, item: label(d), qty: Math.round(toBox(d, q) * 100) / 100, unit: unitOf(d) > 0 ? '박스' : '팩' });
+          return;
+        }
         if(unitOf(d) <= 0) noUnit.add(label(d));
         colQty[col] = (colQty[col] || 0) + toBox(d, q);
       });
@@ -9822,7 +9880,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const s = Number((stockPacks || {})[d.id]) || 0;
       if(col && s > 0) stockByCol[col] = (stockByCol[col] || 0) + toBox(d, s);
     });
-    return { entries, stockByCol, unmapped: [...unmapped], noUnit: [...noUnit] };
+    return { entries, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
   }
 
   const PO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -10005,7 +10063,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     toast('생산본부 발주취합 생성 중...');
     try{
       const ctx = await poLoadTemplate(productionTemplateB64);
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries });
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, extras: built.extras });
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -10018,7 +10076,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
       if(r.unplaced.length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
-      if(built.unmapped.length) lines.push({ warn: true, text: `※ 서식 열이 지정되지 않아 빠진 품목: ${built.unmapped.join(', ')} → 서식 등록 아래에서 열을 지정해주세요` });
+      if(r.hiddenCols) lines.push({ text: `수량·재고가 없는 품목 열 ${r.hiddenCols}개는 숨겼습니다${r.hiddenStyro ? ` (스티로폼 열 ${r.hiddenStyro}개 포함)` : ''}` });
+      if(built.unmapped.length) lines.push({ warn: true, text: `※ 서식에 열이 지정되지 않은 품목은 열에 못 넣고 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다: ${built.unmapped.join(', ')} → 서식에 열을 추가해 다시 등록하고 열을 지정하면 해당 열에 들어갑니다` });
       if(built.noUnit.length) lines.push({ warn: true, text: `※ 박스입수가 없어 팩 수 그대로 들어간 품목: ${built.noUnit.join(', ')} → SKU 관리에서 박스입수를 입력하면 박스 수로 계산됩니다` });
       // 종이/스티로폼 열이 어긋나게 지정된 품목 (수량이 엉뚱한 열에 들어갈 수 있음)
       const hdrs = poTemplateHeaders(ctx);
