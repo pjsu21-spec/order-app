@@ -77,6 +77,16 @@
   .up-row.error .bar > div{ background:var(--warn); }
   .up-row.error .up-state{ color:var(--warn); }
 
+  /* 여러 개 선택 */
+  .sel-bar{ display:none; position:sticky; top:0; z-index:20; background:var(--accent-soft); border:1px solid var(--accent); border-radius:10px;
+    padding:8px 10px; margin-bottom:10px; gap:6px; flex-wrap:wrap; align-items:center; }
+  body.selecting .sel-bar{ display:flex; }
+  .sel-bar .cnt{ font-weight:700; font-size:14px; margin-right:auto; }
+  .sel-bar button{ padding:7px 11px; font-size:13px; }
+  .item .chk{ flex:none; width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
+  .item.picked{ background:var(--accent-soft); }
+  body.selecting .item .main{ user-select:none; }
+
   /* 메뉴 / 대화상자 */
   .overlay{ position:fixed; inset:0; background:rgba(42,36,38,.4); display:none; align-items:flex-end; justify-content:center; z-index:50; }
   .overlay.show{ display:flex; }
@@ -125,8 +135,18 @@
   <div class="toolbar">
     <button class="btn-primary" id="upload-btn">⬆ 파일 올리기</button>
     <button id="folder-btn">＋ 새 폴더</button>
+    <button id="select-btn">☑ 선택</button>
     <input type="search" id="search" placeholder="전체에서 이름 검색">
     <input type="file" id="file-input" multiple style="display:none;">
+  </div>
+
+  <div class="sel-bar" id="sel-bar">
+    <span class="cnt" id="sel-count">0개 선택</span>
+    <button id="sel-all">전체선택</button>
+    <button id="sel-dl">⬇ 내려받기</button>
+    <button id="sel-move">📂 이동</button>
+    <button class="btn-danger" id="sel-del">🗑 삭제</button>
+    <button id="sel-done">완료</button>
   </div>
 
   <div class="crumbs" id="crumbs"></div>
@@ -158,6 +178,10 @@ let items = [];          // 전체 파일/폴더 목록
 let byId = new Map();
 let currentFolder = null; // null = 최상위
 let searchText = '';
+let selectMode = false;  // 여러 개 선택 모드
+const selected = new Set(); // 선택한 항목 id
+let visibleRows = [];     // 지금 화면에 보이는 항목 (전체선택·Shift 범위선택용)
+let lastPickIdx = -1;
 
 const $ = (id) => document.getElementById(id);
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -269,6 +293,7 @@ async function refresh(){
   const data = await api('/api/list');
   items = data.items; me = data.me;
   byId = new Map(items.map(it => [it.id, it]));
+  [...selected].forEach(id => { if (!byId.has(id)) selected.delete(id); });
   if (currentFolder && !byId.has(currentFolder)) currentFolder = null;
   $('user-badge').textContent = `${me.display_name}${me.isAdmin ? ' (관리자)' : me.readOnly ? ' (읽기 전용)' : ''}`;
   // 읽기 전용: 올리기·새 폴더 숨김
@@ -304,21 +329,23 @@ function render(){
   let rows = q ? items.filter(it => it.name.toLowerCase().includes(q))
                : items.filter(it => (it.parent_id || null) === currentFolder);
   rows.sort((a, b) => (b.is_folder - a.is_folder) || a.name.localeCompare(b.name, 'ko'));
+  visibleRows = rows; updateSelBar();
   const list = $('list'); list.innerHTML = '';
   if (!rows.length) {
     list.innerHTML = `<div class="empty">${q ? '검색 결과가 없습니다.' : (me && me.readOnly ? '비어 있는 폴더입니다.' : '비어 있는 폴더입니다.<br>「파일 올리기」로 파일을 추가해보세요.')}</div>`;
     return;
   }
-  for (const it of rows) {
-    const row = document.createElement('div'); row.className = 'item';
+  for (const [idx, it] of rows.entries()) {
+    const row = document.createElement('div'); row.className = 'item' + (selected.has(it.id) ? ' picked' : '');
     const where = q ? (pathOf(it.parent_id).map(f => f.name).join(' › ') || '전체') + ' · ' : '';
     const meta = it.is_folder
       ? `${where}폴더 · ${items.filter(x => x.parent_id === it.id).length}개`
       : `${where}${fmtSize(it.size)} · ${fmtDate(it.created_at)} · ${escapeHtml(it.uploaded_by_name || '')}`;
-    row.innerHTML = `<div class="icon">${iconFor(it)}</div>
+    row.innerHTML = `${selectMode ? `<input type="checkbox" class="chk" ${selected.has(it.id) ? 'checked' : ''}>` : ''}<div class="icon">${iconFor(it)}</div>
       <div class="main"><div class="name">${escapeHtml(it.name)}</div><div class="meta">${it.is_folder ? escapeHtml(meta) : meta}</div></div>
       <button class="more" aria-label="메뉴">⋮</button>`;
-    row.querySelector('.main').addEventListener('click', () => openItem(it));
+    row.querySelector('.main').addEventListener('click', e => { if (selectMode) pickItem(it, idx, e.shiftKey); else openItem(it); });
+    const chk = row.querySelector('.chk'); if (chk) chk.addEventListener('click', e => { e.preventDefault(); pickItem(it, idx, e.shiftKey); });
     row.querySelector('.more').addEventListener('click', () => showMenu(it));
     list.appendChild(row);
   }
@@ -418,6 +445,123 @@ function askDelete(it){
     catch (e) { toast(e.message); }
   });
 }
+
+// ── 여러 개 선택 (내려받기 · 이동 · 삭제) ──
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+function canModify(it){ // 이동·삭제 권한 (개별 ⋮ 메뉴와 같은 기준)
+  const mine = me && it.uploaded_by === me.id;
+  return !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
+}
+function setSelectMode(on){
+  selectMode = on; selected.clear(); lastPickIdx = -1;
+  document.body.classList.toggle('selecting', on);
+  $('select-btn').textContent = on ? '✕ 선택 끝내기' : '☑ 선택';
+  render();
+}
+function updateSelBar(){
+  const n = selected.size;
+  $('sel-count').textContent = `${n}개 선택`;
+  const allPicked = visibleRows.length > 0 && visibleRows.every(it => selected.has(it.id));
+  $('sel-all').textContent = allPicked ? '전체해제' : '전체선택';
+  ['sel-dl', 'sel-move', 'sel-del'].forEach(id => { $(id).disabled = n === 0; });
+  const ro = !!(me && me.readOnly);
+  $('sel-move').style.display = ro ? 'none' : ''; $('sel-del').style.display = ro ? 'none' : '';
+}
+function pickItem(it, idx, shift){
+  if (shift && lastPickIdx >= 0 && lastPickIdx < visibleRows.length) { // Shift+클릭: 마지막으로 누른 항목까지 한꺼번에
+    const on = !selected.has(it.id);
+    for (let i = Math.min(idx, lastPickIdx); i <= Math.max(idx, lastPickIdx); i++) { if (on) selected.add(visibleRows[i].id); else selected.delete(visibleRows[i].id); }
+  } else if (selected.has(it.id)) selected.delete(it.id); else selected.add(it.id);
+  lastPickIdx = idx;
+  render();
+}
+function selectedItems(){ return [...selected].map(id => byId.get(id)).filter(Boolean); }
+// 이동·삭제 대상: 권한이 있는 항목만, 선택한 폴더 안에 있는 항목은 폴더와 함께 처리되므로 뺀다
+function editTargets(){
+  const all = selectedItems(), ok = all.filter(canModify), ids = new Set(ok.map(x => x.id));
+  const top = ok.filter(x => {
+    let p = x.parent_id ? byId.get(x.parent_id) : null, g = 0;
+    while (p && g++ < 100) { if (ids.has(p.id)) return false; p = p.parent_id ? byId.get(p.parent_id) : null; }
+    return true;
+  });
+  return { targets: top, skipped: all.length - ok.length };
+}
+async function runBulk(targets, fn){ // 하나씩 순서대로 처리하고 성공·실패 개수를 센다
+  let done = 0, fail = 0, firstErr = '';
+  for (const it of targets) {
+    try { await fn(it); done++; } catch (e) { fail++; if (!firstErr) firstErr = e.message; }
+  }
+  return { done, fail, firstErr };
+}
+function bulkSummary(verb, r, skipped){
+  return `${r.done}개를 ${verb}${r.fail ? ` · ${r.fail}개 실패(${r.firstErr})` : ''}${skipped ? ` · 권한 없는 ${skipped}개 제외` : ''}`;
+}
+
+async function bulkDownload(){
+  const list = selectedItems(), files = list.filter(x => !x.is_folder), folders = list.length - files.length;
+  if (!files.length) { toast('폴더는 내려받을 수 없습니다. 파일을 선택해주세요'); return; }
+  toast(`${files.length}개 파일 내려받기를 시작합니다${files.length > 1 ? ' (브라우저가 여러 파일 허용을 물으면 「허용」)' : ''}`);
+  for (const f of files) { download(f); await sleep(600); }
+  if (folders) toast(`파일 ${files.length}개를 받았습니다 · 폴더 ${folders}개는 제외했습니다`);
+}
+
+function askMoveMany(){
+  const { targets, skipped } = editTargets();
+  if (!targets.length) { toast('이동할 수 있는 항목이 없습니다 (권한 없음)'); return; }
+  const blocked = new Set(); // 선택한 폴더와 그 안의 폴더로는 이동 불가
+  const stack = targets.filter(x => x.is_folder).map(x => x.id);
+  while (stack.length) { const id = stack.pop(); blocked.add(id); items.filter(x => x.is_folder && x.parent_id === id).forEach(x => stack.push(x.id)); }
+  const lines = [];
+  (function walk(parentId, depth){
+    items.filter(x => x.is_folder && (x.parent_id || null) === parentId && !blocked.has(x.id))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .forEach(f => { lines.push({ id: f.id, name: f.name, depth }); walk(f.id, depth + 1); });
+  })(null, 1);
+  const parents = new Set(targets.map(x => x.parent_id || null));
+  const cur = parents.size === 1 ? [...parents][0] : undefined; // 모두 같은 폴더에 있을 때만 「현재 위치」 표시
+  const btn = (id, label, depth) => `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${id === cur ? ' color:var(--muted);' : ''}" ${id === cur ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : ''}</button>`;
+  const sheet = openSheet(`<h3>선택한 ${targets.length}개 옮길 폴더 선택</h3>
+    ${skipped ? `<p style="color:var(--muted);">권한이 없는 ${skipped}개는 제외됩니다.</p>` : ''}
+    <div style="max-height:50vh; overflow:auto;">${btn(null, '전체 (최상위)', 0)}${lines.map(l => btn(l.id, l.name, l.depth)).join('')}</div>
+    ${lines.length ? '' : '<p style="color:var(--muted);">아직 폴더가 없습니다. 「＋ 새 폴더」로 먼저 폴더를 만들어주세요.</p>'}
+    <div class="row"><button data-act="cancel">취소</button></div>`);
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  sheet.querySelectorAll('[data-dest]').forEach(b => b.addEventListener('click', async () => {
+    const dest = b.dataset.dest === 'root' ? null : b.dataset.dest;
+    closeSheet(); toast('옮기는 중…');
+    const r = await runBulk(targets, it => api('/api/move', { method:'POST', body: JSON.stringify({ id: it.id, parent_id: dest }) }));
+    selected.clear(); toast(bulkSummary('옮겼습니다', r, skipped));
+    try { await refresh(); } catch (e) { toast(e.message); }
+  }));
+}
+
+function askDeleteMany(){
+  const { targets, skipped } = editTargets();
+  if (!targets.length) { toast('삭제할 수 있는 항목이 없습니다 (권한 없음)'); return; }
+  const nFolder = targets.filter(x => x.is_folder).length, nFile = targets.length - nFolder;
+  const what = [nFile ? `파일 ${nFile}개` : '', nFolder ? `폴더 ${nFolder}개(안의 모든 파일 포함)` : ''].filter(Boolean).join(', ');
+  const sheet = openSheet(`<h3>${targets.length}개를 삭제할까요?</h3>
+    <p>${what}가 삭제됩니다.${skipped ? `<br>권한이 없는 ${skipped}개는 제외됩니다.` : ''}<br>삭제한 뒤에는 되돌릴 수 없습니다.</p>
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-danger" data-act="ok">삭제</button></div>`);
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  sheet.querySelector('[data-act=ok]').addEventListener('click', async () => {
+    closeSheet(); toast('삭제하는 중…');
+    const r = await runBulk(targets, it => api('/api/delete', { method:'POST', body: JSON.stringify({ id: it.id }) }));
+    selected.clear(); toast(bulkSummary('삭제했습니다', r, skipped));
+    try { await refresh(); } catch (e) { toast(e.message); }
+  });
+}
+
+$('select-btn').addEventListener('click', () => setSelectMode(!selectMode));
+$('sel-done').addEventListener('click', () => setSelectMode(false));
+$('sel-all').addEventListener('click', () => {
+  const allPicked = visibleRows.length > 0 && visibleRows.every(it => selected.has(it.id));
+  visibleRows.forEach(it => { if (allPicked) selected.delete(it.id); else selected.add(it.id); });
+  render();
+});
+$('sel-dl').addEventListener('click', bulkDownload);
+$('sel-move').addEventListener('click', askMoveMany);
+$('sel-del').addEventListener('click', askDeleteMany);
 
 $('folder-btn').addEventListener('click', () => {
   askName('새 폴더 이름', '', async (name) => {
