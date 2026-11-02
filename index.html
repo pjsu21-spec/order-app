@@ -2901,6 +2901,18 @@ function goHome() {
     }
   }
 
+  // 인식 결과 한 줄의 수량을 팩 단위로 환산 (집계표는 팩 기준). 박스는 박스입수를 곱함. 환산할 수 없으면 null
+  function parsedItemPacks(it){
+    if(it.qty == null || isNaN(Number(it.qty))) return null;
+    const q = Number(it.qty);
+    if(it.unit === '박스'){
+      const d = dict.find(x => x.id === it.matchedId);
+      const n = d ? Number(d.boxUnitCount) : 0;
+      return n > 0 ? Math.round(q * n * 100) / 100 : null;
+    }
+    return q;
+  }
+
   function renderParsed(parsed){
     currentParsed = parsed;
     renderUnmatchedAlert();
@@ -2943,10 +2955,33 @@ function goHome() {
         currentParsed.items[idx].qty = e.target.value === '' ? null : parseFloat(e.target.value);
       });
 
+      // 단위(박스/팩) 선택 + 팩 환산 표시. 집계표는 팩 기준이라 박스는 박스입수로 곱해서 넣음
+      const unitSel = document.createElement('select');
+      const curUnit = it.unit === '박스' ? '박스' : (it.unit === '팩' || it.unit === '개' || !it.unit ? (it.unit ? '팩' : '박스') : it.unit);
+      [...new Set(['박스', '팩', curUnit])].forEach(u=>{
+        const opt = document.createElement('option');
+        opt.value = u; opt.textContent = u;
+        unitSel.appendChild(opt);
+      });
+      unitSel.value = curUnit;
+      it.unit = curUnit;
+      unitSel.style.width = '70px';
       const unitSpan = document.createElement('span');
-      unitSpan.textContent = it.unit || '';
       unitSpan.style.fontSize = '12px';
-      unitSpan.style.color = 'var(--muted)';
+      const paintConv = ()=>{
+        let txt = '', warn = false;
+        if(it.unit === '박스' && it.matchedId){
+          const p = parsedItemPacks(it);
+          if(p == null) { txt = '⚠ 박스입수 미설정 (SKU 관리에서 입력하거나 단위를 팩으로)'; warn = true; }
+          else txt = `= ${p}팩`;
+        }
+        unitSpan.textContent = txt;
+        unitSpan.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)';
+        unitSpan.style.fontWeight = warn ? '700' : '400';
+      };
+      unitSel.addEventListener('change', (e)=>{ it.unit = e.target.value; paintConv(); });
+      qtyInput.addEventListener('input', paintConv);
+      paintConv();
 
       const tag = document.createElement('span');
       tag.className = 'tag ' + matched;
@@ -2959,6 +2994,7 @@ function goHome() {
       row.appendChild(tag);
       row.appendChild(select);
       row.appendChild(qtyInput);
+      row.appendChild(unitSel);
       row.appendChild(unitSpan);
       row.appendChild(rawLine);
       wrap.appendChild(row);
@@ -4715,13 +4751,19 @@ function goHome() {
     if(!currentParsed) return;
     const company = (document.getElementById('company-select').value || '').trim();
     if(!company){ toast('업체명을 선택하거나 입력해주세요'); return; }
+    // 박스 단위인데 박스입수가 없는 품목은 팩으로 환산할 수 없으니 추가하지 않고 알려 줌
+    const noUnit = currentParsed.items.filter(it => it.matchedId && it.qty != null && !isNaN(it.qty) && parsedItemPacks(it) == null);
+    if(noUnit.length){
+      toast(`박스입수가 없는 품목이 있습니다: ${noUnit.map(it => itemNameById(it.matchedId)).join(', ')} — SKU 관리에서 박스입수를 입력하거나 단위를 팩으로 바꿔주세요`);
+      return;
+    }
     addCompanyIfNew(company);
     const orders = currentOrders();
     if(!orders[company]) orders[company] = {};
     let addedAny = false;
     currentParsed.items.forEach(it=>{
       if(it.matchedId && it.qty != null && !isNaN(it.qty)){
-        orders[company][it.matchedId] = (orders[company][it.matchedId] || 0) + it.qty;
+        orders[company][it.matchedId] = (orders[company][it.matchedId] || 0) + parsedItemPacks(it);
         addedAny = true;
       }
     });
