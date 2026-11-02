@@ -2227,6 +2227,7 @@ function goHome() {
   let skuColumnMap = {};           // { itemId: colLetter } - SKU -> column in production template
   let trackingColMappings = {};    // { headerKey: { orderNoCol, trackingNoCol, startRow } }
   let currentParsed = null;
+  let agg3plOpen = false;           // 전체 집계표에서 3PL 업체를 펼쳐 보는 중인지 (기본: 한 줄로 접힘)
   let currentDateKey = '';
   let uploadedSheetData = null;
   let uploadedTrackingData = null;
@@ -4059,7 +4060,7 @@ function goHome() {
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    orderCompanies.forEach(company=>{
+    const makeCompanyRow = (company, isChild)=>{
       const tr = document.createElement('tr');
 
       const checkTd = document.createElement('td');
@@ -4072,7 +4073,7 @@ function goHome() {
 
       const nameTd = document.createElement('td');
       nameTd.className = 'name-cell';
-      nameTd.textContent = company;
+      nameTd.textContent = isChild ? '└ ' + company : company;
       tr.appendChild(nameTd);
 
       const staffTd = document.createElement('td');
@@ -4112,9 +4113,44 @@ function goHome() {
       });
       actionTd.appendChild(delBtn);
       tr.appendChild(actionTd);
+      if(isChild) tr.style.background = 'var(--hover)';
+      return tr;
+    };
 
-      tbody.appendChild(tr);
-    });
+    // 3PL 업체는 한 줄로 묶어서 보여줌 (이름을 누르면 업체별로 펼침). 아래 합계·재고 계산에는 그대로 포함됨.
+    const isThreePl = name => { const m = companies.find(c => c.name === name); return !!(m && m.isThirdParty); };
+    const tplCompanies = orderCompanies.filter(isThreePl);
+    orderCompanies.filter(c => !isThreePl(c)).forEach(company => tbody.appendChild(makeCompanyRow(company, false)));
+    if(tplCompanies.length){
+      const sumTr = document.createElement('tr');
+      sumTr.id = 'agg-3pl-summary-row';
+      sumTr.style.background = 'var(--hover)';
+      sumTr.appendChild(document.createElement('td'));
+      const sumName = document.createElement('td');
+      sumName.className = 'name-cell';
+      sumName.style.cssText = 'cursor:pointer;font-weight:700;';
+      sumName.textContent = `${agg3plOpen ? '▾' : '▸'} 3PL (${tplCompanies.length}개 업체)`;
+      sumName.title = '눌러서 업체별로 펼치기/접기';
+      sumName.addEventListener('click', ()=>{ agg3plOpen = !agg3plOpen; renderAggTable(); });
+      sumTr.appendChild(sumName);
+      sumTr.appendChild(document.createElement('td'));
+      let tplTotal = 0;
+      dict.forEach(d=>{
+        const v = tplCompanies.reduce((s, c) => s + (Number(orders[c][d.id]) || 0), 0);
+        tplTotal += v;
+        const td = document.createElement('td');
+        td.style.fontWeight = '600';
+        td.textContent = v;
+        sumTr.appendChild(td);
+      });
+      const tplTotalTd = document.createElement('td');
+      tplTotalTd.className = 'totals-col';
+      tplTotalTd.textContent = tplTotal;
+      sumTr.appendChild(tplTotalTd);
+      sumTr.appendChild(document.createElement('td'));
+      tbody.appendChild(sumTr);
+      if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
+    }
 
     const totalRow = document.createElement('tr');
     totalRow.innerHTML = '<td></td><td class="name-cell totals-col">합계</td><td class="totals-col"></td>';
