@@ -1292,6 +1292,11 @@
 
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div></details>
+    <div class="row" style="margin:0 0 8px;">
+      <label style="font-size:13px;">택배사명 :</label>
+      <input type="text" id="delivery-courier-name" placeholder="예: CJ대한통운" style="width:170px;">
+      <span class="sub" style="margin:0;">택배사 칸이 따로 있는 업체(토스쇼핑 등)에 운송장을 회신할 때 자동으로 채워집니다.</span>
+    </div>
     <div id="delivery-fee-editor"></div>
       </div>
     </details>
@@ -2207,6 +2212,7 @@ function goHome() {
   const DEFAULT_CATEGORIES = ['편의점','도매','직거래','SP','3PL(제이엠로지스)','3PL(비티원)','개인구매','샘플','기타'];
   let companyCategories = [...DEFAULT_CATEGORIES]; // user-editable list
   let deliveryFeeItems = []; // [{ id, size, name, code, price }] size: '극소'|'소'
+  let deliveryCourierName = ''; // 3PL 택배사명(예: CJ대한통운) - 택배사 칸이 따로 있는 업체 회신 파일에 자동 입력
   let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
   let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: { aoa: [...raw rows...], startRow } } } - 업체 원본파일 보관(운송장 반영 회신용)
@@ -2427,6 +2433,11 @@ function goHome() {
       const dfi = await window.storage.get('delivery-fee-items', true);
       deliveryFeeItems = dfi ? JSON.parse(dfi.value) : [];
     }catch(e){ deliveryFeeItems = []; }
+    try{
+      const dcn = await window.storage.get('delivery-courier-name', true);
+      const v = dcn ? JSON.parse(dcn.value) : '';
+      deliveryCourierName = typeof v === 'string' ? v : '';
+    }catch(e){ deliveryCourierName = ''; }
     // Ensure defaults exist (극소, 소)
     if(!deliveryFeeItems.find(d=>d.size==='극소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
@@ -2508,6 +2519,9 @@ function goHome() {
   }
   async function saveDeliveryFeeItems(){
     try{ await window.storage.set('delivery-fee-items', JSON.stringify(deliveryFeeItems), true); }catch(e){ console.error(e); }
+  }
+  async function saveDeliveryCourierName(){
+    try{ await window.storage.set('delivery-courier-name', JSON.stringify(deliveryCourierName), true); }catch(e){ console.error(e); }
   }
   async function saveRetentionMonths(){
     const months = parseInt(document.getElementById('retention-months').value, 10) || 3;
@@ -3545,6 +3559,7 @@ function goHome() {
   function renderDeliveryFeeEditor(){
     const wrap = document.getElementById('delivery-fee-editor');
     if(!wrap) return;
+    document.getElementById('delivery-courier-name').value = deliveryCourierName;
     wrap.innerHTML = '';
 
     const table = document.createElement('table');
@@ -3898,6 +3913,7 @@ function goHome() {
     const note = document.getElementById('orig-preview-note');
     if(!wrap) return;
     loadOriginalPrefs();
+    document.getElementById('original-courier-name').placeholder = deliveryCourierName ? `비우면 ${deliveryCourierName}` : '택배사 이름 (예: CJ대한통운)';
     const companyName = document.getElementById('original-file-company-select').value;
     const entry = companyName ? currentOriginalFiles()[companyName] : null;
     if(!entry){ wrap.innerHTML = ''; if(note) note.textContent = ''; return; }
@@ -6062,6 +6078,7 @@ function goHome() {
   document.getElementById('original-file-company-select').addEventListener('change', renderOriginalPreview);
   document.getElementById('original-tracking-col').addEventListener('input', renderOriginalPreview);
   document.getElementById('original-courier-col').addEventListener('input', renderOriginalPreview);
+  document.getElementById('delivery-courier-name').addEventListener('change', e => { deliveryCourierName = e.target.value.trim(); saveDeliveryCourierName(); renderOriginalPreview(); });
   ['original-tracking-col', 'original-courier-col', 'original-courier-name'].forEach(id => document.getElementById(id).addEventListener('change', saveOriginalPrefs));
   document.getElementById('orig-preview-wrap').addEventListener('click', e => {
     const th = e.target.closest('th.pick'); if(!th) return;
@@ -6083,8 +6100,8 @@ function goHome() {
 
     const trackingColRaw = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
     const courierCol = (document.getElementById('original-courier-col').value || '').trim().toUpperCase();
-    const courierName = (document.getElementById('original-courier-name').value || '').trim();
-    if(courierCol && !courierName){ toast('택배사 열을 지정했으면 택배사 이름도 입력해주세요'); return; }
+    const courierName = (document.getElementById('original-courier-name').value || '').trim() || deliveryCourierName;
+    if(courierCol && !courierName){ toast('택배사 이름을 입력하거나, 기준정보 > 3PL 택배비 품목 설정에 택배사명을 등록해주세요'); return; }
     if(courierCol && courierCol === trackingColRaw){ toast('운송장 열과 택배사 열이 같습니다. 다른 열을 지정해주세요'); return; }
     saveOriginalPrefs();
 
@@ -6716,6 +6733,7 @@ function goHome() {
       rawMaterialUsage,
       internalOrderCounters,
       deliveryFeeItems,
+      deliveryCourierName,
       skuColumnMap,
       salesByDate,
     };
@@ -6781,6 +6799,7 @@ function goHome() {
     if(data.rawMaterialUsage) rawMaterialUsage = data.rawMaterialUsage;
     if(data.internalOrderCounters) internalOrderCounters = data.internalOrderCounters;
     if(data.deliveryFeeItems) deliveryFeeItems = data.deliveryFeeItems;
+    if(typeof data.deliveryCourierName === 'string') deliveryCourierName = data.deliveryCourierName;
     if(data.skuColumnMap) skuColumnMap = data.skuColumnMap;
     if(data.salesByDate) salesByDate = data.salesByDate;
 
@@ -6796,6 +6815,7 @@ function goHome() {
       saveRawMaterialUsage(),
       saveInternalOrderCounters(),
       saveDeliveryFeeItems(),
+      saveDeliveryCourierName(),
       saveSkuColumnMap(),
       window.storage.set('sales-by-date', JSON.stringify(salesByDate), true).catch(e=>console.error(e)),
     ]);
