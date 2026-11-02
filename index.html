@@ -2272,6 +2272,7 @@ function goHome() {
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
   let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: { aoa: [...raw rows...], startRow } } } - 업체 원본파일 보관(운송장 반영 회신용)
   let productionTemplateB64 = ''; // base64-encoded 발주취합 서식 xlsx
+  let skuGroupMap = {};            // { itemId: 머리글 묶음 기준 열(예: 'J') } - 위쪽 묶음 머리글을 다른 묶음으로 지정
   let skuColumnMap = {};           // { itemId: colLetter } - SKU -> column in production template
   let trackingColMappings = {};    // { headerKey: { orderNoCol, trackingNoCol, startRow } }
   let currentParsed = null;
@@ -2451,6 +2452,11 @@ function goHome() {
     }catch(e){ productionTemplateB64 = ''; }
 
     try{
+      const sgm = await window.storage.get('sku-group-map', true);
+      skuGroupMap = sgm ? JSON.parse(sgm.value) : {};
+    }catch(e){ skuGroupMap = {}; }
+
+    try{
       const scm = await window.storage.get('sku-column-map', true);
       skuColumnMap = scm ? JSON.parse(scm.value) : {};
     }catch(e){ skuColumnMap = {}; }
@@ -2613,6 +2619,9 @@ function goHome() {
   }
   async function saveProductionTemplate(){
     try{ await window.storage.set('production-template-b64', productionTemplateB64, true); }catch(e){ console.error(e); }
+  }
+  async function saveSkuGroupMap(){
+    try{ await window.storage.set('sku-group-map', JSON.stringify(skuGroupMap), true); }catch(e){ console.error(e); }
   }
   async function saveSkuColumnMap(){
     try{ await window.storage.set('sku-column-map', JSON.stringify(skuColumnMap), true); }catch(e){ console.error(e); }
@@ -7110,6 +7119,7 @@ function goHome() {
       deliveryFeeItems,
       deliveryCourierName,
       skuColumnMap,
+      skuGroupMap,
       salesByDate,
       dispatchByDate,
     };
@@ -7177,6 +7187,7 @@ function goHome() {
     if(data.deliveryFeeItems) deliveryFeeItems = data.deliveryFeeItems;
     if(typeof data.deliveryCourierName === 'string') deliveryCourierName = data.deliveryCourierName;
     if(data.skuColumnMap) skuColumnMap = data.skuColumnMap;
+    if(data.skuGroupMap && typeof data.skuGroupMap === 'object') skuGroupMap = data.skuGroupMap;
     if(data.salesByDate) salesByDate = data.salesByDate;
     if(data.dispatchByDate && typeof data.dispatchByDate === 'object') dispatchByDate = data.dispatchByDate;
 
@@ -7195,6 +7206,7 @@ function goHome() {
       saveDeliveryCourierName(),
       saveDispatchByDate(),
       saveSkuColumnMap(),
+      saveSkuGroupMap(),
       window.storage.set('sales-by-date', JSON.stringify(salesByDate), true).catch(e=>console.error(e)),
     ]);
 
@@ -10591,6 +10603,102 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return done.size;
   }
 
+  // ── 위쪽 묶음 머리글(예: 왓더프룻 500G) 다시 묶기 ──
+  // 서식 3~5행은 열 묶음마다 병합된 머리글(J3:L5 "500G" 등), 6~10행은 묶음별 총수량 칸입니다.
+  // 품목에 '머리글 묶음'을 지정하면(예: 복숭아 → 500G 묶음) 그 열을 지정한 묶음 바로 옆 열들과 한 머리글로 합쳐서 보여줌.
+  function poMergeRanges(ctx){
+    return [...ctx.doc.getElementsByTagName('mergeCell')].map(el => {
+      const [a, b] = el.getAttribute('ref').split(':');
+      const p = poSplitAddr(a), q = b ? poSplitAddr(b) : p;
+      return { el, c1: p.col, r1: p.row, c2: q.col, r2: q.row };
+    });
+  }
+  // 품목 열 영역의 묶음 머리글 목록: [{ master:'J', c1, c2, label:'500G' }]
+  function poTemplateGroups(ctx){
+    return poMergeRanges(ctx)
+      .filter(m => m.r1 === PO_GROUP_ROW && m.c1 >= PO_FIRST_COL && m.c2 <= PO_LAST_COL)
+      .sort((a, b) => a.c1 - b.c1)
+      .map(m => ({ master: colLetter(m.c1 - 1), c1: m.c1, c2: m.c2, label: poText(ctx, colLetter(m.c1 - 1) + PO_GROUP_ROW).replace(/\s*\n\s*/g, ' ').trim() }));
+  }
+  // override: { 열문자: 묶음 기준 열문자 }. 지정한 열이 오늘 쓰이는 경우에만 적용. 바꾼 내용 목록을 돌려줌
+  function poRegroupHeaders(ctx, usedCols, override){
+    const out = [];
+    if(!override || !Object.keys(override).length) return out;
+    const groups = poTemplateGroups(ctx);
+    const gOf = n => groups.find(g => n >= g.c1 && n <= g.c2);
+    const hasHeader = n => !!poText(ctx, colLetter(n - 1) + PO_HEADER_ROW).trim();
+    const cols = [...usedCols].map(L => letterToIndex(L) + 1).filter(n => n >= PO_FIRST_COL && n <= PO_LAST_COL && hasHeader(n)).sort((a, b) => a - b);
+    const eff = n => { const o = override[colLetter(n - 1)]; if(o && groups.some(g => g.master === o)) return o; const g = gOf(n); return g ? g.master : null; };
+    if(!cols.some(n => { const o = override[colLetter(n - 1)]; const g = gOf(n); return o && g && o !== g.master && groups.some(x => x.master === o); })) return out;
+
+    // 원래 묶음의 서식(테두리·색)과 머리글 내용을 먼저 저장
+    const snap = {};
+    groups.forEach(g => {
+      const styles = {};
+      for(let r = 3; r <= 10; r++){
+        styles[r] = {};
+        for(let c = g.c1; c <= g.c2; c++){ const el = ctx.cells.get(colLetter(c - 1) + r); styles[r][c] = el ? el.getAttribute('s') : null; }
+      }
+      const m3 = ctx.cells.get(g.master + PO_GROUP_ROW);
+      snap[g.master] = { g, styles, m3: m3 ? m3.cloneNode(true) : null, f6: poFormulaText(ctx, g.master + '6') };
+    });
+    // 같은 묶음으로 이어지는 열끼리 한 덩어리로
+    const runs = [];
+    cols.forEach(n => {
+      const e = eff(n);
+      const last = runs[runs.length - 1];
+      if(last && last.eff === e) last.cols.push(n); else runs.push({ eff: e, cols: [n] });
+    });
+    // 기존 묶음 머리글 병합(3~5행, 6~10행)을 풀고 새로 병합
+    const mergeCellsEl = ctx.doc.getElementsByTagName('mergeCells')[0];
+    if(!mergeCellsEl) return out;
+    poMergeRanges(ctx).filter(m => (m.r1 === PO_GROUP_ROW || m.r1 === 6) && m.c1 >= PO_FIRST_COL && m.c2 <= PO_LAST_COL).forEach(m => {
+      m.el.parentNode.removeChild(m.el);
+      for(let r = m.r1; r <= m.r2; r++) for(let c = m.c1; c <= m.c2; c++) ctx.mergeMaster.delete(colLetter(c - 1) + r);
+    });
+    const wipeAll = c => { [...c.childNodes].forEach(x => { if(['v', 'is', 'f'].includes(x.localName)) c.removeChild(x); }); c.removeAttribute('t'); };
+    runs.forEach(run => {
+      const sn = snap[run.eff];
+      if(!sn) return;
+      const first = run.cols[0], last = run.cols[run.cols.length - 1];
+      const sc1 = sn.g.c1, sc2 = sn.g.c2, sMid = sc2 > sc1 ? sc1 + 1 : sc1;
+      for(let c = first; c <= last; c++){
+        const srcC = c === first ? sc1 : (c === last ? sc2 : sMid);
+        for(let r = 3; r <= 10; r++){
+          const cell = poEnsureCell(ctx, colLetter(c - 1) + r);
+          const s = sn.styles[r][srcC];
+          if(s != null) cell.setAttribute('s', s);
+          wipeAll(cell);
+        }
+      }
+      const L1 = colLetter(first - 1), L2 = colLetter(last - 1);
+      // 머리글 글자: 원래 묶음의 머리글을 그대로 가져옴
+      const head = ctx.cells.get(L1 + PO_GROUP_ROW);
+      if(sn.m3){
+        if(sn.m3.getAttribute('t')) head.setAttribute('t', sn.m3.getAttribute('t'));
+        [...sn.m3.childNodes].forEach(ch => head.appendChild(ch.cloneNode(true)));
+      }
+      // 묶음 총수량 칸: 이 묶음에 들어간 열들의 합계
+      const unit = (/&"([^"&]*)"\s*$/.exec(sn.f6 || '') || [])[1] || '박스';
+      const tot = ctx.cells.get(L1 + '6');
+      const f = ctx.doc.createElementNS(PO_NS, 'f');
+      f.textContent = `"총수량 : "&${run.cols.map(c => colLetter(c - 1) + '11').join('+')}&"${unit}"`;
+      tot.appendChild(f);
+      tot.setAttribute('t', 'str');
+      [[PO_GROUP_ROW, 5], [6, 10]].forEach(([r1, r2]) => {
+        const mc = ctx.doc.createElementNS(PO_NS, 'mergeCell');
+        mc.setAttribute('ref', `${L1}${r1}:${L2}${r2}`);
+        mergeCellsEl.appendChild(mc);
+        for(let r = r1; r <= r2; r++) for(let c = first; c <= last; c++) ctx.mergeMaster.set(colLetter(c - 1) + r, L1 + r1);
+      });
+      if(run.cols.some(n => { const o = override[colLetter(n - 1)]; const g = gOf(n); return o && g && o !== g.master; })){
+        out.push(`${run.cols.map(n => colLetter(n - 1) + '열').join('·')} → "${sn.g.label}" 묶음`);
+      }
+    });
+    mergeCellsEl.setAttribute('count', String(mergeCellsEl.getElementsByTagName('mergeCell').length));
+    return out;
+  }
+
   // 파일 맨 위(2행의 빈 칸)에 붉은 글씨 안내를 넣음. 맨 아래 표만으로는 놓치기 쉬워서 첫 화면에도 보이게 함
   async function poAddNote(ctx, text){
     const pick = ['J2', 'V2', 'AI2', 'AP2'].find(a => !poText(ctx, a).trim());
@@ -10727,13 +10835,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   let poTemplateCtxHeaders = []; // 서식에서 읽은 품목 열 머리글 (SKU 열 지정 화면용)
+  let poTemplateCtxGroups = [];  // 서식의 위쪽 묶음 머리글 목록 (머리글 묶음 지정용)
   async function poRefreshTemplateInfo(){
-    poTemplateCtxHeaders = [];
+    poTemplateCtxHeaders = []; poTemplateCtxGroups = [];
     const nameEl = document.getElementById('production-template-fname');
     if(!productionTemplateB64){ if(nameEl) nameEl.textContent = ''; renderSkuColumnMapEditor(); return; }
     try{
       const ctx = await poLoadTemplate(productionTemplateB64);
       poTemplateCtxHeaders = poTemplateHeaders(ctx);
+      poTemplateCtxGroups = poTemplateGroups(ctx);
       if(nameEl) nameEl.textContent = `등록됨 — 시트 「${ctx.sheetName}」 · 품목 열 ${poTemplateCtxHeaders.length}개 인식`;
     }catch(e){
       if(nameEl) nameEl.textContent = '⚠ 서식 파일을 읽지 못했습니다: ' + e.message;
@@ -10867,6 +10977,21 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         inp.addEventListener('change', e => set(e.target.value.trim().toUpperCase()));
         row.appendChild(inp);
       }
+      // 위쪽 묶음 머리글: 기본은 그 열의 원래 묶음. 다른 묶음(예: 복숭아를 500G 묶음)으로 지정하면 그 묶음 옆 열들과 한 머리글로 합쳐 표시
+      if(headers.length && poTemplateCtxGroups.length){
+        const gsel = document.createElement('select');
+        gsel.style.cssText = 'min-width:150px;font-size:12px;';
+        gsel.title = '파일 위쪽 묶음 머리글(예: 왓더프룻 500G)을 이 품목이 어느 묶음에 속하게 할지';
+        gsel.innerHTML = '<option value="">(열의 원래 묶음)</option>';
+        poTemplateCtxGroups.forEach(g => {
+          const o = document.createElement('option');
+          o.value = g.master; o.textContent = `묶음: ${g.label} (${colLetter(g.c1 - 1)}~${colLetter(g.c2 - 1)})`;
+          if(skuGroupMap[item.id] === g.master) o.selected = true;
+          gsel.appendChild(o);
+        });
+        gsel.addEventListener('change', e => { if(e.target.value) skuGroupMap[item.id] = e.target.value; else delete skuGroupMap[item.id]; saveSkuGroupMap(); });
+        row.appendChild(gsel);
+      }
       row.appendChild(badge);
       paint();
       wrap.appendChild(row);
@@ -10953,6 +11078,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const logos = await poReplaceLogos(ctx);
       const relabeled = poRelabelHeaders(ctx, res.rep.usedCols);
+      const groupOverride = {};
+      dict.forEach(d => { const c = skuColumnMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = g; });
+      const regrouped = poRegroupHeaders(ctx, res.rep.usedCols, groupOverride);
       if(built.unmapped.length) await poAddNote(ctx, `※ 서식에 열이 없는 품목: ${built.unmapped.join(', ')} — 파일 맨 아래 "서식에 열이 없는 품목" 표 참고`);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
@@ -10963,6 +11091,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const r = res.rep;
       const lines = [{ text: `✅ ${r.placed.length}개 업체를 서식에 채웠습니다 (${poFileName(dateKey)})` }];
       if(logos) lines.push({ text: `서식의 로고 그림 ${logos}개는 글자(왓더프룻)로 바꿨습니다` });
+      if(regrouped.length) lines.push({ text: `위쪽 묶음 머리글을 지정한 대로 합쳤습니다: ${regrouped.join(' / ')}` });
       if(relabeled.length) lines.push({ text: `다른 품목 열에 지정한 품목은 그 열의 머리글을 품목 이름으로 바꿨습니다: ${relabeled.map(x => `${x.col}열 "${x.from}" → "${x.to}"`).join(' / ')}` });
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
