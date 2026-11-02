@@ -4088,12 +4088,18 @@ function goHome() {
     const headRow = document.createElement('tr');
     headRow.innerHTML = '<th><input type="checkbox" id="agg-select-all"></th><th class="name-cell">업체명</th><th>담당자</th>' +
       dict.map(d=>{
-        const boxNote = d.boxUnitCount ? `<div style="font-size:10px;font-weight:400;color:var(--muted)">${d.boxUnitCount}팩/박스</div>` : '';
+        const boxNote = d.boxUnitCount ? `<div style="font-size:10px;font-weight:400;color:var(--muted)">${d.boxUnitCount}팩/박스</div>` : '<div style="font-size:10px;font-weight:600;color:var(--danger,#c0392b)">박스입수 미설정 (팩)</div>';
         return `<th>${escapeHtml(d.name)}${boxNote}</th>`;
       }).join('') +
       '<th class="totals-col">합계</th><th></th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
+
+    // 전체 집계표는 박스 단위로 보여줌 (저장값은 팩). 박스입수가 없는 품목만 팩 그대로 표시. 팩 수량은 3PL 출고 집계 탭에서 확인
+    const unitOf = d => Number(d.boxUnitCount) || 0;
+    const toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
+    const fmt = n => Math.round(n * 100) / 100;
+    const unitLabel = d => unitOf(d) > 0 ? '박스' : '팩';
 
     const tbody = document.createElement('tbody');
     const makeCompanyRow = (company, isChild)=>{
@@ -4121,12 +4127,14 @@ function goHome() {
         const td = document.createElement('td');
         const input = document.createElement('input');
         input.type = 'number';
-        const val = orders[company][d.id] ?? 0;
-        rowTotal += Number(val) || 0;
-        input.value = val;
+        input.step = 'any';
+        const packs = Number(orders[company][d.id]) || 0;
+        rowTotal += toBox(d, packs);
+        input.value = fmt(toBox(d, packs));
+        input.title = unitOf(d) > 0 ? `박스 단위 (1박스 = ${unitOf(d)}팩)` : '박스입수 미설정 — 팩 단위';
         input.addEventListener('change', (e)=>{
           const v = parseFloat(e.target.value) || 0;
-          orders[company][d.id] = v;
+          orders[company][d.id] = unitOf(d) > 0 ? Math.round(v * unitOf(d) * 100) / 100 : v; // 입력은 박스, 저장은 팩
           orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
           saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
         });
@@ -4136,7 +4144,7 @@ function goHome() {
 
       const totalTd = document.createElement('td');
       totalTd.className = 'totals-col';
-      totalTd.textContent = rowTotal;
+      totalTd.textContent = fmt(rowTotal);
       tr.appendChild(totalTd);
 
       const actionTd = document.createElement('td');
@@ -4153,10 +4161,9 @@ function goHome() {
       return tr;
     };
 
-    // 3PL 업체는 한 줄로 묶어서 보여줌 (이름을 누르면 업체별로 펼침). 아래 합계·재고 계산에는 그대로 포함됨.
+    // 3PL 업체는 한 줄로 묶어서 오프라인 발주 업체 줄들 바로 아래(합계 위)에 보여줌. 이름을 누르면 업체별로 펼침. 합계·재고 계산에는 그대로 포함됨.
     const isThreePl = name => { const m = companies.find(c => c.name === name); return !!(m && m.isThirdParty); };
     const tplCompanies = orderCompanies.filter(isThreePl);
-    const bottomRows = []; // 표 맨 아래(합계·재고·생산 필요수량 아래)에 붙일 3PL 줄
     orderCompanies.filter(c => !isThreePl(c)).forEach(company => tbody.appendChild(makeCompanyRow(company, false)));
     if(tplCompanies.length){
       const sumTr = document.createElement('tr');
@@ -4167,26 +4174,26 @@ function goHome() {
       sumName.className = 'name-cell';
       sumName.style.cssText = 'cursor:pointer;font-weight:700;';
       sumName.textContent = `${agg3plOpen ? '▾' : '▸'} 3PL (${tplCompanies.length}개 업체)`;
-      sumName.title = '3PL 업체 합산 (위 합계에 포함됨). 눌러서 업체별로 펼치기/접기';
+      sumName.title = '3PL 업체 합산 (아래 합계에 포함됨). 눌러서 업체별로 펼치기/접기. 팩 수량은 "3PL 출고 집계" 탭에서 확인';
       sumName.addEventListener('click', ()=>{ agg3plOpen = !agg3plOpen; renderAggTable(); });
       sumTr.appendChild(sumName);
       sumTr.appendChild(document.createElement('td'));
       let tplTotal = 0;
       dict.forEach(d=>{
         const v = tplCompanies.reduce((s, c) => s + (Number(orders[c][d.id]) || 0), 0);
-        tplTotal += v;
+        tplTotal += toBox(d, v);
         const td = document.createElement('td');
         td.style.fontWeight = '600';
-        td.textContent = v;
+        td.textContent = fmt(toBox(d, v));
         sumTr.appendChild(td);
       });
       const tplTotalTd = document.createElement('td');
       tplTotalTd.className = 'totals-col';
-      tplTotalTd.textContent = tplTotal;
+      tplTotalTd.textContent = fmt(tplTotal);
       sumTr.appendChild(tplTotalTd);
       sumTr.appendChild(document.createElement('td'));
-      bottomRows.push(sumTr);
-      if(agg3plOpen) tplCompanies.forEach(company => bottomRows.push(makeCompanyRow(company, true)));
+      tbody.appendChild(sumTr);
+      if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
     }
 
     const totalRow = document.createElement('tr');
@@ -4196,26 +4203,16 @@ function goHome() {
     dict.forEach(d=>{
       let colTotal = 0;
       orderCompanies.forEach(c=>{ colTotal += Number(orders[c][d.id]) || 0; });
-      grandTotal += colTotal;
+      grandTotal += toBox(d, colTotal);
       colTotals.push(colTotal);
       const td = document.createElement('td');
       td.className = 'totals-col';
-      const packDiv = document.createElement('div');
-      packDiv.textContent = `${colTotal}팩`;
-      td.appendChild(packDiv);
-      if(d.boxUnitCount && Number(d.boxUnitCount) > 0){
-        const boxDiv = document.createElement('div');
-        boxDiv.style.fontSize = '10.5px';
-        boxDiv.style.color = 'var(--accent)';
-        const boxes = (colTotal / Number(d.boxUnitCount)).toFixed(2);
-        boxDiv.textContent = `${boxes}박스`;
-        td.appendChild(boxDiv);
-      }
+      td.textContent = `${fmt(toBox(d, colTotal))}${unitLabel(d)}`;
       totalRow.appendChild(td);
     });
     const gtTd = document.createElement('td');
     gtTd.className = 'totals-col';
-    gtTd.textContent = `${grandTotal}팩`;
+    gtTd.textContent = `${fmt(grandTotal)}박스`;
     totalRow.appendChild(gtTd);
     totalRow.appendChild(document.createElement('td'));
     tbody.appendChild(totalRow);
@@ -4227,15 +4224,15 @@ function goHome() {
     let stockGrandTotal = 0;
     dict.forEach(d=>{
       const val = Number(stock.product[d.id]) || 0;
-      stockGrandTotal += val;
+      stockGrandTotal += toBox(d, val);
       const td = document.createElement('td');
       td.style.color = 'var(--muted)';
-      td.textContent = val;
+      td.textContent = fmt(toBox(d, val));
       stockRow.appendChild(td);
     });
     const stockGtTd = document.createElement('td');
     stockGtTd.style.color = 'var(--muted)';
-    stockGtTd.textContent = stockGrandTotal;
+    stockGtTd.textContent = fmt(stockGrandTotal);
     stockRow.appendChild(stockGtTd);
     stockRow.appendChild(document.createElement('td'));
     tbody.appendChild(stockRow);
@@ -4245,32 +4242,20 @@ function goHome() {
     let neededGrandTotal = 0;
     dict.forEach((d, i)=>{
       const needed = colTotals[i] - (Number(stock.product[d.id]) || 0);
-      neededGrandTotal += needed;
+      neededGrandTotal += toBox(d, needed);
       const td = document.createElement('td');
       td.className = 'totals-col';
       td.style.color = 'var(--accent)';
-      const numDiv = document.createElement('div');
-      numDiv.textContent = `${needed}팩`;
-      td.appendChild(numDiv);
-      const breakdown = formatBoxBreakdown(needed, d.boxUnitCount);
-      if(breakdown){
-        const subDiv = document.createElement('div');
-        subDiv.style.fontSize = '10.5px';
-        subDiv.style.fontWeight = '400';
-        subDiv.style.color = 'var(--muted)';
-        subDiv.textContent = breakdown;
-        td.appendChild(subDiv);
-      }
+      td.textContent = `${fmt(toBox(d, needed))}${unitLabel(d)}`;
       neededRow.appendChild(td);
     });
     const neededGtTd = document.createElement('td');
     neededGtTd.className = 'totals-col';
     neededGtTd.style.color = 'var(--accent)';
-    neededGtTd.textContent = `${neededGrandTotal}팩`;
+    neededGtTd.textContent = `${fmt(neededGrandTotal)}박스`;
     neededRow.appendChild(neededGtTd);
     neededRow.appendChild(document.createElement('td'));
     tbody.appendChild(neededRow);
-    bottomRows.forEach(tr => tbody.appendChild(tr));
 
     table.appendChild(tbody);
     wrap.innerHTML = '';
