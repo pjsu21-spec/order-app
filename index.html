@@ -4355,12 +4355,30 @@ function goHome() {
     el.appendChild(hint);
   }
 
+  // 집계표 품목 열 순서: 발주(또는 전일재고)가 있는 품목을 왼쪽으로, 그 안에서는 투맛토 500g → 용과 → 투맛토 150g → 기타 순.
+  // 같은 묶음 안에서는 SKU 관리의 순서를 따름. 발주가 없는 품목은 오른쪽에 같은 규칙으로 이어서 나열.
+  function aggRank(d){
+    const t = `${d.shortName || ''} ${d.name || ''}`;
+    if(/용과|투래곤|드래곤|다름마토/.test(t)) return 1;
+    if(/150\s*g/i.test(t)) return 2;
+    if(/투맛토|2kg|500\s*g/i.test(t)) return 0;
+    return 3;
+  }
+  function aggColumnOrder(ordersMap, withStock){
+    const stock = withStock ? (currentPreviousStock().product || {}) : {};
+    const used = d => Number(stock[d.id]) > 0 || Object.keys(ordersMap || {}).some(c => c !== '_meta' && Number(((ordersMap[c]) || {})[d.id]) > 0);
+    return dict.map((d, i) => ({ d, i, u: used(d) ? 0 : 1, r: aggRank(d) }))
+      .sort((a, b) => a.u - b.u || a.r - b.r || a.i - b.i)
+      .map(x => x.d);
+  }
+
   function renderAggTable(){
     renderUnmatchedAlert();
     renderDispatchList();
     const wrap = document.getElementById('agg-table-wrap');
     const orders = currentOrders();
     const orderCompanies = Object.keys(orders);
+    const cols = aggColumnOrder(orders, true);
     if(orderCompanies.length === 0 || dict.length === 0){
       wrap.innerHTML = '<div class="empty">아직 확정된 발주가 없습니다. 위에서 메시지를 입력하고 확정 추가해보세요.</div>';
       document.getElementById('agg-bulk-bar').style.display = 'none';
@@ -4371,7 +4389,7 @@ function goHome() {
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     headRow.innerHTML = '<th><input type="checkbox" id="agg-select-all"></th><th class="name-cell">업체명</th><th>담당자</th>' +
-      dict.map(d=>{
+      cols.map(d=>{
         const boxNote = d.boxUnitCount ? `<div style="font-size:10px;font-weight:400;color:var(--muted)">${d.boxUnitCount}팩/박스</div>` : '<div style="font-size:10px;font-weight:600;color:var(--danger,#c0392b)">박스입수 미설정 (팩)</div>';
         return `<th>${escapeHtml(d.name)}${boxNote}</th>`;
       }).join('') +
@@ -4414,7 +4432,7 @@ function goHome() {
       tr.appendChild(staffTd);
 
       let rowTotal = 0;
-      dict.forEach(d=>{
+      cols.forEach(d=>{
         const td = document.createElement('td');
         const input = document.createElement('input');
         input.type = 'number';
@@ -4472,7 +4490,7 @@ function goHome() {
       sumTr.appendChild(sumName);
       sumTr.appendChild(document.createElement('td'));
       let tplTotal = 0;
-      dict.forEach(d=>{
+      cols.forEach(d=>{
         const v = tplCompanies.reduce((s, c) => s + (Number(orders[c][d.id]) || 0), 0);
         tplTotal += toBox(d, v);
         const td = document.createElement('td');
@@ -4493,7 +4511,7 @@ function goHome() {
     totalRow.innerHTML = '<td></td><td class="name-cell totals-col">합계</td><td class="totals-col"></td>';
     let grandTotal = 0;
     const colTotals = [];
-    dict.forEach(d=>{
+    cols.forEach(d=>{
       let colTotal = 0;
       orderCompanies.forEach(c=>{ colTotal += Number(orders[c][d.id]) || 0; });
       grandTotal += toBox(d, colTotal);
@@ -4515,7 +4533,7 @@ function goHome() {
     const stockRow = document.createElement('tr');
     stockRow.innerHTML = '<td></td><td class="name-cell" style="color:var(--muted);">전일 재고 (제품)</td><td></td>';
     let stockGrandTotal = 0;
-    dict.forEach(d=>{
+    cols.forEach(d=>{
       const val = Number(stock.product[d.id]) || 0;
       stockGrandTotal += toBox(d, val);
       const td = document.createElement('td');
@@ -4533,7 +4551,7 @@ function goHome() {
     const neededRow = document.createElement('tr');
     neededRow.innerHTML = '<td></td><td class="name-cell totals-col" style="color:var(--accent);">생산 필요수량 (합계-전일재고)</td><td class="totals-col"></td>';
     let neededGrandTotal = 0;
-    dict.forEach((d, i)=>{
+    cols.forEach((d, i)=>{
       const needed = colTotals[i] - (Number(stock.product[d.id]) || 0);
       neededGrandTotal += toBox(d, needed);
       const td = document.createElement('td');
@@ -4564,11 +4582,12 @@ function goHome() {
   function buildReadonlyAggTable(companyMap, totalsLabel){
     const companyNames = Object.keys(companyMap);
     if(companyNames.length === 0 || dict.length === 0) return null;
+    const cols = aggColumnOrder(companyMap, false);
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     headRow.innerHTML = '<th class="name-cell">업체명</th>' +
-      dict.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('') +
+      cols.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('') +
       '<th class="totals-col">합계</th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
@@ -4581,7 +4600,7 @@ function goHome() {
       nameTd.textContent = company;
       tr.appendChild(nameTd);
       let rowTotal = 0;
-      dict.forEach(d=>{
+      cols.forEach(d=>{
         const val = Number(companyMap[company][d.id]) || 0;
         rowTotal += val;
         const td = document.createElement('td');
@@ -4598,7 +4617,7 @@ function goHome() {
     const totalRow = document.createElement('tr');
     totalRow.innerHTML = `<td class="name-cell totals-col">${escapeHtml(totalsLabel)}</td>`;
     let grandTotal = 0;
-    dict.forEach(d=>{
+    cols.forEach(d=>{
       let colTotal = 0;
       companyNames.forEach(c=>{ colTotal += Number(companyMap[c][d.id]) || 0; });
       grandTotal += colTotal;
@@ -10380,6 +10399,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const dm = dim && /^([A-Z]+\d+):([A-Z]+)(\d+)$/.exec(dim.getAttribute('ref') || '');
       if(dm && +dm[3] < r - 1) dim.setAttribute('ref', `${dm[1]}:${dm[2]}${r - 1}`);
     }
+    rep.usedCols = usedCols;
     return { rep, warn, scan };
   }
 
@@ -10571,6 +10591,39 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return done.size;
   }
 
+  // 파일 맨 위(2행의 빈 칸)에 붉은 글씨 안내를 넣음. 맨 아래 표만으로는 놓치기 쉬워서 첫 화면에도 보이게 함
+  async function poAddNote(ctx, text){
+    const pick = ['J2', 'V2', 'AI2', 'AP2'].find(a => !poText(ctx, a).trim());
+    if(!pick) return false;
+    const master = ctx.mergeMaster.get(pick) || pick;
+    const parse = x => new DOMParser().parseFromString(x, 'application/xml');
+    const stFile = ctx.zip.file('xl/styles.xml');
+    if(!stFile) return false;
+    const stDoc = parse(await stFile.async('string'));
+    const fontsEl = stDoc.getElementsByTagName('fonts')[0];
+    const cellXfs = stDoc.getElementsByTagName('cellXfs')[0];
+    const fontCount = [...fontsEl.childNodes].filter(n => n.localName === 'font').length;
+    const font = parse('<font xmlns="' + PO_NS + '"><b/><sz val="11"/><color rgb="FFFF0000"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>').documentElement;
+    fontsEl.appendChild(stDoc.importNode(font, true));
+    fontsEl.setAttribute('count', String(fontCount + 1));
+    const xfs = [...cellXfs.childNodes].filter(n => n.localName === 'xf');
+    const cell = poEnsureCell(ctx, master);
+    const base = xfs[Number(cell.getAttribute('s')) || 0];
+    const nx = base.cloneNode(true);
+    nx.setAttribute('fontId', String(fontCount));
+    nx.setAttribute('applyFont', '1');
+    let al = [...nx.childNodes].find(n => n.localName === 'alignment');
+    if(!al){ al = stDoc.createElementNS(PO_NS, 'alignment'); nx.insertBefore(al, nx.firstChild); }
+    al.setAttribute('horizontal', 'left'); al.setAttribute('vertical', 'center'); al.removeAttribute('wrapText');
+    nx.setAttribute('applyAlignment', '1');
+    cellXfs.appendChild(nx);
+    cellXfs.setAttribute('count', String(xfs.length + 1));
+    ctx.zip.file('xl/styles.xml', new XMLSerializer().serializeToString(stDoc), { createFolders: false });
+    poSetStr(ctx, master, text);
+    cell.setAttribute('s', String(xfs.length));
+    return true;
+  }
+
   async function poSave(ctx){
     // 엑셀이 열릴 때 수식을 다시 계산하도록 함
     const wbEl = ctx.wbDoc.getElementsByTagName('calcPr')[0];
@@ -10694,6 +10747,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   function poColumnProblem(item, col, headers){
     const h = headers.find(x => x.col === col);
     if(!h) return '서식에 없는 열입니다';
+    if(!poSuggestCol(item, headers)) return ''; // 서식에 이 품목의 열이 따로 없으면(새 품목) 원하는 열을 직접 고른 것이므로 경고하지 않음
+    // 용량이 다른 열(예: 150g 품목을 500G 열에)도 어긋난 지정
+    const label = item.shortName || item.name || '';
+    const wm = label.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+    const wi = wm ? Number(wm[1]) : (/\[\s*2\s*kg\s*\]|2kg/i.test((item.name || '') + label) ? 500 : null);
+    const hm = (h.header || '').match(/\[\s*(\d+(?:\.\d+)?)\s*g\s*\]/i) || (h.group || '').match(/(\d+(?:\.\d+)?)\s*g/i);
+    const wh = hm ? Number(hm[1]) : null;
+    if(wi && wh && wi !== wh) return `${wh}g 열입니다 (${wi}g 품목)`;
     if(poIsStyroHeader(h) && !poIsStyroItem(item)) return '스티로폼 열입니다 (종이 품목)';
     if(!poIsStyroHeader(h) && poIsStyroItem(item)) return '종이 열입니다 (스티로폼 품목)';
     return '';
@@ -10716,6 +10777,38 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       return !(weight && hw && weight !== hw);
     });
     return cands.length ? cands[0].col : '';
+  }
+
+  // 머리글 비교용 키 (poSuggestCol과 같은 기준)
+  const poItemKey = s => String(s || '').replace(/\[[^\]]*\]/g, '').replace(/[\s/]+/g, '').replace(/\d+(?:\.\d+)?(?:kg|g)/gi, '').replace(/스티로폼|종이박스|종이/g, '').toLowerCase();
+  // 서식 머리글에 넣을 품목 이름: "투맛토(복숭아향) 500g" → "투맛토\n(복숭아향)" (서식의 기존 머리글 모양과 같게)
+  function poHeaderLabel(item){
+    const label = (item.shortName || item.name || '').replace(/\s*\d+(?:\.\d+)?\s*(?:kg|g)\s*$/i, '').replace(/^\[[^\]]*\]\s*/, '').trim();
+    const i = label.indexOf('(');
+    return i > 0 ? label.slice(0, i).trim() + '\n' + label.slice(i) : label;
+  }
+  // 품목이 서식의 다른 품목 열에 지정돼 있으면(예: 복숭아를 스티로폼 열에), 그 열의 머리글을 품목 이름으로 바꿈.
+  // 서식 아래쪽 표(쿠팡 블록 등)에 복사돼 있는 같은 머리글도 함께 바꿈. 바꾼 목록 [{ col, from, to }]을 돌려줌
+  function poRelabelHeaders(ctx, usedCols){
+    const byCol = {};
+    dict.forEach(d => { const c = skuColumnMap[d.id]; if(c) (byCol[c] = byCol[c] || []).push(d); });
+    const out = [];
+    Object.entries(byCol).forEach(([col, items]) => {
+      if(items.length !== 1 || !(usedCols && usedCols.has(col))) return;
+      const d = items[0];
+      const oldText = poText(ctx, col + PO_HEADER_ROW);
+      if(!oldText) return;
+      if(poItemKey(d.shortName || d.name) === poItemKey(oldText)) return; // 이미 같은 품목의 열
+      const to = poHeaderLabel(d);
+      const re = new RegExp('^' + col + '\\d+$');
+      [...ctx.cells.keys()].filter(a => re.test(a)).forEach(a => {
+        const c = ctx.cells.get(a);
+        if(poHasFormula(c) || poText(ctx, a) !== oldText) return;
+        poSetStr(ctx, a, to);
+      });
+      out.push({ col, from: oldText.replace(/\s*\n\s*/g, ' '), to: to.replace(/\n/g, ' ') });
+    });
+    return out;
   }
 
   function renderSkuColumnMapEditor(){
@@ -10749,7 +10842,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         const m = skuColumnMap[item.id];
         const h = headers.find(x => x.col === m);
         const warn = m && headers.length ? poColumnProblem(item, m, headers) : '';
-        badge.textContent = m ? `${warn ? '⚠' : '✓'} ${m}열${h ? ' — ' + (h.group ? h.group + ' · ' : '') + h.header : ''}${warn ? ' — ' + warn : ''}` : '미설정';
+        const relabel = m && h && !warn && poItemKey(item.shortName || item.name) !== poItemKey(h.header);
+        badge.textContent = m ? `${warn ? '⚠' : '✓'} ${m}열${h ? ' — ' + (h.group ? h.group + ' · ' : '') + h.header : ''}${warn ? ' — ' + warn : ''}${relabel ? ` → 파일 머리글은 "${poHeaderLabel(item).replace(/\n/g, ' ')}"(으)로 바뀌어 표시됩니다` : ''}` : '미설정';
         badge.style.color = warn ? 'var(--danger,#c0392b)' : (m ? 'var(--accent)' : 'var(--muted)');
         badge.style.fontWeight = warn ? '700' : '400';
       };
@@ -10858,6 +10952,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const logos = await poReplaceLogos(ctx);
+      const relabeled = poRelabelHeaders(ctx, res.rep.usedCols);
+      if(built.unmapped.length) await poAddNote(ctx, `※ 서식에 열이 없는 품목: ${built.unmapped.join(', ')} — 파일 맨 아래 "서식에 열이 없는 품목" 표 참고`);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -10867,6 +10963,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const r = res.rep;
       const lines = [{ text: `✅ ${r.placed.length}개 업체를 서식에 채웠습니다 (${poFileName(dateKey)})` }];
       if(logos) lines.push({ text: `서식의 로고 그림 ${logos}개는 글자(왓더프룻)로 바꿨습니다` });
+      if(relabeled.length) lines.push({ text: `다른 품목 열에 지정한 품목은 그 열의 머리글을 품목 이름으로 바꿨습니다: ${relabeled.map(x => `${x.col}열 "${x.from}" → "${x.to}"`).join(' / ')}` });
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
