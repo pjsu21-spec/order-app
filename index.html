@@ -9602,6 +9602,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const PO_FIRST_COL = 10, PO_LAST_COL = 33; // J ~ AG : 품목 수량 열
   const PO_HEADER_ROW = 13, PO_GROUP_ROW = 3; // 품목 머리글 행, 그 위 묶음 이름 행
   const poNorm = s => String(s == null ? '' : s).replace(/\s+/g, '').toLowerCase();
+  // 업체 이름 비교용: 공백과 괄호 위치 차이를 무시 ("상장(생명)" = "(상장)생명")
+  const poNameKey = s => poNorm(s).replace(/[()（）\[\]]/g, '');
   const poColNum = letters => letterToIndex(letters) + 1;
   const poSplitAddr = addr => { const m = /^([A-Z]+)(\d+)$/.exec(addr); return { col: poColNum(m[1]), row: +m[2], letters: m[1] }; };
 
@@ -9748,7 +9750,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(!nb || nb === '구분') continue;
       if(nb === '소계'){ subtotals.push({ row: r, from: blockStart || r }); blockStart = 0; continue; }
       if(!blockStart) blockStart = r;
-      const t = col => poNorm(poText(ctx, col + r));
+      const t = col => poNameKey(poText(ctx, col + r));
       const C = t('C'), D = t('D'), E = t('E'), F = t('F');
       companyRows.push({
         row: r, category: nb, categoryRaw: b,
@@ -9772,13 +9774,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const free = () => scan.companyRows.filter(r => r.free && !assigned.has(r.row) && !r.claimed);
 
     entries.forEach(e => {
-      const key = poNorm(e.name);
+      const key = poNameKey(e.name);
       let hit = null;
       const find = k => { for(let lv = 0; lv < 5; lv++){ const s = scan.companyRows.filter(r => r.cands[lv].includes(k) && k); if(s.length) return s; } return []; };
       let S = find(key);
-      if(!S.length && e.corp) S = find(poNorm(e.corp));
-      if(S.length > 1 && e.corp){ const k = poNorm(e.corp); const s2 = S.filter(r => r.F === k || r.E === k); if(s2.length) S = s2; }
-      if(S.length > 1 && e.region){ const k = poNorm(e.region); const s2 = S.filter(r => r.D === k || r.C === k || r.F === k); if(s2.length) S = s2; }
+      if(!S.length && e.corp) S = find(poNameKey(e.corp));
+      if(S.length > 1 && e.corp){ const k = poNameKey(e.corp); const s2 = S.filter(r => r.F === k || r.E === k); if(s2.length) S = s2; }
+      if(S.length > 1 && e.region){ const k = poNameKey(e.region); const s2 = S.filter(r => r.D === k || r.C === k || r.F === k); if(s2.length) S = s2; }
       if(S.length > 1){
         const firstFree = S.find(r => !assigned.has(r.row));
         hit = firstFree || S[0];
@@ -10117,9 +10119,6 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
   document.getElementById('export-production-order-btn').addEventListener('click', async ()=>{
     const dateKey = currentDateKey;
-    const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
-    const built = buildProductionOrderEntries({ dict, companies, orders: currentOrders(), stockPacks, colMap: skuColumnMap });
-    if(built.entries.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
     if(!productionTemplateB64){
       toast('발주취합 서식 파일이 등록되지 않았습니다. 아래 "서식 등록"에서 먼저 올려주세요');
       const det = document.getElementById('po-template-details'); if(det) det.open = true;
@@ -10128,6 +10127,20 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     toast('생산본부 발주취합 생성 중...');
     try{
       const ctx = await poLoadTemplate(productionTemplateB64);
+      // 주문이 있는 품목의 열 지정이 비었거나 종이/스티로폼이 어긋나 있으면 서식 머리글에 맞춰 자동으로 바로잡음 (결과는 안내에 표시)
+      const tplHdrs = poTemplateHeaders(ctx);
+      const ordersToday = currentOrders();
+      const autoFixed = [];
+      dict.filter(d => Object.keys(ordersToday).some(n => n !== '_meta' && Number((ordersToday[n] || {})[d.id]) > 0)).forEach(d => {
+        const cur = skuColumnMap[d.id];
+        if(cur && !poColumnProblem(d, cur, tplHdrs)) return;
+        const sug = poSuggestCol(d, tplHdrs);
+        if(sug && sug !== cur){ skuColumnMap[d.id] = sug; autoFixed.push(`${d.shortName || d.name}: ${cur ? cur + ' → ' : ''}${sug}열`); }
+      });
+      if(autoFixed.length){ saveSkuColumnMap(); renderSkuColumnMapEditor(); }
+      const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
+      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap });
+      if(built.entries.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, extras: built.extras });
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
@@ -10137,6 +10150,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
       const r = res.rep;
       const lines = [{ text: `✅ ${r.placed.length}개 업체를 서식에 채웠습니다 (${poFileName(dateKey)})` }];
+      if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
