@@ -10826,7 +10826,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       addedRows.push(e.name);
       if(rep.unplaced.length >= before) skipped.add(nm); // 넣었는데도 자리가 안 잡히면 이 업체는 건너뜀
     }
-    rep.addedRows = addedRows; rep.noCategory = noCategory;
+    rep.addedRows = addedRows;
+    rep.unregistered = noCategory.filter(n => (input.entries.find(x => x.name === n) || {}).registered === false); // 거래처 관리에 등록이 안 된 업체
+    rep.noCategory = noCategory.filter(n => !rep.unregistered.includes(n));
     rep.newRows = rep.newRows.filter(n => !addedRows.includes(n));
     const warn = [];
     // 1) 납품일 (B2)
@@ -11264,7 +11266,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const dispatchCompanies = new Set((dispatch || []).map(e => e.company)); // 출고일별로 따로 입력한 업체는 서식의 쿠팡 블록에 넣으므로 일반 업체 행에서는 뺌
     Object.keys(orders || {}).forEach(name => {
       if(name === '_meta' || dispatchCompanies.has(name)) return;
-      const meta = companies.find(c => c.name === name) || {};
+      // 주문에 적힌 이름이 등록된 이름과 괄호 위치만 다르거나 상장청과명으로 적혀 있어도 같은 거래처로 봄 ("상장(생명)" = "(상장)생명")
+      const nk = poNameKey(name);
+      const metaFound = companies.find(c => c.name === name) || companies.find(c => poNameKey(c.name) === nk) || companies.find(c => c.listedMarketName && poNameKey(c.listedMarketName) === nk);
+      const meta = metaFound || {};
       const colQty = {};
       dict.forEach(d => {
         const q = Number((orders[name] || {})[d.id]) || 0;
@@ -11279,7 +11284,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(unitOf(d) <= 0) noUnit.add(label(d));
         colQty[col] = (colQty[col] || 0) + toBox(d, q);
       });
-      if(Object.keys(colQty).length) entries.push({ name, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
+      if(Object.keys(colQty).length) entries.push({ name, registered: !!metaFound, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
     });
     // 샘플 신청(생산본부 생산으로 지정된 품목만): 신청자(부서)별로 묶어 서식의 샘플 행에 넣음. 영업 부서는 '영업용', 그 외는 '본사' 칸
     const sampleMap = new Map();
@@ -11662,8 +11667,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       skuColumnMap = colMapU;
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const r = res.rep;
+      if(r.unregistered && r.unregistered.length) add('err', '거래처 관리에 없는 업체', `${r.unregistered.join(', ')} — 거래처 관리에서 같은 이름으로 등록하고 "발주 구분"을 선택해주세요. 안 하면 이 업체 수량이 빠집니다`);
       if(r.noCategory && r.noCategory.length) add('err', '발주 구분이 비어 있는 거래처', `${r.noCategory.join(', ')} — 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요. 안 하면 이 업체 수량이 빠집니다`);
-      const unp = r.unplaced.filter(n => !(r.noCategory || []).includes(n));
+      const unp = r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n));
       if(unp.length) add('err', '서식에 자리가 없는 업체', `${unp.join(', ')} — 서식에 행을 추가한 뒤 다시 등록해주세요. 안 하면 이 업체 수량이 빠집니다`);
       if(r.dispatch && r.dispatch.unplaced.length) add('err', '쿠팡 블록에 자리가 없는 출고', `${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} — 서식에 쿠팡 행을 추가해주세요`);
       if(r.ambiguous.length) add('warn', '이름이 같은 행이 여러 개', `${r.ambiguous.join(', ')} — 첫 빈 행에 들어갑니다. 위치를 확인해주세요`);
@@ -11784,8 +11790,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
+      if(r.unregistered && r.unregistered.length) lines.push({ warn: true, text: `※ 거래처 관리에 등록되지 않아 서식에 못 넣은 업체: ${r.unregistered.join(', ')} → 거래처 관리에서 같은 이름으로 등록하고 "발주 구분"을 선택해주세요` });
       if(r.noCategory && r.noCategory.length) lines.push({ warn: true, text: `※ 발주 구분이 비어 있어 서식에 못 넣은 업체: ${r.noCategory.join(', ')} → 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요` });
-      if(r.unplaced.filter(n => !(r.noCategory || []).includes(n)).length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.filter(n => !(r.noCategory || []).includes(n)).join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
+      if(r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n)).length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n)).join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
       if(r.hiddenCols) lines.push({ text: `수량·재고가 없는 품목 열 ${r.hiddenCols}개는 숨겼습니다${r.hiddenStyro ? ` (스티로폼 열 ${r.hiddenStyro}개 포함)` : ''}` });
       if(built.unmapped.length) lines.push({ warn: true, text: `※ 서식에 열이 지정되지 않은 품목은 열에 못 넣고 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다: ${built.unmapped.join(', ')} → 서식에 열을 추가해 다시 등록하고 열을 지정하면 해당 열에 들어갑니다` });
       if(built.noUnit.length) lines.push({ warn: true, text: `※ 박스입수가 없어 팩 수 그대로 들어간 품목: ${built.noUnit.join(', ')} → SKU 관리에서 박스입수를 입력하면 박스 수로 계산됩니다` });
