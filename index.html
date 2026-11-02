@@ -686,6 +686,33 @@
     </div>
   </div>
 
+  <div class="card" id="personal-card">
+    <h2>5. 직원 개인구매 <span class="badge">직접 수령 → 발주취합 표기 / 택배 발송 → 3PL</span></h2>
+    <div class="row" style="margin-top:0;">
+      <label style="font-size:13px;font-weight:600;">구매자 :</label>
+      <input type="text" id="pp-buyer" list="pp-buyer-list" placeholder="이름 + 직급 (예: 박준수 과장)" style="min-width:220px;">
+      <datalist id="pp-buyer-list"></datalist>
+      <label style="font-size:13px;font-weight:600;margin-left:12px;">수령 방식 :</label>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="pickup" checked> 직접 수령</label>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="parcel"> 택배 발송</label>
+    </div>
+    <div id="pp-items" style="margin-top:10px;"></div>
+    <div class="row" style="margin-top:4px;"><button class="btn-ghost small-btn" id="pp-add-item-btn">+ 품목 추가</button></div>
+    <div id="pp-parcel-box" style="display:none; margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:8px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">택배 발송 정보 (3PL 개별 주문으로 추가됩니다)</div>
+      <div class="row" style="margin-top:0;">
+        <input type="text" id="pp-recv-name" placeholder="받는 분 (비우면 구매자)" style="min-width:160px;">
+        <input type="text" id="pp-recv-phone" placeholder="연락처" style="min-width:140px;">
+        <input type="text" id="pp-recv-addr" placeholder="배송지 주소" style="min-width:300px; flex:1;">
+        <input type="text" id="pp-recv-note" placeholder="배송 요청사항 (선택)" style="min-width:180px;">
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn-primary" id="pp-submit-btn">개인구매 추가</button>
+      <span class="sub" style="margin:0;">직접 수령은 "OOO 과장 개인 구매" 업체로 집계표에 들어가고, 택배 발송은 3PL 출고에 추가됩니다.</span>
+    </div>
+  </div>
+
   </div><!-- /panel-order -->
 
   <!-- ───────────── 패널 2: 집계 / 출고 ───────────── -->
@@ -2485,6 +2512,7 @@ function goHome() {
     renderCategoryEditor();
     renderCompanyManager();
     poRefreshTemplateInfo();
+    ppRenderItems();
     renderPriceMapEditor();
     renderDeliveryFeeEditor();
     renderAggTable();
@@ -5081,9 +5109,148 @@ function goHome() {
     toast(company + ' 발주가 집계표에 추가되었습니다');
   });
 
+  // ── 직원 개인구매 ──
+  // 직접 수령: "OOO 과장 개인 구매" 업체(구분: 개인구매)의 발주로 집계표에 넣음 → 발주취합 파일의 개인구매 행에 이름과 수량이 표기됨
+  // 택배 발송: 3PL 개별 주문으로 추가(업체: 개인구매(택배)) → 3PL 출고 집계·택배사 발주서에 포함
+  const PP_PICKUP_SUFFIX = ' 개인 구매';
+  const PP_PARCEL_COMPANY = '개인구매(택배)';
+  let ppItems = [{ itemId: '', qty: '', unit: '팩' }];
+
+  const ppPacks = it => parsedItemPacks({ qty: it.qty === '' || it.qty == null ? null : Number(it.qty), unit: it.unit, matchedId: it.itemId });
+  function ppEnsureCompany(name, isThirdParty){
+    let c = companies.find(x => x.name === name);
+    if(!c){
+      c = { name, isThirdParty: !!isThirdParty, code: '', category: '개인구매', region: '', listedMarketName: '' };
+      companies.push(c);
+      saveCompanies(); renderCompanyManager();
+    } else {
+      let changed = false;
+      if(!c.category){ c.category = '개인구매'; changed = true; }
+      if(isThirdParty && !c.isThirdParty){ c.isThirdParty = true; changed = true; }
+      if(changed) saveCompanies();
+    }
+    return c;
+  }
+  function ppRenderBuyers(){
+    const dl = document.getElementById('pp-buyer-list');
+    if(!dl) return;
+    dl.innerHTML = '';
+    companies.filter(c => c.category === '개인구매' && c.name.endsWith(PP_PICKUP_SUFFIX)).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.name.slice(0, -PP_PICKUP_SUFFIX.length);
+      dl.appendChild(o);
+    });
+  }
+  function ppRenderItems(){
+    const wrap = document.getElementById('pp-items');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    ppRenderBuyers();
+    ppItems.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'parsed-row';
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;';
+      const sel = document.createElement('select');
+      sel.innerHTML = '<option value="">(품목 선택)</option>';
+      dict.forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; if(d.id === it.itemId) o.selected = true; sel.appendChild(o); });
+      const qty = document.createElement('input');
+      qty.type = 'number'; qty.step = 'any'; qty.min = '0'; qty.placeholder = '수량'; qty.style.width = '80px'; qty.value = it.qty;
+      const unit = document.createElement('select');
+      ['팩', '박스'].forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; unit.appendChild(o); });
+      unit.value = it.unit; unit.style.width = '70px';
+      const conv = document.createElement('span');
+      conv.style.fontSize = '12px';
+      const paint = ()=>{
+        let txt = '', warn = false;
+        if(it.unit === '박스' && it.itemId){
+          const p = ppPacks(it);
+          if(p == null && it.qty !== ''){ txt = '⚠ 박스입수 미설정 (단위를 팩으로)'; warn = true; } else if(p != null) txt = `= ${p}팩`;
+        }
+        conv.textContent = txt;
+        conv.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)';
+        conv.style.fontWeight = warn ? '700' : '400';
+      };
+      sel.addEventListener('change', e => { it.itemId = e.target.value; paint(); });
+      qty.addEventListener('input', e => { it.qty = e.target.value; paint(); });
+      unit.addEventListener('change', e => { it.unit = e.target.value; paint(); });
+      const del = document.createElement('button');
+      del.className = 'btn-ghost small-btn'; del.textContent = '✕'; del.title = '이 줄 삭제';
+      del.addEventListener('click', ()=>{ ppItems.splice(idx, 1); if(!ppItems.length) ppItems.push({ itemId: '', qty: '', unit: '팩' }); ppRenderItems(); });
+      paint();
+      [sel, qty, unit, conv, del].forEach(x => row.appendChild(x));
+      wrap.appendChild(row);
+    });
+  }
+  function ppResetForm(){
+    ppItems = [{ itemId: '', qty: '', unit: '팩' }];
+    ['pp-buyer', 'pp-recv-name', 'pp-recv-phone', 'pp-recv-addr', 'pp-recv-note'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ppRenderItems();
+  }
+  function ppMethod(){ const r = document.querySelector('input[name="pp-method"]:checked'); return r ? r.value : 'pickup'; }
+  function ppSubmit(){
+    const buyer = (document.getElementById('pp-buyer').value || '').trim();
+    if(!buyer){ toast('구매자(이름·직급)를 입력해주세요'); return; }
+    const rows = ppItems.filter(it => it.itemId || (it.qty !== '' && it.qty != null));
+    if(!rows.length){ toast('품목과 수량을 입력해주세요'); return; }
+    const lines = [];
+    for(const it of rows){
+      if(!it.itemId){ toast('품목을 선택해주세요'); return; }
+      const q = Number(it.qty);
+      if(!(q > 0)){ toast(`${itemNameById(it.itemId)} 수량을 입력해주세요`); return; }
+      const packs = ppPacks(it);
+      if(packs == null){ toast(`${itemNameById(it.itemId)}: 박스입수가 없어 박스를 팩으로 바꿀 수 없습니다. SKU 관리에서 박스입수를 입력하거나 단위를 팩으로 바꿔주세요`); return; }
+      lines.push({ itemId: it.itemId, packs });
+    }
+    const orders = currentOrders();
+    if(ppMethod() === 'pickup'){
+      const company = buyer + PP_PICKUP_SUFFIX;
+      ppEnsureCompany(company, false);
+      if(!orders[company]) orders[company] = {};
+      lines.forEach(l => { orders[company][l.itemId] = (orders[company][l.itemId] || 0) + l.packs; });
+      orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
+      saveOrdersByDate();
+      renderAggTable(); renderThirdPartyAggTable(); renderRawStockEditor();
+      toast(`${company}: 직접 수령으로 집계표에 추가했습니다`);
+    } else {
+      const recvName = (document.getElementById('pp-recv-name').value || '').trim() || buyer;
+      const phone = (document.getElementById('pp-recv-phone').value || '').trim();
+      const addr = (document.getElementById('pp-recv-addr').value || '').trim();
+      const reqNote = (document.getElementById('pp-recv-note').value || '').trim();
+      if(!phone){ toast('받는 분 연락처를 입력해주세요'); return; }
+      if(!addr){ toast('배송지 주소를 입력해주세요'); return; }
+      const company = PP_PARCEL_COMPANY;
+      ppEnsureCompany(company, true);
+      if(!orders[company]) orders[company] = {};
+      const bucket = currentLineItems();
+      lines.forEach(l => {
+        const internalOrderNo = getNextInternalOrderNo();
+        const boxQtys = splitIntoBoxes(l.packs);
+        boxQtys.forEach((boxQty, boxIdx) => {
+          bucket.push({
+            id: cryptoId(), internalOrderNo, company, orderNo: '', recipientName: recvName, recipientPhone: phone, address: addr,
+            itemNameRaw: itemNameById(l.itemId), itemId: l.itemId, qty: boxQty, note: reqNote ? `${reqNote} (개인구매: ${buyer})` : `개인구매: ${buyer}`,
+            trackingNo: '', enteredBy: getStaffName(), boxIndex: boxIdx + 1, boxTotal: boxQtys.length
+          });
+        });
+        orders[company][l.itemId] = (orders[company][l.itemId] || 0) + l.packs;
+      });
+      orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
+      saveInternalOrderCounters(); saveLineItems(); saveOrdersByDate();
+      renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems(); renderRawStockEditor();
+      toast(`${buyer} 개인구매를 택배 발송으로 3PL에 추가했습니다`);
+    }
+    ppResetForm();
+  }
+
+  document.getElementById('pp-add-item-btn').addEventListener('click', ()=>{ ppItems.push({ itemId: '', qty: '', unit: '팩' }); ppRenderItems(); });
+  document.getElementById('pp-submit-btn').addEventListener('click', ppSubmit);
+  document.querySelectorAll('input[name="pp-method"]').forEach(r => r.addEventListener('change', ()=>{
+    document.getElementById('pp-parcel-box').style.display = ppMethod() === 'parcel' ? 'block' : 'none';
+  }));
+
   document.getElementById('add-item-btn').addEventListener('click', ()=>{
     dict.push({ id: cryptoId(), name: '새 품목', aliases: [], code: '', boxUnitCount: '', shortName: '' });
-    saveDict(); renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); renderPriceMapEditor();
+    saveDict(); renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); ppRenderItems(); renderPriceMapEditor();
   });
 
   document.getElementById('add-raw-material-btn').addEventListener('click', ()=>{
@@ -7016,6 +7183,7 @@ function goHome() {
     renderCategoryEditor();
     renderCompanyManager();
     poRefreshTemplateInfo();
+    ppRenderItems();
     renderPriceMapEditor();
     renderDeliveryFeeEditor();
     renderAggTable();
@@ -7661,6 +7829,18 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       e.packs += p; e.boxes += (b == null ? 0 : b); e.count++;
     }));
     return out;
+  };
+
+  // ── 발주취합 연동용: 출고일(dateKey) 하루의 샘플 신청(취소 제외)을 신청 건별로 돌려준다 ──
+  //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식으로 지정된 품목만 남기고, 남는 품목이 없는 신청은 뺀다.
+  window.getSampleRequestsForDate = async function(dateKey, opts){
+    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
+    const q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`;
+    const rows = await sbQuery('sample_requests', q);
+    return rows.map(r => ({
+      id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '',
+      items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0 })).filter(i => i.skuId && i.packs > 0)
+    })).filter(r => r.items.length);
   };
 
   // ══════════════════ 단가 확인 (원가분석 · 원물가/비용 이력 · 이익률) — 관리자 전용 ══════════════════
@@ -10109,7 +10289,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       }
       if(!hit){
         // 같은 구분의 빈 행에 업체명을 적어 넣음
-        const f = free().find(r => r.category === poNorm(e.category));
+        const cands = free().filter(r => r.category === poNorm(e.category));
+        const f = (e.region && cands.find(r => r.C === poNameKey(e.region))) || cands[0];
         if(f){ hit = f; f.claimed = true; f.newName = e.name; rep.newRows.push(e.name); }
       }
       if(hit){ take(hit.row, e); rep.placed.push(e.name); }
@@ -10401,7 +10582,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   // 앱의 발주 데이터 → 서식 열(skuColumnMap) 기준 박스 수량. 박스입수가 있으면 박스로 환산, 없으면 팩 수 그대로.
-  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch }){
+  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch, samples }){
     const unitOf = d => Number(d.boxUnitCount) || 0;
     const toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
     const label = d => (d.shortName || d.name || '').trim();
@@ -10427,6 +10608,27 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       if(Object.keys(colQty).length) entries.push({ name, category: meta.category || '', region: meta.region || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
     });
+    // 샘플 신청(생산본부 생산으로 지정된 품목만): 신청자(부서)별로 묶어 서식의 샘플 행에 넣음. 영업 부서는 '영업용', 그 외는 '본사' 칸
+    const sampleMap = new Map();
+    (samples || []).forEach(r => {
+      const who = (r.requester_name || '').trim() || '(신청자 미상)';
+      const dept = (r.requester_dept || '').trim();
+      const key = `${who}|${dept}`;
+      let e = sampleMap.get(key);
+      if(!e){ e = { name: `${who} 샘플`, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {} }; sampleMap.set(key, e); }
+      (r.items || []).forEach(i => {
+        const d = dict.find(x => x.id === i.skuId);
+        const q = Number(i.packs) || 0;
+        if(!d || q <= 0) return;
+        const col = colMap[d.id];
+        if(!col){ unmapped.add(label(d)); extras.push({ company: e.name, item: label(d), qty: Math.round(toBox(d, q) * 100) / 100, unit: unitOf(d) > 0 ? '박스' : '팩' }); return; }
+        if(unitOf(d) <= 0) noUnit.add(label(d));
+        e.colQty[col] = (e.colQty[col] || 0) + toBox(d, q);
+      });
+    });
+    const sampleNames = [];
+    sampleMap.forEach(e => { if(Object.keys(e.colQty).length){ entries.push(e); sampleNames.push(e.name); } });
+
     // 출고일을 따로 지정한 주문: 업체·창고·출고일별로 묶어 서식 열 기준 박스 수량으로 바꿈
     const dgroups = new Map();
     (dispatch || []).forEach(e => {
@@ -10452,7 +10654,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const s = Number((stockPacks || {})[d.id]) || 0;
       if(col && s > 0) stockByCol[col] = (stockByCol[col] || 0) + toBox(d, s);
     });
-    return { entries, dispatchRows, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
+    return { entries, dispatchRows, sampleNames, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
   }
 
   const PO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -10644,7 +10846,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       if(autoFixed.length){ saveSkuColumnMap(); renderSkuColumnMapEditor(); }
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
-      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [] });
+      // 샘플 신청 중 오늘 출고분(생산본부 생산으로 지정된 품목만)
+      let sampleRows = [], sampleErr = '';
+      if(typeof window.getSampleRequestsForDate === 'function'){
+        try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }
+        catch(e){ sampleErr = e.message || String(e); }
+      }
+      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const logos = await poReplaceLogos(ctx);
@@ -10660,6 +10868,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
+      if(built.sampleNames.length) lines.push({ text: `샘플 신청(생산본부 생산) ${built.sampleNames.length}건을 서식의 샘플 행에 채웠습니다: ${built.sampleNames.join(', ')}` });
+      if(sampleErr) lines.push({ warn: true, text: `※ 샘플 신청을 불러오지 못해 샘플은 넣지 못했습니다: ${sampleErr}` });
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
