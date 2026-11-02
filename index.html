@@ -4120,6 +4120,7 @@ function goHome() {
     // 3PL 업체는 한 줄로 묶어서 보여줌 (이름을 누르면 업체별로 펼침). 아래 합계·재고 계산에는 그대로 포함됨.
     const isThreePl = name => { const m = companies.find(c => c.name === name); return !!(m && m.isThirdParty); };
     const tplCompanies = orderCompanies.filter(isThreePl);
+    const bottomRows = []; // 표 맨 아래(합계·재고·생산 필요수량 아래)에 붙일 3PL 줄
     orderCompanies.filter(c => !isThreePl(c)).forEach(company => tbody.appendChild(makeCompanyRow(company, false)));
     if(tplCompanies.length){
       const sumTr = document.createElement('tr');
@@ -4130,7 +4131,7 @@ function goHome() {
       sumName.className = 'name-cell';
       sumName.style.cssText = 'cursor:pointer;font-weight:700;';
       sumName.textContent = `${agg3plOpen ? '▾' : '▸'} 3PL (${tplCompanies.length}개 업체)`;
-      sumName.title = '눌러서 업체별로 펼치기/접기';
+      sumName.title = '3PL 업체 합산 (위 합계에 포함됨). 눌러서 업체별로 펼치기/접기';
       sumName.addEventListener('click', ()=>{ agg3plOpen = !agg3plOpen; renderAggTable(); });
       sumTr.appendChild(sumName);
       sumTr.appendChild(document.createElement('td'));
@@ -4148,8 +4149,8 @@ function goHome() {
       tplTotalTd.textContent = tplTotal;
       sumTr.appendChild(tplTotalTd);
       sumTr.appendChild(document.createElement('td'));
-      tbody.appendChild(sumTr);
-      if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
+      bottomRows.push(sumTr);
+      if(agg3plOpen) tplCompanies.forEach(company => bottomRows.push(makeCompanyRow(company, true)));
     }
 
     const totalRow = document.createElement('tr');
@@ -4233,6 +4234,7 @@ function goHome() {
     neededRow.appendChild(neededGtTd);
     neededRow.appendChild(document.createElement('td'));
     tbody.appendChild(neededRow);
+    bottomRows.forEach(tr => tbody.appendChild(tr));
 
     table.appendChild(tbody);
     wrap.innerHTML = '';
