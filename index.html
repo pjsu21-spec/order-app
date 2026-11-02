@@ -669,6 +669,13 @@
       <button class="btn-primary small-btn" id="save-new-company-btn">추가</button>
     </div>
     <div id="company-match-note" style="display:none; margin-top:8px; font-size:13px;"></div>
+    <div class="row" id="ship-date-row" style="display:none; margin-top:8px;">
+      <label style="font-size:13px;font-weight:600;">출고일 :</label>
+      <input type="date" id="ship-date-input">
+      <span id="ship-date-dow" style="font-size:13px;"></span>
+      <button class="btn-ghost small-btn" id="ship-date-next-btn" title="생산일 다음 출고일 (토·일요일은 건너뜀)">다음 출고일로</button>
+      <span class="sub" style="margin:0;">우리 회사 실제 출고일 (토요일은 생산 휴무라 금요일에 함께 출고)</span>
+    </div>
     <div id="parsed-items" style="margin-top:12px;"></div>
     <div class="row" style="margin-top:6px;">
       <button class="btn-ghost small-btn" id="add-parsed-item-btn">+ 품목 추가</button>
@@ -695,6 +702,7 @@
       <button class="btn-danger small-btn" id="agg-bulk-delete-btn">선택 항목 삭제</button>
     </div>
     <div id="unmatched-alert" style="display:none; margin-top:10px; color:var(--danger,#c0392b); font-weight:700; font-size:14px;"></div>
+    <div id="dispatch-list" style="display:none; margin-top:12px;"></div>
 
     <div id="agg-3pl-wrap" style="display:none;">
       <h3>품목별 합계</h3>
@@ -2229,6 +2237,7 @@ function goHome() {
   let deliveryFeeItems = []; // [{ id, size, name, code, price }] size: '극소'|'소'
   let uploadFingerprints = {};      // { 업체명: [{ h, dateKey, at }] } - 이미 불러온 파일 지문(같은 파일 재업로드 경고용)
   let dupConfirmKey = '';           // 같은 파일 경고 후 '그래도 불러오기' 확인 대기 중인 키
+  let dispatchByDate = {};          // { 'YYYY-MM-DD': [{ id, company, shipDate, warehouse, items:{itemId:팩}, enteredBy, createdAt }] } - 출고일을 따로 지정한 주문(쿠팡 등)
   let deliveryCourierName = ''; // 3PL 택배사명(예: CJ대한통운) - 택배사 칸이 따로 있는 업체 회신 파일에 자동 입력
   let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
@@ -2461,6 +2470,11 @@ function goHome() {
       const v = ufp ? JSON.parse(ufp.value) : {};
       uploadFingerprints = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     }catch(e){ uploadFingerprints = {}; }
+    try{
+      const dsp = await window.storage.get('dispatch-by-date', true);
+      const v = dsp ? JSON.parse(dsp.value) : {};
+      dispatchByDate = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    }catch(e){ dispatchByDate = {}; }
     // Ensure defaults exist (극소, 소)
     if(!deliveryFeeItems.find(d=>d.size==='극소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
@@ -2546,6 +2560,9 @@ function goHome() {
   async function saveDeliveryCourierName(){
     try{ await window.storage.set('delivery-courier-name', JSON.stringify(deliveryCourierName), true); }catch(e){ console.error(e); }
   }
+  async function saveDispatchByDate(){
+    try{ await window.storage.set('dispatch-by-date', JSON.stringify(dispatchByDate), true); }catch(e){ console.error(e); }
+  }
   async function saveUploadFingerprints(){
     try{ await window.storage.set('upload-fingerprints', JSON.stringify(uploadFingerprints), true); }catch(e){ console.error(e); }
   }
@@ -2598,7 +2615,8 @@ function goHome() {
       ...Object.keys(previousStock),
       ...Object.keys(internalOrderCounters),
       ...Object.keys(uploadedOriginalFiles),
-      ...Object.keys(rawMaterialUsage)
+      ...Object.keys(rawMaterialUsage),
+      ...Object.keys(dispatchByDate)
     ]);
     const toRemove = Array.from(allDateKeys).filter(k => k < cutoff && k !== currentDateKey);
 
@@ -2614,6 +2632,7 @@ function goHome() {
       delete internalOrderCounters[k];
       delete uploadedOriginalFiles[k];
       delete rawMaterialUsage[k];
+      delete dispatchByDate[k];
     });
     saveOrdersByDate();
     saveLineItems();
@@ -2621,6 +2640,7 @@ function goHome() {
     saveInternalOrderCounters();
     saveOriginalFiles();
     saveRawMaterialUsage();
+    saveDispatchByDate();
     renderSavedDatesBar();
 
     const msg = `${cutoff} 이전 날짜 ${toRemove.length}일치 데이터를 정리했습니다`;
@@ -2911,6 +2931,118 @@ function goHome() {
     }
   }
 
+  // ── 출고일을 따로 지정하는 업체 (쿠팡 등) ──
+  // 쿠팡은 생산일 다음날 출고라 우리 회사 실제 출고일을 따로 적음. 수량은 평소처럼 집계표(생산 필요수량)에 합산되고,
+  // 출고일별 내역은 dispatchByDate에 따로 저장해 발주취합 파일의 쿠팡 블록에 채움.
+  const DISPATCH_WAREHOUSE = '투맛토(SP창고)'; // 쿠팡 도착 창고 (포도쉐킷은 운영 미정이라 아직 투맛토만)
+  const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+  function parseDateKey(k){
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(k || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  const fmtDateKey = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  function dowLabel(k){ const d = parseDateKey(k); return d ? DOW_KO[d.getDay()] : ''; }
+  // 기본 출고일: 생산일 다음날. 토요일은 생산 휴무(토요일 출고분은 금요일에 함께 출고)라 토·일요일이면 다음 월요일로
+  function nextShipDate(dateKey){
+    const d = parseDateKey(dateKey);
+    if(!d) return '';
+    d.setDate(d.getDate() + 1);
+    while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    return fmtDateKey(d);
+  }
+  const isDispatchCompany = name => { const c = companies.find(x => x.name === name); return !!(c && c.dispatchByDate); };
+  function currentDispatch(){
+    if(!dispatchByDate[currentDateKey]) dispatchByDate[currentDateKey] = [];
+    return dispatchByDate[currentDateKey];
+  }
+  const shortDate = k => { const d = parseDateKey(k); return d ? `${d.getMonth() + 1}/${d.getDate()}(${DOW_KO[d.getDay()]})` : k; };
+
+  // 인식 결과 화면의 출고일 입력 (출고일 지정 업체를 선택했을 때만 보임)
+  function paintShipDow(){
+    const el = document.getElementById('ship-date-dow');
+    if(!el) return;
+    const v = currentParsed && currentParsed.shipDate;
+    const dow = dowLabel(v);
+    let warn = '';
+    if(v && v < currentDateKey) warn = '⚠ 납품일보다 이른 날짜입니다';
+    else if(v && (dow === '토' || dow === '일')) warn = `⚠ ${dow}요일은 출고하지 않는 날입니다`;
+    el.textContent = (v ? `(${dow})` : '') + (warn ? ' ' + warn : '');
+    el.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)';
+    el.style.fontWeight = warn ? '700' : '400';
+  }
+  function renderShipDateRow(){
+    const row = document.getElementById('ship-date-row');
+    if(!row) return;
+    const company = currentParsed ? (document.getElementById('company-select').value || '') : '';
+    if(!currentParsed || !isDispatchCompany(company)){ row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    if(!currentParsed.shipDate) currentParsed.shipDate = nextShipDate(currentDateKey);
+    document.getElementById('ship-date-input').value = currentParsed.shipDate;
+    paintShipDow();
+  }
+
+  // 출고일 지정 주문 목록 (집계표 아래): 출고일별 내역 확인·삭제
+  function renderDispatchList(){
+    const el = document.getElementById('dispatch-list');
+    if(!el) return;
+    const list = (dispatchByDate[currentDateKey] || []).slice().sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate)));
+    if(!list.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '';
+    const h = document.createElement('div');
+    h.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:6px;';
+    h.textContent = '출고일 지정 주문 (쿠팡 등)';
+    const sub = document.createElement('span');
+    sub.style.cssText = 'font-weight:400;font-size:12px;color:var(--muted);margin-left:8px;';
+    sub.textContent = '수량은 위 집계표 합계에 포함되고, 발주취합 파일의 쿠팡 블록에 출고일별로 들어갑니다';
+    h.appendChild(sub);
+    el.appendChild(h);
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>출고일</th><th class="name-cell">업체</th><th>창고</th><th class="name-cell">내용 (박스)</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    const fmt = n => Math.round(n * 100) / 100;
+    list.forEach(e => {
+      const tr = document.createElement('tr');
+      const parts = Object.keys(e.items || {}).map(id => {
+        const d = dict.find(x => x.id === id);
+        const packs = Number(e.items[id]) || 0;
+        if(!d || packs <= 0) return '';
+        const n = Number(d.boxUnitCount) || 0;
+        return `${d.shortName || d.name} ${n > 0 ? fmt(packs / n) + '박스' : packs + '팩'}`;
+      }).filter(Boolean);
+      [shortDate(e.shipDate), e.company, e.warehouse || '', parts.join(', ')].forEach((t, i) => {
+        const td = document.createElement('td');
+        if(i === 1 || i === 3) td.className = 'name-cell';
+        td.textContent = t;
+        tr.appendChild(td);
+      });
+      const act = document.createElement('td');
+      const del = document.createElement('button');
+      del.className = 'btn-danger small-btn';
+      del.textContent = '삭제';
+      armConfirmButton(del, ()=>{
+        // 이 출고 내역의 수량을 집계표에서도 뺌
+        const orders = currentOrders();
+        if(orders[e.company]){
+          Object.keys(e.items || {}).forEach(id => { orders[e.company][id] = Math.max(0, Math.round(((Number(orders[e.company][id]) || 0) - (Number(e.items[id]) || 0)) * 100) / 100); });
+          const left = Object.keys(orders[e.company]).filter(k => k !== '_meta').reduce((s, k) => s + (Number(orders[e.company][k]) || 0), 0);
+          if(left <= 0) delete orders[e.company];
+        }
+        dispatchByDate[currentDateKey] = currentDispatch().filter(x => x !== e && x.id !== e.id);
+        saveOrdersByDate(); saveDispatchByDate();
+        renderAggTable(); renderThirdPartyAggTable();
+      });
+      act.appendChild(del);
+      tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const scroll = document.createElement('div');
+    scroll.className = 'tbl-scroll';
+    scroll.appendChild(table);
+    el.appendChild(scroll);
+  }
+
   // 입력한 업체명과 가장 비슷한 등록 업체 찾기 (공백·괄호 위치 무시, 일부만 입력해도 인식: "생명" → "(상장)생명")
   // 반환: { kind: 'exact' | 'similar' | 'ambiguous' | 'none', name, candidates }
   function matchCompanyName(text){
@@ -2951,7 +3083,7 @@ function goHome() {
     el.style.display = 'block';
     const addText = (t, css) => { const s = document.createElement('span'); s.textContent = t; if(css) s.style.cssText = css; el.appendChild(s); };
     const addBtn = (t, fn) => { const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.style.margin = '2px 4px 2px 0'; b.textContent = t; b.addEventListener('click', fn); el.appendChild(b); };
-    const pick = name => { p.company = name; p.companyMatch = null; populateCompanySelect(name); renderCompanyMatchNote(); };
+    const pick = name => { p.company = name; p.companyMatch = null; populateCompanySelect(name); renderCompanyMatchNote(); renderShipDateRow(); };
     const danger = 'color:var(--danger,#c0392b);font-weight:700;';
     if(m.kind === 'similar'){
       addText(`입력한 "${p.companyRaw}"을(를) "${m.name}"(으)로 인식했습니다. 다른 업체면 위에서 바꿔주세요.`, 'color:var(--muted);');
@@ -2983,6 +3115,7 @@ function goHome() {
     document.getElementById('new-company-row').style.display = 'none';
     populateCompanySelect(parsed.company || '');
     renderCompanyMatchNote();
+    renderShipDateRow();
     const wrap = document.getElementById('parsed-items');
     wrap.innerHTML = '';
     if(parsed.items.length === 0){
@@ -3389,6 +3522,17 @@ function goHome() {
       taxHint.textContent = '(거래유형 11)';
       taxLabel.appendChild(taxHint);
 
+      // 출고일 지정 업체(쿠팡 등): 발주 입력에서 우리 회사 출고일을 따로 적고, 발주취합 파일의 쿠팡 블록에 출고일별로 들어감
+      const dispLabel = document.createElement('label');
+      dispLabel.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;white-space:nowrap;';
+      const dispCheck = document.createElement('input');
+      dispCheck.type = 'checkbox';
+      dispCheck.title = '쿠팡처럼 우리 회사 출고일을 따로 적는 업체. 발주 입력에서 출고일을 지정하고, 발주취합 파일의 쿠팡 블록에 출고일별로 채워집니다.';
+      dispCheck.checked = !!company.dispatchByDate;
+      dispCheck.addEventListener('change', (e)=>{ company.dispatchByDate = e.target.checked; saveCompanies(); });
+      dispLabel.appendChild(dispCheck);
+      dispLabel.appendChild(document.createTextNode('출고일 지정'));
+
       row.appendChild(handle);
       row.appendChild(nameInput);
       row.appendChild(label);
@@ -3396,6 +3540,7 @@ function goHome() {
       row.appendChild(categorySelect);
       row.appendChild(regionInput);
       row.appendChild(listedInput);
+      row.appendChild(dispLabel);
       row.appendChild(taxLabel);
       row.appendChild(delBtn);
       wrap.appendChild(row);
@@ -4182,6 +4327,7 @@ function goHome() {
 
   function renderAggTable(){
     renderUnmatchedAlert();
+    renderDispatchList();
     const wrap = document.getElementById('agg-table-wrap');
     const orders = currentOrders();
     const orderCompanies = Object.keys(orders);
@@ -4221,9 +4367,16 @@ function goHome() {
       checkTd.appendChild(checkbox);
       tr.appendChild(checkTd);
 
+      const dispEntries = currentDispatch().filter(e => e.company === company); // 출고일을 따로 지정해 입력한 내역
       const nameTd = document.createElement('td');
       nameTd.className = 'name-cell';
       nameTd.textContent = isChild ? '└ ' + company : company;
+      if(dispEntries.length){
+        const dsp = document.createElement('div');
+        dsp.style.cssText = 'font-size:10.5px;color:var(--accent);';
+        dsp.textContent = '출고 ' + [...new Set(dispEntries.map(e => shortDate(e.shipDate)))].sort().join(', ');
+        nameTd.appendChild(dsp);
+      }
       tr.appendChild(nameTd);
 
       const staffTd = document.createElement('td');
@@ -4240,6 +4393,7 @@ function goHome() {
         rowTotal += toBox(d, packs);
         input.value = fmt(toBox(d, packs));
         input.title = unitOf(d) > 0 ? `박스 단위 (1박스 = ${unitOf(d)}팩)` : '박스입수 미설정 — 팩 단위';
+        if(dispEntries.length){ input.disabled = true; input.title = '출고일별로 입력된 주문이라 여기서는 수정할 수 없습니다. 아래 "출고일 지정 주문"에서 삭제 후 다시 입력해주세요'; }
         input.addEventListener('change', (e)=>{
           const v = parseFloat(e.target.value) || 0;
           orders[company][d.id] = unitOf(d) > 0 ? Math.round(v * unitOf(d) * 100) / 100 : v; // 입력은 박스, 저장은 팩
@@ -4261,6 +4415,7 @@ function goHome() {
       delBtn.textContent = '삭제';
       delBtn.addEventListener('click', ()=>{
         delete orders[company];
+        if(dispEntries.length){ dispatchByDate[currentDateKey] = currentDispatch().filter(e => e.company !== company); saveDispatchByDate(); }
         saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
       });
       actionTd.appendChild(delBtn);
@@ -4828,7 +4983,15 @@ function goHome() {
   });
 
   document.getElementById('company-select').addEventListener('change', (e)=>{
-    if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); }
+    if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); renderShipDateRow(); }
+  });
+
+  document.getElementById('ship-date-input').addEventListener('input', (e)=>{ if(currentParsed){ currentParsed.shipDate = e.target.value; paintShipDow(); } });
+  document.getElementById('ship-date-next-btn').addEventListener('click', ()=>{
+    if(!currentParsed) return;
+    currentParsed.shipDate = nextShipDate(currentDateKey);
+    document.getElementById('ship-date-input').value = currentParsed.shipDate;
+    paintShipDow();
   });
 
   // 인식 결과에 품목·수량 줄을 직접 추가 (인식이 안 된 줄 보충)
@@ -4854,6 +5017,7 @@ function goHome() {
     addCompanyIfNew(val);
     if(currentParsed){ currentParsed.company = val; currentParsed.companyMatch = null; renderCompanyMatchNote(); }
     populateCompanySelect(val);
+    renderShipDateRow();
     input.value = '';
     document.getElementById('new-company-row').style.display = 'none';
   });
@@ -4866,6 +5030,8 @@ function goHome() {
       toast(`"${company}"은(는) 등록된 업체가 아닙니다. 업체명 아래 "이 이름으로 등록"(또는 + 새 업체)으로 먼저 등록해주세요`);
       return;
     }
+    const isDisp = isDispatchCompany(company);
+    if(isDisp && !parseDateKey(currentParsed.shipDate)){ toast('출고일을 지정해주세요'); return; }
     // 박스 단위인데 박스입수가 없는 품목은 팩으로 환산할 수 없으니 추가하지 않고 알려 줌
     const noUnit = currentParsed.items.filter(it => it.matchedId && it.qty != null && !isNaN(it.qty) && parsedItemPacks(it) == null);
     if(noUnit.length){
@@ -4876,15 +5042,23 @@ function goHome() {
     const orders = currentOrders();
     if(!orders[company]) orders[company] = {};
     let addedAny = false;
+    const addedItems = {};
     currentParsed.items.forEach(it=>{
       if(it.matchedId && it.qty != null && !isNaN(it.qty)){
-        orders[company][it.matchedId] = (orders[company][it.matchedId] || 0) + parsedItemPacks(it);
+        const packs = parsedItemPacks(it);
+        orders[company][it.matchedId] = (orders[company][it.matchedId] || 0) + packs;
+        addedItems[it.matchedId] = (addedItems[it.matchedId] || 0) + packs;
         addedAny = true;
       }
     });
     if(!addedAny){ toast('추가된 품목이 없습니다. 매칭과 수량을 확인해주세요'); return; }
     orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
     saveOrdersByDate();
+    if(isDisp){
+      // 출고일을 따로 지정한 업체: 출고일별 내역을 따로 저장 (발주취합 파일의 쿠팡 블록에 사용)
+      currentDispatch().push({ id: cryptoId(), company, shipDate: currentParsed.shipDate, warehouse: DISPATCH_WAREHOUSE, items: addedItems, enteredBy: getStaffName(), createdAt: new Date().toISOString() });
+      saveDispatchByDate();
+    }
     // 품목이 매칭되지 않은 줄은 버리지 않고 인식 결과 화면에 남겨 둠 (집계표 아래 붉은 안내에 건수 표시)
     const leftover = currentParsed.items.filter(it=> !(it.matchedId && it.qty != null && !isNaN(it.qty)));
     if(leftover.length){
@@ -6749,6 +6923,7 @@ function goHome() {
       deliveryCourierName,
       skuColumnMap,
       salesByDate,
+      dispatchByDate,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -6815,6 +6990,7 @@ function goHome() {
     if(typeof data.deliveryCourierName === 'string') deliveryCourierName = data.deliveryCourierName;
     if(data.skuColumnMap) skuColumnMap = data.skuColumnMap;
     if(data.salesByDate) salesByDate = data.salesByDate;
+    if(data.dispatchByDate && typeof data.dispatchByDate === 'object') dispatchByDate = data.dispatchByDate;
 
     // Persist everything
     await Promise.allSettled([
@@ -6829,6 +7005,7 @@ function goHome() {
       saveInternalOrderCounters(),
       saveDeliveryFeeItems(),
       saveDeliveryCourierName(),
+      saveDispatchByDate(),
       saveSkuColumnMap(),
       window.storage.set('sales-by-date', JSON.stringify(salesByDate), true).catch(e=>console.error(e)),
     ]);
@@ -9830,9 +10007,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     [...c.childNodes].forEach(x => { if(x.localName === 'v' || x.localName === 'is') c.removeChild(x); });
     c.removeAttribute('t');
   }
-  function poSetNum(ctx, addr, n){
+  function poSetNum(ctx, addr, n, force){
     const c = poEnsureCell(ctx, addr);
-    if(poHasFormula(c)) return false;
+    if(poHasFormula(c)){
+      if(!force) return false;
+      [...c.childNodes].forEach(x => { if(x.localName === 'f') c.removeChild(x); }); // 수식을 값으로 바꿈 (출고일 칸)
+    }
     poWipe(c);
     const v = ctx.doc.createElementNS(PO_NS, 'v');
     v.textContent = String(n);
@@ -9988,6 +10168,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const spacer = s.row + 1;
       if(spacer < scan.endRow && !poNorm(poText(ctx, 'B' + spacer))) hide(spacer, !any);
     });
+    // 4-2) 출고일을 따로 지정한 업체(쿠팡) 블록
+    rep.dispatch = poFillDispatch(ctx, scan, input.dispatchRows || [], usedCols, warn, stockUseCol);
+    rep.dispatch.unplaced.forEach(g => { (input.extras = input.extras || []).push(...(g.items || []).map(it => ({ company: `${g.company} (출고 ${g.shipDate})`, item: it.item, qty: it.qty, unit: it.unit }))); });
     // 5) 품목 열: 수량이나 재고가 있는 열만 보이게 하고 나머지는 숨김 (서식에 평소 안 쓰는 열을 숨겨 두는 방식과 같음).
     //    서식에서 숨겨져 있던 열이라도 오늘 쓰면 펼침 → 스티로폼, 150g, 신규 품목 등은 쓰는 날에만 보임
     rep.hiddenCols = 0; rep.hiddenStyro = 0;
@@ -10015,6 +10198,47 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(dm && +dm[3] < r - 1) dim.setAttribute('ref', `${dm[1]}:${dm[2]}${r - 1}`);
     }
     return { rep, warn, scan };
+  }
+
+  // 서식의 쿠팡 블록(업체명·구분(창고)·출고일 칸이 있는 표)에 출고일별 수량을 채움.
+  // dRows[i] = { company, warehouse, shipDate, colQty: { 열: 박스수 }, items: [...] }
+  function poFillDispatch(ctx, scan, dRows, usedCols, warn, stockUseCol){
+    const res = { placed: [], unplaced: [] };
+    let headerEnd = 0;
+    for(let r = scan.endRow + 1; r <= Math.min(ctx.maxRow, scan.endRow + 25); r++){
+      if(poNorm(poText(ctx, 'F' + r)) === '출고일') headerEnd = r;
+    }
+    const rows = [];
+    if(headerEnd){
+      for(let r = headerEnd + 1; r <= ctx.maxRow; r++){
+        const b = poNameKey(poText(ctx, 'B' + r));
+        if(!b || b.includes('필수생산')) break;
+        rows.push({ row: r, company: b, wh: poNameKey(poText(ctx, 'D' + r)) });
+      }
+    }
+    if(!rows.length){ res.unplaced = dRows.slice(); return res; }
+    // 이전 값 지움 (품목 수량·재고사용·출고일)
+    rows.forEach(r => {
+      for(let n = PO_FIRST_COL; n <= PO_LAST_COL; n++) poClear(ctx, colLetter(n - 1) + r.row);
+      if(stockUseCol) poClear(ctx, stockUseCol + r.row);
+    });
+    const alias = k => (k === '쿠팡' ? 'coupang' : k);
+    const taken = new Set();
+    dRows.slice().sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate))).forEach(g => {
+      const ck = alias(poNameKey(g.company)), wk = poNameKey(g.warehouse);
+      const row = rows.find(r => !taken.has(r.row) && alias(r.company) === ck && r.wh === wk) || rows.find(r => !taken.has(r.row) && r.wh === wk);
+      if(!row){ res.unplaced.push(g); return; }
+      taken.add(row.row);
+      const [y, m, d] = String(g.shipDate).split('-').map(Number);
+      poSetNum(ctx, 'F' + row.row, Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000), true);
+      Object.entries(g.colQty).forEach(([col, q]) => {
+        const v = Math.round(q * 100) / 100;
+        if(v > 0){ usedCols.add(col); if(!poSetNum(ctx, col + row.row, v)) warn.push(`${col}${row.row}`); }
+      });
+      res.placed.push(`${shortDate(g.shipDate)}`);
+    });
+    rows.forEach(r => { const el = poEnsureRow(ctx, r.row); if(taken.has(r.row)) el.removeAttribute('hidden'); else el.setAttribute('hidden', '1'); });
+    return res;
   }
 
   // 열 숨김/표시. <cols>의 한 항목이 여러 열을 덮고 있으면 쪼개서 해당 열만 바꿈
@@ -10177,14 +10401,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   // 앱의 발주 데이터 → 서식 열(skuColumnMap) 기준 박스 수량. 박스입수가 있으면 박스로 환산, 없으면 팩 수 그대로.
-  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap }){
+  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch }){
     const unitOf = d => Number(d.boxUnitCount) || 0;
     const toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
     const label = d => (d.shortName || d.name || '').trim();
     const unmapped = new Set(), noUnit = new Set();
     const entries = [], extras = [];
+    const dispatchCompanies = new Set((dispatch || []).map(e => e.company)); // 출고일별로 따로 입력한 업체는 서식의 쿠팡 블록에 넣으므로 일반 업체 행에서는 뺌
     Object.keys(orders || {}).forEach(name => {
-      if(name === '_meta') return;
+      if(name === '_meta' || dispatchCompanies.has(name)) return;
       const meta = companies.find(c => c.name === name) || {};
       const colQty = {};
       dict.forEach(d => {
@@ -10202,13 +10427,32 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       if(Object.keys(colQty).length) entries.push({ name, category: meta.category || '', region: meta.region || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty });
     });
+    // 출고일을 따로 지정한 주문: 업체·창고·출고일별로 묶어 서식 열 기준 박스 수량으로 바꿈
+    const dgroups = new Map();
+    (dispatch || []).forEach(e => {
+      const key = `${e.company}|${e.warehouse}|${e.shipDate}`;
+      let g = dgroups.get(key);
+      if(!g){ g = { company: e.company, warehouse: e.warehouse, shipDate: e.shipDate, colQty: {}, items: [] }; dgroups.set(key, g); }
+      dict.forEach(d => {
+        const q = Number((e.items || {})[d.id]) || 0;
+        if(q <= 0) return;
+        const qty = Math.round(toBox(d, q) * 100) / 100, unit = unitOf(d) > 0 ? '박스' : '팩';
+        g.items.push({ item: label(d), qty, unit });
+        const col = colMap[d.id];
+        if(!col){ unmapped.add(label(d)); return; }
+        if(unitOf(d) <= 0) noUnit.add(label(d));
+        g.colQty[col] = (g.colQty[col] || 0) + toBox(d, q);
+      });
+    });
+    const dispatchRows = [...dgroups.values()].filter(g => Object.keys(g.colQty).length);
+    dgroups.forEach(g => { if(!Object.keys(g.colQty).length) g.items.forEach(it => extras.push({ company: `${g.company} (출고 ${g.shipDate})`, item: it.item, qty: it.qty, unit: it.unit })); });
     const stockByCol = {};
     dict.forEach(d => {
       const col = colMap[d.id];
       const s = Number((stockPacks || {})[d.id]) || 0;
       if(col && s > 0) stockByCol[col] = (stockByCol[col] || 0) + toBox(d, s);
     });
-    return { entries, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
+    return { entries, dispatchRows, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
   }
 
   const PO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -10400,9 +10644,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       if(autoFixed.length){ saveSkuColumnMap(); renderSkuColumnMapEditor(); }
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
-      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap });
-      if(built.entries.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, extras: built.extras });
+      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [] });
+      if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
       const logos = await poReplaceLogos(ctx);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
@@ -10416,6 +10660,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(autoFixed.length) lines.push({ text: `품목의 서식 열을 자동으로 지정했습니다 (열 지정 화면에 저장됨): ${autoFixed.join(' / ')}` });
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
+      if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
+      if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
       if(r.unplaced.length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
       if(r.hiddenCols) lines.push({ text: `수량·재고가 없는 품목 열 ${r.hiddenCols}개는 숨겼습니다${r.hiddenStyro ? ` (스티로폼 열 ${r.hiddenStyro}개 포함)` : ''}` });
