@@ -666,7 +666,11 @@
       <input type="text" id="new-company-input" placeholder="새 업체명 입력" style="min-width:180px;">
       <button class="btn-primary small-btn" id="save-new-company-btn">추가</button>
     </div>
+    <div id="company-match-note" style="display:none; margin-top:8px; font-size:13px;"></div>
     <div id="parsed-items" style="margin-top:12px;"></div>
+    <div class="row" style="margin-top:6px;">
+      <button class="btn-ghost small-btn" id="add-parsed-item-btn">+ 품목 추가</button>
+    </div>
     <div class="row">
       <button class="btn-primary" id="confirm-btn">✓ 집계표에 확정 추가</button>
       <button class="btn-ghost" id="cancel-preview-btn">취소</button>
@@ -2895,9 +2899,62 @@ function goHome() {
     });
     if(selectedName && !companies.some(c=>c.name===selectedName)){
       const opt = document.createElement('option');
-      opt.value = selectedName; opt.textContent = selectedName + ' (신규)';
+      opt.value = selectedName; opt.textContent = selectedName + ' — ⚠ 등록 필요';
       opt.selected = true;
       sel.appendChild(opt);
+    }
+  }
+
+  // 입력한 업체명과 가장 비슷한 등록 업체 찾기 (공백·괄호 위치 무시, 일부만 입력해도 인식: "생명" → "(상장)생명")
+  // 반환: { kind: 'exact' | 'similar' | 'ambiguous' | 'none', name, candidates }
+  function matchCompanyName(text){
+    const key = s => String(s || '').replace(/[\s()（）\[\]]/g, '').toLowerCase();
+    const inp = key(text);
+    if(!inp) return { kind: 'none', candidates: [] };
+    const bigrams = t => { const a = []; for(let i = 0; i < t.length - 1; i++) a.push(t.slice(i, i + 2)); return a; };
+    const score = (a, b) => {
+      if(!a || !b) return 0;
+      if(a === b) return 100;
+      const [s, l] = a.length <= b.length ? [a, b] : [b, a];
+      if(s.length >= 2 && l.includes(s)) return 55 + 40 * s.length / l.length;
+      const A = bigrams(a), B = bigrams(b);
+      if(!A.length || !B.length) return 0;
+      const cnt = new Map(); A.forEach(x => cnt.set(x, (cnt.get(x) || 0) + 1));
+      let hit = 0; B.forEach(x => { if((cnt.get(x) || 0) > 0){ hit++; cnt.set(x, cnt.get(x) - 1); } });
+      const dice = 2 * hit / (A.length + B.length);
+      return dice >= 0.6 ? dice * 70 : 0;
+    };
+    const scored = companies.map(c => ({ name: c.name, sc: Math.max(score(inp, key(c.name)), c.listedMarketName ? score(inp, key(c.listedMarketName)) * 0.95 : 0) }))
+      .filter(x => x.sc >= 50).sort((a, b) => b.sc - a.sc);
+    if(!scored.length) return { kind: 'none', candidates: [] };
+    const best = scored[0];
+    if(best.sc >= 100) return { kind: 'exact', name: best.name, candidates: [best.name] };
+    const close = scored.filter(x => x.sc >= best.sc - 8);
+    if(best.sc >= 70 && close.length === 1) return { kind: 'similar', name: best.name, candidates: [best.name] };
+    return { kind: 'ambiguous', candidates: scored.slice(0, 5).map(x => x.name) };
+  }
+
+  // 인식 결과 화면의 업체명 안내 (비슷한 업체로 인식 / 후보 선택 / 등록 필요)
+  function renderCompanyMatchNote(){
+    const el = document.getElementById('company-match-note');
+    if(!el) return;
+    el.innerHTML = '';
+    const p = currentParsed;
+    const m = p && p.companyMatch;
+    if(!m || m.kind === 'exact'){ el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    const addText = (t, css) => { const s = document.createElement('span'); s.textContent = t; if(css) s.style.cssText = css; el.appendChild(s); };
+    const addBtn = (t, fn) => { const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.style.margin = '2px 4px 2px 0'; b.textContent = t; b.addEventListener('click', fn); el.appendChild(b); };
+    const pick = name => { p.company = name; p.companyMatch = null; populateCompanySelect(name); renderCompanyMatchNote(); };
+    const danger = 'color:var(--danger,#c0392b);font-weight:700;';
+    if(m.kind === 'similar'){
+      addText(`입력한 "${p.companyRaw}"을(를) "${m.name}"(으)로 인식했습니다. 다른 업체면 위에서 바꿔주세요.`, 'color:var(--muted);');
+    } else if(m.kind === 'ambiguous'){
+      addText(`"${p.companyRaw}"와(과) 비슷한 업체가 여러 곳입니다 — 골라주세요: `, danger);
+      m.candidates.forEach(n => addBtn(n, () => pick(n)));
+    } else {
+      addText(`⚠ "${p.companyRaw}" — 등록된 업체가 없습니다 (등록 필요). `, danger);
+      addBtn('이 이름으로 등록', () => { addCompanyIfNew(p.companyRaw); toast(`"${p.companyRaw}" 업체를 등록했습니다. 거래처 관리에서 구분(편의점·도매 등)을 지정해주세요`); pick(p.companyRaw); });
     }
   }
 
@@ -2919,6 +2976,7 @@ function goHome() {
     document.getElementById('preview-card').style.display = 'block';
     document.getElementById('new-company-row').style.display = 'none';
     populateCompanySelect(parsed.company || '');
+    renderCompanyMatchNote();
     const wrap = document.getElementById('parsed-items');
     wrap.innerHTML = '';
     if(parsed.items.length === 0){
@@ -2996,6 +3054,13 @@ function goHome() {
       row.appendChild(qtyInput);
       row.appendChild(unitSel);
       row.appendChild(unitSpan);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-ghost small-btn';
+      delBtn.textContent = '✕';
+      delBtn.title = '이 줄 삭제';
+      delBtn.style.marginLeft = 'auto';
+      delBtn.addEventListener('click', ()=>{ currentParsed.items.splice(idx, 1); renderParsed(currentParsed); });
+      row.appendChild(delBtn);
       row.appendChild(rawLine);
       wrap.appendChild(row);
     });
@@ -4697,6 +4762,14 @@ function goHome() {
     const parsed = parseMessage(text);
     if(!parsed){ toast('입력된 메시지가 없습니다'); return; }
     document.getElementById('parse-status').textContent = '입력 완료';
+    // 업체명: 가장 비슷한 등록 업체로 자동 선택. 애매하면 후보를 고르게 하고, 없으면 '등록 필요'로 안내
+    if(parsed.company){
+      const m = matchCompanyName(parsed.company);
+      parsed.companyRaw = parsed.company;
+      parsed.companyMatch = m;
+      if(m.kind === 'exact' || m.kind === 'similar') parsed.company = m.name;
+      else if(m.kind === 'ambiguous') parsed.company = '';
+    }
     renderParsed(parsed);
   });
 
@@ -4712,7 +4785,17 @@ function goHome() {
   });
 
   document.getElementById('company-select').addEventListener('change', (e)=>{
-    if(currentParsed) currentParsed.company = e.target.value;
+    if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); }
+  });
+
+  // 인식 결과에 품목·수량 줄을 직접 추가 (인식이 안 된 줄 보충)
+  document.getElementById('add-parsed-item-btn').addEventListener('click', ()=>{
+    if(!currentParsed) return;
+    currentParsed.items.push({ raw: '(직접 추가)', itemText: '', qty: null, unit: '박스', matchedId: null });
+    renderParsed(currentParsed);
+    const rows = document.querySelectorAll('#parsed-items .parsed-row');
+    const last = rows[rows.length - 1];
+    if(last){ const s = last.querySelector('select'); if(s) s.focus(); }
   });
 
   document.getElementById('add-company-inline-btn').addEventListener('click', ()=>{
@@ -4726,7 +4809,7 @@ function goHome() {
     const val = input.value.trim();
     if(!val){ toast('업체명을 입력해주세요'); return; }
     addCompanyIfNew(val);
-    if(currentParsed) currentParsed.company = val;
+    if(currentParsed){ currentParsed.company = val; currentParsed.companyMatch = null; renderCompanyMatchNote(); }
     populateCompanySelect(val);
     input.value = '';
     document.getElementById('new-company-row').style.display = 'none';
@@ -4736,6 +4819,10 @@ function goHome() {
     if(!currentParsed) return;
     const company = (document.getElementById('company-select').value || '').trim();
     if(!company){ toast('업체명을 선택하거나 입력해주세요'); return; }
+    if(!companies.some(c => c.name === company)){
+      toast(`"${company}"은(는) 등록된 업체가 아닙니다. 업체명 아래 "이 이름으로 등록"(또는 + 새 업체)으로 먼저 등록해주세요`);
+      return;
+    }
     // 박스 단위인데 박스입수가 없는 품목은 팩으로 환산할 수 없으니 추가하지 않고 알려 줌
     const noUnit = currentParsed.items.filter(it => it.matchedId && it.qty != null && !isNaN(it.qty) && parsedItemPacks(it) == null);
     if(noUnit.length){
@@ -4756,14 +4843,14 @@ function goHome() {
     orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
     saveOrdersByDate();
     // 품목이 매칭되지 않은 줄은 버리지 않고 인식 결과 화면에 남겨 둠 (집계표 아래 붉은 안내에 건수 표시)
-    const leftover = currentParsed.items.filter(it=> !it.matchedId);
+    const leftover = currentParsed.items.filter(it=> !(it.matchedId && it.qty != null && !isNaN(it.qty)));
     if(leftover.length){
       currentParsed.items = leftover;
       renderParsed(currentParsed);
       renderAggTable();
       renderThirdPartyAggTable();
       renderRawStockEditor();
-      toast(`${company} 발주를 추가했습니다. 품목이 매칭되지 않은 ${leftover.length}건은 아래에 남겨두었습니다`);
+      toast(`${company} 발주를 추가했습니다. 품목 매칭이나 수량이 확인되지 않은 ${leftover.length}건은 아래에 남겨두었습니다`);
       return;
     }
     renderAggTable();
