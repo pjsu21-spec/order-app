@@ -1317,6 +1317,15 @@
   <div class="card">
     <details id="sku-manage-details">
       <summary>SKU 관리 (별칭 등록 · 항목 추가/삭제)</summary>
+      <div class="row" style="margin-top:10px;">
+        <input type="search" id="dict-search-input" class="view-ctl" placeholder="품목 검색 (이름·별칭·코드·약자)" style="min-width:220px; flex:0 1 280px;">
+        <select id="dict-box-filter" class="view-ctl" title="박스종류로 걸러 보기"></select>
+        <select id="dict-group-filter" class="view-ctl" title="단가그룹으로 걸러 보기"></select>
+        <select id="dict-flag-filter" class="view-ctl" title="빠진 항목 찾기"></select>
+        <select id="dict-sort" class="view-ctl" title="정렬 기준"></select>
+        <button class="btn-ghost small-btn view-ctl" id="dict-view-reset" title="검색·필터·정렬 초기화">초기화</button>
+        <span id="dict-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
+      </div>
       <div id="dict-editor" style="margin-top:12px;"></div>
       <div class="row">
         <button class="btn-ghost small-btn" id="add-item-btn">+ 품목 추가</button>
@@ -1337,7 +1346,12 @@
         발주취합 서식에 자리가 없는 새 거래처는 같은 구분 맨 아래에 행이 자동으로 추가되고, 위 값들이 해당 칸에 채워집니다. (구분 목록은 아래 "구분 목록 관리"에서 추가·수정)
       </div></details>
       <div class="row" style="margin-top:10px;">
-        <input type="search" id="company-search-input" placeholder="등록된 거래처 검색 (예: 생명, 경동) — 이미 등록됐는지 확인" style="min-width:300px; flex:0 1 420px;">
+        <input type="search" id="company-search-input" class="view-ctl" placeholder="등록된 거래처 검색 (예: 생명, 경동) — 이미 등록됐는지 확인" style="min-width:300px; flex:0 1 420px;">
+        <select id="company-cat-filter" class="view-ctl" title="발주 구분으로 걸러 보기"></select>
+        <select id="company-region-filter" class="view-ctl" title="지역으로 걸러 보기"></select>
+        <select id="company-flag-filter" class="view-ctl" title="3PL·택배 과세·출고일 지정, 빠진 항목 찾기"></select>
+        <select id="company-sort" class="view-ctl" title="정렬 기준"></select>
+        <button class="btn-ghost small-btn view-ctl" id="company-view-reset" title="검색·필터·정렬 초기화">초기화</button>
         <span id="company-search-result" style="font-size:13px; font-weight:600;"></span>
       </div>
       <div id="company-editor" style="margin-top:12px;"></div>
@@ -1393,6 +1407,17 @@
 
     <h3 style="margin-top:14px;">거래처별 품목 단가 설정</h3>
     <div class="sub" style="margin:0 0 8px;">거래처 관리에서 구분이 설정된 업체만 표시됩니다.</div>
+    <div class="row" style="margin:0 0 6px;">
+      <input type="search" id="price-search-input" class="view-ctl" placeholder="업체 검색" style="min-width:160px; flex:0 1 200px;">
+      <select id="price-cat-filter" class="view-ctl" title="발주 구분으로 걸러 보기 (직거래·SP·도매 …)"></select>
+      <select id="price-region-filter" class="view-ctl" title="지역으로 걸러 보기"></select>
+      <select id="price-sort" class="view-ctl" title="정렬 기준"></select>
+      <button class="btn-ghost small-btn view-ctl" id="price-view-reset" title="검색·필터·정렬 초기화">초기화</button>
+      <label style="font-size:12.5px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="price-keep-existing" class="view-ctl"> 이미 입력된 단가는 유지 (빈 칸만 채움)</label>
+      <span id="price-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
+    </div>
+    <div class="sub" style="margin:0 0 6px;">※ 위에서 <b>구분(직거래·SP·도매 …)·지역</b>을 고르면 그 업체만 표시됩니다. 표 맨 윗줄 <b>"⬇ 표시된 N곳 한꺼번에"</b> 칸에 단가를 입력하고 Enter → 안내 줄의 <b>[적용]</b>을 누르면 표시된 업체 전체에 들어갑니다.</div>
+    <div id="price-bulk-banner" style="display:none; margin:0 0 8px; padding:8px 12px; border:1px solid var(--accent); background:#fff4d6; border-radius:8px; font-size:13px; align-items:center; gap:10px; flex-wrap:wrap;"></div>
     <div id="price-map-editor" style="overflow-x:auto;"></div>
 
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
@@ -3307,12 +3332,111 @@ function goHome() {
     });
   }
 
+  // ── 목록 보기 도구: 검색 · 필터 · 정렬 (SKU 관리 / 거래처 관리 / 단가 설정 표 공용) ──
+  const VIEW_NONE = '__none__';   // 필터에서 "(미지정)" 선택값
+  function viewKey(s){ return String(s || '').replace(/[\s()（）\[\]]/g, '').toLowerCase(); }
+  function viewVal(id){ const e = document.getElementById(id); return e ? e.value : ''; }
+  // 정렬 비교: 빈 값은 항상 맨 뒤, 숫자는 숫자끼리, 글자는 가나다순
+  function viewCmp(a, b){
+    const ea = a === '' || a == null, eb = b === '' || b == null;
+    if(ea || eb) return ea === eb ? 0 : (ea ? 1 : -1);
+    if(typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b), 'ko');
+  }
+  function viewSorted(list, keyFn){
+    return list.map((x, i) => ({ x, i, k: keyFn(x) })).sort((a, b) => viewCmp(a.k, b.k) || a.i - b.i).map(o => o.x);
+  }
+  function viewFillSelect(sel, opts){
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '';
+    opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+    sel.value = opts.some(o => o[0] === prev) ? prev : opts[0][0];
+  }
+  function viewResetControls(ids){
+    ids.forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; });
+  }
+  // 구분 목록 + 업체에 직접 입력해 둔(목록에 없는) 구분
+  function companyCategoryOptions(){
+    const seen = new Set(companyCategories);
+    const extra = [...new Set(companies.map(c => c.category).filter(c => c && !seen.has(c)))];
+    return [...companyCategories, ...extra];
+  }
+
+  // 거래처 공통: 검색어·구분·지역·기타 조건에 맞는지 / 정렬 기준
+  function companyMatchesView(c, v){
+    if(v.q && ![c.name, c.listedMarketName, c.marketName, c.code].some(x => viewKey(x).includes(v.q))) return false;
+    if(v.cat === VIEW_NONE ? !!c.category : (v.cat && c.category !== v.cat)) return false;
+    if(v.region === VIEW_NONE ? !!c.region : (v.region && c.region !== v.region)) return false;
+    switch(v.flag){
+      case '3pl': if(!c.isThirdParty) return false; break;
+      case 'not3pl': if(c.isThirdParty) return false; break;
+      case 'tax': if(!c.courierTaxable) return false; break;
+      case 'disp': if(!c.dispatchByDate) return false; break;
+      case 'nocode': if(c.code) return false; break;
+      case 'nomarket': if(c.marketName) return false; break;
+    }
+    return true;
+  }
+  const COMPANY_SORTS = {
+    name: c => c.name,
+    cat: c => { if(!c.category) return ''; const i = companyCategories.indexOf(c.category); return i >= 0 ? i : 1000; },
+    region: c => c.region === '수도권' ? 0 : (c.region === '지방' ? 1 : (c.region ? 2 : '')),
+    market: c => c.marketName,
+    listed: c => c.listedMarketName,
+    code: c => c.code,
+  };
+  const COMPANY_SORT_OPTS = [['', '등록순(기본)'], ['name', '거래처명순'], ['cat', '발주 구분순'], ['region', '지역순'], ['market', '시장명순'], ['listed', '상장청과명순'], ['code', '코드순']];
+
+  // ── SKU 관리 ──
+  const DICT_SORTS = {
+    name: d => d.name,
+    group: d => d.priceGroup,
+    box: d => d.boxType,
+    unit: d => d.boxUnitCount ? Number(d.boxUnitCount) : '',
+    code: d => d.code,
+  };
+  function refreshDictViewOptions(){
+    viewFillSelect(document.getElementById('dict-box-filter'), [['', '박스종류 전체'], ['종이', '종이박스'], ['스티로폼', '스티로폼'], [VIEW_NONE, '(미지정)']]);
+    const groups = [...new Set(dict.map(d => d.priceGroup).filter(Boolean))];
+    viewFillSelect(document.getElementById('dict-group-filter'), [['', '단가그룹 전체'], ...groups.map(g => [g, g]), [VIEW_NONE, '(그룹 없음)']]);
+    viewFillSelect(document.getElementById('dict-flag-filter'), [['', '기타 조건 없음'], ['nobox', '박스입수 미설정'], ['nocode', '코드 없음'], ['noshort', '상품명(약자) 없음']]);
+    viewFillSelect(document.getElementById('dict-sort'), [['', '등록순(기본)'], ['name', '품목명순'], ['group', '단가그룹순'], ['box', '박스종류순'], ['unit', '박스입수순'], ['code', '코드순']]);
+  }
+  function dictMatchesView(d, v){
+    if(v.q && ![d.name, ...(d.aliases || []), d.code, d.shortName].some(x => viewKey(x).includes(v.q))) return false;
+    if(v.box === VIEW_NONE ? !!d.boxType : (v.box && d.boxType !== v.box)) return false;
+    if(v.group === VIEW_NONE ? !!d.priceGroup : (v.group && d.priceGroup !== v.group)) return false;
+    if(v.flag === 'nobox' && d.boxUnitCount) return false;
+    if(v.flag === 'nocode' && d.code) return false;
+    if(v.flag === 'noshort' && d.shortName) return false;
+    return true;
+  }
+  function applyDictView(){
+    const wrap = document.getElementById('dict-editor');
+    if(!wrap) return;
+    const v = { q: viewKey(viewVal('dict-search-input')), box: viewVal('dict-box-filter'), group: viewVal('dict-group-filter'), flag: viewVal('dict-flag-filter'), sort: viewVal('dict-sort') };
+    const byId = new Map(dict.map((d, i) => [d.id, { d, i }]));
+    const entries = [...wrap.querySelectorAll('.dict-row')].map(r => ({ r, ...(byId.get(r.dataset.id) || { d: null, i: 0 }) }));
+    let hit = 0;
+    entries.forEach(e => { const on = !!e.d && dictMatchesView(e.d, v); e.r.style.display = on ? '' : 'none'; if(on) hit++; });
+    const sorter = DICT_SORTS[v.sort];
+    viewSorted(entries, sorter ? e => sorter(e.d) : e => e.i).forEach(e => wrap.appendChild(e.r));
+    const out = document.getElementById('dict-view-result');
+    if(out){
+      const filtering = !!(v.q || v.box || v.group || v.flag);
+      out.textContent = !dict.length ? '' : (filtering ? (hit ? `조건에 맞는 품목 ${hit}개 (전체 ${dict.length}개)` : '조건에 맞는 품목이 없습니다') : `전체 ${dict.length}개`) + (sorter ? ' · 정렬 적용됨' : '');
+      out.style.color = filtering && !hit ? 'var(--danger,#c0392b)' : 'var(--muted)';
+    }
+  }
+
   function renderDict(){
     const wrap = document.getElementById('dict-editor');
     wrap.innerHTML = '';
     dict.forEach(item=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
+      row.dataset.id = item.id;
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
@@ -3394,6 +3518,7 @@ function goHome() {
       priceGroupInput.addEventListener('change', (e)=>{
         item.priceGroup = e.target.value.trim();
         saveDict();
+        refreshDictViewOptions();
         renderPriceMapEditor();
       });
 
@@ -3426,6 +3551,8 @@ function goHome() {
       row.appendChild(delBtn);
       wrap.appendChild(row);
     });
+    refreshDictViewOptions();
+    applyDictView();
   }
 
   function renderCategoryEditor(){
@@ -3471,6 +3598,7 @@ function goHome() {
     const wrap = document.getElementById('company-editor');
     wrap.innerHTML = '';
     populateUploadCompanySelect();
+    refreshCompanyViewOptions();
     if(companies.length === 0){
       wrap.innerHTML = '<div class="empty" style="padding:10px 0;">등록된 업체가 없습니다. 아래에서 추가하거나, 발주를 확정할 때 자동으로 등록됩니다.</div>';
       applyCompanySearch();
@@ -3700,30 +3828,39 @@ function goHome() {
     applyCompanySearch();
   }
 
-  // 거래처 검색: 이름(상장청과명·코드 포함)에 입력한 글자가 들어 있는 업체만 보여주고, 등록 여부를 알려 줌 (공백·괄호 위치 무시)
+  // 거래처 보기: 검색(이름·상장청과명·시장명·코드, 공백·괄호 위치 무시) + 구분/지역/기타 조건 필터 + 정렬. 등록 여부도 알려 줌
+  function refreshCompanyViewOptions(){
+    viewFillSelect(document.getElementById('company-cat-filter'), [['', '발주 구분 전체'], ...companyCategoryOptions().map(c => [c, c]), [VIEW_NONE, '(구분 미지정)']]);
+    viewFillSelect(document.getElementById('company-region-filter'), [['', '지역 전체'], ['수도권', '수도권'], ['지방', '지방'], [VIEW_NONE, '(지역 미지정)']]);
+    viewFillSelect(document.getElementById('company-flag-filter'), [['', '기타 조건 없음'], ['3pl', '3PL 업체만'], ['not3pl', '3PL 제외'], ['tax', '택배 과세만'], ['disp', '출고일 지정만'], ['nocode', '코드 없음'], ['nomarket', '시장명 없음']]);
+    viewFillSelect(document.getElementById('company-sort'), COMPANY_SORT_OPTS);
+  }
   function applyCompanySearch(){
     const inp = document.getElementById('company-search-input');
     const out = document.getElementById('company-search-result');
-    if(!inp || !out) return;
-    const key = s => String(s || '').replace(/[\s()（）\[\]]/g, '').toLowerCase();
-    const q = key(inp.value);
-    const rows = [...document.querySelectorAll('#company-editor .dict-row')];
-    if(!q){
-      rows.forEach(r => { r.style.display = ''; });
-      out.textContent = `등록된 거래처 ${companies.length}곳`;
-      out.style.color = 'var(--muted)';
-      return;
-    }
+    const wrap = document.getElementById('company-editor');
+    if(!inp || !out || !wrap) return;
+    const v = { q: viewKey(inp.value), cat: viewVal('company-cat-filter'), region: viewVal('company-region-filter'), flag: viewVal('company-flag-filter'), sort: viewVal('company-sort') };
+    const sorter = COMPANY_SORTS[v.sort];
+    const others = !!(v.cat || v.region || v.flag);
+    const entries = [...wrap.querySelectorAll('.dict-row')].map(r => ({ r, i: Number(r.dataset.idx), c: companies[Number(r.dataset.idx)] }));
     let hit = 0;
-    rows.forEach(r => {
-      const c = companies[Number(r.dataset.idx)];
-      const on = !!c && [c.name, c.listedMarketName, c.code].some(v => { const k = key(v); return k && k.includes(q); });
-      r.style.display = on ? '' : 'none';
-      if(on) hit++;
-    });
-    if(hit){
-      out.textContent = `✅ 이미 등록된 거래처가 ${hit}곳 있습니다`;
+    entries.forEach(e => { const on = !!e.c && companyMatchesView(e.c, v); e.r.style.display = on ? '' : 'none'; if(on) hit++; });
+    // 정렬 중에는 보이는 순서와 저장 순서가 달라 드래그로 순서 바꾸기를 막음
+    viewSorted(entries, sorter ? e => sorter(e.c) : e => e.i).forEach(e => { wrap.appendChild(e.r); e.r.draggable = !sorter; });
+    const tail = sorter ? ' · 정렬 적용됨(드래그 순서 변경은 "등록순"에서)' : '';
+    if(!v.q && !others){
+      out.textContent = `등록된 거래처 ${companies.length}곳` + tail;
+      out.style.color = 'var(--muted)';
+    } else if(!v.q){
+      out.textContent = hit ? `조건에 맞는 거래처 ${hit}곳 (전체 ${companies.length}곳)` + tail : '조건에 맞는 거래처가 없습니다';
+      out.style.color = hit ? 'var(--accent)' : 'var(--danger,#c0392b)';
+    } else if(hit){
+      out.textContent = others ? `조건에 맞는 거래처 ${hit}곳 (전체 ${companies.length}곳)` + tail : `✅ 이미 등록된 거래처가 ${hit}곳 있습니다` + tail;
       out.style.color = 'var(--accent)';
+    } else if(others){
+      out.textContent = '조건에 맞는 거래처가 없습니다';
+      out.style.color = 'var(--danger,#c0392b)';
     } else {
       const m = matchCompanyName(inp.value);
       out.textContent = m.candidates.length
@@ -3998,13 +4135,85 @@ function goHome() {
     wrap.appendChild(table);
   }
 
+  // ── 거래처별 품목 단가 설정 표: 검색·필터·정렬 + 보이는 업체 일괄 입력 ──
+  let priceBulk = null;   // 일괄 입력 대기 중: { ids, label, value, companies, summary, input }
+  function refreshPriceViewOptions(){
+    viewFillSelect(document.getElementById('price-cat-filter'), [['', '발주 구분 전체'], ...companyCategoryOptions().map(c => [c, c])]);
+    viewFillSelect(document.getElementById('price-region-filter'), [['', '지역 전체'], ['수도권', '수도권'], ['지방', '지방'], [VIEW_NONE, '(지역 미지정)']]);
+    viewFillSelect(document.getElementById('price-sort'), COMPANY_SORT_OPTS.filter(o => ['', 'name', 'cat', 'region', 'market'].includes(o[0])));
+  }
+  function priceViewState(){
+    return { raw: viewVal('price-search-input'), q: viewKey(viewVal('price-search-input')), cat: viewVal('price-cat-filter'), region: viewVal('price-region-filter'), flag: '', sort: viewVal('price-sort') };
+  }
+  function priceViewSummary(){
+    const v = priceViewState(), p = [];
+    if(v.raw.trim()) p.push(`검색 "${v.raw.trim()}"`);
+    if(v.cat) p.push(`구분 ${v.cat}`);
+    if(v.region) p.push(`지역 ${v.region === VIEW_NONE ? '미지정' : v.region}`);
+    return p.length ? p.join(' · ') : '조건 없음(전체)';
+  }
+  function priceShownCompanies(){
+    const v = priceViewState();
+    const list = companies.filter(c => c.category && companyMatchesView(c, v));
+    const sorter = COMPANY_SORTS[v.sort];
+    return sorter ? viewSorted(list, sorter) : list;
+  }
+  function renderPriceBulkBanner(){
+    const box = document.getElementById('price-bulk-banner');
+    if(!box) return;
+    box.innerHTML = '';
+    if(!priceBulk){ box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    const keep = !!(document.getElementById('price-keep-existing') || {}).checked;
+    const msg = document.createElement('span');
+    msg.innerHTML = `<b>${priceBulk.companies.length}곳</b> (${escapeHtml(priceBulk.summary)})의 <b>${escapeHtml(priceBulk.label)}</b> 단가를 <b>${priceBulk.value.toLocaleString()}원</b>으로 ` +
+      (keep ? '<b>비어 있는 칸에만</b> 입력합니다.' : '<b>모두 덮어써서</b> 입력합니다. (이미 입력된 단가도 바뀜)');
+    const ok = document.createElement('button');
+    ok.className = 'btn-primary small-btn'; ok.textContent = '적용';
+    ok.addEventListener('click', applyPriceBulk);
+    const cancel = document.createElement('button');
+    cancel.className = 'btn-ghost small-btn'; cancel.textContent = '취소';
+    cancel.addEventListener('click', ()=>{ if(priceBulk && priceBulk.input) priceBulk.input.value = ''; priceBulk = null; renderPriceBulkBanner(); });
+    box.appendChild(msg); box.appendChild(ok); box.appendChild(cancel);
+  }
+  function applyPriceBulk(){
+    if(!priceBulk) return;
+    const keep = !!(document.getElementById('price-keep-existing') || {}).checked;
+    const done = new Set();
+    let cells = 0;
+    priceBulk.companies.forEach(c => {
+      if(!c.priceMap) c.priceMap = {};
+      priceBulk.ids.forEach(id => {
+        if(keep && c.priceMap[id] != null) return;
+        c.priceMap[id] = priceBulk.value; cells++; done.add(c);
+      });
+    });
+    priceBulk = null;
+    if(cells) saveCompanies();
+    renderPriceMapEditor();
+    toast(cells ? `${done.size}곳에 단가 ${cells}칸을 입력했습니다` : '이미 모두 입력돼 있어 바뀐 것이 없습니다');
+  }
+  function onPriceViewChange(){
+    priceBulk = null;
+    renderPriceMapEditor();
+  }
+
   function renderPriceMapEditor(){
     const wrap = document.getElementById('price-map-editor');
     if(!wrap) return;
+    refreshPriceViewOptions();
+    renderPriceBulkBanner();
     const registeredCompanies = companies.filter(c=> c.category && c.category !== '');
+    const countEl = document.getElementById('price-view-result');
     if(registeredCompanies.length === 0 || dict.length === 0){
+      if(countEl) countEl.textContent = '';
       wrap.innerHTML = '<div class="empty" style="padding:8px 0;">거래처 관리에서 구분이 설정된 업체가 없습니다.</div>';
       return;
+    }
+    const shown = priceShownCompanies();
+    if(countEl){
+      const filtering = shown.length !== registeredCompanies.length || priceViewState().sort;
+      countEl.textContent = filtering ? `표시 ${shown.length}곳 (전체 ${registeredCompanies.length}곳)` : `전체 ${registeredCompanies.length}곳`;
     }
 
     // 단가 그룹 목록 추출 (priceGroup이 설정된 SKU)
@@ -4016,15 +4225,20 @@ function goHome() {
     const hasGroups = Object.keys(groups).length > 0;
 
     // 안내 문구
-    if(hasGroups){
-      const hint = document.createElement('div');
-      hint.className = 'sub';
-      hint.style.marginBottom = '8px';
-      hint.innerHTML = '※ <b>그룹 단가</b> 입력 시 해당 그룹의 모든 품목에 동일 단가가 자동 입력됩니다. 개별 조정도 가능합니다.';
-      wrap.innerHTML = '';
-      wrap.appendChild(hint);
-    } else {
-      wrap.innerHTML = '<div class="sub" style="margin-bottom:8px;">SKU 관리에서 "단가그룹"을 설정하면 업체별 일괄 입력이 가능합니다.</div>';
+    wrap.innerHTML = '';
+    const hint = document.createElement('div');
+    hint.className = 'sub';
+    hint.style.marginBottom = '8px';
+    hint.innerHTML = hasGroups
+      ? '※ <b>그룹 단가</b> 입력 시 해당 그룹의 모든 품목에 동일 단가가 자동 입력됩니다. 개별 조정도 가능합니다.'
+      : 'SKU 관리에서 "단가그룹"을 설정하면 업체별 일괄 입력이 가능합니다.';
+    wrap.appendChild(hint);
+    if(shown.length === 0){
+      const none = document.createElement('div');
+      none.className = 'empty'; none.style.padding = '8px 0';
+      none.textContent = '조건에 맞는 업체가 없습니다. 위 조건을 바꾸거나 "초기화"를 눌러 보세요.';
+      wrap.appendChild(none);
+      return;
     }
 
     const table = document.createElement('table');
@@ -4084,7 +4298,8 @@ function goHome() {
         subHeaderRow.appendChild(th);
       });
     } else {
-      // 그룹 없으면 기존 단순 헤더
+      // 그룹 없으면 단순 헤더 (업체명 칸 포함)
+      subHeaderRow.innerHTML = '<th class="name-cell">업체명</th>';
       dict.forEach(d=>{
         const th = document.createElement('th');
         th.style.fontSize = '10px';
@@ -4092,23 +4307,79 @@ function goHome() {
         subHeaderRow.appendChild(th);
       });
     }
-    if(!hasGroups) thead.appendChild(subHeaderRow); // 그룹 없으면 1행만
-    else thead.appendChild(subHeaderRow);
+    thead.appendChild(subHeaderRow);
     table.appendChild(thead);
 
+    // 업체 한 칸(품목 단가) 입력란
+    const itemCell = (company, d, width)=>{
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '0'; input.step = '1';
+      input.style.cssText = `width:${width}px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;`;
+      input.placeholder = '단가';
+      input.value = company.priceMap[d.id] ?? '';
+      input.addEventListener('change', (e)=>{
+        if(!company.priceMap) company.priceMap = {};
+        const v = parseFloat(e.target.value);
+        if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
+        else company.priceMap[d.id] = v;
+        saveCompanies();
+      });
+      td.appendChild(input);
+      return td;
+    };
+
+    // 맨 윗줄: 지금 표에 보이는 업체 전체에 한꺼번에 넣는 칸
+    const bulkCell = (ids, label, width, ph)=>{
+      const td = document.createElement('td');
+      td.style.background = '#fff4d6';
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.min = '0'; inp.step = '1';
+      inp.style.cssText = `width:${width}px;border:1px dashed var(--accent);border-radius:4px;padding:3px 4px;font-size:12px;`;
+      inp.placeholder = ph;
+      inp.title = `지금 표에 보이는 ${shown.length}곳의 "${label}" 단가를 한꺼번에 입력합니다 (입력 후 Enter → 위쪽 안내에서 [적용])`;
+      inp.addEventListener('change', (e)=>{
+        const v = parseFloat(e.target.value);
+        if(priceBulk && priceBulk.input && priceBulk.input !== e.target) priceBulk.input.value = '';
+        if(isNaN(v) || v < 0){ priceBulk = null; renderPriceBulkBanner(); return; }
+        priceBulk = { ids, label, value: v, companies: shown.slice(), summary: priceViewSummary(), input: e.target };
+        renderPriceBulkBanner();
+      });
+      td.appendChild(inp);
+      return td;
+    };
     const tbody = document.createElement('tbody');
-    registeredCompanies.forEach(company=>{
+    const bulkTr = document.createElement('tr');
+    const bulkName = document.createElement('td');
+    bulkName.className = 'name-cell';
+    bulkName.style.cssText = 'background:#fff4d6;font-size:11.5px;font-weight:700;color:var(--accent);';
+    bulkName.textContent = `⬇ 표시된 ${shown.length}곳 한꺼번에`;
+    bulkName.title = '위쪽 조건(구분·지역·검색)에 맞아 지금 표에 보이는 업체 전체에 단가를 한꺼번에 넣습니다';
+    bulkTr.appendChild(bulkName);
+    if(hasGroups){
+      Object.entries(groups).forEach(([gName, items])=>{
+        bulkTr.appendChild(bulkCell(items.map(d=>d.id), `${gName} 그룹 전체 품목(${items.length}개)`, 80, '그룹'));
+        items.forEach(d=> bulkTr.appendChild(bulkCell([d.id], d.name, 75, '단가')));
+      });
+      dict.filter(d=>!d.priceGroup).forEach(d=> bulkTr.appendChild(bulkCell([d.id], d.name, 75, '단가')));
+    } else {
+      dict.forEach(d=> bulkTr.appendChild(bulkCell([d.id], d.name, 80, '단가')));
+    }
+    tbody.appendChild(bulkTr);
+
+    shown.forEach(company=>{
       if(!company.priceMap) company.priceMap = {};
       const tr = document.createElement('tr');
       const nameTd = document.createElement('td');
       nameTd.className = 'name-cell';
       nameTd.textContent = companyDisplayName(company);
+      nameTd.title = [company.category, company.region].filter(Boolean).join(' · ');
       tr.appendChild(nameTd);
 
       // 그룹별 처리
       if(hasGroups){
         Object.entries(groups).forEach(([gName, items])=>{
-          // 일괄 입력 셀
+          // 일괄 입력 셀 (이 업체의 그룹 전체)
           const bulkTd = document.createElement('td');
           bulkTd.style.background = '#fdf3f4';
           const bulkInput = document.createElement('input');
@@ -4134,59 +4405,14 @@ function goHome() {
           tr.appendChild(bulkTd);
 
           // 개별 품목 셀
-          items.forEach(d=>{
-            const td = document.createElement('td');
-            const input = document.createElement('input');
-            input.type = 'number'; input.min = '0'; input.step = '1';
-            input.style.cssText = 'width:75px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
-            input.placeholder = '단가';
-            input.value = company.priceMap[d.id] ?? '';
-            input.addEventListener('change', (e)=>{
-              if(!company.priceMap) company.priceMap = {};
-              const v = parseFloat(e.target.value);
-              if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
-              else company.priceMap[d.id] = v;
-              saveCompanies();
-            });
-            td.appendChild(input); tr.appendChild(td);
-          });
+          items.forEach(d=> tr.appendChild(itemCell(company, d, 75)));
         });
 
         // 그룹 없는 개별 품목
-        dict.filter(d=>!d.priceGroup).forEach(d=>{
-          const td = document.createElement('td');
-          const input = document.createElement('input');
-          input.type = 'number'; input.min = '0'; input.step = '1';
-          input.style.cssText = 'width:75px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
-          input.placeholder = '단가';
-          input.value = company.priceMap[d.id] ?? '';
-          input.addEventListener('change', (e)=>{
-            if(!company.priceMap) company.priceMap = {};
-            const v = parseFloat(e.target.value);
-            if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
-            else company.priceMap[d.id] = v;
-            saveCompanies();
-          });
-          td.appendChild(input); tr.appendChild(td);
-        });
+        dict.filter(d=>!d.priceGroup).forEach(d=> tr.appendChild(itemCell(company, d, 75)));
       } else {
         // 그룹 없는 기존 방식
-        dict.forEach(d=>{
-          const td = document.createElement('td');
-          const input = document.createElement('input');
-          input.type = 'number'; input.min = '0'; input.step = '1';
-          input.style.cssText = 'width:80px;border:1px solid var(--line);border-radius:4px;padding:3px 4px;font-size:12px;';
-          input.placeholder = '단가';
-          input.value = company.priceMap[d.id] ?? '';
-          input.addEventListener('change', (e)=>{
-            if(!company.priceMap) company.priceMap = {};
-            const v = parseFloat(e.target.value);
-            if(isNaN(v)||e.target.value.trim()==='') delete company.priceMap[d.id];
-            else company.priceMap[d.id] = v;
-            saveCompanies();
-          });
-          td.appendChild(input); tr.appendChild(td);
-        });
+        dict.forEach(d=> tr.appendChild(itemCell(company, d, 80)));
       }
       tbody.appendChild(tr);
     });
@@ -5421,6 +5647,15 @@ function goHome() {
   });
 
   document.getElementById('company-search-input').addEventListener('input', applyCompanySearch);
+  ['company-cat-filter', 'company-region-filter', 'company-flag-filter', 'company-sort'].forEach(id => document.getElementById(id).addEventListener('change', applyCompanySearch));
+  document.getElementById('company-view-reset').addEventListener('click', ()=>{ viewResetControls(['company-search-input', 'company-cat-filter', 'company-region-filter', 'company-flag-filter', 'company-sort']); applyCompanySearch(); });
+  document.getElementById('dict-search-input').addEventListener('input', applyDictView);
+  ['dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort'].forEach(id => document.getElementById(id).addEventListener('change', applyDictView));
+  document.getElementById('dict-view-reset').addEventListener('click', ()=>{ viewResetControls(['dict-search-input', 'dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort']); applyDictView(); });
+  document.getElementById('price-search-input').addEventListener('input', onPriceViewChange);
+  ['price-cat-filter', 'price-region-filter', 'price-sort'].forEach(id => document.getElementById(id).addEventListener('change', onPriceViewChange));
+  document.getElementById('price-keep-existing').addEventListener('change', renderPriceBulkBanner);
+  document.getElementById('price-view-reset').addEventListener('click', ()=>{ viewResetControls(['price-search-input', 'price-cat-filter', 'price-region-filter', 'price-sort']); onPriceViewChange(); });
 
   document.getElementById('add-category-btn').addEventListener('click', ()=>{
     const input = document.getElementById('new-category-input');
@@ -8872,7 +9107,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(!root) return;
       root.classList.toggle('master-readonly', !isAdmin);
       root.querySelectorAll('input, select, textarea, button').forEach(el=>{
-        if(MASTER_ALWAYS_ENABLED.includes(el.id)) return;
+        if(MASTER_ALWAYS_ENABLED.includes(el.id) || el.classList.contains('view-ctl')) return;
         el.disabled = !isAdmin;
       });
     });
