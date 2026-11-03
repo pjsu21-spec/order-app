@@ -417,10 +417,10 @@ function openEditor(p){
   cur = p ? { ...p, isNew:false } : { id:newId(), isNew:true, title:'', width:860, text:'', images:[] };
   items = (cur.images||[]).map(im => ({ kind:'up', ...im }));
   thumbs = (cur.thumbs||[]).map(im => ({ kind:'up', ...im }));
-  saved = p ? snapshot() : null;
   $('title').value = cur.title || '';
   $('text').value = cur.text || '';
   $('opt-width').value = String([780,860,1000].includes(cur.width) ? cur.width : 860);
+  saved = p ? snapshot() : null;   // 입력칸을 채운 뒤에 기준값을 잡아야 열자마자 '변경됨'으로 보이지 않음
   $('edit-heading').textContent = cur.isNew ? '새 상세페이지' : cur.title;
   const ro = !canEdit();
   ['title','text','opt-width','opt-slice','opt-quality'].forEach(i => $(i).disabled = ro);
