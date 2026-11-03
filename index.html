@@ -1417,6 +1417,7 @@
       <span id="price-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
     </div>
     <div class="sub" style="margin:0 0 6px;">※ 위에서 <b>구분(직거래·SP·도매 …)·지역</b>을 고르면 그 업체만 표시됩니다. 표 맨 윗줄 <b>"⬇ 표시된 N곳 한꺼번에"</b> 칸에 단가를 입력하고 Enter → 안내 줄의 <b>[적용]</b>을 누르면 표시된 업체 전체에 들어갑니다.</div>
+    <div id="price-undo-bar" style="display:none; margin:0 0 8px; padding:6px 12px; border:1px dashed var(--line); border-radius:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted);"></div>
     <div id="price-bulk-banner" style="display:none; margin:0 0 8px; padding:8px 12px; border:1px solid var(--accent); background:#fff4d6; border-radius:8px; font-size:13px; align-items:center; gap:10px; flex-wrap:wrap;"></div>
     <div id="price-map-editor" style="overflow-x:auto;"></div>
 
@@ -4176,22 +4177,124 @@ function goHome() {
     cancel.addEventListener('click', ()=>{ if(priceBulk && priceBulk.input) priceBulk.input.value = ''; priceBulk = null; renderPriceBulkBanner(); });
     box.appendChild(msg); box.appendChild(ok); box.appendChild(cancel);
   }
+  // ── 단가 일괄 변경: 확인 팝업 + 되돌리기 ──
+  const PRICE_UNDO_KEY = 'dm_price_bulk_undo';
+  const pcKey = c => c.name + '||' + (c.category || '');
+  let priceUndo = [];   // 최근 일괄 변경 기록 (내 브라우저에 저장, 최대 10건)
+  try { priceUndo = JSON.parse(localStorage.getItem(PRICE_UNDO_KEY) || '[]'); if(!Array.isArray(priceUndo)) priceUndo = []; } catch(e){ priceUndo = []; }
+  function savePriceUndo(){ priceUndo = priceUndo.slice(-10); try { localStorage.setItem(PRICE_UNDO_KEY, JSON.stringify(priceUndo)); } catch(e){} }
+
+  // 확인 팝업 (취소가 기본 선택, Esc·바깥 클릭으로 닫힘)
+  function priceModal(html, okText, danger, onOk){
+    const old = document.getElementById('price-bulk-modal');
+    if(old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'price-bulk-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;color:var(--ink);border-radius:12px;max-width:520px;width:100%;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;font-size:13.5px;line-height:1.6;';
+    box.innerHTML = html;
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:16px;';
+    const cancel = document.createElement('button');
+    cancel.className = 'btn-ghost small-btn pbm-cancel'; cancel.textContent = '취소';
+    const ok = document.createElement('button');
+    ok.className = (danger ? 'btn-danger' : 'btn-primary') + ' small-btn pbm-ok'; ok.textContent = okText;
+    btns.appendChild(cancel); btns.appendChild(ok); box.appendChild(btns);
+    ov.appendChild(box); document.body.appendChild(ov);
+    const close = ()=>{ document.removeEventListener('keydown', onKey); ov.remove(); };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    cancel.addEventListener('click', close);
+    ov.addEventListener('mousedown', e => { if(e.target === ov) close(); });
+    ok.addEventListener('click', ()=>{ close(); onOk(); });
+    cancel.focus();
+  }
+
+  // [적용] 버튼: 무엇이 얼마나 바뀌는지 보여 주고 한 번 더 확인
   function applyPriceBulk(){
     if(!priceBulk) return;
+    const b = priceBulk;
     const keep = !!(document.getElementById('price-keep-existing') || {}).checked;
-    const done = new Set();
-    let cells = 0;
-    priceBulk.companies.forEach(c => {
-      if(!c.priceMap) c.priceMap = {};
-      priceBulk.ids.forEach(id => {
-        if(keep && c.priceMap[id] != null) return;
-        c.priceMap[id] = priceBulk.value; cells++; done.add(c);
+    let fill = 0, over = 0, same = 0, kept = 0;
+    const changes = [], comps = [];
+    b.companies.forEach(c => {
+      const pm = c.priceMap || {};
+      let hit = false;
+      b.ids.forEach(id => {
+        const cur = pm[id];
+        if(cur == null){ fill++; changes.push({ c, id, prev: null }); hit = true; }
+        else if(keep){ kept++; }
+        else if(cur === b.value){ same++; }
+        else { over++; changes.push({ c, id, prev: cur }); hit = true; }
       });
+      if(hit) comps.push(c);
     });
+    if(!changes.length){
+      priceBulk = null; renderPriceBulkBanner(); renderPriceMapEditor();
+      toast('이미 모두 입력돼 있어 바뀐 것이 없습니다');
+      return;
+    }
+    const names = comps.slice(0, 12).map(c => escapeHtml(companyDisplayName(c))).join(', ') + (comps.length > 12 ? ` 외 ${comps.length - 12}곳` : '');
+    const html = `<div style="font-size:16px;font-weight:800;color:var(--warn);margin-bottom:10px;">⚠ 선택된 내용이 일괄 변경됩니다.<br>변경하시겠습니까?</div>` +
+      `<table style="border-collapse:collapse;width:100%;font-size:13px;">` +
+      `<tr><td style="padding:3px 8px 3px 0;color:var(--muted);white-space:nowrap;vertical-align:top;">대상 업체</td><td><b>${comps.length}곳</b> <span style="color:var(--muted);">(${escapeHtml(b.summary)})</span><br><span style="font-size:12px;">${names}</span></td></tr>` +
+      `<tr><td style="padding:3px 8px 3px 0;color:var(--muted);white-space:nowrap;">품목</td><td><b>${escapeHtml(b.label)}</b></td></tr>` +
+      `<tr><td style="padding:3px 8px 3px 0;color:var(--muted);white-space:nowrap;">입력할 단가</td><td><b>${b.value.toLocaleString()}원</b></td></tr>` +
+      `</table>` +
+      `<div style="margin-top:10px;padding:8px 10px;background:${over ? 'var(--warn-soft)' : 'var(--accent-soft)'};border-radius:8px;">` +
+      `새로 입력 <b>${fill}칸</b>` + (over ? ` · <b style="color:var(--warn);">기존 단가 덮어쓰기 ${over}칸</b>` : '') +
+      (same ? ` · 같은 값이라 변경 없음 ${same}칸` : '') + (kept ? ` · 이미 입력돼 있어 유지 ${kept}칸` : '') + `</div>` +
+      `<div class="sub" style="margin:8px 0 0;">변경 후에도 표 위쪽의 <b>[↩ 되돌리기]</b>로 이전 단가로 돌릴 수 있습니다.</div>`;
+    priceModal(html, '변경하기', over > 0, ()=> doApplyPriceBulk(b, changes, comps.length));
+  }
+  function doApplyPriceBulk(b, changes, compCount){
+    changes.forEach(ch => { if(!ch.c.priceMap) ch.c.priceMap = {}; ch.c.priceMap[ch.id] = b.value; });
+    priceUndo.push({ t: Date.now(), label: b.label, value: b.value, summary: b.summary, companies: compCount, cells: changes.map(ch => ({ k: pcKey(ch.c), id: ch.id, prev: ch.prev, v: b.value })) });
+    savePriceUndo();
     priceBulk = null;
-    if(cells) saveCompanies();
+    saveCompanies();
     renderPriceMapEditor();
-    toast(cells ? `${done.size}곳에 단가 ${cells}칸을 입력했습니다` : '이미 모두 입력돼 있어 바뀐 것이 없습니다');
+    toast(`${compCount}곳에 단가 ${changes.length}칸을 입력했습니다 (되돌리기 가능)`);
+  }
+
+  function renderPriceUndoBar(){
+    const bar = document.getElementById('price-undo-bar');
+    if(!bar) return;
+    bar.innerHTML = '';
+    const e = priceUndo[priceUndo.length - 1];
+    if(!e){ bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const d = new Date(e.t);
+    const when = `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    const msg = document.createElement('span');
+    msg.textContent = `최근 일괄 변경 ${when} · ${e.label} ${Number(e.value).toLocaleString()}원 (${e.companies}곳 ${e.cells.length}칸)` + (priceUndo.length > 1 ? ` · 이전 기록 ${priceUndo.length - 1}건` : '');
+    const btn = document.createElement('button');
+    btn.className = 'btn-ghost small-btn'; btn.id = 'price-undo-btn'; btn.textContent = '↩ 되돌리기';
+    btn.addEventListener('click', undoPriceBulk);
+    bar.appendChild(msg); bar.appendChild(btn);
+  }
+  function undoPriceBulk(){
+    const e = priceUndo[priceUndo.length - 1];
+    if(!e) return;
+    const html = `<div style="font-size:16px;font-weight:800;color:var(--warn);margin-bottom:10px;">↩ 마지막 일괄 변경을 되돌립니다.</div>` +
+      `<div><b>${escapeHtml(e.label)}</b> 단가 <b>${Number(e.value).toLocaleString()}원</b> 일괄 입력 (${e.companies}곳 · ${e.cells.length}칸, ${escapeHtml(e.summary || '')})을 이전 단가로 되돌립니다.</div>` +
+      `<div class="sub" style="margin:8px 0 0;">그 뒤에 다른 값으로 직접 고친 칸은 건드리지 않습니다.</div>`;
+    priceModal(html, '되돌리기', false, ()=>{
+      const byKey = new Map();
+      companies.forEach(c => { if(!byKey.has(pcKey(c))) byKey.set(pcKey(c), c); });
+      let back = 0, skipped = 0;
+      e.cells.forEach(x => {
+        const c = byKey.get(x.k);
+        if(!c || !c.priceMap || c.priceMap[x.id] !== x.v){ skipped++; return; }
+        if(x.prev == null) delete c.priceMap[x.id]; else c.priceMap[x.id] = x.prev;
+        back++;
+      });
+      priceUndo.pop(); savePriceUndo();
+      if(back) saveCompanies();
+      renderPriceMapEditor();
+      toast(`${back}칸을 이전 단가로 되돌렸습니다` + (skipped ? ` (그 뒤에 바뀐 ${skipped}칸은 그대로 둠)` : ''));
+    });
   }
   function onPriceViewChange(){
     priceBulk = null;
@@ -4203,6 +4306,7 @@ function goHome() {
     if(!wrap) return;
     refreshPriceViewOptions();
     renderPriceBulkBanner();
+    renderPriceUndoBar();
     const registeredCompanies = companies.filter(c=> c.category && c.category !== '');
     const countEl = document.getElementById('price-view-result');
     if(registeredCompanies.length === 0 || dict.length === 0){
