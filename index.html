@@ -601,6 +601,8 @@
     <button class="order-sub-nav-btn" data-order-panel="panel-ship">📨 송장/명세서</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-sales">📈 실적 / 매출</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-settings">⚙️ 설정</button>
+    <span id="order-refresh-time" style="margin-left:auto; align-self:center; padding:0 8px; font-size:11.5px; color:var(--muted); white-space:nowrap;"></span>
+    <button class="btn-ghost small-btn" id="order-refresh-btn" style="align-self:center; margin:0 0 4px; white-space:nowrap;" title="다른 직원이 입력·수정한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
   </nav>
 
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
@@ -2624,7 +2626,32 @@ function goHome() {
     renderEcountDateSelect();
     applyUserUI(); // 관리자 탭 등 로그인 사용자 UI 반영
     renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
+    updateRefreshStamp();
   }
+
+  // 최신 내용 불러오기: 다른 직원이 입력·수정한 공용 데이터를 서버에서 다시 읽어 화면을 갱신
+  function updateRefreshStamp(){
+    const el = document.getElementById('order-refresh-time');
+    if(!el) return;
+    const d = new Date();
+    el.textContent = `마지막 불러옴 ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  }
+  async function refreshSharedData(){
+    const btn = document.getElementById('order-refresh-btn');
+    if(!btn || btn.disabled) return;
+    btn.disabled = true; btn.textContent = '불러오는 중…';
+    try{
+      // 서버에 먼저 연결해 보고, 실패하면 화면의 현재 내용을 그대로 둠 (불러오기 실패로 빈 화면이 되는 것을 막음)
+      await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'dispatch-by-date'].map(k => window.storage.get(k, true)));
+      await loadState();
+      toast('최신 내용을 불러왔습니다');
+    }catch(e){
+      toast('새로고침 실패 — 인터넷 연결을 확인해주세요 (화면은 그대로 유지됩니다)');
+    }finally{
+      btn.disabled = false; btn.textContent = '🔄 새로고침';
+    }
+  }
+  document.getElementById('order-refresh-btn').addEventListener('click', refreshSharedData);
 
   function getStaffName(){
     return (document.getElementById('staff-name').value || '').trim();
