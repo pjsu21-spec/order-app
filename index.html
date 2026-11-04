@@ -1391,6 +1391,7 @@
         <button class="btn-ghost small-btn view-ctl" id="dict-view-reset" title="검색·필터·정렬 초기화">초기화</button>
         <span id="dict-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
       </div>
+      <div class="sub" style="margin:8px 0 0;">⠿ 끌어서 놓거나 ▲▼로 품목 순서를 바꿀 수 있습니다(관리자만). 이 순서대로 발주 입력의 품목 선택 목록 등이 나타납니다. 검색·정렬 중에는 순서를 바꿀 수 없으니 "초기화"를 누른 뒤 바꿔주세요.</div>
       <div id="dict-editor" style="margin-top:12px;"></div>
       <div class="row">
         <button class="btn-ghost small-btn" id="add-item-btn">+ 품목 추가</button>
@@ -2940,19 +2941,35 @@ function goHome() {
     return (s||'').replace(/\s+/g,'').toLowerCase();
   }
 
-  function matchItem(text){
+  // opts.preferWeight(g): 같은 이름이 여러 품목에 걸릴 때(예: 스테비아 → 500g·150g) 용량이 적혀 있지 않으면 그 용량 품목을 우선 선택.
+  //   후보 중 그 용량이 하나뿐일 때만 고르고, 고르면 opts.info.pref = true. (오프라인 발주 메시지에서만 사용 — 3PL·업체 파일은 그대로)
+  const PREFER_WEIGHT_G = 500;
+  function pickByWeight(cands, text, opts){
+    if(!opts || !opts.preferWeight || /\d+(?:\.\d+)?\s*(?:kg|g|그램)/i.test(String(text))) return null;
+    const hit = cands.filter(d => poItemWeight(d) === opts.preferWeight);
+    if(hit.length !== 1) return null;
+    if(opts.info) opts.info.pref = true;
+    return hit[0].id;
+  }
+  function matchItem(text, opts){
     const norm = normalize(text);
     if(!norm) return null;
     const exact = dict.filter(item=>{
       return normalize(item.name) === norm || item.aliases.some(a => normalize(a) === norm);
     });
     if(exact.length === 1) return exact[0].id;
-    if(exact.length > 1) return null;
+    if(exact.length > 1) return pickByWeight(exact, text, opts);
     const partial = dict.filter(item=>{
       const cands = [item.name, ...item.aliases].map(normalize).filter(Boolean);
       return cands.some(c => c.includes(norm) || norm.includes(c));
     });
     if(partial.length === 1) return partial[0].id;
+    if(partial.length > 1) return pickByWeight(partial, text, opts);
+    // 오프라인 메시지: '망고향 토마토'처럼 '토마토'를 덧붙여 적은 경우 그 글자를 빼고 다시 찾음
+    if(opts && opts.preferWeight && /토마토/.test(String(text))){
+      const t2 = String(text).replace(/토마토/g, '').trim();
+      if(t2) return matchItem(t2, opts);
+    }
     return null;
   }
 
@@ -3124,8 +3141,9 @@ function goHome() {
         itemText = (line.slice(0, idx) + line.slice(consumedEnd)).trim();
       }
       itemText = itemText.replace(NOISE, '').replace(/^[-*·.\d\)]+\s*/, '').trim();
-      const matchedId = itemText ? matchItem(itemText) : null;
-      return { raw: line, itemText, qty, unit, matchedId };
+      const info = {};
+      const matchedId = itemText ? matchItem(itemText, { preferWeight: PREFER_WEIGHT_G, info }) : null;
+      return { raw: line, itemText, qty, unit, matchedId, prefWeight: !!(matchedId && info.pref) };
     }).filter(p => p.itemText.length > 0);
 
     return { company, items };
@@ -3355,7 +3373,7 @@ function goHome() {
       const row = document.createElement('div');
       row.className = 'parsed-row';
       const matched = it.matchedId ? 'ok' : 'warn';
-      const label = it.matchedId ? '매칭됨' : '미매칭';
+      const label = it.matchedId ? (it.prefWeight ? PREFER_WEIGHT_G + 'g 우선 매칭' : '매칭됨') : '미매칭';
 
       const select = document.createElement('select');
       select.dataset.idx = idx;
@@ -3370,6 +3388,7 @@ function goHome() {
       });
       select.addEventListener('change', (e)=>{
         currentParsed.items[idx].matchedId = e.target.value || null;
+        currentParsed.items[idx].prefWeight = false;
         renderParsed(currentParsed);
       });
 
@@ -3523,7 +3542,7 @@ function goHome() {
     let hit = 0;
     entries.forEach(e => { const on = !!e.d && dictMatchesView(e.d, v); e.r.style.display = on ? '' : 'none'; if(on) hit++; });
     const sorter = DICT_SORTS[v.sort];
-    viewSorted(entries, sorter ? e => sorter(e.d) : e => e.i).forEach(e => wrap.appendChild(e.r));
+    viewSorted(entries, sorter ? e => sorter(e.d) : e => e.i).forEach(e => { wrap.appendChild(e.r); e.r.draggable = !sorter; });
     const out = document.getElementById('dict-view-result');
     if(out){
       const filtering = !!(v.q || v.box || v.group || v.flag);
@@ -3535,10 +3554,45 @@ function goHome() {
   function renderDict(){
     const wrap = document.getElementById('dict-editor');
     wrap.innerHTML = '';
+    // 순서 바꾸기: 끌어서 놓기 또는 ▲▼. dict 배열 순서가 곧 모든 품목 선택 목록의 순서
+    let dragId = null;
+    const moveTo = (srcId, dstId) => {
+      if(!(window.currentUser && window.currentUser.role === 'admin')){ toast('품목 순서는 관리자만 바꿀 수 있습니다'); return; }
+      if(viewVal('dict-sort') || viewVal('dict-search-input') || viewVal('dict-box-filter') || viewVal('dict-group-filter') || viewVal('dict-flag-filter')){ toast('검색·정렬 중에는 순서를 바꿀 수 없습니다. "초기화"를 누른 뒤 바꿔주세요'); return; }
+      const from = dict.findIndex(d => d.id === srcId), to = dict.findIndex(d => d.id === dstId);
+      if(from < 0 || to < 0 || from === to) return;
+      const [m] = dict.splice(from, 1);
+      dict.splice(to, 0, m);
+      saveDict();
+      renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); ppRenderItems(); renderPriceMapEditor();
+    };
     dict.forEach(item=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
       row.dataset.id = item.id;
+      row.draggable = true;
+      row.addEventListener('dragstart', e => { dragId = item.id; e.dataTransfer.effectAllowed = 'move'; try{ e.dataTransfer.setData('text/plain', item.id); }catch(_){ /* 일부 브라우저 */ } row.style.opacity = '0.4'; });
+      row.addEventListener('dragend', () => { row.style.opacity = ''; });
+      row.addEventListener('dragover', e => { if(dragId){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; row.style.background = 'var(--hover)'; } });
+      row.addEventListener('dragleave', () => { row.style.background = ''; });
+      row.addEventListener('drop', e => { e.preventDefault(); row.style.background = ''; const src = dragId; dragId = null; if(src) moveTo(src, item.id); });
+      const mover = document.createElement('div');
+      mover.style.cssText = 'display:flex;align-items:center;gap:2px;flex:0 0 auto;';
+      const grip = document.createElement('span');
+      grip.textContent = '⠿'; grip.title = '끌어서 순서 변경';
+      grip.style.cssText = 'cursor:grab;color:var(--muted);font-size:16px;padding:0 4px;user-select:none;';
+      mover.appendChild(grip);
+      [['▲', '위로', -1], ['▼', '아래로', 1]].forEach(([t, title, dir]) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn-ghost small-btn dict-move'; b.textContent = t; b.title = title; b.style.padding = '0 6px';
+        b.addEventListener('click', () => {
+          const rows = [...wrap.querySelectorAll('.dict-row')].filter(r => r.style.display !== 'none');
+          const nb = rows[rows.indexOf(row) + dir];
+          if(nb) moveTo(item.id, nb.dataset.id);
+        });
+        mover.appendChild(b);
+      });
+      row.appendChild(mover);
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
