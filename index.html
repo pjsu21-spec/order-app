@@ -462,6 +462,9 @@
   .sample-xl td.items .it, .sample-xl .pm-line{ height:20px; line-height:20px; }
   .sample-items-list .pm-mini{ font-size:11px; font-weight:700; padding:1px 7px; border-radius:100px; color:#2f6fb2; background:#e6f0fb; white-space:nowrap; }
   .sample-items-list .pm-mini.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
+  .sample-xl .pd-tag{ display:inline-block; margin-left:4px; font-size:11px; font-weight:700; padding:1px 7px; border-radius:100px; color:#8a4b00; background:#fdeccf; white-space:nowrap; }
+  .sample-items-list .pm-mini.pd-mini{ color:#8a4b00; background:#fdeccf; }
+  #panel-sample .sample-pd-sel{ min-width:150px; }
   .sample-items-list .pm-mini.pm-etc{ color:#7a5a1f; background:#f7eedb; }
   .sample-table .pm-tag{ font-size:12px; font-weight:700; padding:1px 8px; border-radius:100px; color:#2f6fb2; background:#e6f0fb; white-space:nowrap; }
   .sample-table .pm-tag.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
@@ -1513,7 +1516,7 @@
   <!-- ───────────── 패널: 샘플 신청 ───────────── -->
   <div id="panel-sample" class="main-tab-panel">
   <h1 style="margin-bottom:4px;">샘플 신청 <span id="sample-level-note" class="sub" style="font-weight:400; margin:0 0 0 6px;"></span></h1>
-  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0;">샘플이 필요한 출고일시·출고 방식·품목(팩 단위)을 신청하면 주문 취합 담당자가 확인 처리합니다. 수량은 SKU 관리의 박스입수로 박스 수가 자동 환산됩니다(예: 1박스 4팩 → 1팩 = 0.25박스). 확인되기 전에는 신청자가 직접 수정·취소할 수 있고, 확인 후에는 취합 담당자만 변경할 수 있습니다.</div></details>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0;">샘플이 필요한 출고일시·출고 방식·품목(팩 단위)을 신청하면(생산이 출고일과 다른 날이면 품목마다 <b>생산일</b>을 지정 — 발주취합·집계에는 생산일 기준으로 반영됩니다) 주문 취합 담당자가 확인 처리합니다. 수량은 SKU 관리의 박스입수로 박스 수가 자동 환산됩니다(예: 1박스 4팩 → 1팩 = 0.25박스). 확인되기 전에는 신청자가 직접 수정·취소할 수 있고, 확인 후에는 취합 담당자만 변경할 수 있습니다.</div></details>
   <div class="card">
     <div class="row sample-tabstrip" style="margin-top:0; flex-wrap:wrap;">
       <button class="tab-btn active" id="sample-tab-form-btn">신청하기</button>
@@ -1553,6 +1556,12 @@
         <button type="button" class="btn-ghost small-btn" id="sample-bulk-hq">전체 생산본부 생산</button>
         <button type="button" class="btn-ghost small-btn" id="sample-bulk-lab">전체 연구실 생산</button>
         <span class="sub" style="margin:0;">품목마다 아래에서 따로 바꿀 수도 있습니다</span>
+      </div>
+      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
+        <label style="font-size:13px;">생산일 한 번에 지정 :</label>
+        <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-same">전체 출고일 당일 생산</button>
+        <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-prev">전체 전일 생산 (재고 사용)</button>
+        <span class="sub" style="margin:0;">출고일시는 그대로 두고, 생산한 날을 따로 지정합니다 · 그날의 발주취합(샘플 행)에 반영됩니다</span>
       </div>
       <div id="sample-items"></div>
       <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
@@ -2904,6 +2913,8 @@ function goHome() {
     renderEcountDateSelect();
   }
 
+  // 저장된 날짜: 월 버튼으로 나눠서 보여줌 (기본은 납품일이 속한 월, 날짜는 최신순). 월 버튼에는 그 달 저장 일수가 표시됨
+  let savedDatesMonth = '';
   function renderSavedDatesBar(){
     const wrap = document.getElementById('saved-dates-wrap');
     const keys = new Set([...Object.keys(ordersByDate), ...Object.keys(thirdPartyLineItems), ...Object.keys(previousStock)]);
@@ -2913,22 +2924,40 @@ function goHome() {
     const sorted = Array.from(keys).filter(k=> dateRegex.test(k)).sort();
     wrap.innerHTML = '';
     if(sorted.length === 0) return;
-    const label = document.createElement('span');
-    label.style.fontSize = '12px';
-    label.style.color = 'var(--muted)';
-    label.textContent = '저장된 날짜:';
-    wrap.appendChild(label);
-    sorted.forEach(k=>{
+    const months = [...new Set(sorted.map(k => k.slice(0, 7)))].sort().reverse();   // 최신 월이 앞
+    const curMonth = dateRegex.test(currentDateKey || '') ? currentDateKey.slice(0, 7) : months[0];
+    const show = months.includes(savedDatesMonth) ? savedDatesMonth : (months.includes(curMonth) ? curMonth : months[0]);
+    const multiYear = new Set(months.map(m => m.slice(0, 4))).size > 1;
+    const mkLabel = (txt, title) => { const l = document.createElement('span'); l.style.cssText = 'font-size:12px;color:var(--muted);'; l.textContent = txt; if(title) l.title = title; return l; };
+    const line1 = document.createElement('div');
+    line1.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;';
+    line1.appendChild(mkLabel('저장된 날짜:'));
+    months.forEach(m => {
+      const n = sorted.filter(k => k.startsWith(m)).length;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'date-chip' + (m === show ? ' active' : '');
+      b.textContent = `${multiYear ? m.slice(2, 4) + '년 ' : ''}${Number(m.slice(5))}월 (${n})`;
+      b.title = `${m} 저장된 날짜 ${n}일`;
+      b.addEventListener('click', () => { savedDatesMonth = m; renderSavedDatesBar(); });
+      line1.appendChild(b);
+    });
+    wrap.appendChild(line1);
+    const line2 = document.createElement('div');
+    line2.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;';
+    sorted.filter(k => k.startsWith(show)).reverse().forEach(k => {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'date-chip' + (k === currentDateKey ? ' active' : '');
       chip.textContent = k;
-      chip.addEventListener('click', ()=> switchToDateKey(k));
-      wrap.appendChild(chip);
+      chip.addEventListener('click', () => switchToDateKey(k));
+      line2.appendChild(chip);
     });
+    wrap.appendChild(line2);
   }
 
   function switchToDateKey(dateKey){
+    savedDatesMonth = dateKey.slice(0, 7);
     const [y,m,d] = dateKey.split('-');
     document.getElementById('delivery-year').value = y;
     document.getElementById('delivery-month').value = parseInt(m,10);
@@ -7898,7 +7927,7 @@ function goHome() {
   //  - 주문 취합: 대리 신청, 신청 확인/확인 취소, 모든 신청 수정·취소·완전 삭제, 샘플 취합
   //  - 완전 삭제: '취소됨' 상태의 신청만 가능 (주문 취합 / 본인 신청)
   // 수량은 팩 단위로 입력하고, SKU 관리의 박스입수(boxUnitCount)로 박스 수를 자동 환산한다 (1박스 4팩 → 1팩 = 0.25박스).
-  // 생산 공유 연동용: window.getSampleDemand('YYYY-MM-DD', { confirmedOnly }) → { skuId: { packs, boxes, count } } (출고일 기준)
+  // 생산 공유 연동용: window.getSampleDemand('YYYY-MM-DD', { confirmedOnly }) → { skuId: { packs, boxes, count } } (생산일 기준, 생산일 지정이 없으면 출고일)
   const SAMPLE_RANK = { none: 0, view: 1, request: 2, collect: 3 };
   const SAMPLE_SETUP_SQL = `ALTER TABLE users ADD COLUMN IF NOT EXISTS access_sample text NOT NULL DEFAULT 'none';
 CREATE TABLE IF NOT EXISTS sample_requests (
@@ -7923,9 +7952,22 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS requester_dept text;
 ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const SAMPLE_PROD_METHODS = ['생산본부 생산', '연구실 생산'];   // 그 밖의 방식은 '기타(직접 입력)'
+  let sampleDefaultPd = '';   // 새로 추가하는 품목 줄의 기본 생산일 ('' 출고일 당일 / 'prev' 전일)
   let sampleDefaultPm = SAMPLE_PROD_METHODS[0];   // 새로 추가하는 품목 줄의 기본 생산 방식 (일괄 지정 버튼으로 바뀜)
   // 품목 한 줄의 생산 방식: 품목에 지정된 값 → 없으면(예전 신청) 신청 전체의 생산 방식
   const sampleItemPm = (r, it) => (it && it.production_method) || (r && r.production_method) || '';
+  // 품목별 생산일: 지정이 없으면 출고일 당일 생산. 발주취합·집계는 이 생산일 기준으로 샘플을 반영한다 (저장: 품목의 production_date, 'YYYY-MM-DD')
+  const SAMPLE_PROD_DAYS_BACK = 7;   // 생산일은 출고일보다 늦을 수 없고, 최대 이만큼 앞설 수 있음
+  const sampleDayDiff = (a, b) => { const p = k => { const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(a) - p(b)) / 86400000); };
+  const sampleAddDays = (key, n) => { const [y, m, d] = key.split('-').map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`; };
+  const sampleItemProdDay = (r, it) => (it && /^\d{4}-\d{2}-\d{2}$/.test(it.production_date || '')) ? it.production_date : sampleDayKey(r.ship_at);
+  // 출고일과 다른 생산일이면 "생산 11/4(전일)" 같은 글, 같으면 ''
+  function sampleProdDayText(r, it){
+    const pd = sampleItemProdDay(r, it), sd = sampleDayKey(r.ship_at);
+    if(pd === sd) return '';
+    const n = sampleDayDiff(sd, pd);
+    return `생산 ${Number(pd.slice(5, 7))}/${Number(pd.slice(8))}${n === 1 ? '(전일)' : n > 1 ? `(${n}일 전)` : ''}`;
+  }
   const samplePmShort = m => m === '생산본부 생산' ? '생산본부' : m === '연구실 생산' ? '연구실' : (m || '');
   // 생산 방식 필터: '' 전체 / 방식 이름 / '__etc' = 생산본부·연구실 외(미지정 포함)
   const samplePmMatch = (m, pm) => !pm || (pm === '__etc' ? !SAMPLE_PROD_METHODS.includes(m) : m === pm);
@@ -7999,11 +8041,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       sEl('sample-ship-method').addEventListener('change', sampleMethodToggle);
       sEl('sample-bulk-hq').addEventListener('click', () => sampleBulkPm('생산본부 생산'));
       sEl('sample-bulk-lab').addEventListener('click', () => sampleBulkPm('연구실 생산'));
+      sEl('sample-bulk-pd-same').addEventListener('click', () => sampleBulkPd(''));
+      sEl('sample-bulk-pd-prev').addEventListener('click', () => sampleBulkPd('prev'));
       // 대리 신청으로 신청자를 바꾸면 그 직원의 부서를 자동으로 채운다
       sEl('sample-requester-select').addEventListener('change', () => { sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value); });
       sEl('sample-ship-at').addEventListener('input', sampleUpdateWd);
       sEl('sample-ship-at').addEventListener('change', sampleUpdateWd);
-      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '' }); sampleRenderItems(); });
+      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '', pd: sampleDefaultPd, pdDate: '' }); sampleRenderItems(); });
       sEl('sample-submit').addEventListener('click', sampleSubmit);
       sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
       ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
@@ -8023,6 +8067,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // ── 신청 폼 ──
   function sampleMethodToggle(){ sEl('sample-ship-method-etc').style.display = sEl('sample-ship-method').value === '기타' ? '' : 'none'; }
   // 모든 품목 줄의 생산 방식을 한 번에 지정 (새로 추가하는 줄의 기본값도 같이 바뀐다)
+  // 모든 품목 줄의 생산일을 한 번에 지정: '' = 출고일 당일 생산, 'prev' = 출고일 전일 생산(어제 생산분 재고 사용)
+  function sampleBulkPd(pd){
+    sampleDefaultPd = pd;
+    sampleItems.forEach(it => { it.pd = pd; it.pdDate = ''; });
+    sampleRenderItems();
+    toast(pd === 'prev' ? '모든 품목을 출고일 전일 생산으로 지정했습니다' : '모든 품목을 출고일 당일 생산으로 지정했습니다');
+  }
   function sampleBulkPm(method){
     sampleDefaultPm = method;
     sampleItems.forEach(it => { it.pm = method; it.pmEtc = ''; });
@@ -8045,6 +8096,19 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   function sampleUpdateWd(){
     const v = sEl('sample-ship-at').value;
     sEl('sample-ship-wd').textContent = v ? `${sampleWD[new Date(v).getDay()]}요일` : '';
+    sampleUpdatePdHints();
+  }
+  // 품목 줄의 생산일 안내("= 11/4 생산"): 출고일시에 맞춰 계산
+  function sampleUpdatePdHints(){
+    const v = sEl('sample-ship-at').value;
+    const shipDay = v ? sampleDayKey(new Date(v)) : '';
+    document.querySelectorAll('#sample-items .sample-pd-hint').forEach(el => {
+      const it = sampleItems[Number(el.dataset.idx)];
+      if(!it || !shipDay){ el.textContent = ''; return; }
+      if(it.pd === 'prev'){ const d = sampleAddDays(shipDay, -1); el.textContent = `= ${Number(d.slice(5, 7))}/${Number(d.slice(8))} 생산`; }
+      else if(it.pd === 'custom' && it.pdDate){ const n = sampleDayDiff(shipDay, it.pdDate); el.textContent = n < 0 ? '⚠ 출고일보다 늦음' : n > SAMPLE_PROD_DAYS_BACK ? `⚠ 출고 ${SAMPLE_PROD_DAYS_BACK}일 전까지만` : (n === 0 ? '출고일 당일' : `출고 ${n}일 전`); }
+      else el.textContent = '';
+    });
   }
   function sampleFillRequesterSelect(){
     const me = sampleMe(), sel = sEl('sample-requester-select'), fixed = sEl('sample-requester-fixed');
@@ -8057,14 +8121,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sel.style.display = ''; fixed.style.display = 'none';
   }
   function sampleResetForm(){
-    sampleEditId = null; sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '' }];
+    sampleEditId = null; sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '', pd: '', pdDate: '' }];
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
     sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
     sEl('sample-note').value = '';
     sEl('sample-requester-select').value = sampleMe().id || '';
     sEl('sample-dept').value = sampleDeptOf(sampleMe().id);
-    sampleDefaultPm = SAMPLE_PROD_METHODS[0];
+    sampleDefaultPm = SAMPLE_PROD_METHODS[0]; sampleDefaultPd = '';
     sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = 'none'; sEl('sample-cancel-edit').textContent = '수정 취소';
     sEl('sample-form-title').textContent = '샘플 신청';
     sampleRenderItems();
@@ -8082,6 +8146,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       pmEtc.style.display = it.pm === '기타' ? '' : 'none';
       pmSel.addEventListener('change', () => { it.pm = pmSel.value; pmEtc.style.display = it.pm === '기타' ? '' : 'none'; if(it.pm !== '기타') it.pmEtc = ''; });
       pmEtc.addEventListener('input', () => { it.pmEtc = pmEtc.value; });
+      // 생산일: 출고일 당일 / 전일(재고 사용) / 직접 선택
+      const pdSel = document.createElement('select'); pdSel.className = 'sample-pd-sel'; pdSel.title = '샘플을 생산하는 날 (출고일시와 별개). 발주취합·집계에는 이 생산일 기준으로 반영됩니다';
+      pdSel.innerHTML = [['', '출고일 당일 생산'], ['prev', '전일 생산 (재고 사용)'], ['custom', '생산일 직접 선택']].map(([v, t]) => `<option value="${v}" ${(it.pd || '') === v ? 'selected' : ''}>${t}</option>`).join('');
+      const pdDate = document.createElement('input'); pdDate.type = 'date'; pdDate.className = 'sample-pd-date'; pdDate.value = it.pdDate || '';
+      pdDate.style.display = it.pd === 'custom' ? '' : 'none';
+      const pdHint = document.createElement('span'); pdHint.className = 'sample-pd-hint sub'; pdHint.dataset.idx = i; pdHint.style.margin = '0';
+      pdSel.addEventListener('change', () => { it.pd = pdSel.value; pdDate.style.display = it.pd === 'custom' ? '' : 'none'; if(it.pd !== 'custom') it.pdDate = ''; sampleUpdatePdHints(); });
+      pdDate.addEventListener('input', () => { it.pdDate = pdDate.value; sampleUpdatePdHints(); });
+      pdDate.addEventListener('change', () => { it.pdDate = pdDate.value; sampleUpdatePdHints(); });
       const info = document.createElement('span'); info.className = 'sample-box-info';
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '삭제';
       const upd = () => {
@@ -8093,27 +8166,40 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       };
       sel.addEventListener('change', () => { it.skuId = sel.value; upd(); });
       qty.addEventListener('input', () => { it.packs = qty.value; upd(); });
-      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '' }); sampleRenderItems(); });
+      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '', pd: sampleDefaultPd, pdDate: '' }); sampleRenderItems(); });
       upd();
-      row.append(sel, qty, pmSel, pmEtc, info, del); wrap.appendChild(row);
+      row.append(sel, qty, pmSel, pmEtc, pdSel, pdDate, pdHint, info, del); wrap.appendChild(row);
     });
+    sampleUpdatePdHints();
   }
   // 품목 줄 → 저장할 품목 목록. 같은 품목+같은 생산 방식은 수량을 합치고, 방식이 다르면 별도 줄로 둔다.
   // 생산 방식을 '기타'로 하고 내용을 안 적은 줄이 있으면 { error } 를 돌려준다.
   function sampleCollectItems(){
+    const shipVal = sEl('sample-ship-at').value;
+    const shipDay = shipVal ? sampleDayKey(new Date(shipVal)) : '';
     const m = new Map();
     for(const it of sampleItems){
       const p = Number(it.packs);
       if(!(it.skuId && p > 0)) continue;
       const pm = it.pm === '기타' ? (it.pmEtc || '').trim() : (it.pm || SAMPLE_PROD_METHODS[0]);
       if(!pm) return { error: '생산 방식을 입력해주세요 (기타 선택 시 내용 필수)' };
-      const key = it.skuId + '|' + pm;
-      const cur = m.get(key) || { skuId: it.skuId, pm, packs: 0 };
+      // 생산일: 당일이면 저장하지 않음(출고일과 같다는 뜻이라 출고일시를 나중에 바꿔도 맞음), 전일/직접 선택은 날짜로 저장
+      let pdate = '';
+      if(it.pd === 'prev') pdate = sampleAddDays(shipDay, -1);
+      else if(it.pd === 'custom'){
+        pdate = it.pdDate || '';
+        if(!pdate) return { error: '생산일을 선택해주세요 (생산일 직접 선택 시 날짜 필수)' };
+        if(pdate > shipDay) return { error: '생산일은 출고일보다 늦을 수 없습니다' };
+        if(pdate < sampleAddDays(shipDay, -SAMPLE_PROD_DAYS_BACK)) return { error: `생산일은 출고일 ${SAMPLE_PROD_DAYS_BACK}일 전까지만 지정할 수 있습니다` };
+        if(pdate === shipDay) pdate = '';
+      }
+      const key = it.skuId + '|' + pm + '|' + pdate;
+      const cur = m.get(key) || { skuId: it.skuId, pm, pdate, packs: 0 };
       cur.packs += p; m.set(key, cur);
     }
-    return [...m.values()].map(({ skuId, pm, packs }) => {
+    return [...m.values()].map(({ skuId, pm, pdate, packs }) => {
       const u = sampleUnit(skuId), b = u ? packs / u : null;
-      return { skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000, production_method: pm };
+      return Object.assign({ skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000, production_method: pm }, pdate ? { production_date: pdate } : {});
     });
   }
   async function sampleSubmit(){
@@ -8168,11 +8254,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sampleMethodToggle();
     sEl('sample-dept').value = r.requester_dept || '';
     sEl('sample-note').value = r.note || '';
+    const shipDay0 = sampleDayKey(r.ship_at);
     sampleItems = (r.items || []).map(i => {
       const m = sampleItemPm(r, i) || SAMPLE_PROD_METHODS[0];
-      return SAMPLE_PROD_METHODS.includes(m) ? { skuId: i.skuId, packs: i.packs, pm: m, pmEtc: '' } : { skuId: i.skuId, packs: i.packs, pm: '기타', pmEtc: m };
+      const pdk = sampleItemProdDay(r, i);
+      const pdf = pdk === shipDay0 ? { pd: '', pdDate: '' } : (pdk === sampleAddDays(shipDay0, -1) ? { pd: 'prev', pdDate: '' } : { pd: 'custom', pdDate: pdk });
+      return Object.assign(SAMPLE_PROD_METHODS.includes(m) ? { skuId: i.skuId, packs: i.packs, pm: m, pmEtc: '' } : { skuId: i.skuId, packs: i.packs, pm: '기타', pmEtc: m }, pdf);
     });
-    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '' }];
+    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '', pd: '', pdDate: '' }];
     if(sampleItems.length) sampleDefaultPm = sampleItems[0].pm === '기타' ? SAMPLE_PROD_METHODS[0] : sampleItems[0].pm;
     sampleRenderItems();
   }
@@ -8193,6 +8282,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     let d = new Date(orig.getTime()); d.setDate(d.getDate() + 1);
     if(d.getTime() < Date.now()){ d = new Date(); d.setDate(d.getDate() + 1); d.setHours(orig.getHours(), orig.getMinutes(), 0, 0); }
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
+    // 직접 선택한 생산일은 출고일을 옮긴 만큼 같이 옮김 (전일/당일은 출고일에 맞춰 자동)
+    const shiftDays = sampleDayDiff(sampleDayKey(d), sampleDayKey(orig));
+    sampleItems.forEach(it => { if(it.pd === 'custom' && it.pdDate) it.pdDate = sampleAddDays(it.pdDate, shiftDays); });
+    sampleRenderItems();
     sEl('sample-submit').textContent = '신청하기'; sEl('sample-cancel-edit').style.display = ''; sEl('sample-cancel-edit').textContent = '복사 취소';
     sEl('sample-form-title').textContent = '샘플 신청 (복사) — 출고일시를 확인하고 신청하세요';
     sampleShow('form');
@@ -8309,11 +8402,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const samplePmClass = m => m === '생산본부 생산' ? 'pm-hq' : m === '연구실 생산' ? 'pm-lab' : 'pm-etc';
   const samplePmTag = m => m ? `<span class="pm-tag ${samplePmClass(m)}" title="${escapeHtml(m)}">${escapeHtml(samplePmShort(m))}</span>` : '';
   // 생산 방식 열: 품목이 모두 같은 방식이면 태그 하나, 섞여 있으면 품목 줄과 같은 높이로 줄마다 표시
+  const samplePdTag = t => t ? `<span class="pd-tag" title="생산일 (출고일시와 별개)">${escapeHtml(t)}</span>` : '';
   function samplePmCell(r){
     const items = r.items || [];
     const ms = items.map(i => sampleItemPm(r, i));
-    if(new Set(ms).size <= 1) return samplePmTag(ms[0] || r.production_method || '');
-    return ms.map(m => `<div class="pm-line">${samplePmTag(m)}</div>`).join('');
+    const pds = items.map(i => sampleProdDayText(r, i));
+    if(new Set(ms).size <= 1 && !pds.some(Boolean)) return samplePmTag(ms[0] || r.production_method || '');
+    return ms.map((m, k) => `<div class="pm-line">${samplePmTag(m)}${samplePdTag(pds[k])}</div>`).join('');
   }
   function sampleRenderList(){
     const wrap = sEl('sample-list-wrap');
@@ -8373,7 +8468,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const itemsHtml = (r.items || []).map(i => {
         const b = i.boxes != null ? i.boxes : sampleBoxes(i.skuId, i.packs);
         const pmT = sampleItemPm(r, i);
-        return `<li><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` (${sampleFmtNum(b)}박스)` : ''}</b>${pmT ? `<span class="pm-mini ${samplePmClass(pmT)}">${escapeHtml(samplePmShort(pmT))}</span>` : ''}</li>`;
+        const pdT = sampleProdDayText(r, i);
+        return `<li><span>${escapeHtml(sampleSkuName(i.skuId, i.name))}</span><b>${sampleFmtNum(i.packs)}팩${b != null ? ` (${sampleFmtNum(b)}박스)` : ''}</b>${pmT ? `<span class="pm-mini ${samplePmClass(pmT)}">${escapeHtml(samplePmShort(pmT))}</span>` : ''}${pdT ? `<span class="pm-mini pd-mini">${escapeHtml(pdT)}</span>` : ''}</li>`;
       }).join('');
       const card = document.createElement('div');
       card.className = 'sample-card ' + (r.status === '확인' ? 'confirmed' : r.status === '취소' ? 'canceled' : '');
@@ -8396,19 +8492,22 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // ── 샘플 취합 ──
   // rows: 취소 제외 신청 → { bySku: { skuId: { packs, boxes, count, byDay: { 'YYYY-MM-DD': packs } } }, days: [..] }
   function sampleAggregate(rows){
-    const bySku = {}, daySet = new Set();
+    const bySku = {}, daySet = new Set(), prodSet = new Set();
+    let prodDiffers = false;
     rows.forEach(r => {
       const day = sampleDayKey(r.ship_at); daySet.add(day);
       const seen = new Set();
       (r.items || []).forEach(i => {
-        const e = bySku[i.skuId] || (bySku[i.skuId] = { name: sampleSkuName(i.skuId, i.name), packs: 0, boxes: 0, boxMissing: false, count: 0, byDay: {} });
+        const e = bySku[i.skuId] || (bySku[i.skuId] = { name: sampleSkuName(i.skuId, i.name), packs: 0, boxes: 0, boxMissing: false, count: 0, byDay: {}, byProd: {} });
         const p = Number(i.packs) || 0, b = sampleBoxes(i.skuId, p);
         e.packs += p; if(b == null) e.boxMissing = true; else e.boxes += b;
         e.byDay[day] = (e.byDay[day] || 0) + p;
+        const pd = sampleItemProdDay(r, i); prodSet.add(pd); if(pd !== day) prodDiffers = true;
+        e.byProd[pd] = (e.byProd[pd] || 0) + p;
         if(!seen.has(i.skuId)){ seen.add(i.skuId); e.count++; }
       });
     });
-    return { bySku, days: [...daySet].sort() };
+    return { bySku, days: [...daySet].sort(), prodDays: [...prodSet].sort(), prodDiffers };
   }
   function sampleRenderSummary(){
     const wrap = sEl('sample-sum-wrap');
@@ -8458,18 +8557,35 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       html += `<tr><td>${escapeHtml(e.name)}</td>${agg.days.map(d => `<td class="num">${e.byDay[d] ? sampleFmtNum(e.byDay[d]) : ''}</td>`).join('')}<td class="num"><b>${sampleFmtNum(e.packs)}</b></td></tr>`;
     });
     html += `</tbody><tfoot><tr><td>합계</td>${agg.days.map(d => `<td class="num">${sampleFmtNum(ids.reduce((s, id) => s + (agg.bySku[id].byDay[d] || 0), 0))}</td>`).join('')}<td class="num">${sampleFmtNum(totalPacks)}</td></tr></tfoot></table></div>`;
+    // 생산일이 출고일과 다른 품목이 있을 때만: 생산하는 날 기준 수량 (발주취합·집계에는 이 생산일 기준으로 반영)
+    if(agg.prodDiffers){
+      html += '<h3 style="margin-top:18px;">생산일별 (팩) <span class="sub" style="font-weight:400;margin:0;">— 발주취합·집계에는 이 생산일 기준으로 반영됩니다</span></h3><div class="sample-table-wrap"><table class="sample-table"><thead><tr><th>품목</th>' +
+        agg.prodDays.map(d => `<th>${escapeHtml(d.slice(5).replace('-', '/'))}</th>`).join('') + '<th>합계</th></tr></thead><tbody>';
+      ids.forEach(id => {
+        const e = agg.bySku[id];
+        html += `<tr><td>${escapeHtml(e.name)}</td>${agg.prodDays.map(d => `<td class="num">${e.byProd[d] ? sampleFmtNum(e.byProd[d]) : ''}</td>`).join('')}<td class="num"><b>${sampleFmtNum(e.packs)}</b></td></tr>`;
+      });
+      html += `</tbody><tfoot><tr><td>합계</td>${agg.prodDays.map(d => `<td class="num">${sampleFmtNum(ids.reduce((s, id) => s + (agg.bySku[id].byProd[d] || 0), 0))}</td>`).join('')}<td class="num">${sampleFmtNum(totalPacks)}</td></tr></tfoot></table></div>`;
+    }
     if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. 이카운트·기준정보 탭의 SKU 관리에서 박스입수를 입력해주세요.</div>';
     wrap.innerHTML = html;
   }
 
-  // ── 생산 공유 연동용: 출고일(dateKey) 하루의 샘플 수요를 SKU별 팩/박스로 돌려준다 ──
+  // ── 연동용: 생산일(dateKey) 하루의 샘플 ──
+  // 품목마다 생산일(production_date)이 있으면 그날, 없으면 출고일 당일이 생산일. 생산일은 출고일보다 늦을 수 없고 최대 SAMPLE_PROD_DAYS_BACK일 앞서므로
+  // 출고일이 dateKey ~ +7일인 신청(취소 제외)을 읽어 생산일이 dateKey인 품목만 남긴다.
+  async function sampleRowsForProdDay(dateKey, confirmedOnly){
+    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + (SAMPLE_PROD_DAYS_BACK + 1) * 86400000);
+    let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`;
+    if(confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
+    const rows = await sbQuery('sample_requests', q);
+    return rows.map(r => Object.assign({}, r, { items: (r.items || []).filter(i => sampleItemProdDay(r, i) === dateKey) })).filter(r => r.items.length);
+  }
+  //  window.getSampleDemand('YYYY-MM-DD', { confirmedOnly, productionMethod }) → { skuId: { packs, boxes, count } }  (생산일 기준)
   //  opts.confirmedOnly=true 이면 확인 처리된 건만 포함. 취소된 신청은 항상 제외.
   //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식으로 지정된 품목만 포함 (예: 생산 공유에는 '생산본부 생산'만).
   window.getSampleDemand = async function(dateKey, opts){
-    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
-    let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}`;
-    if(opts && opts.confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
-    const rows = await sbQuery('sample_requests', q);
+    const rows = await sampleRowsForProdDay(dateKey, !!(opts && opts.confirmedOnly));
     const out = {};
     rows.forEach(r => (r.items || []).forEach(i => {
       if(opts && opts.productionMethod && sampleItemPm(r, i) !== opts.productionMethod) return;   // 품목별 생산 방식으로 거른다
@@ -8480,12 +8596,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return out;
   };
 
-  // ── 발주취합 연동용: 출고일(dateKey) 하루의 샘플 신청(취소 제외)을 신청 건별로 돌려준다 ──
+  // ── 발주취합 연동용: 생산일(dateKey) 하루의 샘플 신청(취소 제외)을 신청 건별로 돌려준다 ──
   //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식으로 지정된 품목만 남기고, 남는 품목이 없는 신청은 뺀다.
   window.getSampleRequestsForDate = async function(dateKey, opts){
-    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
-    const q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`;
-    const rows = await sbQuery('sample_requests', q);
+    const rows = await sampleRowsForProdDay(dateKey, false);
     return rows.map(r => ({
       id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '',
       items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0 })).filter(i => i.skuId && i.packs > 0)
@@ -12383,7 +12497,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.aggregated.length) lines.push({ text: `3PL 업체 ${r.aggregated.length}곳은 서식의 3PL 출고 행에 합산했습니다: ${r.aggregated.join(', ')}` });
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
       if(r.addedRows && r.addedRows.length) lines.push({ text: `서식에 자리가 없어 행을 추가해 넣었습니다 (소계·합계에 자동 포함): ${r.addedRows.join(', ')}` });
-      if(built.sampleNames.length) lines.push({ text: `샘플 신청(생산본부 생산) ${built.sampleNames.length}건을 서식의 샘플 행에 채웠습니다: ${built.sampleNames.join(', ')}` });
+      if(built.sampleNames.length) lines.push({ text: `샘플 신청(생산본부 생산·생산일 기준) ${built.sampleNames.length}건을 서식의 샘플 행에 채웠습니다: ${built.sampleNames.join(', ')}` });
       if(sampleErr) lines.push({ warn: true, text: `※ 샘플 신청을 불러오지 못해 샘플은 넣지 못했습니다: ${sampleErr}` });
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
