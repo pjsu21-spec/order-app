@@ -845,7 +845,7 @@
     </div>
     <div class="row">
       <button class="btn-primary" id="export-btn">전체 엑셀 다운로드</button>
-      <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 생산본부 발주취합 다운로드</button>
+      <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 발주취합 다운로드</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
       <button class="btn-ghost small-btn" id="po-board-tv-btn" title="TV용 새 창: 로그인 후 현황판만 전체 화면으로 표시하고 10분마다 자동으로 최신 발주를 불러옵니다">TV용 새 창</button>
       <button class="btn-ghost small-btn" id="po-check-btn" title="다운로드 전에, 오늘 주문이 서식에 제대로 들어갈지 미리 점검합니다 (파일은 만들지 않고 아무것도 바꾸지 않습니다)">🩺 서식 점검</button>
@@ -858,7 +858,7 @@
     <details id="po-template-details" style="margin-top:14px;">
       <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">📊 발주취합 서식 (등록 · 교체 · 품목별 열 지정)</summary>
       <div style="margin-top:10px;">
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">생산본부 발주 서식(.xlsx)을 한 번 등록해 두면, 다운로드할 때 그 서식 그대로 납품일 · 전일재고 · 업체별 품목 수량(박스 단위)만 채워서 받습니다. 수량이 없는 업체 행은 숨겨지고, 서식이 바뀌면 새 파일로 교체하세요. 박스입수가 입력된 품목은 박스 수로 자동 계산됩니다.</div></details>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">발주취합 서식(.xlsx)을 한 번 등록해 두면, 다운로드할 때 그 서식 그대로 납품일 · 전일재고 · 업체별 품목 수량(박스 단위)만 채워서 받습니다. 수량이 없는 업체 행은 숨겨지고, 서식이 바뀌면 새 파일로 교체하세요. 박스입수가 입력된 품목은 박스 수로 자동 계산됩니다.</div></details>
         <div class="dropzone" id="production-template-dropzone">
           <div>발주취합 서식(.xlsx)을 여기에 끌어다 놓거나 클릭해서 선택</div>
           <div class="fname" id="production-template-fname"></div>
@@ -3524,7 +3524,7 @@ function goHome() {
       // 박스종류 (종이/스티로폼)
       const boxTypeSelect = document.createElement('select');
       boxTypeSelect.style.maxWidth = '90px';
-      boxTypeSelect.title = '생산본부 발주취합 양식의 박스 구분';
+      boxTypeSelect.title = '발주취합 양식의 박스 구분';
       [['','박스종류'],['종이','종이박스'],['스티로폼','스티로폼']].forEach(([val,label])=>{
         const opt = document.createElement('option');
         opt.value = val; opt.textContent = label;
@@ -10597,7 +10597,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
     return result;
   }
-  // ── 생산본부 발주취합 다운로드: 등록해 둔 서식(엑셀)에 발주 수량을 채워서 내려받음 ──
+  // ── 발주취합 다운로드: 등록해 둔 서식(엑셀)에 발주 수량을 채워서 내려받음 ──
   // 서식의 수식·병합·서식·다른 시트는 그대로 두고 값(납품일, 전일재고, 업체별 품목 수량)과 행 숨김만 바꿔 넣는다.
   // (xlsx 안의 시트 XML을 직접 수정하므로 원본 서식이 깨지지 않음)
   const PO_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -12148,7 +12148,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const det = document.getElementById('po-template-details'); if(det) det.open = true;
       return;
     }
-    toast('생산본부 발주취합 생성 중...');
+    toast('발주취합 생성 중...');
     let savedColMap = null; // 새 품목 열을 끼워 넣은 동안만 열 지정을 바꿔 쓰고 끝나면 되돌림
     try{
       const ctx = await poLoadTemplate(productionTemplateB64);
@@ -12227,7 +12227,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(res.warn.length) lines.push({ warn: true, text: `※ 수식이 들어 있어 값을 쓰지 못한 칸: ${res.warn.join(', ')}` });
       poShowReport(lines);
       const bad = lines.filter(l => l.warn).length;
-      toast(bad ? `다운로드 완료 — 확인이 필요한 항목 ${bad}건이 있습니다 (버튼 아래 안내 참고)` : '✅ 생산본부 발주취합 다운로드 완료');
+      toast(bad ? `다운로드 완료 — 확인이 필요한 항목 ${bad}건이 있습니다 (버튼 아래 안내 참고)` : '✅ 발주취합 다운로드 완료');
     }catch(e){ toast('오류: ' + e.message); console.error(e); }
     finally{ if(savedColMap) skuColumnMap = savedColMap; }
   });
