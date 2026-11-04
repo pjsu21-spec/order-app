@@ -198,7 +198,30 @@
   .co-market{ width:96px; } .co-listed{ width:130px; } .co-disp{ width:96px; } .co-tax{ width:90px; } .co-del{ width:48px; }
   .co-head{ display:flex; gap:8px; align-items:flex-end; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:4px; line-height:1.3; }
   .co-head .co-map{ display:block; font-weight:500; color:var(--accent); }
+  /* 배차 / 적재 입력 */
+  .sp-strip{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .sp-chip{ font-size:12px; padding:3px 10px; border-radius:999px; background:var(--accent-soft); border:1px solid var(--line); }
+  .sp-chip.bad{ background:var(--warn-soft); border-color:var(--warn); color:var(--warn); }
+  .sp-neg{ color:var(--warn); }
+  #ship-plan-table td{ vertical-align:middle; }
+  .sp-stock-btn.sp-has{ color:var(--accent); font-weight:700; }
+  .sp-stock-row{ display:none; }
+  .sp-stock-row.open{ display:table-row; }
+  .sp-stock-row > td{ background:var(--paper); }
+  .sp-grid{ font-size:12px; width:auto; }
   /* 생산 현황판 (TV 표시용) */
+  #po-board .pb-info{ display:flex; gap:20px; align-items:flex-start; margin-bottom:8px; }
+  #po-board .pb-raw{ font-size:22px; font-weight:800; color:#9fe0b0; padding:6px 14px; border:1px solid #2a3858; border-radius:8px; background:#10192e; white-space:nowrap; }
+  .pb-ship{ border-collapse:collapse; font-size:15px; }
+  .pb-ship th, .pb-ship td{ border:1px solid #2a3858; padding:3px 10px; white-space:nowrap; }
+  .pb-ship th{ background:#16233f; color:#bcd0f5; font-weight:700; }
+  .pb-ship td.n{ text-align:right; font-variant-numeric:tabular-nums; font-size:18px; }
+  .pb-ship .pb-sname{ font-weight:800; color:#fff; font-size:17px; }
+  .pb-table .pb-ph{ background:#16233f; color:#fff; font-size:15px; text-align:center; }
+  .pb-table .pb-p{ font-size:14px; color:#d7e3ff; background:#0e1628; text-align:center; white-space:normal; max-width:240px; }
+  .pb-table .pb-pstock{ color:#ffd98a; text-align:left; }
+  .pb-table .pb-pnote{ color:#ffb3a8; text-align:left; }
+  .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
   #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#0b1220; color:#e8eefc; font-family:inherit; }
   #po-board .pb-head{ display:flex; align-items:center; gap:18px; padding:10px 22px; background:#111a2e; border-bottom:1px solid #26334f; flex:0 0 auto; }
   #po-board .pb-title{ font-size:26px; font-weight:800; letter-spacing:.5px; }
@@ -598,6 +621,7 @@
   <nav class="order-sub-nav">
     <button class="order-sub-nav-btn active" data-order-panel="panel-order">📋 발주 입력</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-agg">📊 집계 / 출고</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-plan">🚚 배차 / 적재</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-ship">📨 송장/명세서</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-sales">📈 실적 / 매출</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-settings">⚙️ 설정</button>
@@ -934,6 +958,45 @@
 
   </div><!-- close agg card -->
   </div><!-- /panel-agg -->
+
+  <!-- ───────────── 패널: 배차 / 적재 ───────────── -->
+  <div id="panel-plan" class="order-sub-panel">
+  <div class="card" id="ship-plan-card">
+    <h2>배차 · 적재 · 재고사용 <span class="badge" id="ship-plan-date"></span></h2>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
+      발주가 있는 업체마다 <b>납품담당(기사)</b> · <b>적재방식</b> · <b>재고사용</b> · <b>출고일(당일/명일)</b> · <b>비고</b>를 입력하면 <b>발주취합 파일의 오른쪽 칸과 생산 현황판</b>에 그대로 들어갑니다. 영업·생산 누구나 입력할 수 있고, 칸을 고칠 때마다 바로 저장됩니다(다른 사람이 다른 업체를 동시에 입력해도 서로 덮어쓰지 않습니다). 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.<br>
+      · 비워 둔 칸은 서식에 적혀 있던 값을 그대로 씁니다. 기사·적재방식은 목록에서 고르거나 직접 입력(예: 용차1)할 수 있습니다.<br>
+      · <b>적재방식</b>에 <b>일회용*2</b>, <b>KPP*3</b>처럼 *숫자를 붙이면 배차정보의 파렛트 수량이 그 숫자만큼 계산됩니다. <b>까대기</b>는 까대기 수량으로 계산됩니다.<br>
+      · <b>재고사용</b>은 박스 단위로 입력합니다. 파일의 재고사용 칸에는 "스테비아 13/망고 14"처럼 전일+이틀 전 재고 사용량이 합쳐 들어갑니다. 이틀 전 재고는 <b>발주 입력 → 전일 재고</b> 옆 칸에 입력하세요.<br>
+      · <b>명일</b>을 고르면 비고에 "명일 출고"가 자동으로 적히고 현황판에 표시됩니다. 수량 계산은 오늘 발주 그대로입니다.<br>
+      · 3PL 업체는 파일에서 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 여기서 입력하지 않습니다.
+    </div></details>
+    <div class="row" style="margin-top:0;">
+      <button class="btn-ghost small-btn" id="ship-plan-refresh-btn" title="다른 직원이 입력한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
+      <span id="ship-plan-meta" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+    <div id="ship-plan-stock" class="sp-strip"></div>
+    <div id="ship-plan-body"></div>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">기사 · 적재방식 목록 편집</summary>
+      <div class="row" style="margin-top:8px;">
+        <label style="font-size:13px;">기사 :</label>
+        <input type="text" id="sp-opt-drivers" style="min-width:420px; flex:1;" placeholder="쉼표(,)로 구분">
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <label style="font-size:13px;">적재방식 :</label>
+        <input type="text" id="sp-opt-loads" style="min-width:420px; flex:1;" placeholder="쉼표(,)로 구분">
+      </div>
+      <div class="row">
+        <button class="btn-primary small-btn" id="sp-opt-save">목록 저장</button>
+        <button class="btn-ghost small-btn" id="sp-opt-reset">기본 목록으로</button>
+        <span class="sub" style="margin:0;">저장하면 모든 직원에게 같은 목록이 보입니다.</span>
+      </div>
+    </details>
+    <datalist id="sp-drivers"></datalist>
+    <datalist id="sp-loads"></datalist>
+  </div>
+  </div><!-- /panel-plan -->
 
   <!-- ───────────── 패널: 송장 / 명세서 ───────────── -->
   <div id="panel-ship" class="order-sub-panel">
@@ -2429,6 +2492,7 @@ function goHome() {
     if(!previousStock[currentDateKey]) previousStock[currentDateKey] = { raw: {}, product: {} };
     if(!previousStock[currentDateKey].raw) previousStock[currentDateKey].raw = {};
     if(!previousStock[currentDateKey].product) previousStock[currentDateKey].product = {};
+    if(!previousStock[currentDateKey].product2) previousStock[currentDateKey].product2 = {};   // 이틀 전 재고 (재고사용 배정용)
     return previousStock[currentDateKey];
   }
   function currentRawMaterialUsage(){
@@ -2627,6 +2691,7 @@ function goHome() {
     applyUserUI(); // 관리자 탭 등 로그인 사용자 UI 반영
     renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
     updateRefreshStamp();
+    spLoad(currentDateKey, true); // 배차·적재·재고사용 입력값도 서버에서 최신으로
   }
 
   // 최신 내용 불러오기: 다른 직원이 입력·수정한 공용 데이터를 서버에서 다시 읽어 화면을 갱신
@@ -2764,6 +2829,7 @@ function goHome() {
   // unless something was actually removed; a manual run always reports the result.
   function cleanupOldData(auto){
     const cutoff = getRetentionCutoffKey();
+    spCleanup(cutoff);
     const allDateKeys = new Set([
       ...Object.keys(ordersByDate),
       ...Object.keys(thirdPartyLineItems),
@@ -2800,6 +2866,14 @@ function goHome() {
 
     const msg = `${cutoff} 이전 날짜 ${toRemove.length}일치 데이터를 정리했습니다`;
     toast(msg);
+  }
+
+  // 보관 기간이 지난 날짜의 배차·적재 입력값('ship-plan-날짜')을 서버에서 지움
+  async function spCleanup(cutoff){
+    try{
+      const r = await window.storage.list('ship-plan-', true);
+      (r.keys || []).forEach(k => { const m = /^ship-plan-(\d{4}-\d{2}-\d{2})$/.exec(k); if(m && m[1] < cutoff && m[1] !== currentDateKey) window.storage.delete(k, true).catch(() => {}); });
+    }catch(e){ /* 정리는 다음 기회에 */ }
   }
 
   function addCompanyIfNew(name){
@@ -4019,6 +4093,10 @@ function goHome() {
       return;
     }
     const stock = currentPreviousStock();
+    const hint = document.createElement('div');
+    hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
+    hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. <b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요 (배차 / 적재 탭에서 재고사용을 배정할 때 쓰이며, 이 수량 자체는 파일에 넣지 않습니다).';
+    wrap.appendChild(hint);
     dict.forEach(item=>{
       const row = document.createElement('div');
       row.className = 'dict-row';
@@ -4029,43 +4107,47 @@ function goHome() {
       nameSpan.textContent = item.name;
       row.appendChild(nameSpan);
 
-      const qtyInput = document.createElement('input');
-      qtyInput.type = 'number';
-      qtyInput.style.width = '90px';
-      qtyInput.placeholder = '전일 재고(개)';
-      qtyInput.value = stock.product[item.id] ?? '';
-
-      const boxSpan = document.createElement('span');
-      boxSpan.style.fontSize = '11.5px';
-      boxSpan.style.color = 'var(--accent)';
-      boxSpan.style.minWidth = '90px';
-      const updateBoxSpan = (val)=>{
-        const breakdown = formatBoxBreakdown(val, item.boxUnitCount);
-        boxSpan.textContent = breakdown ? `= ${breakdown}` : (item.boxUnitCount ? '' : '(박스입수 미설정)');
+      // 전일 재고 / 이틀 전 재고 (둘 다 개(팩) 단위로 저장, 옆에 박스 환산 표시)
+      const mkStock = (store, ph) => {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.style.width = '90px';
+        input.placeholder = ph;
+        input.value = store[item.id] ?? '';
+        const span = document.createElement('span');
+        span.style.fontSize = '11.5px';
+        span.style.color = 'var(--accent)';
+        span.style.minWidth = '90px';
+        const upd = (val)=>{
+          const breakdown = formatBoxBreakdown(val, item.boxUnitCount);
+          span.textContent = breakdown ? `= ${breakdown}` : (item.boxUnitCount ? '' : '(박스입수 미설정)');
+        };
+        upd(store[item.id] ?? 0);
+        input.addEventListener('input', (e)=>{ upd(e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0)); });
+        input.addEventListener('change', (e)=>{
+          store[item.id] = e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0);
+          savePreviousStock();
+          renderAggTable();
+        });
+        return { input, span, upd };
       };
-      updateBoxSpan(stock.product[item.id] ?? 0);
-
-      qtyInput.addEventListener('input', (e)=>{
-        const v = e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0);
-        updateBoxSpan(v);
-      });
-      qtyInput.addEventListener('change', (e)=>{
-        stock.product[item.id] = e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0);
-        savePreviousStock();
-        renderAggTable();
-      });
-      row.appendChild(qtyInput);
-      row.appendChild(boxSpan);
+      const s1 = mkStock(stock.product, '전일 재고(개)');
+      const s2 = mkStock(stock.product2, '이틀 전 재고(개)');
+      row.appendChild(s1.input);
+      row.appendChild(s1.span);
+      row.appendChild(s2.input);
+      row.appendChild(s2.span);
 
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-ghost small-btn';
       clearBtn.textContent = '지우기';
-      clearBtn.title = '이 품목의 재고 수량만 지웁니다 (품목 자체는 삭제되지 않습니다)';
+      clearBtn.title = '이 품목의 전일·이틀 전 재고 수량만 지웁니다 (품목 자체는 삭제되지 않습니다)';
       clearBtn.addEventListener('click', ()=>{
         delete stock.product[item.id];
+        delete stock.product2[item.id];
         savePreviousStock();
-        qtyInput.value = '';
-        updateBoxSpan(0);
+        s1.input.value = ''; s2.input.value = '';
+        s1.upd(0); s2.upd(0);
         renderAggTable();
       });
       row.appendChild(clearBtn);
@@ -4852,6 +4934,7 @@ function goHome() {
   }
 
   function renderAggTable(){
+    try{ renderShipPlan(); }catch(e){ console.error(e); }
     renderUnmatchedAlert();
     renderDispatchList();
     const wrap = document.getElementById('agg-table-wrap');
@@ -11265,6 +11348,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(stockUseCol) poClear(ctx, stockUseCol + r.row);
     });
     const used = new Set();
+    const pc = poPanelCols(ctx);
+    rep.planApplied = []; rep.planSkipped = [];
     const usedCols = new Set(Object.keys(input.stockByCol || {}).filter(c => input.stockByCol[c] > 0)); // 수량이나 재고가 있는 품목 열
     assigned.forEach((list, row) => {
       const sum = {};
@@ -11281,6 +11366,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         const v = Math.round(q * 100) / 100;
         if(v > 0){ usedCols.add(col); if(!poSetNum(ctx, col + row, v)) warn.push(`${col}${row}`); }
       });
+      // 배차·적재·재고사용 입력값 (납품담당·적재방식·재고사용·비고 칸). 3PL처럼 여러 업체가 합쳐진 줄은 제외
+      const pe = input.plan && list.length === 1 ? input.plan[list[0].name] : null;
+      if(pe && (pe.driver || pe.load || pe.stockText || pe.note)){
+        const sk = poApplyPlan(ctx, pc, row, pe);
+        rep.planApplied.push(list[0].name);
+        if(sk.length) rep.planSkipped.push(`${list[0].name}(${sk.join('·')})`);
+      }
       used.add(row);
     });
     // 3) 전일재고(G열): 같은 행의 '출고 후 재고' 수식이 가리키는 품목 열의 재고를 합산
@@ -11335,6 +11427,32 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }
     rep.usedCols = usedCols;
     return { rep, warn, scan };
+  }
+
+  // 서식 오른쪽 패널 열: 납품담당·적재방식·재고사용·비고 (머리글 글자로 찾음)
+  function poPanelCols(ctx){
+    const Y = poLayout(ctx), out = { driver: '', load: '', stock: '', note: '' };
+    const names = { '납품담당': 'driver', '적재방식': 'load', '재고사용': 'stock', '비고': 'note' };
+    for(let r = Y.blockStart; r <= Y.blockEnd + 1 && !out.driver; r++){
+      for(let n = Y.lastCol + 1; n <= Y.lastCol + 16; n++){
+        const k = names[poNorm(poText(ctx, colLetter(n - 1) + r))];
+        if(k && !out[k]) out[k] = colLetter(n - 1);
+      }
+    }
+    return out;
+  }
+  // 한 업체 행의 납품담당·적재방식·재고사용·비고를 입력값으로 채움. 위아래로 합쳐진 칸은 첫 줄(대표 칸)에만 쓸 수 있어, 그 밖의 줄은 건너뛰고 돌려줌
+  // 값이 비어 있으면 서식에 적혀 있던 내용을 그대로 둠 (재고사용만 이전 값을 지우고 새로 씀)
+  function poApplyPlan(ctx, pc, row, pe){
+    const skipped = [];
+    const put = (col, text, label) => {
+      if(!col || !text) return;
+      const addr = col + row, mm = ctx.mergeMaster.get(addr);
+      if(mm && mm !== addr){ skipped.push(label); return; }
+      poSetStr(ctx, addr, text);
+    };
+    put(pc.driver, pe.driver, '납품담당'); put(pc.load, pe.load, '적재방식'); put(pc.stock, pe.stockText, '재고사용'); put(pc.note, pe.note, '비고');
+    return skipped;
   }
 
   // 서식의 쿠팡 블록(업체명·구분(창고)·출고일 칸이 있는 표)에 출고일별 수량을 채움.
@@ -12086,8 +12204,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const saved = skuColumnMap;
     try{
       skuColumnMap = colMapU;
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
+      await spLoad(dateKey, true);
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey) });
       const r = res.rep;
+      if(r.planSkipped && r.planSkipped.length) add('warn', '합쳐진 칸에 못 넣는 배차·적재 항목', `${r.planSkipped.join(', ')} — 서식에서 위아래로 합쳐진 칸은 첫 줄 업체에만 들어갑니다`);
+      if(r.planApplied && r.planApplied.length) add('info', '배차·적재·재고사용 반영', `입력된 ${r.planApplied.length}곳을 서식 오른쪽 칸에 채웁니다`);
       if(r.unregistered && r.unregistered.length) add('err', '거래처 관리에 없는 업체', `${r.unregistered.join(', ')} — 거래처 관리에서 같은 이름으로 등록하고 "발주 구분"을 선택해주세요. 안 하면 이 업체 수량이 빠집니다`);
       if(r.noCategory && r.noCategory.length) add('err', '발주 구분이 비어 있는 거래처', `${r.noCategory.join(', ')} — 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요. 안 하면 이 업체 수량이 빠집니다`);
       const unp = r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n));
@@ -12182,7 +12303,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
       const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
+      await spLoad(dateKey, true); // 다른 직원이 입력한 배차·적재·재고사용 최신값
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey) });
       const logos = await poReplaceLogos(ctx);
       const relabeled = poRelabelHeaders(ctx, res.rep.usedCols);
       const groupOverride = {};
@@ -12212,6 +12334,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
+      if(r.planApplied && r.planApplied.length) lines.push({ text: `배차·적재·재고사용 입력 ${r.planApplied.length}곳을 서식 오른쪽 칸(납품담당·적재방식·재고사용·비고)에 채웠습니다` });
+      if(r.planSkipped && r.planSkipped.length) lines.push({ warn: true, text: `※ 서식에서 위아래로 합쳐진 칸이라 넣지 못한 배차·적재 항목: ${r.planSkipped.join(', ')} → 합쳐진 칸의 첫 줄 업체에만 들어갑니다. 서식의 병합을 풀거나 직접 입력해주세요` });
       if(r.unregistered && r.unregistered.length) lines.push({ warn: true, text: `※ 거래처 관리에 등록되지 않아 서식에 못 넣은 업체: ${r.unregistered.join(', ')} → 거래처 관리에서 같은 이름으로 등록하고 "발주 구분"을 선택해주세요` });
       if(r.noCategory && r.noCategory.length) lines.push({ warn: true, text: `※ 발주 구분이 비어 있어 서식에 못 넣은 업체: ${r.noCategory.join(', ')} → 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요` });
       if(r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n)).length) lines.push({ warn: true, text: `※ 서식에 넣을 자리가 없어 빠진 업체: ${r.unplaced.filter(n => !(r.noCategory || []).includes(n) && !(r.unregistered || []).includes(n)).join(', ')} → 서식에 행을 추가한 뒤 다시 등록해주세요` });
@@ -12620,12 +12744,362 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // confirm-btn (발주 확정), upload-apply-btn (업로드) 등에 로그 추가
   const _origLoadState = loadState;
 
+  // ══════════════════ 배차 · 적재 · 재고사용 (납품일별 입력) ══════════════════
+  // 영업·생산 누구나 업체별로 납품담당(기사)·적재방식·재고사용(품목별 박스)·출고일(당일/명일)·비고를 입력하면
+  // 발주취합 파일의 오른쪽 칸(납품담당·적재방식·재고사용·비고)과 생산 현황판에 반영된다.
+  // 저장: 납품일마다 따로('ship-plan-날짜'). 칸을 고칠 때마다 서버의 최신 값을 읽어 그 업체 한 줄만 바꿔 저장하므로
+  // 다른 사람이 동시에 다른 업체를 입력해도 서로 덮어쓰지 않는다. (이틀 전 재고는 previousStock[날짜].product2 에 팩 단위로 저장)
+  const SP_DEFAULT_OPTS = {
+    drivers: ['박근환', '신영기', '민현기', '이상현', '김호철', '송창회', '이종명', '곽용섭', '배차1', '배차2', '배차3', '배차4', '직접배차', '직접픽업'],
+    loads: ['까대기', '일회용', '일회용*2', '일회용*3', 'KPP', 'KPP*2', 'KPP*3', 'KPP*4', 'KPP*5', 'KPP*6'],
+  };
+  let shipPlanOpts = { drivers: SP_DEFAULT_OPTS.drivers.slice(), loads: SP_DEFAULT_OPTS.loads.slice() };
+  let spOptsLoaded = false;
+  const shipPlanCache = {};    // { 'YYYY-MM-DD': { rows: { 업체명: { driver, load, stock: { 품목id: { d1, d2 } }, next, note, by, at } } } }
+  const spLoading = {};
+  let spQueue = Promise.resolve();
+  const spWho = () => { const u = window.currentUser; return (u && (u.display_name || u.username)) || getStaffName() || ''; };
+  const spRound = v => Math.round((Number(v) || 0) * 100) / 100;
+  const spUnit = d => Number(d.boxUnitCount) || 0;
+  const spBox = (d, packs) => spUnit(d) > 0 ? spRound(packs / spUnit(d)) : spRound(packs);
+  const spUnitLabel = d => spUnit(d) > 0 ? '박스' : '팩';
+  const spHM = t => { const x = new Date(t); return `${pad2(x.getHours())}:${pad2(x.getMinutes())}`; };
+
+  // 재고사용 글에 쓰는 품목 이름: 투맛토(스테비아) → 스테비아, 투맛토(망고향) → 망고, 150g 같은 다른 용량은 용량을 붙임
+  function spStockLabel(d){
+    const m = String(d.name || '').match(/\(([^)]+)\)/) || String(d.shortName || '').match(/\(([^)]+)\)/);
+    let base = m ? m[1].replace(/향$/, '').trim() : String(d.shortName || d.name || '').trim();
+    const w = poItemWeight(d);
+    if(m && w && w !== 500) base += w + 'g';
+    return base;
+  }
+  function spRowEmpty(r){
+    return !(r.driver || r.load || r.note || r.next || (r.stock && Object.keys(r.stock).length));
+  }
+  function spSummary(r){
+    if(!r || !r.stock) return '';
+    return dict.filter(d => r.stock[d.id]).map(d => { const q = r.stock[d.id]; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); return t > 0 ? `${spStockLabel(d)} ${t}` : ''; }).filter(Boolean).join(' / ');
+  }
+
+  // 불러오기: 해당 날짜의 입력값(+ 기사·적재방식 목록)을 서버에서 읽음
+  async function spLoad(dk, force){
+    if(!dk) return;
+    if(spLoading[dk]) return spLoading[dk];
+    if(shipPlanCache[dk] && !force) return;
+    spLoading[dk] = (async () => {
+      try{
+        if(!spOptsLoaded || force){
+          try{
+            const o = await window.storage.get('ship-plan-options', true);
+            if(o && o.value){ const v = JSON.parse(o.value); if(Array.isArray(v.drivers) && v.drivers.length) shipPlanOpts.drivers = v.drivers; if(Array.isArray(v.loads) && v.loads.length) shipPlanOpts.loads = v.loads; }
+            spOptsLoaded = true;
+          }catch(e){ /* 기본 목록 사용 */ }
+        }
+        const r = await window.storage.get('ship-plan-' + dk, true);
+        let doc = { rows: {} };
+        if(r && r.value){ try{ doc = JSON.parse(r.value) || doc; }catch(e){ /* 빈 값 */ } }
+        if(!doc.rows) doc.rows = {};
+        shipPlanCache[dk] = doc;
+      }catch(e){
+        if(!shipPlanCache[dk]) shipPlanCache[dk] = { rows: {}, error: true };
+      }finally{ delete spLoading[dk]; }
+      if(dk === currentDateKey) renderShipPlan();
+    })();
+    return spLoading[dk];
+  }
+
+  // 저장: 서버의 최신 값을 읽어 그 업체 한 줄만 바꿔 쓴다 (읽기에 실패하면 저장하지 않음 → 오래된 화면으로 덮어쓰는 일 방지)
+  function spUpdate(dk, key, mut){
+    const job = spQueue.then(async () => {
+      const k = 'ship-plan-' + dk;
+      let doc = { rows: {} };
+      const r = await window.storage.get(k, true);
+      if(r && r.value){ try{ doc = JSON.parse(r.value) || doc; }catch(e){ /* 깨진 값은 새로 시작 */ } }
+      if(!doc.rows) doc.rows = {};
+      const row = doc.rows[key] ? JSON.parse(JSON.stringify(doc.rows[key])) : {};
+      mut(row);
+      row.by = spWho(); row.at = Date.now();
+      if(spRowEmpty(row)) delete doc.rows[key]; else doc.rows[key] = row;
+      await window.storage.set(k, JSON.stringify(doc), true);
+      shipPlanCache[dk] = doc;
+      return doc;
+    });
+    spQueue = job.catch(() => {});
+    return job;
+  }
+  function spCommit(dk, key, mut, after){
+    const meta = document.getElementById('ship-plan-meta');
+    if(meta){ meta.textContent = '저장 중…'; meta.style.color = 'var(--muted)'; }
+    return spUpdate(dk, key, mut).then(doc => {
+      if(meta){ meta.textContent = `저장됨 ${spHM(Date.now())}`; meta.style.color = 'var(--accent)'; }
+      if(after) after(doc);
+      return true;
+    }).catch(e => {
+      if(meta){ meta.textContent = '⚠ 저장 실패 — 인터넷 연결을 확인하고 다시 입력해주세요'; meta.style.color = 'var(--danger,#c0392b)'; }
+      toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요');
+      return false;
+    });
+  }
+
+  // 입력 대상 업체: 그날 발주가 있는 업체 (3PL은 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 제외)
+  function spCompanies(dk){
+    const orders = ordersByDate[dk] || {};
+    const disp = new Set((dispatchByDate[dk] || []).map(e => e.company));
+    const total = n => dict.reduce((s, d) => s + spBox(d, Number((orders[n] || {})[d.id]) || 0), 0);
+    const idx = new Map(companies.map((c, i) => [c.name, i]));
+    return Object.keys(orders).filter(n => n !== '_meta' && !disp.has(n))
+      .map(n => ({ name: n, meta: companies.find(c => c.name === n) || null, total: spRound(total(n)) }))
+      .filter(x => !(x.meta && x.meta.isThirdParty) && x.total > 0)
+      .sort((a, b) => (idx.has(a.name) ? idx.get(a.name) : 1e6) - (idx.has(b.name) ? idx.get(b.name) : 1e6));
+  }
+  // 품목별 재고 현황: 전일/이틀 전 재고(박스)와 재고사용으로 쓴 양, 남은 양
+  function spStockState(dk){
+    const st = previousStock[dk] || {}, p1 = st.product || {}, p2 = st.product2 || {};
+    const used = {};
+    Object.values((shipPlanCache[dk] || {}).rows || {}).forEach(r => Object.entries(r.stock || {}).forEach(([id, q]) => {
+      const u = used[id] = used[id] || { d1: 0, d2: 0 };
+      u.d1 += Number(q.d1) || 0; u.d2 += Number(q.d2) || 0;
+    }));
+    return dict.filter(d => Number(p1[d.id]) > 0 || Number(p2[d.id]) > 0 || used[d.id]).map(d => {
+      const u = used[d.id] || { d1: 0, d2: 0 };
+      return { d, unit: spUnitLabel(d), a1: spBox(d, Number(p1[d.id]) || 0), a2: spBox(d, Number(p2[d.id]) || 0), u1: spRound(u.d1), u2: spRound(u.d2) };
+    });
+  }
+  function spFillOptionLists(){
+    const fill = (id, arr) => { const el = document.getElementById(id); if(!el) return; el.innerHTML = ''; arr.forEach(v => { const o = document.createElement('option'); o.value = v; el.appendChild(o); }); };
+    fill('sp-drivers', shipPlanOpts.drivers); fill('sp-loads', shipPlanOpts.loads);
+    const di = document.getElementById('sp-opt-drivers'), li = document.getElementById('sp-opt-loads');
+    if(di && document.activeElement !== di) di.value = shipPlanOpts.drivers.join(', ');
+    if(li && document.activeElement !== li) li.value = shipPlanOpts.loads.join(', ');
+  }
+  // 재고 현황 띠 + 열려 있는 재고사용 입력창의 '남은 재고' 문구를 다시 계산
+  function spRefreshStock(){
+    const dk = currentDateKey, strip = document.getElementById('ship-plan-stock');
+    if(!strip) return;
+    const state = spStockState(dk);
+    const left = (a, u) => spRound(a - u);
+    strip.innerHTML = state.length
+      ? state.map(s => {
+          const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2), bad = l1 < 0 || l2 < 0;
+          const part = (lbl, a, u, l) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${u} → 남음 ${l})` : ''}` : '';
+          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(s.d))}</b>${part('전일', s.a1, s.u1, l1)}${part('이틀전', s.a2, s.u2, l2)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
+        }).join('')
+      : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다. <b>발주 입력 → 전일 재고 / 원물사용량 입력</b>에서 먼저 입력하면 여기서 재고사용을 배정할 수 있습니다.</span>';
+    const byId = new Map(state.map(s => [s.d.id, s]));
+    document.querySelectorAll('#ship-plan-body .sp-avail').forEach(el => {
+      const s = byId.get(el.dataset.id); if(!s){ el.textContent = ''; return; }
+      const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2);
+      el.innerHTML = `전일 남음 <b class="${l1 < 0 ? 'sp-neg' : ''}">${l1}</b> / ${s.a1}${s.unit}` + (s.a2 > 0 || s.u2 ? ` · 이틀전 남음 <b class="${l2 < 0 ? 'sp-neg' : ''}">${l2}</b> / ${s.a2}${s.unit}` : '');
+    });
+    const doc = shipPlanCache[dk] || { rows: {} };
+    document.querySelectorAll('#ship-plan-body tr[data-company]').forEach(tr => {
+      const btn = tr.querySelector('.sp-stock-btn'); if(!btn) return;
+      const t = spSummary(doc.rows[tr.dataset.company]);
+      btn.textContent = t || '＋ 재고사용 입력';
+      btn.classList.toggle('sp-has', !!t);
+    });
+  }
+
+  function renderShipPlan(){
+    const body = document.getElementById('ship-plan-body');
+    if(!body) return;
+    const dk = currentDateKey;
+    const dateEl = document.getElementById('ship-plan-date');
+    if(dateEl) dateEl.textContent = dk ? `납품일: ${dk}` : '';
+    spFillOptionLists();
+    if(!dk){ body.innerHTML = ''; return; }
+    if(!shipPlanCache[dk]){ body.innerHTML = '<div class="empty">불러오는 중…</div>'; spLoad(dk); return; }
+    const doc = shipPlanCache[dk];
+    const openKeys = new Set([...body.querySelectorAll('tr.sp-stock-row.open')].map(tr => tr.dataset.for));
+    body.innerHTML = '';
+    if(doc.error){
+      const w = document.createElement('div');
+      w.className = 'sub'; w.style.cssText = 'color:var(--danger,#c0392b);font-weight:700;margin:0 0 8px;';
+      w.textContent = '⚠ 저장된 입력값을 불러오지 못했습니다. 인터넷 연결을 확인하고 위의 [새로고침]을 눌러주세요.';
+      body.appendChild(w);
+    }
+    const list = spCompanies(dk);
+    const n3 = Object.keys(ordersByDate[dk] || {}).filter(n => { const m = companies.find(c => c.name === n); return n !== '_meta' && m && m.isThirdParty; }).length;
+    if(!list.length){
+      const e = document.createElement('div');
+      e.className = 'empty'; e.textContent = '이 납품일에는 입력할 업체가 없습니다. (발주 입력에서 발주를 확정하면 업체가 여기에 나타납니다)';
+      body.appendChild(e);
+      spRefreshStock();
+      return;
+    }
+    const table = document.createElement('table');
+    table.id = 'ship-plan-table';
+    table.innerHTML = '<thead><tr><th class="name-cell">업체명</th><th>납품담당</th><th>적재방식</th><th>재고사용</th><th>출고일</th><th>비고</th><th>마지막 입력</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    list.forEach(({ name, meta, total }) => {
+      const r = doc.rows[name] || {};
+      const tr = document.createElement('tr');
+      tr.dataset.company = name;
+      const tdName = document.createElement('td');
+      tdName.className = 'name-cell';
+      tdName.innerHTML = `${escapeHtml(name)}<div class="sub" style="margin:0;font-size:10.5px;">${escapeHtml([meta && meta.category, meta && meta.region, total + '박스'].filter(Boolean).join(' · '))}</div>`;
+      tr.appendChild(tdName);
+
+      const mkInput = (list, val, ph, w, field) => {
+        const td = document.createElement('td'), inp = document.createElement('input');
+        inp.type = 'text'; if(list) inp.setAttribute('list', list);
+        inp.value = val || ''; inp.placeholder = ph; inp.style.width = w;
+        inp.addEventListener('change', () => { const v = inp.value.trim(); spCommit(dk, name, row => { if(v) row[field] = v; else delete row[field]; }, after); });
+        td.appendChild(inp); return td;
+      };
+      const stamp = document.createElement('td');
+      stamp.style.cssText = 'font-size:11px;color:var(--muted);white-space:nowrap;';
+      const setStamp = rr => { stamp.textContent = rr && rr.at ? `${rr.by || ''} ${spHM(rr.at)}`.trim() : ''; };
+      const after = d => { setStamp((d.rows || {})[name]); spRefreshStock(); };
+      setStamp(r);
+      tr.appendChild(mkInput('sp-drivers', r.driver, '서식 기본값', '110px', 'driver'));
+      tr.appendChild(mkInput('sp-loads', r.load, '서식 기본값', '100px', 'load'));
+
+      const tdStock = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn-ghost small-btn sp-stock-btn';
+      tdStock.appendChild(btn); tr.appendChild(tdStock);
+
+      const tdNext = document.createElement('td'), sel = document.createElement('select');
+      [['', '당일'], ['1', '명일']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; if((r.next ? '1' : '') === v) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { const on = sel.value === '1'; spCommit(dk, name, row => { if(on) row.next = true; else delete row.next; }, after); sel.style.color = on ? 'var(--accent)' : ''; });
+      sel.style.color = r.next ? 'var(--accent)' : '';
+      tdNext.appendChild(sel); tr.appendChild(tdNext);
+
+      tr.appendChild(mkInput('', r.note, '예: 직접 픽업', '170px', 'note'));
+      tr.appendChild(stamp);
+      tbody.appendChild(tr);
+
+      // 재고사용 입력창 (펼침 줄)
+      const sr = document.createElement('tr');
+      sr.className = 'sp-stock-row' + (openKeys.has(name) ? ' open' : ''); sr.dataset.for = name;
+      const sd = document.createElement('td');
+      sd.colSpan = 7;
+      const items = spStockState(dk).map(s => s.d).filter(d => true);
+      if(!items.length){
+        sd.innerHTML = '<div class="sub" style="margin:0;">입력된 재고가 없습니다. <b>발주 입력 → 전일 재고 / 원물사용량 입력</b>에서 전일·이틀 전 재고를 먼저 입력해주세요.</div>';
+      } else {
+        const g = document.createElement('table');
+        g.className = 'sp-grid';
+        g.innerHTML = '<thead><tr><th>품목</th><th>전일 재고 사용</th><th>이틀 전 재고 사용</th><th>남은 재고</th></tr></thead>';
+        const gb = document.createElement('tbody');
+        items.forEach(d => {
+          const q = (r.stock || {})[d.id] || {};
+          const gr = document.createElement('tr');
+          gr.innerHTML = `<td>${escapeHtml(spStockLabel(d))}<span class="sub" style="margin:0 0 0 4px;">(${escapeHtml(spUnitLabel(d))})</span></td><td></td><td></td><td class="sp-avail" data-id="${escapeHtml(d.id)}"></td>`;
+          const mk = (cell, field) => {
+            const inp = document.createElement('input');
+            inp.type = 'number'; inp.min = '0'; inp.step = 'any'; inp.style.width = '80px'; inp.placeholder = '0';
+            inp.value = q[field] > 0 ? q[field] : '';
+            inp.addEventListener('change', () => {
+              const v = Math.max(0, spRound(parseFloat(inp.value) || 0));
+              spCommit(dk, name, row => {
+                row.stock = row.stock || {};
+                const cur = row.stock[d.id] || {};
+                cur[field] = v;
+                if(!(cur.d1 > 0) && !(cur.d2 > 0)) delete row.stock[d.id]; else { cur.d1 = cur.d1 || 0; cur.d2 = cur.d2 || 0; row.stock[d.id] = cur; }
+                if(!Object.keys(row.stock).length) delete row.stock;
+              }, after);
+            });
+            gr.children[cell].appendChild(inp);
+          };
+          mk(1, 'd1'); mk(2, 'd2');
+          gb.appendChild(gr);
+        });
+        g.appendChild(gb);
+        sd.appendChild(g);
+      }
+      sr.appendChild(sd);
+      tbody.appendChild(sr);
+      btn.addEventListener('click', () => sr.classList.toggle('open'));
+    });
+    table.appendChild(tbody);
+    const wrap = document.createElement('div');
+    wrap.className = 'tbl-scroll'; wrap.appendChild(table);
+    body.appendChild(wrap);
+    if(n3){
+      const n = document.createElement('div');
+      n.className = 'sub'; n.style.margin = '6px 0 0';
+      n.textContent = `※ 3PL 업체 ${n3}곳은 발주취합 파일에서 한 줄로 합쳐지므로 여기서 입력하지 않습니다.`;
+      body.appendChild(n);
+    }
+    spRefreshStock();
+  }
+
+  // 파일·현황판에 넣을 값: { 업체명: { driver, load, stockText, note, next } }
+  function spPlanForFill(dk){
+    const doc = shipPlanCache[dk];
+    const out = {};
+    Object.entries((doc && doc.rows) || {}).forEach(([name, r]) => {
+      const parts = [];
+      dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
+      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('/'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
+    });
+    return out;
+  }
+
+  (function wireShipPlan(){
+    const $ = id => document.getElementById(id);
+    if(!$('ship-plan-card')) return;
+    $('ship-plan-refresh-btn').addEventListener('click', async () => {
+      const b = $('ship-plan-refresh-btn'); b.disabled = true;
+      try{ delete shipPlanCache[currentDateKey]; await spLoad(currentDateKey, true); toast('최신 입력 내용을 불러왔습니다'); }
+      finally{ b.disabled = false; }
+    });
+    $('sp-opt-save').addEventListener('click', async () => {
+      const split = s => [...new Set(String(s).split(/[,\n]/).map(x => x.trim()).filter(Boolean))];
+      const drivers = split($('sp-opt-drivers').value), loads = split($('sp-opt-loads').value);
+      if(!drivers.length || !loads.length){ toast('기사와 적재방식을 한 개 이상 입력해주세요'); return; }
+      try{ await window.storage.set('ship-plan-options', JSON.stringify({ drivers, loads }), true); shipPlanOpts = { drivers, loads }; spFillOptionLists(); toast('목록을 저장했습니다'); }
+      catch(e){ toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+    });
+    $('sp-opt-reset').addEventListener('click', () => { $('sp-opt-drivers').value = SP_DEFAULT_OPTS.drivers.join(', '); $('sp-opt-loads').value = SP_DEFAULT_OPTS.loads.join(', '); });
+  })();
+
   // ── 생산 현황판: 발주취합 파일에 들어가는 내용을 화면 표로 보여줌 (TV 상시 표시용, 10분마다 자동 새로고침) ──
   // 발주취합 다운로드와 같은 방식으로 서식에 채워 보고(파일은 만들지 않음) 채워진 서식에서 업체 행·품목 열·수량을 읽어 표로 만든다.
+  // 칸의 저장된 글자 (병합된 칸도 그 칸 자신의 값만: 엑셀의 COUNTIFS·SUMIFS가 보는 값과 같음)
+  function poRawText(ctx, addr){
+    const c = ctx.cells.get(addr);
+    if(!c) return '';
+    const t = c.getAttribute('t');
+    if(t === 'inlineStr') return c.textContent || '';
+    const v = [...c.childNodes].find(x => x.localName === 'v');
+    if(!v) return '';
+    if(t === 's') return ctx.sst[+v.textContent] || '';
+    return v.textContent || '';
+  }
+  // "글자"&수식&"글자" 형태의 수식(예: 원물사용량 B3)을 계산해 글자로 돌려줌. 합계 행의 셀 참조는 colTotals 값으로 바꿔 계산
+  function poEvalConcat(formula, colTotals, totalsRow){
+    const f = String(formula || '');
+    if(!f) return '';
+    const parts = []; let cur = '', q = false, depth = 0;
+    for(const ch of f){
+      if(ch === '"') q = !q;
+      if(!q){
+        if(ch === '(') depth++;
+        if(ch === ')') depth--;
+        if(ch === '&' && depth === 0){ parts.push(cur); cur = ''; continue; }
+      }
+      cur += ch;
+    }
+    parts.push(cur);
+    try{
+      return parts.map(p => {
+        p = p.trim();
+        if(/^"(?:[^"]|"")*"$/.test(p)) return p.slice(1, -1).replace(/""/g, '"');
+        const expr = p.replace(/\$?([A-Z]{1,3})\$?(\d+)/g, (m, c, r) => String(Number(r) === totalsRow ? (colTotals[c] || 0) : 0));
+        if(!/^[0-9+\-*\/().\s]+$/.test(expr)) throw new Error('unsupported');
+        return String(Math.round(Function('return (' + expr + ')')() * 100) / 100);
+      }).join('');
+    }catch(e){ return ''; }
+  }
+
   const PB_REFRESH_MS = 10 * 60 * 1000;
   async function poBoardCollect(dateKey){
     if(!productionTemplateB64) throw new Error('발주취합 서식이 등록되지 않았습니다. 서식을 먼저 등록해주세요');
     const ctx = await poLoadTemplate(productionTemplateB64);
+    await spLoad(dateKey, true); // 영업·생산이 입력한 배차·적재·재고사용 최신값
     const orders = ordersByDate[dateKey] || {};
     const hdr0 = poTemplateHeaders(ctx);
     let sampleRows = [];
@@ -12649,7 +13123,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     let res;
     try{
       skuColumnMap = cm;
-      res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras });
+      res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey) });
       const go = {};
       dict.forEach(d => { const c = cm[d.id], g = skuGroupMap[d.id]; if(c && g) go[c] = remap(g); });
       poRelabelHeaders(ctx, res.rep.usedCols); poRegroupHeaders(ctx, res.rep.usedCols, go); poRelabelWeights(ctx, res.rep.usedCols, go);
@@ -12668,10 +13142,18 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const num = (L, r) => { const t = poText(ctx, L + r); const v = Number(t); return t !== '' && isFinite(v) ? v : 0; };
     const shown = r => { const el = ctx.rows.get(r); return !(el && el.getAttribute('hidden') === '1'); };
     const clean = t => { t = String(t || '').trim(); return t.startsWith('#') ? '' : t; };
-    const mkRow = r => ({
-      key: 'r' + r.row, cat: r.categoryRaw || '', region: clean(poText(ctx, 'C' + r.row)), name: clean(poText(ctx, 'F' + r.row)) || clean(poText(ctx, 'E' + r.row)) || clean(poText(ctx, 'D' + r.row)),
-      qty: Object.fromEntries(cols.map(c => [c.L, num(c.L, r.row)]))
-    });
+    const pc = poPanelCols(ctx);
+    const pt = (col, r) => col ? clean(poText(ctx, col + r)) : '';        // 화면에 보이는 값 (위아래로 합쳐진 칸은 대표 칸 값)
+    const pr = (col, r) => col ? clean(poRawText(ctx, col + r)) : '';     // 칸 자신의 값 (배차정보 시트의 집계가 보는 값)
+    const mkRow = r => {
+      const qty = Object.fromEntries(cols.map(c => [c.L, num(c.L, r.row)]));
+      return {
+        key: 'r' + r.row, cat: r.categoryRaw || '', region: clean(poText(ctx, 'C' + r.row)), name: clean(poText(ctx, 'F' + r.row)) || clean(poText(ctx, 'E' + r.row)) || clean(poText(ctx, 'D' + r.row)),
+        qty, boxes: cols.reduce((a, c) => a + qty[c.L], 0), drop: clean(poText(ctx, 'D' + r.row)),
+        p: { driver: pt(pc.driver, r.row), load: pt(pc.load, r.row), stock: pt(pc.stock, r.row), note: pt(pc.note, r.row) },
+        raw: { driver: pr(pc.driver, r.row), load: pr(pc.load, r.row) }
+      };
+    };
     const sum = rows => Object.fromEntries(cols.map(c => [c.L, Math.round(rows.reduce((s, r) => s + (r.qty[c.L] || 0), 0) * 100) / 100]));
     const blocks = [];
     const used = new Set();
@@ -12693,7 +13175,23 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(res.rep.unplaced.length) notes.push('서식에 자리가 없어 빠진 업체: ' + res.rep.unplaced.join(', '));
     if(built.unmapped.length) notes.push('열이 없는 품목: ' + built.unmapped.join(', '));
     if(built.noUnit.length) notes.push('박스입수가 없어 팩 수 그대로 표시된 품목: ' + built.noUnit.join(', '));
-    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes };
+    // 기사별 배차 현황 (배차정보 시트와 같은 규칙: 납품담당 칸 기준 업체 수·총수량, 일회용/KPP(*n)는 파렛트, 까대기는 까대기 수량, 하차지는 시장명(D열)별 건수)
+    const shipMap = {};
+    blocks.forEach(b => b.rows.forEach(r => {
+      const drv = r.raw.driver; if(!drv) return;
+      const sh = shipMap[drv] = shipMap[drv] || { name: drv, rows: 0, boxes: 0, pallets: 0, ggd: 0, drops: {} };
+      sh.rows++; sh.boxes += r.boxes;
+      const lm = /^(일회용|KPP)\s*(?:\*\s*(\d+))?$/i.exec(r.raw.load);
+      if(lm) sh.pallets += lm[2] ? Number(lm[2]) : 1;
+      if(r.raw.load === '까대기') sh.ggd += r.boxes;
+      if(r.drop) sh.drops[r.drop] = (sh.drops[r.drop] || 0) + 1;
+    }));
+    const dOrder = new Map(shipPlanOpts.drivers.map((n, i) => [n, i]));
+    const ship = Object.values(shipMap).map(x => Object.assign(x, { boxes: Math.round(x.boxes * 100) / 100, ggd: Math.round(x.ggd * 100) / 100 }))
+      .sort((a, b) => (dOrder.has(a.name) ? dOrder.get(a.name) : 1e6) - (dOrder.has(b.name) ? dOrder.get(b.name) : 1e6) || a.name.localeCompare(b.name, 'ko'));
+    // 사용 원물량: 서식 위쪽(B3)의 원물사용량 수식을 오늘 합계로 계산 (수식이 없거나 못 읽으면 표시 안 함)
+    const rawUse = poEvalConcat(poFormulaText(ctx, 'B3'), total, Y.totalsRow).replace(/\s{2,}/g, '   ').trim();
+    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
   }
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
@@ -12711,31 +13209,49 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }
     const heads = m.cols.map(c => `<th class="pb-h" style="background:hsl(${hue(c.gid)},40%,22%)">${e(c.header)}</th>`).join('');
     const fixed = 3;
-    let html = `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner">업체</th>${g1}</tr><tr>${heads}</tr></thead><tbody>`;
+    // 오른쪽 칸: 납품담당 · 적재방식 · 재고사용 · 비고 (서식에 해당 칸이 있을 때만)
+    const P = m.hasPanel ? 4 : 0;
+    const pHead = P ? ['납품담당', '적재방식', '재고사용', '비고'].map(t => `<th rowspan="2" class="pb-ph">${t}</th>`).join('') : '';
+    const pBlank = P ? `<td colspan="${P}" class="pb-p"></td>` : '';
+    let html = '';
+    // 위쪽 요약: 사용 원물량 + 기사별 배차 현황
+    if(m.rawUse || (m.ship && m.ship.length)){
+      html += '<div class="pb-info">';
+      if(m.rawUse) html += `<div class="pb-raw">${e(m.rawUse)}</div>`;
+      if(m.ship && m.ship.length){
+        html += '<table class="pb-ship"><thead><tr><th>납품담당</th><th>업체</th><th>총수량(박스)</th><th>파렛트</th><th>까대기(박스)</th><th>하차지</th></tr></thead><tbody>' +
+          m.ship.map(s => `<tr><td class="pb-sname">${e(s.name)}</td><td class="n">${s.rows}</td><td class="n">${pbFmt(s.boxes) || 0}</td><td class="n">${s.pallets || ''}</td><td class="n">${pbFmt(s.ggd)}</td><td>${e(Object.entries(s.drops).map(([k, v]) => k + (v > 1 ? '×' + v : '')).join(' · '))}</td></tr>`).join('') +
+          '</tbody></table>';
+      }
+      html += '</div>';
+    }
+    html += `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner">업체</th>${g1}${pHead}</tr><tr>${heads}</tr></thead><tbody>`;
     const cell = (key, L, v, cls) => `<td class="pb-n${cls || ''}${chg(key, L, v)}" data-k="${e(key)}|${L}" data-v="${v}">${pbFmt(v)}</td>`;
     // 요약: 총 발주(박스·팩), 전일재고, 출고 후 재고
-    html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big')).join('')}</tr>`;
-    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">팩 수</td>${m.cols.map(c => `<td class="pb-n pb-dim">${c.unit && m.total[c.L] ? Math.round(m.total[c.L] * c.unit) + '팩' : ''}</td>`).join('')}</tr>`;
-    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">전일재고 (박스)</td>${m.cols.map(c => cell('stock', c.L, m.stock[c.L])).join('')}</tr>`;
-    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}</tr>`;
+    html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big')).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">팩 수</td>${m.cols.map(c => `<td class="pb-n pb-dim">${c.unit && m.total[c.L] ? Math.round(m.total[c.L] * c.unit) + '팩' : ''}</td>`).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">전일재고 (박스)</td>${m.cols.map(c => cell('stock', c.L, m.stock[c.L])).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
     // 업체별
     m.blocks.forEach(b => {
-      let run = 0;
       b.rows.forEach((r, k) => {
         const first = k === 0 || b.rows[k - 1].cat !== r.cat;
         let span = 0; if(first){ for(let q = k; q < b.rows.length && b.rows[q].cat === r.cat; q++) span++; }
-        html += `<tr class="pb-row">${first ? `<td rowspan="${span}" class="pb-cat">${e(r.cat)}</td>` : ''}<td class="pb-reg">${e(r.region)}</td><td class="pb-name">${e(r.name)}</td>${m.cols.map(c => cell(r.key, c.L, r.qty[c.L])).join('')}</tr>`;
+        const p = r.p || {};
+        const next = /명일/.test(p.note || '');
+        const pCells = P ? `<td class="pb-p">${e(p.driver || '')}</td><td class="pb-p">${e(p.load || '')}</td><td class="pb-p pb-pstock">${e(p.stock || '')}</td><td class="pb-p pb-pnote">${e(p.note || '')}</td>` : '';
+        html += `<tr class="pb-row">${first ? `<td rowspan="${span}" class="pb-cat">${e(r.cat)}</td>` : ''}<td class="pb-reg">${e(r.region)}</td><td class="pb-name">${e(r.name)}${next ? '<span class="pb-badge">명일</span>' : ''}</td>${m.cols.map(c => cell(r.key, c.L, r.qty[c.L])).join('')}${pCells}</tr>`;
       });
-      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(b.sub[c.L])}</td>`).join('')}</tr>`;
+      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(b.sub[c.L])}</td>`).join('')}${pBlank}</tr>`;
     });
     if(m.dispatch.length){
-      html += `<tr class="pb-sec"><td colspan="${fixed + m.cols.length}">출고일 지정 주문 (쿠팡 등)</td></tr>`;
+      html += `<tr class="pb-sec"><td colspan="${fixed + m.cols.length + P}">출고일 지정 주문 (쿠팡 등)</td></tr>`;
       m.dispatch.forEach(d => {
-        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L])).join('')}</tr>`;
+        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L])).join('')}${pBlank}</tr>`;
       });
-      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.disp[c.L])}</td>`).join('')}</tr>`;
+      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.disp[c.L])}</td>`).join('')}${pBlank}</tr>`;
     }
-    html += `<tr class="pb-grand"><td colspan="${fixed}" class="pb-lbl">합계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.total[c.L])}</td>`).join('')}</tr>`;
+    html += `<tr class="pb-grand"><td colspan="${fixed}" class="pb-lbl">합계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.total[c.L])}</td>`).join('')}${pBlank}</tr>`;
     html += '</tbody></table>';
     return html;
   }
