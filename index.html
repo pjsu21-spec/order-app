@@ -328,6 +328,31 @@
   .stm-sheet .stm-foot td.lb{ text-align:center; font-weight:700; }
   .stm-sheet .stm-foot td.r{ text-align:right; }
   .stm-sheet .stm-bank{ margin-top:8px; font-size:16px; padding-left:3px; }
+  /* 송품장 (표준송품장 양식) */
+  .sd-sheet{ position:relative; width:794px; box-sizing:border-box; background:#fff; color:#000; font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:12.5px; padding:6px 8px 10px; line-height:1.25; }
+  .sd-sheet .sd-logo{ position:absolute; left:10px; top:8px; width:62px; height:auto; }
+  .sd-sheet .sd-slogan{ text-align:right; font-weight:700; font-size:13px; height:22px; line-height:22px; }
+  .sd-sheet .sd-slogan .g{ color:#4f9a2d; } .sd-sheet .sd-slogan .r{ color:#e03131; }
+  .sd-sheet .sd-title{ text-align:center; height:58px; line-height:58px; font-size:29px; font-weight:800; }
+  .sd-sheet .sd-title span{ border-bottom:3px solid #000; padding:0 6px 2px; letter-spacing:2px; }
+  .sd-sheet .sd-tbl{ width:100%; table-layout:fixed; border-collapse:collapse; border:2px solid #000; }
+  .sd-sheet .sd-tbl td{ border:1px solid #333; padding:0 5px; height:23px; font-size:12.5px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
+  .sd-sheet .sd-tbl td.l{ text-align:left; } .sd-sheet .sd-tbl td.c{ text-align:center; } .sd-sheet .sd-tbl td.r{ text-align:right; }
+  .sd-sheet .sd-tbl td.nb{ border-top:none; border-bottom:none; }
+  .sd-sheet .sd-tbl tr.top > td{ border-top:2px solid #000; }
+  .sd-sheet .sd-tbl .nm2{ font-weight:800; font-size:15px; }
+  .sd-sheet .sd-tbl tr.hd td{ text-align:center; height:27px; font-size:12.5px; line-height:1.2; }
+  .sd-sheet .sd-tbl tr.hd td.sm{ font-size:8.5px; line-height:1.15; padding:0 1px; }
+  .sd-sheet .sd-tbl tr.it td{ height:20.5px; padding:0 3px; }
+  .sd-sheet .sd-tbl td.nm{ font-size:12px; line-height:1.25; }
+  .sd-sheet .sd-tbl td.q{ font-size:13.5px; }
+  .sd-sheet .sd-tbl td.tot{ font-weight:800; font-size:14px; }
+  .sd-sheet .sd-tbl td.note{ font-weight:700; font-size:12px; }
+  .sd-sheet .sd-tbl td.end{ font-weight:700; }
+  .sd-sheet .sd-tbl tr.sum td{ height:24px; border-top:2px solid #000; }
+  .sd-sheet .sd-tbl td.b{ font-size:14px; font-weight:700; letter-spacing:6px; }
+  .sd-sheet .sd-tbl tr.last td{ border-bottom:2px solid #000; }
+  .sd-sheet .sd-o{ font-size:14px; }
   .stm-row{ display:flex; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
   .stm-row .nm{ font-weight:700; min-width:150px; }
   .stm-row .meta{ font-size:12px; color:var(--muted); }
@@ -1028,11 +1053,14 @@
   <div class="card" id="stm-card">
     <h2>거래명세서 만들기(JPG)</h2>
       <div>
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
+        <div class="row" style="margin-top:0;">
+          <button class="tab-btn active" id="stm-tab-offline">오프라인 (직거래·도매·SP 등)</button>
+          <button class="tab-btn" id="stm-tab-online">온라인 (3PL)</button>
+        </div>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">위쪽 탭에서 <b>오프라인</b>(3PL이 아닌 업체)과 <b>온라인</b>(3PL 업체)을 나눠서 봅니다. 당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
         <div class="row" style="margin-top:0;">
           <span style="font-size:13px;">대상 일자 : <b id="stm-date"></b></span>
           <button class="btn-ghost small-btn" id="stm-refresh-btn">↻ 새로고침</button>
-          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;"><input type="checkbox" id="stm-show-all"> 3PL이 아닌 업체도 표시</label>
         </div>
         <div class="row" style="margin:8px 0 0;"><button class="btn-ghost small-btn" id="stm-select-all">발주 있는 업체 일괄 선택</button><button class="btn-ghost small-btn" id="stm-select-none">선택 해제</button></div>
         <div id="stm-list" style="margin-top:4px;"></div>
@@ -1070,6 +1098,53 @@
           </div>
         </details>
       </div>
+  </div>
+
+  <div class="card" id="sd-card">
+    <h2>송품장 만들기(JPG)</h2>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">물건을 출고할 때 동봉하는 <b>표준송품장</b>을 업체별 1장으로 만들어 JPG로 저장합니다(엑셀 송품장 양식과 같은 칸 구성). 품목·수량은 당일 발주(박스 기준), <b>운송자(기사)</b>는 <b>배차 / 적재</b> 탭의 납품담당을 따르고 차량번호·전화번호는 아래 설정의 운송자 목록에서 찾아 채웁니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. 3PL 업체는 한 장으로 합쳐 3PL 수신처 앞으로 만들어집니다. 기사·도착(당일/익일)·비고는 줄에서 바꿀 수 있고 그 송품장에만 적용됩니다.</div></details>
+    <div class="row" style="margin-top:0;">
+      <span style="font-size:13px;">대상 일자 : <b id="sd-date"></b></span>
+      <button class="btn-ghost small-btn" id="sd-refresh-btn">↻ 새로고침</button>
+    </div>
+    <div class="row" style="margin:8px 0 0;"><button class="btn-ghost small-btn" id="sd-select-all">발주 있는 업체 일괄 선택</button><button class="btn-ghost small-btn" id="sd-select-none">선택 해제</button></div>
+    <div id="sd-list" style="margin-top:4px;"></div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn-primary small-btn" id="sd-zip-btn">선택한 송품장 JPG 다운받기</button>
+      <span id="sd-zip-msg" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+    <div id="sd-preview" style="margin-top:12px;overflow-x:auto;"></div>
+
+    <details id="sd-setup" style="margin-top:14px;">
+      <summary style="cursor:pointer;font-size:14px;font-weight:700;">송품장 설정 (엑셀에서 불러오기 · 출하자 정보 · 로고 · 운송자 목록 · 업체별 설정)</summary>
+      <div style="margin-top:10px;">
+        <div class="sub" id="sd-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
+        <h3 style="margin:0 0 6px;">표준송품장 엑셀에서 한 번에 불러오기</h3>
+        <div class="sub" style="margin:0 0 6px;">다름달음_표준송품장(거래처별).xlsx를 올리면 <b>납품자 정보(기사·차량번호·연락처) · 출하자 정보 · 로고</b>와, 시트 이름·수신 표기가 같은 업체의 <b>수신 표기 · 도착(당일/익일) · 거래/매매방법</b>이 채워집니다. 같은 이름의 업체를 못 찾은 시트는 아래 업체별 설정에서 직접 입력하세요.</div>
+        <div class="row" style="margin-top:0;">
+          <input type="file" id="sd-import-file" accept=".xlsx">
+          <span id="sd-import-msg" style="font-size:12px;color:var(--muted);"></span>
+        </div>
+
+        <h3 style="margin:16px 0 6px;">출하자 정보 · 공통</h3>
+        <div id="sd-shipper" style="display:grid;grid-template-columns:140px 1fr;gap:6px 8px;max-width:600px;align-items:center;"></div>
+        <div class="row" style="margin-top:8px;">
+          <label style="font-size:13px;">로고 이미지 :</label>
+          <input type="file" id="sd-logo-file" accept="image/png,image/jpeg">
+          <button class="btn-ghost small-btn" id="sd-logo-clear">제거</button>
+          <img id="sd-logo-thumb" alt="" style="height:44px;display:none;">
+        </div>
+
+        <h3 style="margin:16px 0 6px;">운송자(기사) 목록</h3>
+        <div class="sub" style="margin:0 0 6px;">배차 / 적재 탭의 납품담당 이름과 같은 성함으로 등록하면 송품장에 차량번호·전화번호가 자동으로 들어갑니다.</div>
+        <div id="sd-drivers" style="max-height:300px;overflow:auto;"></div>
+        <div class="row"><button class="btn-ghost small-btn" id="sd-driver-add">+ 기사 추가</button></div>
+
+        <h3 style="margin:16px 0 6px;">업체별 송품장 설정</h3>
+        <div class="row" style="margin-top:0;"><input type="search" id="sd-company-q" placeholder="업체 검색" style="min-width:200px;"></div>
+        <div id="sd-company-settings" style="margin-top:6px;max-height:360px;overflow:auto;"></div>
+      </div>
+    </details>
   </div>
 
   </div><!-- /panel-ship -->
@@ -6785,6 +6860,16 @@ function goHome() {
   const STM_SUPPLIER_FIELDS = [['bizNo', '사업자등록번호'], ['name', '상호'], ['rep', '성명(대표)'], ['tel', 'TEL'], ['address', '주소'], ['bank', '계좌번호']];
   const STM_MIN_ROWS = 15;
   let stmSettings = Object.assign({}, STM_DEFAULTS), stmSeq = {}, stmLoaded = false, stmPreviewName = '';
+  let stmTab = 'offline';   // 'offline' 오프라인(3PL이 아닌 업체) / 'online' 온라인(3PL 업체)
+  const stmTabLabel = () => stmTab === 'online' ? '온라인' : '오프라인';
+  function stmSetTab(t){
+    stmTab = t; stmPreviewName = '';
+    document.getElementById('stm-tab-offline').classList.toggle('active', t === 'offline');
+    document.getElementById('stm-tab-online').classList.toggle('active', t === 'online');
+    document.getElementById('stm-list').innerHTML = '';   // 탭을 바꾸면 선택을 처음부터(발주 있는 업체 전체 선택)
+    stmRenderList();
+    if(document.getElementById('stm-setup').open) stmRenderCompanyInfo();
+  }
 
   async function stmLoad(){
     if(stmLoaded) return;
@@ -6908,12 +6993,11 @@ function goHome() {
 
   // 명세서를 만들 업체 목록 (그날 발주가 있는 업체)
   function stmCandidates(){
-    const showAll = document.getElementById('stm-show-all').checked;
     const fc = stmFeeCounts();
     return Object.keys(currentOrders()).filter(n => n !== '_meta').map(n => {
       const co = companies.find(c => c.name === n) || {};
       return { name: n, co, st: stmBuild(n, fc) };
-    }).filter(x => x.st.lines.length && (showAll || x.co.isThirdParty));
+    }).filter(x => x.st.lines.length && !!x.co.isThirdParty === (stmTab === 'online'));
   }
 
   async function stmRenderList(){
@@ -6925,7 +7009,7 @@ function goHome() {
     const first = !wrap.children.length;
     const list = stmCandidates();
     wrap.innerHTML = '';
-    if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:8px 0;">이 날짜에 명세서를 만들 3PL 발주가 없습니다.</div>'; return; }
+    if(!list.length){ wrap.innerHTML = `<div class="empty" style="padding:8px 0;">이 날짜에 명세서를 만들 ${stmTabLabel()} 발주가 없습니다.</div>`; document.getElementById('stm-preview').innerHTML = ''; return; }
     list.forEach(x => {
       const row = document.createElement('div'); row.className = 'stm-row';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.name = x.name;
@@ -6995,7 +7079,7 @@ function goHome() {
         const n = stmSeqNo(dateLabel, names[i], true);
         zip.file(stmFileName(names[i], dateLabel), await stmRenderBlob(names[i], n));
       }
-      stmSaveBlob(await zip.generateAsync({ type: 'blob' }), `거래명세서_${dateLabel.replace(/-/g, '')}.zip`);
+      stmSaveBlob(await zip.generateAsync({ type: 'blob' }), `거래명세서_${dateLabel.replace(/-/g, '')}_${stmTabLabel()}.zip`);
       await stmSaveSeq(); msg.textContent = `${names.length}개 업체 명세서를 저장했습니다`; stmRenderList();
     }catch(e){ console.error(e); msg.textContent = ''; toast('명세서를 만들지 못했습니다'); }
     btn.disabled = false;
@@ -7024,8 +7108,8 @@ function goHome() {
   }
   function stmRenderCompanyInfo(){
     const admin = stmIsAdmin(), wrap = document.getElementById('stm-company-info');
-    const list = companies.filter(c => c.isThirdParty);
-    if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:6px 0;">3PL로 지정된 업체가 없습니다.</div>'; return; }
+    const list = companies.filter(c => !!c.isThirdParty === (stmTab === 'online'));
+    if(!list.length){ wrap.innerHTML = `<div class="empty" style="padding:6px 0;">${stmTabLabel()} 업체가 없습니다.</div>`; return; }
     const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
     tbl.innerHTML = '<thead><tr><th>업체(시스템)</th><th>명세서 상호</th><th>전화번호</th></tr></thead>';
     const tb = document.createElement('tbody');
@@ -7082,14 +7166,15 @@ function goHome() {
         if(tel) c.tel = tel;
       });
       await saveCompanies();
-      const miss = companies.filter(c => c.isThirdParty && !hit.has(c)).map(c => c.name);
-      msg.textContent = `${matched}개 업체 정보를 반영했습니다${miss.length ? ` · 매칭 안 된 3PL 업체 ${miss.length}곳: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? ' 외' : ''}` : ''}`;
+      const miss = companies.filter(c => !!c.isThirdParty === (stmTab === 'online') && !hit.has(c)).map(c => c.name);
+      msg.textContent = `${matched}개 업체 정보를 반영했습니다${miss.length ? ` · 매칭 안 된 ${stmTabLabel()} 업체 ${miss.length}곳: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? ' 외' : ''}` : ''}`;
       stmRenderCompanyInfo(); stmRenderList();
     }catch(e){ console.error(e); msg.textContent = '엑셀을 읽지 못했습니다'; }
   }
 
   document.getElementById('stm-refresh-btn').addEventListener('click', stmRenderList);
-  document.getElementById('stm-show-all').addEventListener('change', stmRenderList);
+  document.getElementById('stm-tab-offline').addEventListener('click', () => stmSetTab('offline'));
+  document.getElementById('stm-tab-online').addEventListener('click', () => stmSetTab('online'));
   document.getElementById('stm-zip-btn').addEventListener('click', stmDownloadZip);
   document.getElementById('ship-goto-tracking-btn').addEventListener('click', () => {
     document.querySelector('.order-sub-nav-btn[data-order-panel="panel-agg"]').click();
@@ -7119,6 +7204,439 @@ function goHome() {
   document.getElementById('stm-import-file').addEventListener('change', e => {
     const f = e.target.files[0]; if(f) stmImportCompanyInfo(f); e.target.value = '';
   });
+
+  // ══════════════════ 송품장 (JPG) ══════════════════
+  // 물건을 출고할 때 동봉하는 「표준송품장」을 업체별 1장으로 만들어 JPG로 저장한다 (다름달음_표준송품장(거래처별).xlsx 양식과 같은 칸 구성).
+  //  - 수신: 업체별 표기(설정) → 없으면 업체명. 3PL 업체는 한 장으로 합쳐 3PL 수신처(예: 제이엠로지스) 앞으로.
+  //  - 품목·수량: 그날 발주(박스 환산). 쿠팡처럼 출고일을 따로 지정한 업체는 출고일별 줄로 나누고 출고일을 적요에 표시.
+  //  - 운송자: 배차 / 적재 탭에서 입력한 납품담당(기사) → 설정의 운송자 목록에서 차량번호·전화번호를 찾아 채움. 명일 출고로 표시한 업체는 출하일이 하루 뒤.
+  //  - 설정(출하자 정보·운송자 목록·로고)은 'shipdoc-settings'(공용)에 저장. 엑셀 송품장 파일에서 한 번에 불러올 수 있음.
+  const SD_DEFAULTS = {
+    shipper: { name: '㈜ 다름달음', addr: '경기도 안성시 공도읍 신두만곡로 134', contact: '', reportNo: '', bank: 'IBK기업은행', account: '954-032148-04-012', holder: '㈜ 다름달음' },
+    sender: '㈜ 다름달음', producer: '다름달음', threePlRecv: '제이엠로지스', threePlArrive: 0, drivers: [], logo: ''
+  };
+  const SD_SHIPPER_FIELDS = [['name', '단체명(성명)'], ['addr', '주소'], ['contact', '연락처'], ['reportNo', '출하자 신고번호'], ['bank', '은행명'], ['account', '계좌번호'], ['holder', '예금주']];
+  let sdSettings = JSON.parse(JSON.stringify(SD_DEFAULTS)), sdLoaded = false, sdPreviewKey = '';
+  const sdRowState = {};   // 업체 키 → { driver, arrive, note } : 목록에서 고른 값 (이 화면에서만 유지)
+
+  async function sdLoad(){
+    if(sdLoaded) return;
+    sdLoaded = true;
+    try{
+      const r = await window.storage.get('shipdoc-settings', true);
+      if(r && r.value){
+        const v = JSON.parse(r.value) || {};
+        sdSettings = Object.assign({}, SD_DEFAULTS, v, { shipper: Object.assign({}, SD_DEFAULTS.shipper, v.shipper || {}), drivers: Array.isArray(v.drivers) ? v.drivers : [] });
+      }
+    }catch(e){ /* 기본값 사용 */ }
+  }
+  async function sdSave(){
+    try{ await window.storage.set('shipdoc-settings', JSON.stringify(sdSettings), true); return true; }
+    catch(e){ console.error(e); toast('송품장 설정을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+  }
+
+  // ── 날짜·글자 도우미 ──
+  const sdAddDays = (key, n) => { const [y, m, d] = key.split('-').map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`; };
+  const sdKo = (key, zero) => { const [y, m, d] = key.split('-').map(Number); return zero ? `${y}년 ${pad2(m)}월 ${pad2(d)}일` : `${y}년 ${m}월 ${d}일`; };
+  const sdNum = n => { const r = Math.round(Number(n || 0) * 100) / 100; return Number.isInteger(r) ? String(r) : String(r); };
+
+  // 품목종류 칸: "[2kg] 투맛토(망고향)" → ['투맛토', '(망고향)'] (앞의 [중량]과 뒤의 용량 글자는 뺌)
+  function sdItemParts(d){
+    let nm = String(d.name || '').replace(/^\s*\[[^\]]*\]\s*/, '').replace(/\s*\d+(?:\.\d+)?\s*(?:kg|g)\s*$/i, '').trim();
+    const m = nm.match(/^(.*?)\s*(\([^)]*\))\s*$/);
+    return m ? [m[1].trim(), m[2]] : [nm, ''];
+  }
+  // 포장규격/중량 칸: 박스입수가 있으면 박스/(팩 용량×입수)kg (예: 박스/2kg), 없으면 팩/용량g
+  function sdSpec(d){
+    const unit = Number(d.boxUnitCount) || 0, w = poItemWeight(d);
+    if(unit > 0){ const kg = w ? Math.round(w * unit / 10) / 100 : 0; return kg ? `박스/${kg}kg` : '박스'; }
+    return w ? `팩/${w}g` : '팩';
+  }
+  const sdQty = (d, packs) => (Number(d.boxUnitCount) || 0) > 0 ? Math.round(packs / Number(d.boxUnitCount) * 100) / 100 : packs;
+  const sdUnit = d => (Number(d.boxUnitCount) || 0) > 0 ? '박스' : '팩';
+  const sdLine = (d, packs, note) => ({ parts: sdItemParts(d), spec: sdSpec(d), qty: sdQty(d, packs), unit: sdUnit(d), note: note || '' });
+  function sdTotalText(lines){
+    let box = 0, pack = 0;
+    lines.forEach(l => { if(l.unit === '박스') box += l.qty; else pack += l.qty; });
+    const f = n => Math.round(n * 100) / 100, parts = [];
+    if(box) parts.push(`${f(box)}박스`);
+    if(pack) parts.push(`${f(pack)}팩`);
+    return '총 ' + parts.join(' + ');
+  }
+
+  // ── 송품장을 만들 업체 목록: 그날 발주가 있는 오프라인 업체 + (3PL 발주가 있으면) 3PL 합산 한 장 ──
+  function sdCandidates(){
+    const orders = currentOrders(), disp = currentDispatch();
+    const dispCompanies = new Set(disp.map(e => e.company));
+    const idx = new Map(companies.map((c, i) => [c.name, i]));
+    const out = [];
+    Object.keys(orders).filter(n => n !== '_meta')
+      .sort((a, b) => (idx.has(a) ? idx.get(a) : 1e6) - (idx.has(b) ? idx.get(b) : 1e6))
+      .forEach(name => {
+        const co = companies.find(c => c.name === name) || {};
+        if(co.isThirdParty) return;
+        let lines = [], dates = [];
+        if(dispCompanies.has(name)){
+          // 출고일을 따로 지정한 업체(쿠팡 등): 출고일·창고별로 나눠 한 줄씩, 출고일은 적요에
+          const groups = new Map();
+          disp.filter(e => e.company === name).forEach(e => {
+            const k = `${e.shipDate}|${e.warehouse || ''}`;
+            const g = groups.get(k) || { shipDate: e.shipDate, warehouse: e.warehouse || '', packs: {} };
+            Object.entries(e.items || {}).forEach(([id, q]) => { g.packs[id] = (g.packs[id] || 0) + (Number(q) || 0); });
+            groups.set(k, g);
+          });
+          [...groups.values()].sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate))).forEach(g => {
+            const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(g.shipDate || '');
+            const note = `${g.warehouse ? g.warehouse + ' ' : ''}(${m ? Number(m[1]) + '/' + Number(m[2]) : ''} 출고)`;
+            dict.forEach(d => { const q = g.packs[d.id] || 0; if(q > 0) lines.push(sdLine(d, q, note)); });
+            if(g.shipDate) dates.push(g.shipDate);
+          });
+        } else {
+          dict.forEach(d => { const q = Number((orders[name] || {})[d.id]) || 0; if(q > 0) lines.push(sdLine(d, q, '')); });
+        }
+        if(lines.length) out.push({ key: name, name, co, lines, dates, kind: dispCompanies.has(name) ? 'dispatch' : 'order' });
+      });
+    const tpl = companies.filter(c => c.isThirdParty && orders[c.name]).map(c => c.name);
+    if(tpl.length){
+      const lines = [];
+      dict.forEach(d => {
+        const packs = tpl.reduce((s, n) => s + (Number(orders[n][d.id]) || 0), 0);
+        if(packs > 0) lines.push(sdLine(d, packs, `${sdNum(packs)}팩`));
+      });
+      if(lines.length) out.push({ key: '__3pl__', name: `3PL 합산 · ${tpl.length}개 업체`, co: {}, lines, dates: [], kind: '3pl' });
+    }
+    return out;
+  }
+
+  // 한 장의 내용: 날짜·수신·거래/매매 방법·품목 줄·운송자
+  function sdDoc(c){
+    const dk = stmDate(), st = sdRowState[c.key] || {};
+    const planRow = ((shipPlanCache[dk] || {}).rows || {})[c.key] || {};
+    const is3pl = c.kind === '3pl';
+    const baseShip = c.dates && c.dates.length ? c.dates.slice().sort()[0] : dk;
+    const shipDate = planRow.next && !c.dates.length ? sdAddDays(dk, 1) : baseShip;
+    const arriveOff = st.arrive !== undefined && st.arrive !== '' ? Number(st.arrive)
+      : (is3pl ? Number(sdSettings.threePlArrive) || 0 : (c.co.invArrive !== undefined && c.co.invArrive !== '' && c.co.invArrive != null ? Number(c.co.invArrive) : 1));
+    const driverName = st.driver !== undefined ? st.driver : (planRow.driver || '');
+    const drv = sdSettings.drivers.find(x => x.name === driverName) || null;
+    return {
+      key: c.key, recv: is3pl ? sdSettings.threePlRecv : (c.co.invRecv || c.name),
+      shipDate, arriveDate: sdAddDays(shipDate, arriveOff),
+      trade: is3pl ? '' : (c.co.invTrade || ''), sale: is3pl ? '' : (c.co.invSale || ''),
+      lines: c.lines, total: sdTotalText(c.lines), note: st.note || '',
+      driver: { name: driverName, plate: drv ? drv.plate || '' : '', phone: drv ? drv.phone || '' : '' },
+      S: sdSettings
+    };
+  }
+
+  // ── 송품장 양식 (표준송품장 엑셀과 같은 칸 구성: 12열) ──
+  const SD_MIN_SLOTS = 15;
+  function sdSheetHtml(doc){
+    const e = escapeHtml, S = doc.S, sh = S.shipper;
+    const mark = on => on ? '<b class="sd-o"> O </b>' : ' ';
+    const contact = sh.contact || `${sh.name} / ${(typeof stmSettings !== 'undefined' && stmSettings.tel) || ''}`;
+    const slots = Math.max(SD_MIN_SLOTS, doc.lines.length + 2);
+    const cg = [9.78, 8.4, 8.4, 8.4, 8.4, 8.4, 9.78, 15.42, 5.75, 5.75, 5.75, 5.75].map(w => `<col style="width:${w}%">`).join('');
+    let body = '';
+    for(let i = 0; i < slots; i++){
+      const l = doc.lines[i];
+      if(l){
+        body += `<tr class="it"><td rowspan="2"></td><td rowspan="2" class="c">${e(S.producer)}</td><td rowspan="2"></td><td rowspan="2" class="c nm">${e(l.parts[0])}${l.parts[1] ? '<br>' + e(l.parts[1]) : ''}</td><td rowspan="2"></td><td class="h"></td><td rowspan="2" class="c">${e(l.spec)}</td><td rowspan="2" class="c q">${sdNum(l.qty)}</td><td rowspan="2" colspan="4" class="c note">${e(l.note)}</td></tr><tr class="it"><td class="h"></td></tr>`;
+      } else if(i === doc.lines.length){
+        body += `<tr class="it"><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td class="h"></td><td rowspan="2"></td><td rowspan="2" class="c tot">${e(doc.total)}</td><td rowspan="2" colspan="4" class="c note">${e(doc.note)}</td></tr><tr class="it"><td class="h"></td></tr>`;
+      } else if(i === doc.lines.length + 1){
+        body += `<tr class="it"><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td class="h"></td><td rowspan="2"></td><td rowspan="2" colspan="5" class="c end">- 이하여백 -</td></tr><tr class="it"><td class="h"></td></tr>`;
+      } else {
+        body += '<tr class="it"><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td class="h"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td></tr><tr class="it"><td class="h"></td></tr>';
+      }
+    }
+    const tradeTxt = `매수거래(${mark(doc.trade === '매수')}), 위탁거래(${mark(doc.trade === '위탁')}), 중개거래(${mark(doc.trade === '중개')})`;
+    const saleTxt = `경매/입찰(${mark(doc.sale === '경매')}), 정가/수의매매(${mark(doc.sale === '정가')})`;
+    return `<div class="sd-sheet">
+      ${S.logo ? `<img class="sd-logo" src="${S.logo}" alt="">` : ''}
+      <div class="sd-slogan"><span class="g">다름</span>을 인정하고 <span class="r">달음</span>을 인정받자</div>
+      <div class="sd-title"><span>표 준 송 품 장</span></div>
+      <table class="sd-tbl"><colgroup>${cg}</colgroup>
+        <tr class="top"><td colspan="6" class="l">◎ 출하일시 : ${e(sdKo(doc.shipDate))}</td><td colspan="6" class="l">◎ 도착일시 : ${e(sdKo(doc.arriveDate))}</td></tr>
+        <tr><td class="l">◎ 수 신</td><td colspan="4" class="c nm2">${e(doc.recv)}</td><td class="r">귀 하</td><td class="l">◎ 발 신</td><td colspan="5" class="l">${e(S.sender)}</td></tr>
+        <tr><td colspan="12" class="l nb">아래 농수산물의 위탁판매를 의뢰합니다.</td></tr>
+        <tr><td colspan="12" class="r nb">${e(sdKo(doc.arriveDate, true))}</td></tr>
+        <tr class="top"><td colspan="3" class="l">◎ 거래방법(해당란 O표)</td><td colspan="9" class="c">${tradeTxt}</td></tr>
+        <tr><td colspan="3" class="l">◎ 매매방법(해당란 O표)</td><td colspan="9" class="c">${saleTxt}</td></tr>
+        <tr class="top"><td colspan="12" class="l">◎ 출하내역</td></tr>
+        <tr class="hd"><td rowspan="3">출하자<br>신고번호</td><td rowspan="3">생산자</td><td rowspan="3">원산지</td><td rowspan="3">품목종류</td><td rowspan="3">품질<br>인증번호</td><td class="sm" rowspan="2">우수농산물<br>관리제도<br>인증번호</td><td rowspan="3">포장규격<br>/중량</td><td colspan="5" rowspan="2">등급 및 수량</td></tr>
+        <tr class="hd" style="height:27px"></tr>
+        <tr class="hd"><td class="sm">이력추적<br>관리번호</td><td>소계</td><td>특</td><td>상</td><td>중</td><td>하</td></tr>
+        ${body}
+        <tr class="sum"><td colspan="7" class="c">합 계</td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="top"><td colspan="6" class="c b">출 하 자</td><td colspan="6" class="c b">운 송 자</td></tr>
+        <tr><td colspan="2" class="l">단체명(성명)</td><td colspan="4" class="l">${e(sh.name)}</td><td class="l">운 임</td><td colspan="5"></td></tr>
+        <tr><td class="l">주 소</td><td colspan="5" class="l">${e(sh.addr)}</td><td class="l">기사명</td><td colspan="5" class="l">${e(doc.driver.name)}</td></tr>
+        <tr><td class="l">연락처</td><td colspan="5" class="l">${e(contact)}</td><td class="l">차량번호</td><td colspan="5" class="l">${e(doc.driver.plate)}</td></tr>
+        <tr><td colspan="2" class="l">출하자 신고번호</td><td colspan="4" class="l">${e(sh.reportNo)}</td><td class="l">전화번호</td><td colspan="5" class="l">${e(doc.driver.phone)}</td></tr>
+        <tr><td class="l">은행명</td><td colspan="5" class="l">${e(sh.bank)}</td><td class="l">은행명</td><td colspan="5"></td></tr>
+        <tr><td class="l">계좌번호</td><td colspan="5" class="l">${e(sh.account)}</td><td class="l">계좌번호</td><td colspan="5"></td></tr>
+        <tr><td class="l">예금주</td><td colspan="5" class="l">${e(sh.holder)}</td><td class="l">예금주</td><td colspan="5"></td></tr>
+        <tr class="last"><td colspan="2" class="l">매수/중개금액</td><td colspan="2"></td><td colspan="2" class="l">매수대금 지급일</td><td colspan="2"></td><td colspan="2" class="l">중개상대자</td><td colspan="2"></td></tr>
+      </table>
+    </div>`;
+  }
+
+  // ── 목록 · 미리보기 · 저장 ──
+  const sdFileName = (doc, dateLabel) => `송품장_${dateLabel.replace(/-/g, '')}_${String(doc.recv).replace(/[\\/:*?"<>|]/g, '').trim()}.jpg`;
+  async function sdRenderList(){
+    await sdLoad();
+    const dk = stmDate();
+    document.getElementById('sd-date').textContent = dk;
+    try{ await spLoad(dk); }catch(e){ /* 배차 입력이 없어도 만들 수 있음 */ }
+    const wrap = document.getElementById('sd-list');
+    const checked = new Set(Array.from(wrap.querySelectorAll('input[type=checkbox]:checked')).map(c => c.dataset.key));
+    const first = !wrap.children.length;
+    const list = sdCandidates();
+    wrap.innerHTML = '';
+    if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:8px 0;">이 날짜에 송품장을 만들 발주가 없습니다.</div>'; document.getElementById('sd-preview').innerHTML = ''; return; }
+    const driverNames = () => sdSettings.drivers.map(d => d.name);
+    list.forEach(c => {
+      const doc = sdDoc(c);
+      const row = document.createElement('div'); row.className = 'stm-row sd-row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.key = c.key; cb.checked = first ? true : checked.has(c.key);
+      const warns = [];
+      if(!doc.driver.name && c.kind !== '3pl') warns.push('기사 미지정');
+      else if(doc.driver.name && !doc.driver.plate) warns.push('운송자 목록에 없는 기사(차량번호 없음)');
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = doc.recv + (c.kind === '3pl' || doc.recv !== c.name ? ` (${c.name})` : '');
+      const meta = document.createElement('span'); meta.className = 'meta';
+      meta.textContent = `${c.lines.length}줄 · ${doc.total} · 출하 ${sdKo(doc.shipDate)}`;
+      row.append(cb, nm, meta);
+      // 기사: 배차/적재 탭의 납품담당이 기본값. 여기서 바꾸면 이번 송품장에만 적용
+      const dsel = document.createElement('select'); dsel.title = '운송자(기사). 기본값은 배차 / 적재 탭의 납품담당입니다';
+      const names = [...new Set([...(doc.driver.name ? [doc.driver.name] : []), ...driverNames()])];
+      dsel.innerHTML = '<option value="">기사 선택</option>' + names.map(n => `<option value="${escapeHtml(n)}" ${n === doc.driver.name ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+      dsel.addEventListener('change', () => { (sdRowState[c.key] = sdRowState[c.key] || {}).driver = dsel.value; sdRenderList(); });
+      const asel = document.createElement('select'); asel.title = '도착일시: 출하일 당일 / 다음 날';
+      const arr = Math.round((new Date(doc.arriveDate) - new Date(doc.shipDate)) / 86400000);
+      asel.innerHTML = `<option value="0" ${arr === 0 ? 'selected' : ''}>도착 당일</option><option value="1" ${arr === 1 ? 'selected' : ''}>도착 익일</option>`;
+      asel.addEventListener('change', () => { (sdRowState[c.key] = sdRowState[c.key] || {}).arrive = asel.value; sdRenderList(); });
+      const note = document.createElement('input'); note.type = 'text'; note.placeholder = '비고 (선택)'; note.value = doc.note; note.style.width = '140px';
+      note.addEventListener('change', () => { (sdRowState[c.key] = sdRowState[c.key] || {}).note = note.value.trim(); if(sdPreviewKey === c.key) sdPreview(c.key); });
+      row.append(dsel, asel, note);
+      if(warns.length){ const w = document.createElement('span'); w.className = 'warn'; w.textContent = '⚠ ' + warns.join(' / '); row.appendChild(w); }
+      const acts = document.createElement('span'); acts.className = 'acts';
+      [['미리보기', 'btn-ghost', () => sdPreview(c.key)], ['JPG 저장', 'btn-primary', () => sdDownloadOne(c.key)]].forEach(([t, cls, fn]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = cls + ' small-btn'; b.textContent = t; b.addEventListener('click', fn); acts.appendChild(b);
+      });
+      row.appendChild(acts);
+      wrap.appendChild(row);
+    });
+    if(sdPreviewKey && list.some(x => x.key === sdPreviewKey)) sdPreview(sdPreviewKey); else document.getElementById('sd-preview').innerHTML = '';
+  }
+  function sdFind(key){ return sdCandidates().find(x => x.key === key); }
+  function sdPreview(key){
+    sdPreviewKey = key;
+    const c = sdFind(key); if(!c){ document.getElementById('sd-preview').innerHTML = ''; return; }
+    document.getElementById('sd-preview').innerHTML = sdSheetHtml(sdDoc(c));
+  }
+  async function sdRenderBlob(key){
+    const c = sdFind(key); if(!c) throw new Error('업체를 찾지 못했습니다');
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;';
+    holder.innerHTML = sdSheetHtml(sdDoc(c));
+    document.body.appendChild(holder);
+    try{
+      const imgs = [...holder.querySelectorAll('img')];
+      await Promise.all(imgs.map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+      const canvas = await html2canvas(holder.firstElementChild, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    } finally { holder.remove(); }
+  }
+  async function sdDownloadOne(key){
+    await sdLoad();
+    const c = sdFind(key); if(!c) return;
+    try{ stmSaveBlob(await sdRenderBlob(key), sdFileName(sdDoc(c), stmDate())); toast('송품장 JPG를 저장했습니다'); }
+    catch(e){ console.error(e); toast('송품장 이미지를 만들지 못했습니다'); }
+  }
+  async function sdDownloadZip(){
+    await sdLoad();
+    const keys = Array.from(document.querySelectorAll('#sd-list input[type=checkbox]:checked')).map(c => c.dataset.key);
+    if(!keys.length){ toast('송품장을 만들 업체를 선택해주세요'); return; }
+    if(keys.length === 1){ sdDownloadOne(keys[0]); return; }
+    if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    const dk = stmDate(), zip = new JSZip(), msg = document.getElementById('sd-zip-msg'), btn = document.getElementById('sd-zip-btn');
+    btn.disabled = true;
+    try{
+      for(let i = 0; i < keys.length; i++){
+        msg.textContent = `만드는 중… ${i + 1}/${keys.length}`;
+        const c = sdFind(keys[i]);
+        zip.file(sdFileName(sdDoc(c), dk), await sdRenderBlob(keys[i]));
+      }
+      stmSaveBlob(await zip.generateAsync({ type: 'blob' }), `송품장_${dk.replace(/-/g, '')}.zip`);
+      msg.textContent = `${keys.length}장의 송품장을 저장했습니다`;
+    }catch(e){ console.error(e); msg.textContent = ''; toast('송품장을 만들지 못했습니다'); }
+    btn.disabled = false;
+  }
+
+  // ── 설정: 출하자 정보 · 로고 · 운송자(기사) 목록 · 업체별 설정 · 엑셀에서 불러오기 ──
+  function sdRenderSetup(){
+    const admin = stmIsAdmin();
+    document.getElementById('sd-admin-note').style.display = admin ? 'none' : '';
+    // 출하자 정보 + 공통 값
+    const box = document.getElementById('sd-shipper'); box.innerHTML = '';
+    const addField = (label, get, set) => {
+      const l = document.createElement('label'); l.style.fontSize = '13px'; l.textContent = label;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = get() || ''; inp.disabled = !admin;
+      inp.addEventListener('change', async () => { set(inp.value.trim()); if(await sdSave()) toast('송품장 설정을 저장했습니다'); if(sdPreviewKey) sdPreview(sdPreviewKey); });
+      box.append(l, inp);
+    };
+    SD_SHIPPER_FIELDS.forEach(([k, label]) => addField('출하자 · ' + label, () => sdSettings.shipper[k], v => { sdSettings.shipper[k] = v; }));
+    addField('발신', () => sdSettings.sender, v => { sdSettings.sender = v; });
+    addField('생산자 칸', () => sdSettings.producer, v => { sdSettings.producer = v; });
+    addField('3PL 수신처', () => sdSettings.threePlRecv, v => { sdSettings.threePlRecv = v; });
+    // 로고
+    const th = document.getElementById('sd-logo-thumb');
+    th.style.display = sdSettings.logo ? '' : 'none'; if(sdSettings.logo) th.src = sdSettings.logo;
+    document.getElementById('sd-logo-file').disabled = !admin; document.getElementById('sd-logo-clear').disabled = !admin;
+    document.getElementById('sd-import-file').disabled = !admin;
+    // 운송자(기사) 목록
+    const dw = document.getElementById('sd-drivers'); dw.innerHTML = '';
+    const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
+    tbl.innerHTML = '<thead><tr><th>성함(납품담당 이름과 같게)</th><th>차량번호</th><th>연락처</th><th>차종</th><th></th></tr></thead>';
+    const tb = document.createElement('tbody');
+    sdSettings.drivers.forEach((d, i) => {
+      const tr = document.createElement('tr');
+      ['name', 'plate', 'phone', 'type'].forEach(k => {
+        const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k] || ''; inp.disabled = !admin;
+        inp.addEventListener('change', async () => { d[k] = inp.value.trim(); await sdSave(); sdRenderList(); });
+        td.appendChild(inp); tr.appendChild(td);
+      });
+      const td = document.createElement('td'), del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제'; del.disabled = !admin;
+      del.addEventListener('click', async () => { sdSettings.drivers.splice(i, 1); await sdSave(); sdRenderSetup(); sdRenderList(); });
+      td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); dw.appendChild(tbl);
+    document.getElementById('sd-driver-add').disabled = !admin;
+    sdRenderCompanySettings();
+  }
+  function sdRenderCompanySettings(){
+    const admin = stmIsAdmin(), wrap = document.getElementById('sd-company-settings');
+    const q = poNameKey(document.getElementById('sd-company-q').value || '');
+    const list = companies.filter(c => !c.isThirdParty && (!q || [c.name, c.invRecv, c.ecName].some(x => poNameKey(x).includes(q))));
+    const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
+    tbl.innerHTML = '<thead><tr><th>업체(시스템)</th><th>수신 표기</th><th>도착</th><th>거래방법</th><th>매매방법</th></tr></thead>';
+    const tb = document.createElement('tbody');
+    list.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td></td><td></td><td></td><td></td>`;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = c.invRecv || ''; inp.placeholder = c.name; inp.disabled = !admin;
+      inp.addEventListener('change', () => { c.invRecv = inp.value.trim(); saveCompanies(); sdRenderList(); });
+      tr.children[1].appendChild(inp);
+      const mkSel = (field, opts, idx, def) => {
+        const s = document.createElement('select'); s.disabled = !admin;
+        s.innerHTML = opts.map(([v, t]) => `<option value="${v}" ${String(c[field] === undefined || c[field] === '' || c[field] == null ? def : c[field]) === v ? 'selected' : ''}>${t}</option>`).join('');
+        s.addEventListener('change', () => { c[field] = s.value; saveCompanies(); sdRenderList(); });
+        tr.children[idx].appendChild(s);
+      };
+      mkSel('invArrive', [['1', '익일'], ['0', '당일']], 2, '1');
+      mkSel('invTrade', [['', '(표시 안 함)'], ['매수', '매수거래'], ['위탁', '위탁거래'], ['중개', '중개거래']], 3, '');
+      mkSel('invSale', [['', '(표시 안 함)'], ['경매', '경매/입찰'], ['정가', '정가/수의매매']], 4, '');
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); wrap.innerHTML = '';
+    if(!list.length) wrap.innerHTML = '<div class="empty" style="padding:6px 0;">조건에 맞는 업체가 없습니다.</div>'; else wrap.appendChild(tbl);
+  }
+
+  // 표준송품장 엑셀에서 불러오기: 납품자 정보(기사 목록) · 출하자 정보 · 로고 · 업체별 수신 표기/도착/거래·매매방법
+  async function sdImportWorkbook(file){
+    const msg = document.getElementById('sd-import-msg');
+    try{
+      msg.textContent = '엑셀을 읽는 중…';
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellFormula: true });
+      const txt = (ws, a) => { const c = ws[a]; return c ? String(c.w != null ? c.w : (c.v != null ? c.v : '')).replace(/\s+/g, ' ').trim() : ''; };
+      const fml = (ws, a) => { const c = ws[a]; return c && c.f ? String(c.f) : ''; };
+      let nDrivers = 0;
+      // 1) 납품자 정보 → 운송자 목록
+      const dsName = wb.SheetNames.find(n => /납품자/.test(n));
+      if(dsName){
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[dsName], { header: 1, defval: '' });
+        const hi = aoa.findIndex(r => r.some(c => String(c).replace(/\s/g, '') === '성함'));
+        const drivers = [];
+        aoa.slice(hi + 1).forEach(r => {
+          const cells = r.map(c => String(c).trim());
+          const [nm, plate, phone, type] = (hi >= 0 ? cells.slice(r.findIndex(c => String(c).trim()) >= 0 ? r.findIndex(c => String(c).trim()) : 0) : cells);
+          if(nm && !/^성함$/.test(nm.replace(/\s/g, '')) && !drivers.some(d => d.name === nm)) drivers.push({ name: nm, plate: plate || '', phone: phone || '', type: type || '' });
+        });
+        if(drivers.length){ sdSettings.drivers = drivers; nDrivers = drivers.length; }
+      }
+      // 2) 송품장 시트들
+      const isDoc = n => { const ws = wb.Sheets[n]; return ws && /송품장/.test((txt(ws, 'A2') + txt(ws, 'C2')).replace(/\s/g, '')); };
+      const docSheets = wb.SheetNames.filter(isDoc);
+      const first = docSheets.find(n => !/양식/.test(n)) || docSheets[0];
+      if(first){
+        const ws = wb.Sheets[first], sh = sdSettings.shipper;
+        const take = (k, v) => { if(v) sh[k] = v; };
+        take('name', txt(ws, 'C46')); take('addr', txt(ws, 'B47')); take('contact', txt(ws, 'B48')); take('reportNo', txt(ws, 'C49'));
+        take('bank', txt(ws, 'B50')); take('account', txt(ws, 'B51')); take('holder', txt(ws, 'B52'));
+        if(txt(ws, 'H5')) sdSettings.sender = txt(ws, 'H5');
+      }
+      // 3) 로고 (통합 문서에 들어 있는 첫 그림)
+      let logoDone = false;
+      try{
+        if(typeof JSZip !== 'undefined'){
+          const z = await JSZip.loadAsync(buf);
+          const img = Object.keys(z.files).find(n => /^xl\/media\/.+\.(jpe?g|png)$/i.test(n));
+          if(img){
+            const b64 = await z.file(img).async('base64');
+            if(b64.length < 400000){ sdSettings.logo = `data:image/${/png$/i.test(img) ? 'png' : 'jpeg'};base64,${b64}`; logoDone = true; }
+          }
+        }
+      }catch(e){ console.error(e); }
+      // 4) 업체별 설정: 시트의 수신 표기·도착(출하일+1이면 익일)·거래/매매방법 표시(O)를 같은 이름의 업체에 반영
+      const marked = (t, label) => new RegExp(label + '\\(\\s*[Oo○]\\s*\\)').test(t.replace(/\s+/g, ''));
+      const matched = [], unmatched = [];
+      docSheets.filter(n => !/양식/.test(n) && n !== '원물송품장').forEach(n => {
+        const ws = wb.Sheets[n];
+        const recv = txt(ws, 'B5'), arrive = /TODAY\(\)\s*\+\s*1/i.test(fml(ws, 'H4')) ? 1 : 0;
+        const d8 = txt(ws, 'D8'), d9 = txt(ws, 'D9');
+        const trade = marked(d8, '매수거래') ? '매수' : marked(d8, '위탁거래') ? '위탁' : marked(d8, '중개거래') ? '중개' : '';
+        const sale = marked(d9, '경매/입찰') ? '경매' : marked(d9, '정가/수의매매') ? '정가' : '';
+        if(n === '3PL' || /제이엠/.test(recv)){ if(recv) sdSettings.threePlRecv = recv; sdSettings.threePlArrive = arrive; return; }
+        const keys = [recv, n.replace(/\(.*?\)/g, '')].map(poNameKey).filter(k => k.length >= 2);
+        const co = companies.find(c => !c.isThirdParty && [c.name, c.ecName, c.listedMarketName, c.invRecv].map(poNameKey).filter(Boolean).some(k => keys.includes(k)))
+          || companies.find(c => !c.isThirdParty && [c.name, c.ecName, c.listedMarketName].map(poNameKey).filter(k => k.length >= 3).some(k => keys.some(q => q.length >= 3 && (k.includes(q) || q.includes(k)))));
+        if(!co || matched.some(m => m.co === co)){ unmatched.push(n); return; }
+        co.invRecv = poNameKey(recv) === poNameKey(co.name) ? '' : recv;
+        co.invArrive = String(arrive); co.invTrade = trade; co.invSale = sale;
+        matched.push({ co, sheet: n });
+      });
+      await sdSave(); await saveCompanies();
+      msg.textContent = `운송자 ${nDrivers}명 · 출하자 정보${logoDone ? ' · 로고' : ''} · 업체 ${matched.length}곳을 반영했습니다${unmatched.length ? ` / 같은 이름 업체를 찾지 못한 시트 ${unmatched.length}개: ${unmatched.slice(0, 8).join(', ')}${unmatched.length > 8 ? ' 외' : ''} (아래 업체별 설정에서 직접 입력)` : ''}`;
+      sdRenderSetup(); sdRenderList();
+    }catch(e){ console.error(e); msg.textContent = '엑셀을 읽지 못했습니다: ' + (e.message || e); }
+  }
+
+  (function wireShipdoc(){
+    const $ = id => document.getElementById(id);
+    if(!$('sd-card')) return;
+    $('sd-refresh-btn').addEventListener('click', async () => { try{ delete shipPlanCache[stmDate()]; }catch(e){} sdRenderList(); });
+    $('sd-zip-btn').addEventListener('click', sdDownloadZip);
+    const setAll = on => document.querySelectorAll('#sd-list input[type=checkbox]').forEach(c => { c.checked = on; });
+    $('sd-select-all').addEventListener('click', () => setAll(true));
+    $('sd-select-none').addEventListener('click', () => setAll(false));
+    $('sd-setup').addEventListener('toggle', e => { if(e.target.open) sdLoad().then(sdRenderSetup); });
+    $('sd-company-q').addEventListener('input', sdRenderCompanySettings);
+    $('sd-driver-add').addEventListener('click', async () => { sdSettings.drivers.push({ name: '', plate: '', phone: '', type: '' }); sdRenderSetup(); });
+    $('sd-logo-file').addEventListener('change', e => {
+      const f = e.target.files[0]; if(!f) return;
+      const fr = new FileReader();
+      fr.onload = async () => {
+        if(String(fr.result).length > 400000){ toast('로고 이미지가 너무 큽니다. 더 작은 파일(약 300KB 이하)을 사용해주세요'); return; }
+        sdSettings.logo = fr.result; if(await sdSave()) toast('로고를 등록했습니다'); sdRenderSetup(); if(sdPreviewKey) sdPreview(sdPreviewKey);
+      };
+      fr.readAsDataURL(f); e.target.value = '';
+    });
+    $('sd-logo-clear').addEventListener('click', async () => { sdSettings.logo = ''; await sdSave(); sdRenderSetup(); if(sdPreviewKey) sdPreview(sdPreviewKey); });
+    $('sd-import-file').addEventListener('change', e => { const f = e.target.files[0]; if(f) sdImportWorkbook(f); e.target.value = ''; });
+  })();
 
   document.getElementById('original-file-company-select').addEventListener('change', renderOriginalPreview);
   document.getElementById('original-tracking-col').addEventListener('input', renderOriginalPreview);
@@ -9533,7 +10051,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       btn.classList.add('active');
       const panelId = btn.dataset.orderPanel;
       document.getElementById(panelId).classList.add('active');
-      if(panelId === 'panel-ship') stmRenderList();
+      if(panelId === 'panel-ship'){ stmRenderList(); sdRenderList(); }
       // 실적/매출 탭 진입 시 날짜 기본값 세팅
       if(panelId === 'panel-sales'){
         const now = new Date();
