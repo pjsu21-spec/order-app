@@ -804,6 +804,11 @@
 
     <div id="agg-3pl-wrap" style="display:none;">
       <h3>품목별 합계</h3>
+      <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+        <button class="tab-btn active" id="agg3pl-unit-pack" title="택배로 나가는 팩 수량 그대로 보기">팩 단위</button>
+        <button class="tab-btn" id="agg3pl-unit-box" title="전체 집계처럼 박스입수로 환산해서 보기 (맨 아래에 팩 수량도 함께 표시)">박스 단위</button>
+        <span class="sub" id="agg3pl-unit-note" style="margin:0;"></span>
+      </div>
       <div id="agg-3pl-summary-wrap"></div>
       <h3>개별 주문(택배) 리스트</h3>
       <div id="agg-3pl-detail-wrap" class="tbl-scroll"></div>
@@ -5224,15 +5229,24 @@ function goHome() {
 
   // builds a read-only summary table (company x item) from an arbitrary companyMap, used for
   // the 3PL item-total summary and the monthly rollup view.
-  function buildReadonlyAggTable(companyMap, totalsLabel){
+  // opts.box=true 이면 박스입수로 환산한 박스 단위로 표시(박스입수가 없는 품목은 팩 그대로), 맨 아래에 팩 수량 줄을 덧붙임
+  function buildReadonlyAggTable(companyMap, totalsLabel, opts){
+    const box = !!(opts && opts.box);
     const companyNames = Object.keys(companyMap);
     if(companyNames.length === 0 || dict.length === 0) return null;
     const cols = aggColumnOrder(companyMap, false);
+    const unitOf = d => Number(d.boxUnitCount) || 0;
+    const fmt = n => Math.round(n * 100) / 100;
+    const conv = (d, packs) => box && unitOf(d) > 0 ? packs / unitOf(d) : packs;
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     headRow.innerHTML = '<th class="name-cell">업체명</th>' +
-      cols.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('') +
+      cols.map(d=>{
+        if(!box) return `<th>${escapeHtml(d.name)}</th>`;
+        const note = unitOf(d) > 0 ? `<div style="font-size:10px;font-weight:400;color:var(--muted)">${unitOf(d)}팩/박스</div>` : '<div style="font-size:10px;font-weight:600;color:var(--danger,#c0392b)">박스입수 미설정 (팩)</div>';
+        return `<th>${escapeHtml(d.name)}${note}</th>`;
+      }).join('') +
       '<th class="totals-col">합계</th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
@@ -5246,40 +5260,58 @@ function goHome() {
       tr.appendChild(nameTd);
       let rowTotal = 0;
       cols.forEach(d=>{
-        const val = Number(companyMap[company][d.id]) || 0;
+        const val = conv(d, Number(companyMap[company][d.id]) || 0);
         rowTotal += val;
         const td = document.createElement('td');
-        td.textContent = val;
+        td.textContent = fmt(val);
         tr.appendChild(td);
       });
       const totalTd = document.createElement('td');
       totalTd.className = 'totals-col';
-      totalTd.textContent = rowTotal;
+      totalTd.textContent = fmt(rowTotal);
       tr.appendChild(totalTd);
       tbody.appendChild(tr);
     });
 
     const totalRow = document.createElement('tr');
     totalRow.innerHTML = `<td class="name-cell totals-col">${escapeHtml(totalsLabel)}</td>`;
-    let grandTotal = 0;
+    let grandTotal = 0, grandPacks = 0;
+    const packTotals = [];
     cols.forEach(d=>{
-      let colTotal = 0;
-      companyNames.forEach(c=>{ colTotal += Number(companyMap[c][d.id]) || 0; });
-      grandTotal += colTotal;
+      let packs = 0;
+      companyNames.forEach(c=>{ packs += Number(companyMap[c][d.id]) || 0; });
+      const colTotal = conv(d, packs);
+      grandTotal += colTotal; grandPacks += packs; packTotals.push(packs);
       const td = document.createElement('td');
       td.className = 'totals-col';
-      td.textContent = colTotal;
+      td.textContent = fmt(colTotal);
       totalRow.appendChild(td);
     });
     const gtTd = document.createElement('td');
     gtTd.className = 'totals-col';
-    gtTd.textContent = grandTotal;
+    gtTd.textContent = fmt(grandTotal);
     totalRow.appendChild(gtTd);
     tbody.appendChild(totalRow);
+    if(box){
+      const packRow = document.createElement('tr');
+      packRow.style.color = 'var(--muted)';
+      packRow.innerHTML = '<td class="name-cell">(팩 수량)</td>' + packTotals.map(p => `<td>${fmt(p)}</td>`).join('') + `<td>${fmt(grandPacks)}</td>`;
+      tbody.appendChild(packRow);
+    }
     table.appendChild(tbody);
     return table;
   }
 
+  // 3PL 출고 집계 표시 단위 ('pack' 팩 / 'box' 박스) — 내 브라우저에 기억
+  let agg3plUnit = 'pack';
+  try{ if(localStorage.getItem('agg3pl_unit') === 'box') agg3plUnit = 'box'; }catch(e){ /* 저장 못 해도 동작 */ }
+  function setAgg3plUnit(u){
+    agg3plUnit = u;
+    try{ localStorage.setItem('agg3pl_unit', u); }catch(e){ /* 무시 */ }
+    renderThirdPartyAggTable();
+  }
+  document.getElementById('agg3pl-unit-pack').addEventListener('click', () => setAgg3plUnit('pack'));
+  document.getElementById('agg3pl-unit-box').addEventListener('click', () => setAgg3plUnit('box'));
   function renderThirdPartyAggTable(){
     renderUnmatchedAlert();
     const wrap = document.getElementById('agg-3pl-summary-wrap');
@@ -5291,7 +5323,11 @@ function goHome() {
     }
     const filtered = {};
     threePlNames.forEach(name=>{ if(orders[name]) filtered[name] = orders[name]; });
-    const table = buildReadonlyAggTable(filtered, '택배 출고 합계');
+    const box = agg3plUnit === 'box';
+    const pb = document.getElementById('agg3pl-unit-pack'), bb = document.getElementById('agg3pl-unit-box'), note = document.getElementById('agg3pl-unit-note');
+    if(pb && bb){ pb.classList.toggle('active', !box); bb.classList.toggle('active', box); }
+    if(note) note.textContent = box ? '박스입수로 환산한 박스 단위입니다 (박스입수가 없는 품목은 팩 그대로, 맨 아래에 팩 수량 표시)' : '택배로 나가는 팩 단위입니다';
+    const table = buildReadonlyAggTable(filtered, '택배 출고 합계', { box });
     if(!table){
       wrap.innerHTML = '<div class="empty">3PL 업체 중 아직 확정된 발주가 없습니다.</div>';
       return;
