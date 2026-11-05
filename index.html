@@ -2578,8 +2578,85 @@ function goHome() {
     if(!previousStock[currentDateKey].raw) previousStock[currentDateKey].raw = {};
     if(!previousStock[currentDateKey].product) previousStock[currentDateKey].product = {};
     if(!previousStock[currentDateKey].product2) previousStock[currentDateKey].product2 = {};   // 이틀 전 재고 (재고사용 배정용)
+    if(!previousStock[currentDateKey].made) previousStock[currentDateKey].made = {};           // 오늘 생산량(개): 내일 전일 재고 자동 계산용
+    if(!previousStock[currentDateKey].auto) previousStock[currentDateKey].auto = {};           // 자동 계산으로 채운 품목 표시
     return previousStock[currentDateKey];
   }
+  // ── 전일 재고 자동 이월 ──
+  // 오늘 전일 재고 = 직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고 (그날 생산량을 안 적었으면 생산 필요수량 = 출고 − 전일 재고(0 미만이면 0)만큼 생산한 것으로 봄 → 이월 = 전일 재고 − 출고, 0 미만이면 0).
+  //  - 직접 입력한 값(0 포함)은 절대 덮어쓰지 않고, 비어 있거나 자동으로 채운 값(auto 표시)만 다시 계산한다.
+  //  - 직전 영업일 = 오늘 이전 날짜 중 발주 또는 재고 입력이 있는 가장 가까운 날 (주말·휴무일은 건너뜀, 최대 CARRY_LOOKBACK_DAYS일 전까지).
+  //  - 직전 영업일의 전일 재고도 자동값이면 그 앞날부터 이어서 계산 (연쇄).  이틀 전 재고·원물 재고·샘플 출고는 자동 계산하지 않음.
+  const CARRY_LOOKBACK_DAYS = 10, CARRY_MAX_CHAIN = 12;
+  const carryRound = v => Math.round((Number(v) || 0) * 100) / 100;
+  const carryIsKey = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
+  function carryShipped(dateKey){
+    const out = {};
+    Object.entries(ordersByDate[dateKey] || {}).forEach(([c, items]) => {
+      if(c === '_meta') return;
+      Object.entries(items || {}).forEach(([id, q]) => { if(id !== '_meta') out[id] = (out[id] || 0) + (Number(q) || 0); });
+    });
+    return out;
+  }
+  function carryHasData(k){
+    const st = previousStock[k] || {};
+    const any = o => Object.values(o || {}).some(v => Number(v) > 0);
+    return any(st.product) || any(st.made) || Object.values(carryShipped(k)).some(v => v > 0);
+  }
+  function carryPrevKey(dateKey){
+    if(!carryIsKey(dateKey)) return '';
+    const oldest = sampleAddDays(dateKey, -CARRY_LOOKBACK_DAYS);
+    const keys = new Set([...Object.keys(ordersByDate), ...Object.keys(previousStock)]);
+    let best = '';
+    keys.forEach(k => { if(carryIsKey(k) && k < dateKey && k >= oldest && k > best && carryHasData(k)) best = k; });
+    return best;
+  }
+  // 그날(dateKey) 하루 끝의 실제 재고에 해당하는 "그날의 전일 재고" 값: 직접 입력값이 있으면 그것, 없으면 앞날에서 이월한 값
+  function carryEffective(dateKey, depth){
+    const st = previousStock[dateKey] || {}, prod = st.product || {}, auto = st.auto || {};
+    const base = depth < CARRY_MAX_CHAIN ? carryFrom(dateKey, depth) : {};
+    const out = {};
+    new Set([...Object.keys(base), ...Object.keys(prod)]).forEach(id => {
+      const manual = prod[id] != null && prod[id] !== '' && !auto[id];
+      out[id] = manual ? (Number(prod[id]) || 0) : (base[id] || 0);
+    });
+    return out;
+  }
+  // dateKey의 전일 재고를 직전 영업일 기준으로 계산 (dateKey 자신의 입력값은 보지 않음): { 품목id: 팩 }
+  function carryFrom(dateKey, depth){
+    const pk = carryPrevKey(dateKey);
+    if(!pk) return {};
+    const stock = carryEffective(pk, (depth || 0) + 1), made = (previousStock[pk] || {}).made || {}, ship = carryShipped(pk);
+    const out = {};
+    new Set([...Object.keys(stock), ...Object.keys(ship), ...Object.keys(made)]).forEach(id => {
+      const s = stock[id] || 0, sh = ship[id] || 0;
+      const m = (made[id] != null && made[id] !== '') ? (Number(made[id]) || 0) : Math.max(0, sh - s);
+      const v = carryRound(s + m - sh);
+      if(v > 0) out[id] = v;
+    });
+    return out;
+  }
+  // dateKey의 비어 있거나 자동으로 채운 전일 재고 칸을 이월 계산값으로 채움. 바뀐 게 있으면 true (저장은 호출한 쪽에서)
+  function ensureCarryOver(dateKey){
+    const base = carryFrom(dateKey, 0);
+    let st = previousStock[dateKey];
+    if(!st){ if(!Object.keys(base).length) return false; st = previousStock[dateKey] = { raw: {}, product: {} }; }
+    if(!st.raw) st.raw = {}; if(!st.product) st.product = {}; if(!st.auto) st.auto = {};
+    let changed = false;
+    new Set([...Object.keys(base), ...Object.keys(st.auto)]).forEach(id => {
+      const manual = st.product[id] != null && st.product[id] !== '' && !st.auto[id];
+      if(manual) return;
+      const v = base[id] || 0;
+      if(v > 0){
+        if(st.product[id] !== v || !st.auto[id]){ st.product[id] = v; st.auto[id] = true; changed = true; }
+      } else if(st.auto[id]){
+        delete st.product[id]; delete st.auto[id]; changed = true;
+      }
+    });
+    return changed;
+  }
+
+
   function currentRawMaterialUsage(){
     if(!rawMaterialUsage[currentDateKey]) rawMaterialUsage[currentDateKey] = {};
     return rawMaterialUsage[currentDateKey];
@@ -2755,6 +2832,7 @@ function goHome() {
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
     if(!deliveryFeeItems.find(d=>d.size==='소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'소', name:'택배비(소)', code:'', price:'' });
+    if(ensureCarryOver(currentDateKey)) savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월
 
     renderDict();
     renderCategoryEditor();
@@ -2976,6 +3054,7 @@ function goHome() {
   function onDateChanged(){
     saveDeliveryDate();
     currentDateKey = computeCurrentDateKey();
+    if(ensureCarryOver(currentDateKey)) savePreviousStock();
     renderAggTable();
     renderThirdPartyAggTable();
     renderThirdPartyLineItems();
@@ -4251,11 +4330,15 @@ function goHome() {
       return;
     }
     const stock = currentPreviousStock();
+    const shipped = carryShipped(currentDateKey);   // 오늘 발주 합계(팩): 생산 필요수량 안내에 사용
     const hint = document.createElement('div');
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
-    hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. <b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요 (배차 / 적재 탭에서 재고사용을 배정할 때 쓰이며, 이 수량 자체는 파일에 넣지 않습니다).';
+    hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
+      '<b>오늘 생산량</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
+      '<b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(배차 / 적재 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
     dict.forEach(item=>{
+      const id = item.id;
       const row = document.createElement('div');
       row.className = 'dict-row';
 
@@ -4265,13 +4348,12 @@ function goHome() {
       nameSpan.textContent = item.name;
       row.appendChild(nameSpan);
 
-      // 전일 재고 / 이틀 전 재고 (둘 다 개(팩) 단위로 저장, 옆에 박스 환산 표시)
-      const mkStock = (store, ph) => {
+      // 개(팩) 단위 입력 + 옆에 박스 환산 표시
+      const mkStock = (store, ph, onChange) => {
         const input = document.createElement('input');
         input.type = 'number';
         input.style.width = '90px';
         input.placeholder = ph;
-        input.value = store[item.id] ?? '';
         const span = document.createElement('span');
         span.style.fontSize = '11.5px';
         span.style.color = 'var(--accent)';
@@ -4280,32 +4362,59 @@ function goHome() {
           const breakdown = formatBoxBreakdown(val, item.boxUnitCount);
           span.textContent = breakdown ? `= ${breakdown}` : (item.boxUnitCount ? '' : '(박스입수 미설정)');
         };
-        upd(store[item.id] ?? 0);
         input.addEventListener('input', (e)=>{ upd(e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0)); });
-        input.addEventListener('change', (e)=>{
-          store[item.id] = e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0);
-          savePreviousStock();
-          renderAggTable();
-        });
+        input.addEventListener('change', (e)=> onChange(e.target.value));
         return { input, span, upd };
       };
-      const s1 = mkStock(stock.product, '전일 재고(개)');
-      const s2 = mkStock(stock.product2, '이틀 전 재고(개)');
+      const tag = document.createElement('span');
+      tag.textContent = '자동';
+      tag.title = '직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고로 자동 계산한 값입니다. 직접 입력하면 그 값이 우선합니다';
+      tag.style.cssText = 'font-size:10.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:100px;padding:1px 7px;';
+
+      const s1 = mkStock(stock.product, '전일 재고(개)', raw => {
+        if(raw === ''){ delete stock.product[id]; delete stock.auto[id]; ensureCarryOver(currentDateKey); }   // 비우면 자동 계산으로
+        else { stock.product[id] = parseFloat(raw) || 0; delete stock.auto[id]; }
+        savePreviousStock(); renderAggTable(); refresh();
+      });
+      const s2 = mkStock(stock.product2, '이틀 전 재고(개)', raw => {
+        stock.product2[id] = raw === '' ? 0 : (parseFloat(raw) || 0);
+        savePreviousStock(); renderAggTable();
+      });
+      const s3 = mkStock(stock.made, '오늘 생산량(개)', raw => {
+        if(raw === '') delete stock.made[id]; else stock.made[id] = Math.max(0, parseFloat(raw) || 0);
+        savePreviousStock();
+      });
+      s3.input.title = '오늘 실제로 생산한 수량. 내일 전일 재고를 자동 계산할 때만 쓰입니다. 비우면 생산 필요수량(오늘 출고 − 전일 재고)만큼 생산한 것으로 봅니다';
+      const refresh = ()=>{
+        const isAuto = !!stock.auto[id];
+        s1.input.value = stock.product[id] ?? '';
+        s1.input.style.background = isAuto ? 'var(--accent-soft)' : '';
+        tag.style.display = isAuto ? '' : 'none';
+        s1.upd(stock.product[id] ?? 0);
+        const need = Math.max(0, carryRound((shipped[id] || 0) - (Number(stock.product[id]) || 0)));
+        s3.input.placeholder = need > 0 ? `필요 ${need}` : '오늘 생산량(개)';
+      };
+      s2.input.value = stock.product2[id] ?? ''; s2.upd(stock.product2[id] ?? 0);
+      s3.input.value = stock.made[id] ?? ''; s3.upd(stock.made[id] ?? 0);
+      refresh();
       row.appendChild(s1.input);
+      row.appendChild(tag);
       row.appendChild(s1.span);
       row.appendChild(s2.input);
       row.appendChild(s2.span);
+      row.appendChild(s3.input);
+      row.appendChild(s3.span);
 
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-ghost small-btn';
       clearBtn.textContent = '지우기';
-      clearBtn.title = '이 품목의 전일·이틀 전 재고 수량만 지웁니다 (품목 자체는 삭제되지 않습니다)';
+      clearBtn.title = '이 품목의 전일·이틀 전 재고와 생산량 입력을 지웁니다. 전일 재고는 자동 계산값으로 돌아갑니다 (품목 자체는 삭제되지 않습니다)';
       clearBtn.addEventListener('click', ()=>{
-        delete stock.product[item.id];
-        delete stock.product2[item.id];
+        delete stock.product[id]; delete stock.product2[id]; delete stock.made[id]; delete stock.auto[id];
+        ensureCarryOver(currentDateKey);
         savePreviousStock();
-        s1.input.value = ''; s2.input.value = '';
-        s1.upd(0); s2.upd(0);
+        s2.input.value = ''; s2.upd(0); s3.input.value = ''; s3.upd(0);
+        refresh();
         renderAggTable();
       });
       row.appendChild(clearBtn);
@@ -12897,6 +13006,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       ac.added.forEach(x => add('info', '새 품목 열 자동 추가', `${nm(x.item)} → ${x.col}열 (${x.group}${x.group === '새 묶음' ? '' : ' 묶음 오른쪽'}) — 서식에 열을 끼워 넣어 채웁니다`));
       if(ac.failed.length) add('err', '서식에 열을 추가하지 못한 품목', `${ac.failed.map(nm).join(', ')} — 서식에 열을 직접 추가하거나 다른 열을 지정해주세요`);
     }
+    ensureCarryOver(dateKey);   // 점검은 저장하지 않고 화면의 값만 채워서 본다
     const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: colMapU, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
     if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ add('info', '발주 데이터 없음', '이 날짜에는 서식에 채울 주문이 없습니다'); return issues; }
     if(built.unmapped.length) add('err', '서식에 열이 없는 품목', `${built.unmapped.join(', ')} — 서식에 열을 추가해 다시 등록하고 열을 지정하거나, 서식의 다른 열을 지정해주세요. 안 하면 파일 맨 아래 표에만 적힙니다`);
@@ -13002,6 +13112,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         addedCols = ac.added; failedCols = ac.failed; remapCol = ac.remap;
         savedColMap = skuColumnMap; skuColumnMap = ac.colMap;
       }
+      if(ensureCarryOver(dateKey)) savePreviousStock();
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
       const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
@@ -13820,6 +13931,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const need = dict.filter(d => hasOrd(d) && !(colMap[d.id] && hdr0.some(h => h.col === colMap[d.id])));
     let cm = colMap, remap = L => L;
     if(need.length){ const ac = poAddItemColumns(ctx, need, colMap); cm = ac.colMap; remap = ac.remap; }
+    ensureCarryOver(dateKey);   // 현황판은 읽기만 하므로 저장하지 않고 계산값을 채워서 표시
     const built = buildProductionOrderEntries({ dict, companies, orders, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: cm, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
     const saved = skuColumnMap;
     let res;
