@@ -5033,12 +5033,12 @@ function goHome() {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    headRow.innerHTML = '<th><input type="checkbox" id="agg-select-all"></th><th class="name-cell">업체명</th><th>담당자</th>' +
+    headRow.innerHTML = '<th><input type="checkbox" id="agg-select-all"></th><th class="name-cell">업체명</th><th>담당자</th><th class="totals-col">합계</th>' +
       cols.map(d=>{
         const boxNote = d.boxUnitCount ? `<div style="font-size:10px;font-weight:400;color:var(--muted)">${d.boxUnitCount}팩/박스</div>` : '<div style="font-size:10px;font-weight:600;color:var(--danger,#c0392b)">박스입수 미설정 (팩)</div>';
         return `<th>${escapeHtml(d.name)}${boxNote}</th>`;
       }).join('') +
-      '<th class="totals-col">합계</th><th></th>';
+      '<th></th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
 
@@ -5076,6 +5076,9 @@ function goHome() {
       staffTd.textContent = (orders[company]._meta && orders[company]._meta.enteredBy) || '';
       tr.appendChild(staffTd);
 
+      const totalTd = document.createElement('td');   // 업체별 합계는 품목 열보다 앞(왼쪽)에 둠
+      totalTd.className = 'totals-col';
+      tr.appendChild(totalTd);
       let rowTotal = 0;
       cols.forEach(d=>{
         const td = document.createElement('td');
@@ -5097,10 +5100,7 @@ function goHome() {
         tr.appendChild(td);
       });
 
-      const totalTd = document.createElement('td');
-      totalTd.className = 'totals-col';
       totalTd.textContent = fmt(rowTotal);
-      tr.appendChild(totalTd);
 
       const actionTd = document.createElement('td');
       const delBtn = document.createElement('button');
@@ -5134,6 +5134,9 @@ function goHome() {
       sumName.addEventListener('click', ()=>{ agg3plOpen = !agg3plOpen; renderAggTable(); });
       sumTr.appendChild(sumName);
       sumTr.appendChild(document.createElement('td'));
+      const tplTotalTd = document.createElement('td');
+      tplTotalTd.className = 'totals-col';
+      sumTr.appendChild(tplTotalTd);
       let tplTotal = 0;
       cols.forEach(d=>{
         const v = tplCompanies.reduce((s, c) => s + (Number(orders[c][d.id]) || 0), 0);
@@ -5143,10 +5146,7 @@ function goHome() {
         td.textContent = fmt(toBox(d, v));
         sumTr.appendChild(td);
       });
-      const tplTotalTd = document.createElement('td');
-      tplTotalTd.className = 'totals-col';
       tplTotalTd.textContent = fmt(tplTotal);
-      sumTr.appendChild(tplTotalTd);
       sumTr.appendChild(document.createElement('td'));
       tbody.appendChild(sumTr);
       if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
@@ -5169,7 +5169,7 @@ function goHome() {
     const gtTd = document.createElement('td');
     gtTd.className = 'totals-col';
     gtTd.textContent = `${fmt(grandTotal)}박스`;
-    totalRow.appendChild(gtTd);
+    totalRow.insertBefore(gtTd, totalRow.children[3] || null);   // 총합계도 왼쪽(담당자 옆)
     totalRow.appendChild(document.createElement('td'));
     tbody.appendChild(totalRow);
 
@@ -5189,7 +5189,7 @@ function goHome() {
     const stockGtTd = document.createElement('td');
     stockGtTd.style.color = 'var(--muted)';
     stockGtTd.textContent = fmt(stockGrandTotal);
-    stockRow.appendChild(stockGtTd);
+    stockRow.insertBefore(stockGtTd, stockRow.children[3] || null);
     stockRow.appendChild(document.createElement('td'));
     tbody.appendChild(stockRow);
 
@@ -5209,7 +5209,7 @@ function goHome() {
     neededGtTd.className = 'totals-col';
     neededGtTd.style.color = 'var(--accent)';
     neededGtTd.textContent = `${fmt(neededGrandTotal)}박스`;
-    neededRow.appendChild(neededGtTd);
+    neededRow.insertBefore(neededGtTd, neededRow.children[3] || null);
     neededRow.appendChild(document.createElement('td'));
     tbody.appendChild(neededRow);
 
@@ -5224,7 +5224,8 @@ function goHome() {
 
   // builds a read-only summary table (company x item) from an arbitrary companyMap, used for
   // the 3PL item-total summary and the monthly rollup view.
-  // 집계 내용은 팩으로 표시. opts.boxRow=true 이면 합계 줄 아래에 박스입수로 환산한 박스 수량 줄을 덧붙임 (박스입수가 없는 품목은 '-', 합계에는 '+' 표시)
+  // 집계 내용은 팩으로 표시. 합계 열은 업체명 바로 오른쪽(품목 열보다 앞)에 둠.
+  // opts.boxRow=true 이면 합계 줄 아래에 박스입수로 환산한 박스 수량 줄을 덧붙임 (박스입수가 없는 품목은 '-', 합계에는 '+' 표시)
   function buildReadonlyAggTable(companyMap, totalsLabel, opts){
     const companyNames = Object.keys(companyMap);
     if(companyNames.length === 0 || dict.length === 0) return null;
@@ -5232,9 +5233,8 @@ function goHome() {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    headRow.innerHTML = '<th class="name-cell">업체명</th>' +
-      cols.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('') +
-      '<th class="totals-col">합계</th>';
+    headRow.innerHTML = '<th class="name-cell">업체명</th><th class="totals-col">합계</th>' +
+      cols.map(d=>`<th>${escapeHtml(d.name)}</th>`).join('');
     thead.appendChild(headRow);
     table.appendChild(thead);
 
@@ -5245,6 +5245,9 @@ function goHome() {
       nameTd.className = 'name-cell';
       nameTd.textContent = company;
       tr.appendChild(nameTd);
+      const totalTd = document.createElement('td');
+      totalTd.className = 'totals-col';
+      tr.appendChild(totalTd);
       let rowTotal = 0;
       cols.forEach(d=>{
         const val = Number(companyMap[company][d.id]) || 0;
@@ -5253,15 +5256,15 @@ function goHome() {
         td.textContent = val;
         tr.appendChild(td);
       });
-      const totalTd = document.createElement('td');
-      totalTd.className = 'totals-col';
       totalTd.textContent = rowTotal;
-      tr.appendChild(totalTd);
       tbody.appendChild(tr);
     });
 
     const totalRow = document.createElement('tr');
     totalRow.innerHTML = `<td class="name-cell totals-col">${escapeHtml(totalsLabel)}</td>`;
+    const gtTd = document.createElement('td');
+    gtTd.className = 'totals-col';
+    totalRow.appendChild(gtTd);
     let grandTotal = 0;
     const colPacks = [];
     cols.forEach(d=>{
@@ -5274,10 +5277,7 @@ function goHome() {
       td.textContent = colTotal;
       totalRow.appendChild(td);
     });
-    const gtTd = document.createElement('td');
-    gtTd.className = 'totals-col';
     gtTd.textContent = grandTotal;
-    totalRow.appendChild(gtTd);
     tbody.appendChild(totalRow);
     if(opts && opts.boxRow){
       const fmt = n => Math.round(n * 100) / 100;
@@ -5289,7 +5289,7 @@ function goHome() {
         return `<td class="totals-col" title="1박스 = ${u}팩">${fmt(b)}</td>`;
       });
       const boxRow = document.createElement('tr');
-      boxRow.innerHTML = '<td class="name-cell totals-col">박스 수량 (박스입수 환산)</td>' + cells.join('') + `<td class="totals-col">${fmt(boxTotal)}${missing ? '+' : ''}</td>`;
+      boxRow.innerHTML = '<td class="name-cell totals-col">박스 수량 (박스입수 환산)</td>' + `<td class="totals-col">${fmt(boxTotal)}${missing ? '+' : ''}</td>` + cells.join('');
       tbody.appendChild(boxRow);
     }
     table.appendChild(tbody);
