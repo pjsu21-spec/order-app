@@ -1877,6 +1877,10 @@
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더/상세페이지 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. (공유폴더와 상세페이지는 같은 권한을 함께 씁니다) 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더·상세페이지에 항상 접근할 수 있습니다)</div></details>
+      <h3 style="margin:0 0 4px;">부서별 권한 <span class="sub" style="font-weight:400;margin:0;">(부서마다 권한 세트를 정해 두고 [부서 전체에 적용]을 누르면 그 부서 직원 전원에게 한꺼번에 적용됩니다 · 관리자 계정은 제외)</span></h3>
+      <div class="sub" style="margin:0 0 6px;">부서는 <b>사용자 관리</b>에서 직원마다 지정합니다. 부서 권한을 바꾸면 세트만 저장되고, 직원에게는 [부서 전체에 적용]을 눌러야 반영됩니다. 새 직원을 만들 때 부서를 적으면 그 부서 권한이 자동 적용되고, 직원의 부서를 바꿀 때도 적용할지 묻습니다. 적용한 뒤에도 아래 사용자별 표에서 개인별로 따로 바꿀 수 있습니다.</div>
+      <div id="admin-dept-perms-wrap" style="overflow-x:auto;"></div>
+      <h3 style="margin:18px 0 6px;">사용자별 권한 <select id="admin-perms-dept-filter" style="font-size:13px; padding:3px 6px; margin-left:6px;"><option value="">전체 부서</option></select></h3>
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
   </div>
@@ -13932,6 +13936,17 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
           const r = await apiUpdateUser(u.id, { department: deptInput.value.trim() });
           if(!r.ok){ alert("부서를 저장하지 못했습니다. Supabase users 테이블에 'department' 컬럼이 없는 것 같습니다.\n아래를 SQL Editor에서 실행한 뒤 다시 시도해주세요.\n\nALTER TABLE users ADD COLUMN IF NOT EXISTS department text;"); return; }
           await writeLog('user_dept', `${u.username} 부서: ${u.department || '-'} → ${deptInput.value.trim() || '-'}`);
+          const nd = deptInput.value.trim();
+          if(nd && u.role !== 'admin'){
+            try{
+              await loadDeptPerms(true);
+              if(deptPerms[nd] && confirm(`${nd} 부서에 저장된 권한을 ${u.display_name}님에게도 적용할까요?\n\n${dpDescribe(deptPerms[nd])}`)){
+                const r2 = await apiUpdateUser(u.id, dpFields(deptPerms[nd]));
+                if(r2.ok) await writeLog('perm_dept', `${u.username} 부서 변경: ${nd} 부서 권한 적용`);
+                toast(r2.ok ? '부서 권한을 적용했습니다' : '부서 권한을 적용하지 못했습니다');
+              }
+            }catch(e){ console.error(e); }
+          }
           loadAdminUsers();
         });
         deptCell.append(deptInput, deptBtn);
@@ -13975,15 +13990,155 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     }catch(e){ wrap.innerHTML=`<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
+  // ══════════════════ 부서별 권한 (일괄 적용) ══════════════════
+  // 부서마다 권한 세트를 정해 두고(kv_store 'dept-perms'), [부서 전체에 적용]을 누르면 그 부서의 직원 전원의 개인 권한(users 컬럼)에 한꺼번에 기록한다.
+  // 개인 권한 구조·로그인 방식은 그대로라서, 적용 뒤에 개인별로 따로 바꿀 수도 있다(다르게 바꾼 사람은 '다른 사람 N명'으로 표시). 관리자 권한 계정은 적용 대상에서 제외.
+  // 새 직원을 만들 때 부서를 적으면 그 부서 권한이 자동 적용되고, 부서를 바꿀 때도 적용할지 묻는다.
+  const DP_DEFAULT = { order: 'full', sorting: 'none', master: false, files: 'none', cost: false, sample: 'none' };
+  const DP_LEVELS = [['none', '⛔ 차단'], ['read', '👁 읽기만'], ['full', '✅ 전체']];
+  const DP_SAMPLE = [['none', '⛔ 차단'], ['view', '👁 열람'], ['request', '✍ 신청'], ['collect', '📋 주문 취합']];
+  let deptPerms = {};           // { 부서명: { order, sorting, master, files, cost, sample } }
+  let deptPermsLoaded = false;
+  let permsDeptFilter = '';     // 사용자별 권한 표의 부서 필터
+  async function loadDeptPerms(force){
+    if(deptPermsLoaded && !force) return deptPerms;
+    try{
+      const r = await window.storage.get('dept-perms', true);
+      const v = r && r.value ? JSON.parse(r.value) : {};
+      deptPerms = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+      deptPermsLoaded = true;
+    }catch(e){ /* 읽기 실패: 기존 값 유지 */ }
+    return deptPerms;
+  }
+  async function saveDeptPerms(){
+    await window.storage.set('dept-perms', JSON.stringify(deptPerms), true);
+  }
+  const dpNorm = p => Object.assign({}, DP_DEFAULT, p || {});
+  // 권한 세트 → users 컬럼 값
+  function dpFields(p){
+    p = dpNorm(p);
+    return {
+      access_order: p.order !== 'none', readonly_order: p.order === 'read',
+      access_sorting: p.sorting !== 'none', readonly_sorting: p.sorting === 'read',
+      sorting_master_edit: !!p.master,
+      access_files: p.files !== 'none', readonly_files: p.files === 'read',
+      access_cost: !!p.cost,
+      access_sample: p.sample
+    };
+  }
+  // 사용자(users 행)의 현재 권한 → 권한 세트 (화면 표시와 같은 해석: access_order는 false일 때만 차단, 나머지는 true일 때만 허용)
+  function dpOf(u){
+    return {
+      order: u.access_order === false ? 'none' : (u.readonly_order === true ? 'read' : 'full'),
+      sorting: u.access_sorting === true ? (u.readonly_sorting === true ? 'read' : 'full') : 'none',
+      master: u.sorting_master_edit === true,
+      files: u.access_files === true ? (u.readonly_files === true ? 'read' : 'full') : 'none',
+      cost: u.access_cost === true,
+      sample: ['view', 'request', 'collect'].includes(u.access_sample) ? u.access_sample : 'none'
+    };
+  }
+  const dpSame = (a, b) => ['order', 'sorting', 'master', 'files', 'cost', 'sample'].every(k => dpNorm(a)[k] === dpNorm(b)[k]);
+  function dpDescribe(p){
+    p = dpNorm(p);
+    const lv = { none: '차단', read: '읽기만', full: '전체' }, sm = { none: '차단', view: '열람', request: '신청', collect: '주문 취합' };
+    return `발주자동화 ${lv[p.order]} · 원물선별 ${lv[p.sorting]} · 마스터관리 ${p.master ? '허용' : '차단'} · 공유폴더/상세페이지 ${lv[p.files]} · 단가 열람 ${p.cost ? '허용' : '차단'} · 샘플 신청 ${sm[p.sample]}`;
+  }
+  const dpDeptOf = u => String(u.department || '').trim();
+  // 부서 구성원(관리자 제외)에게 권한 세트 적용 → { ok, fail, skipped }
+  async function applyDeptPerm(dept, targets, preset){
+    let ok = 0, fail = 0, skipped = 0;
+    for(const u of targets){
+      if(u.id === window.currentUser?.id && dpNorm(preset).order === 'none'){ skipped++; continue; }   // 자기 자신의 발주자동화 접근은 끌 수 없음
+      const r = await apiUpdateUser(u.id, dpFields(preset));
+      if(r.ok) ok++; else fail++;
+    }
+    return { ok, fail, skipped };
+  }
+  async function renderDeptPerms(rows){
+    const wrap = document.getElementById('admin-dept-perms-wrap');
+    if(!wrap) return;
+    await loadDeptPerms();
+    const depts = [...new Set([...rows.map(dpDeptOf).filter(Boolean), ...Object.keys(deptPerms)])].sort((a, b) => a.localeCompare(b, 'ko'));
+    // 사용자별 표의 부서 필터 목록
+    const fsel = document.getElementById('admin-perms-dept-filter');
+    if(fsel){
+      fsel.innerHTML = '<option value="">전체 부서</option>' + depts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+      fsel.value = depts.includes(permsDeptFilter) ? permsDeptFilter : '';
+      permsDeptFilter = fsel.value;
+    }
+    wrap.innerHTML = '';
+    if(!depts.length){ wrap.innerHTML = '<div class="empty">부서가 지정된 사용자가 없습니다. 사용자 관리에서 직원의 부서를 먼저 입력해주세요.</div>'; return; }
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>부서</th><th>인원</th><th>발주자동화</th><th>원물선별</th><th>마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>적용</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    depts.forEach(dept => {
+      const members = rows.filter(u => dpDeptOf(u) === dept);
+      const staff = members.filter(u => u.role !== 'admin'), admins = members.length - staff.length;
+      const preset = dpNorm(deptPerms[dept]);
+      const saved = !!deptPerms[dept];
+      const tr = document.createElement('tr');
+      tr.dataset.dept = dept;
+      const mkSel = (opts, cur, field) => {
+        const sel = document.createElement('select'); sel.style.cssText = 'font-size:13px; padding:4px 6px;';
+        opts.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; if(String(cur) === String(v)) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', async () => {
+          const next = Object.assign({}, dpNorm(deptPerms[dept]));
+          next[field] = (field === 'master' || field === 'cost') ? sel.value === 'true' : sel.value;
+          deptPerms[dept] = next;
+          try{ await saveDeptPerms(); }catch(e){ console.error(e); toast('부서 권한을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+          renderDeptPerms(rows);
+        });
+        return sel;
+      };
+      const td = el => { const c = document.createElement('td'); if(el) c.appendChild(el); return c; };
+      const nameTd = document.createElement('td'); nameTd.innerHTML = `<b>${escapeHtml(dept)}</b>`; if(!saved) nameTd.innerHTML += '<div class="sub" style="margin:0;font-size:11px;">권한 미설정(기본값)</div>';
+      const cntTd = document.createElement('td'); cntTd.style.whiteSpace = 'nowrap'; cntTd.textContent = `직원 ${staff.length}명${admins ? ` (관리자 ${admins}명 제외)` : ''}`;
+      const diff = staff.filter(u => !dpSame(dpOf(u), preset));
+      const act = document.createElement('td'); act.style.whiteSpace = 'nowrap';
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = diff.length ? 'btn-primary small-btn' : 'btn-ghost small-btn';
+      btn.textContent = '부서 전체에 적용'; btn.disabled = !staff.length;
+      btn.title = '이 부서 직원 전원의 개인 권한을 왼쪽 권한 세트로 바꿉니다 (관리자 제외)';
+      const st = document.createElement('div'); st.className = 'sub'; st.style.cssText = 'margin:2px 0 0;font-size:11px;';
+      st.textContent = !staff.length ? '' : (diff.length ? `${diff.length}명이 이 권한과 다름` : '모두 같음 ✓');
+      if(diff.length) st.title = diff.map(u => u.display_name).join(', ');
+      btn.addEventListener('click', async () => {
+        if(!saved && !confirm(`"${dept}" 부서의 권한이 아직 저장되지 않아 기본값(발주자동화 전체, 나머지 차단)을 적용하게 됩니다. 계속할까요?`)) return;
+        if(!diff.length){ toast('이 부서 직원은 모두 이미 같은 권한입니다'); return; }
+        const targets = diff;
+        if(!confirm(`${dept} 부서 직원 ${staff.length}명 중 ${diff.length}명의 권한이 바뀝니다.\n\n${dpDescribe(preset)}\n\n적용할까요? (관리자 계정은 제외됩니다)`)) return;
+        btn.disabled = true;
+        try{
+          const res = await applyDeptPerm(dept, targets, preset);
+          await writeLog('perm_dept', `${dept} 부서 권한 일괄 적용: ${res.ok}명 성공${res.fail ? ', ' + res.fail + '명 실패' : ''}${res.skipped ? ', ' + res.skipped + '명 제외' : ''} (${dpDescribe(preset)})`);
+          if(res.fail) alert(`${res.ok}명에게 적용했고 ${res.fail}명은 적용하지 못했습니다. Supabase users 테이블에 권한 컬럼(access_order / access_sorting / sorting_master_edit / access_files / access_cost / access_sample / readonly_*)이 모두 있는지 확인해주세요.`);
+          else toast(`${dept} 부서 ${res.ok}명에게 권한을 적용했습니다${res.skipped ? ` (본인 ${res.skipped}명은 발주자동화 차단이라 제외)` : ''}. 해당 직원은 새로고침하거나 다시 로그인하면 적용됩니다`);
+        }catch(e){ console.error(e); toast('적용하지 못했습니다: ' + (e.message || e)); }
+        finally{ loadAdminPerms(); }
+      });
+      act.append(btn, st);
+      tr.append(nameTd, cntTd,
+        td(mkSel(DP_LEVELS, preset.order, 'order')), td(mkSel(DP_LEVELS, preset.sorting, 'sorting')),
+        td(mkSel([['false', '⛔ 차단'], ['true', '✅ 허용']], String(preset.master), 'master')),
+        td(mkSel(DP_LEVELS, preset.files, 'files')),
+        td(mkSel([['false', '⛔ 차단'], ['true', '✅ 열람']], String(preset.cost), 'cost')),
+        td(mkSel(DP_SAMPLE, preset.sample, 'sample')), act);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+  }
+
   async function loadAdminPerms(){
     const wrap = document.getElementById('admin-perms-wrap');
     wrap.innerHTML = '';
     try{
       const rows = await apiUsersAdmin();
+      try{ await renderDeptPerms(rows); }catch(e){ console.error(e); }
+      const rowsView = permsDeptFilter ? rows.filter(u => dpDeptOf(u) === permsDeptFilter) : rows;
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      rows.forEach(u=>{
+      rowsView.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
         const accessOrder = u.access_order !== false;
         const accessSorting = u.access_sorting === true;
@@ -13992,7 +14147,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         const accessCost = u.access_cost === true;
 
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}</td><td></td><td></td><td></td><td></td><td></td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.display_name)}${dpDeptOf(u) ? `<div class="sub" style="margin:0;font-size:11px;">${escapeHtml(dpDeptOf(u))}</div>` : ''}</td><td></td><td></td><td></td><td></td><td></td><td></td>`;
         const cells = tr.querySelectorAll('td');
 
         function makeToggle(current, field, onLabel, offLabel){
@@ -14091,6 +14246,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   }
 
   document.getElementById('admin-refresh-log-btn').addEventListener('click', loadAdminLog);
+  { const pf = document.getElementById('admin-perms-dept-filter'); if(pf) pf.addEventListener('change', () => { permsDeptFilter = pf.value; loadAdminPerms(); }); }
 
   document.getElementById('admin-export-log-btn').addEventListener('click', async ()=>{
     try{
@@ -14115,10 +14271,22 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       const hash = await hashPassword(pw);
       await apiCreateUser(username, display, hash, role, dept);
       await writeLog('user_create', `신규 사용자 생성: ${username} (${display})`);
+      let deptNote = '';
+      if(dept && role !== 'admin'){
+        try{
+          await loadDeptPerms(true);
+          if(deptPerms[dept]){
+            const all = await apiUsersAdmin(), nu = all.find(x => x.username === username);
+            const r = nu ? await apiUpdateUser(nu.id, dpFields(deptPerms[dept])) : { ok: false };
+            deptNote = r.ok ? ` · ${dept} 부서 권한을 자동 적용했습니다` : ` · 부서 권한은 적용하지 못했습니다(권한 관리에서 [부서 전체에 적용])`;
+            if(r.ok) await writeLog('perm_dept', `${username} 신규 생성: ${dept} 부서 권한 자동 적용`);
+          }
+        }catch(e){ console.error(e); }
+      }
       ['new-user-username','new-user-display','new-user-dept'].forEach(id=>{ document.getElementById(id).value=''; });
       document.getElementById('new-user-pw').value = '1111';
       loadAdminUsers();
-      toast(`${display}(${username}) 계정이 생성되었습니다 — 초기 비밀번호로 처음 로그인하면 비밀번호를 바꾸게 됩니다`);
+      toast(`${display}(${username}) 계정이 생성되었습니다 — 초기 비밀번호로 처음 로그인하면 비밀번호를 바꾸게 됩니다${deptNote}`);
     }catch(e){ toast('생성 실패: '+e.message); }
   });
 
