@@ -821,7 +821,7 @@
   <div id="panel-agg" class="order-sub-panel">
 
   <div class="card">
-    <h2>업체별 발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
+    <h2>발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
     <div class="row" style="margin-top:0;">
       <button class="tab-btn active" id="tab-all-btn">전체 집계</button>
       <button class="tab-btn" id="tab-3pl-btn">3PL 출고 집계</button>
@@ -2894,6 +2894,7 @@ function goHome() {
     try{
       // 서버에 먼저 연결해 보고, 실패하면 화면의 현재 내용을 그대로 둠 (불러오기 실패로 빈 화면이 되는 것을 막음)
       await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'dispatch-by-date'].map(k => window.storage.get(k, true)));
+      aggSample.at = 0;
       await loadState();
       toast('최신 내용을 불러왔습니다');
     }catch(e){
@@ -5279,6 +5280,21 @@ function goHome() {
     if(/투맛토|2kg|500\s*g/i.test(t)) return 0;
     return 3;
   }
+  // 발주 집계표에 함께 보여 줄 샘플 신청 (생산일이 이 날짜인 생산본부 생산 품목 — 발주취합 파일의 샘플 행과 같은 기준)
+  let aggSample = { date: '', at: 0, rows: [], loading: false, open: false };
+  function aggSampleNow(){ return aggSample.date === currentDateKey ? aggSample.rows : []; }
+  function aggSampleEnsure(){
+    const dk = currentDateKey;
+    if(aggSample.loading || typeof window.getSampleRequestsForDate !== 'function') return;
+    if(aggSample.date === dk && Date.now() - aggSample.at < 60000) return;
+    aggSample.loading = true;
+    const prev = JSON.stringify(aggSampleNow());
+    Promise.resolve().then(() => window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' })).then(rows => {
+      rows = rows || [];
+      aggSample = { date: dk, at: Date.now(), rows, loading: false, open: aggSample.open };
+      if(dk === currentDateKey && JSON.stringify(rows) !== prev) renderAggTable();   // 바뀐 때만 다시 그림 (입력 중 화면이 깜빡이지 않게)
+    }).catch(() => { aggSample = { date: dk, at: Date.now(), rows: aggSample.date === dk ? aggSample.rows : [], loading: false, open: aggSample.open }; });
+  }
   function aggColumnOrder(ordersMap, withStock){
     const stock = withStock ? (currentPreviousStock().product || {}) : {};
     const used = d => Number(stock[d.id]) > 0 || Object.keys(ordersMap || {}).some(c => c !== '_meta' && Number(((ordersMap[c]) || {})[d.id]) > 0);
@@ -5294,8 +5310,12 @@ function goHome() {
     const wrap = document.getElementById('agg-table-wrap');
     const orders = currentOrders();
     const orderCompanies = Object.keys(orders);
-    const cols = aggColumnOrder(orders, true);
-    if(orderCompanies.length === 0 || dict.length === 0){
+    aggSampleEnsure();
+    const sampleRows = aggSampleNow();
+    const sampleTot = {};   // 품목id → 팩 (샘플 합계)
+    sampleRows.forEach(r => (r.items || []).forEach(i => { sampleTot[i.skuId] = (sampleTot[i.skuId] || 0) + (Number(i.packs) || 0); }));
+    const cols = aggColumnOrder(Object.keys(sampleTot).length ? Object.assign({}, orders, { '__sample__': sampleTot }) : orders, true);
+    if((orderCompanies.length === 0 && !sampleRows.length) || dict.length === 0){
       wrap.innerHTML = '<div class="empty">아직 확정된 발주가 없습니다. 위에서 메시지를 입력하고 확정 추가해보세요.</div>';
       document.getElementById('agg-bulk-bar').style.display = 'none';
       return;
@@ -5505,6 +5525,58 @@ function goHome() {
       tbody.appendChild(sumTr);
       if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
     }
+    // 샘플 신청 (생산본부 생산): 한 줄로 접어 두고 눌러서 신청자별로 펼침. 합계·생산 필요수량에 포함
+    if(sampleRows.length){
+      const smTr = document.createElement('tr');
+      smTr.id = 'agg-sample-summary-row';
+      smTr.style.background = 'var(--hover)';
+      smTr.appendChild(document.createElement('td'));
+      const smName = document.createElement('td');
+      smName.className = 'name-cell';
+      smName.style.cssText = 'cursor:pointer;font-weight:700;';
+      smName.textContent = `${aggSample.open ? '▾' : '▸'} 샘플 (${sampleRows.length}건)`;
+      smName.title = '샘플 신청 중 생산본부 생산으로 지정된 품목 (발주취합 파일의 샘플 행과 같은 기준, 생산일 기준). 아래 합계·생산 필요수량에 포함됩니다. 눌러서 신청자별로 펼치기/접기';
+      smName.addEventListener('click', ()=>{ aggSample.open = !aggSample.open; renderAggTable(); });
+      smTr.appendChild(smName);
+      smTr.appendChild(document.createElement('td'));
+      const smTotalTd = document.createElement('td');
+      smTotalTd.className = 'totals-col';
+      smTr.appendChild(smTotalTd);
+      let smTotal = 0;
+      cols.forEach(d=>{
+        const v = Number(sampleTot[d.id]) || 0;
+        smTotal += toBox(d, v);
+        const td = document.createElement('td');
+        td.style.fontWeight = '600';
+        td.textContent = fmt(toBox(d, v));
+        smTr.appendChild(td);
+      });
+      smTotalTd.textContent = fmt(smTotal);
+      smTr.appendChild(document.createElement('td'));
+      tbody.appendChild(smTr);
+      if(aggSample.open){
+        sampleRows.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.style.background = 'var(--hover)';
+          tr.appendChild(document.createElement('td'));
+          const nm = document.createElement('td');
+          nm.className = 'name-cell';
+          nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '');
+          tr.appendChild(nm);
+          tr.appendChild(document.createElement('td'));
+          const tt = document.createElement('td'); tt.className = 'totals-col'; tr.appendChild(tt);
+          let rt = 0;
+          cols.forEach(d=>{
+            const p = (r.items || []).filter(i => i.skuId === d.id).reduce((x, i) => x + (Number(i.packs) || 0), 0);
+            rt += toBox(d, p);
+            const td = document.createElement('td'); td.textContent = p > 0 ? fmt(toBox(d, p)) : ''; tr.appendChild(td);
+          });
+          tt.textContent = fmt(rt);
+          tr.appendChild(document.createElement('td'));
+          tbody.appendChild(tr);
+        });
+      }
+    }
 
     const totalRow = document.createElement('tr');
     totalRow.innerHTML = '<td></td><td class="name-cell totals-col">합계</td><td class="totals-col"></td>';
@@ -5513,6 +5585,7 @@ function goHome() {
     cols.forEach(d=>{
       let colTotal = 0;
       orderCompanies.forEach(c=>{ colTotal += Number(orders[c][d.id]) || 0; });
+      colTotal += Number(sampleTot[d.id]) || 0;   // 샘플(생산본부 생산)도 합계·생산 필요수량에 포함
       grandTotal += toBox(d, colTotal);
       colTotals.push(colTotal);
       const td = document.createElement('td');
