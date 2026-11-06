@@ -12427,7 +12427,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(mine.length){
           const last = Math.max(...mine), i = scan.companyRows.findIndex(r => r.row === last), nx = scan.companyRows[i + 1];
           if(nx && nx.free && !assigned.has(nx.row) && !nx.claimed && nx.category === scan.companyRows[i].category){
-            hit2 = nx; nx.claimed = true; nx.newName = e.name; nx.newCorp = e.corp || ''; nx.newMarket = e.market || ''; nx.copyFrom = last;
+            hit2 = nx; nx.claimed = true; nx.newName = e.name; nx.newCorp = e.corp || ''; nx.newMarket = e.market || ''; nx.newRegion = e.region || ''; nx.copyFrom = last;
             rep.newRows.push(e.name);
           }
         }
@@ -12458,7 +12458,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         // 같은 구분의 빈 행에 업체명을 적어 넣음
         const cands = free().filter(r => r.category === poNorm(e.category));
         const f = (e.region && cands.find(r => r.C === poNameKey(e.region))) || cands[0];
-        if(f){ hit = f; f.claimed = true; f.newName = e.name; f.newCorp = e.corp || ''; f.newMarket = e.market || ''; rep.newRows.push(e.name); }
+        if(f){ hit = f; f.claimed = true; f.newName = e.name; f.newCorp = e.corp || ''; f.newMarket = e.market || ''; f.newRegion = e.region || ''; rep.newRows.push(e.name); }
       }
       if(hit){ take(hit.row, e); rep.placed.push(e.name); }
       else rep.unplaced.push(e.name);
@@ -12532,17 +12532,22 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const rowInfo = scan.companyRows.find(r => r.row === row);
       if(rowInfo && rowInfo.newName){
         poSetStr(ctx, rowInfo.nameAddr, rowInfo.newName);
+        const fillable = a => { const mm = ctx.mergeMaster.get(a); if(mm && mm !== a) return false; const t = (poText(ctx, a) || '').trim(); return !t || t.startsWith('#'); };
+        const put = (a, v) => {
+          if(!v || a === rowInfo.nameAddr || !fillable(a)) return;
+          const c = poEnsureCell(ctx, a);
+          if(poHasFormula(c)){ poExpandShared(ctx); [...c.childNodes].forEach(x => { if(x.localName === 'f') c.removeChild(x); }); }   // 못 찾은 수식은 값으로 바꿔 씀
+          poSetStr(ctx, a, v);
+        };
         if(rowInfo.nameAddr === 'F' + row){
-          if(!poText(ctx, 'E' + row)) poSetStr(ctx, 'E' + row, rowInfo.newCorp || rowInfo.newName); // 상장청과명(E열), 없으면 업체명
-          if(rowInfo.newMarket && !poText(ctx, 'D' + row)) poSetStr(ctx, 'D' + row, rowInfo.newMarket); // 시장명(D열)
+          put('C' + row, rowInfo.newRegion);                                   // 지역(C열)
+          put('D' + row, rowInfo.newMarket);                                   // 시장명(D열)
+          put('E' + row, rowInfo.newCorp);                                     // 상장청과명(E열)
+          put('E' + row, rowInfo.newName);                                     // 그래도 비어 있으면(또는 #N/A면) 업체명
         }
         if(rowInfo.copyFrom){
           // 추가 발주 줄: 지역·시장·상장청과명은 첫 발주 줄과 같게 (비어 있는 칸만)
-          ['C', 'D', 'E', 'F'].forEach(c => {
-            const a = c + row; if(a === rowInfo.nameAddr || poText(ctx, a)) return;
-            const mm = ctx.mergeMaster.get(a); if(mm && mm !== a) return;
-            const t = poText(ctx, c + rowInfo.copyFrom); if(t) poSetStr(ctx, a, t);
-          });
+          ['C', 'D', 'E', 'F'].forEach(c => { const t = poText(ctx, c + rowInfo.copyFrom); if(t && !t.startsWith('#')) put(c + row, t); });
         }
       }
       Object.entries(sum).forEach(([col, q]) => {
