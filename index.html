@@ -211,6 +211,7 @@
   .sp-neg{ color:var(--warn); }
   #ship-plan-table td{ vertical-align:middle; }
   .pp-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:4px 0; }
+  .pp-no{ display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex:none; }
   .sp-stock-btn.sp-has{ color:var(--accent); font-weight:700; }
   .sp-stock-row{ display:none; }
   .sp-stock-row.open{ display:table-row; }
@@ -230,7 +231,11 @@
   #po-board .pb-seq-time{ color:#9fe0b0; margin-right:8px; font-variant-numeric:tabular-nums; }
   #po-board .pb-req{ border:2px solid #ff6b5e; border-radius:8px; background:#2a1315; padding:6px 12px; min-width:220px; max-width:420px; }
   #po-board .pb-req-t{ font-size:15px; font-weight:800; color:#ff8a80; margin-bottom:3px; }
-  #po-board .pb-req-r{ font-size:20px; font-weight:700; color:#ffe3df; padding:1px 0; }
+  #po-board .pb-req-r{ font-size:20px; font-weight:700; color:#ffe3df; padding:1px 0; white-space:nowrap; }
+  #po-board .pb-req-n{ display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#d6453a; color:#fff; font-size:14px; font-weight:800; margin-right:8px; }
+  #po-board .pb-var{ border:1px solid #2a5a3c; border-radius:8px; background:#0f2218; padding:6px 12px; min-width:200px; }
+  #po-board .pb-var-t{ font-size:15px; font-weight:800; color:#7fe0a0; margin-bottom:3px; }
+  #po-board .pb-var-r{ font-size:20px; font-weight:700; color:#dcffe8; padding:1px 0; white-space:nowrap; }
   .pb-ship .pb-sname{ font-weight:800; color:#fff; font-size:17px; }
   .pb-table .pb-ph{ background:#16233f; color:#fff; font-size:15px; text-align:center; }
   .pb-table .pb-p{ font-size:14px; color:#d7e3ff; background:#0e1628; text-align:center; white-space:normal; max-width:240px; }
@@ -1017,7 +1022,7 @@
   <div class="card" id="prod-plan-card">
     <h2>생산 순서 · 생산 지시 요청 <span class="badge" id="prod-plan-date"></span></h2>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
-      <b>생산 순서</b>는 생산본부가 오늘 생산할 순서(시간대·품목)를 적는 칸이고, <b>생산 지시 요청</b>은 영업이 "오늘 급한 물량을 먼저 생산해 달라"는 내용을 적는 칸입니다. 둘 다 <b>생산 현황판의 왼쪽 위</b>에 표시되며, 생산 지시 요청은 <b>적은 내용이 없으면 현황판에 나오지 않습니다</b>. 칸을 고칠 때마다 바로 저장되고, 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.
+      <b>생산 순서</b>는 생산본부가 오늘 생산할 순서(시간대·품목)를 적는 칸이고, <b>생산 지시 요청</b>은 영업이 "오늘 급한 물량을 이 순서대로 먼저 생산해 달라"는 품목을 순번대로 적는 칸(기본 4칸, [+ 칸 추가]로 늘리고 ▲▼로 순서 변경)이고, <b>오늘 생산 사용 품종</b>은 오늘 생산에 쓰는 품종을 적는 칸입니다. 모두 <b>생산 현황판의 왼쪽 위</b>에 표시되며, 생산 지시 요청과 사용 품종은 <b>적은 내용이 없으면 현황판에 나오지 않습니다</b>. 칸을 고칠 때마다 바로 저장되고, 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.
     </div></details>
     <div class="row" style="margin-top:0;">
       <button class="btn-ghost small-btn" id="prod-plan-refresh-btn" title="다른 직원이 입력한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
@@ -1033,9 +1038,11 @@
       <button type="button" class="btn-ghost small-btn" id="prod-seq-routine-clear" style="display:none;" title="저장해 둔 시간대 루틴을 지웁니다">루틴 삭제</button>
       <span id="prod-seq-routine-note" class="sub" style="margin:0;"></span>
     </div>
-    <h3 style="margin:14px 0 4px;">② 생산 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 급한 물량 먼저 생산 요청, 없으면 현황판에 표시되지 않음)</span></h3>
+    <h3 style="margin:14px 0 4px;">② 생산 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 먼저 생산해 달라는 품목을 순번대로 — 예: 1 망고 → 2 자몽 → 3 스테비아 → 4 복숭아. 하나도 안 적으면 현황판에 표시되지 않음)</span></h3>
     <div id="prod-req-body"></div>
-    <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-req-add">+ 요청 추가</button></div>
+    <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-req-add">+ 칸 추가</button></div>
+    <h3 style="margin:14px 0 4px;">③ 오늘 생산 사용 품종 <span class="sub" style="font-weight:400;margin:0;">(오늘 생산에 쓰는 품종 — 줄바꿈으로 여러 개 적으면 현황판에 한 줄씩 표시)</span></h3>
+    <textarea id="prod-variety" rows="2" placeholder="예) 스테비아: OO 품종&#10;망고: OO 품종" style="width:100%;max-width:560px;"></textarea>
   </div>
   <div class="card" id="ship-plan-card">
     <h2>배차 · 적재 · 재고사용 <span class="badge" id="ship-plan-date"></span></h2>
@@ -14303,7 +14310,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   const prodPlanCache = {};   // { 'YYYY-MM-DD': { seq: [], req: [], error? } }
   const ppLoading = {};
   let ppQueue = Promise.resolve(), ppSig = '';
-  const ppNorm = doc => { const d = doc && typeof doc === 'object' ? doc : {}; return { seq: Array.isArray(d.seq) ? d.seq : [], req: Array.isArray(d.req) ? d.req : [] }; };
+  const ppNorm = doc => { const d = doc && typeof doc === 'object' ? doc : {}; return { seq: Array.isArray(d.seq) ? d.seq : [], req: Array.isArray(d.req) ? d.req : [], variety: typeof d.variety === 'string' ? d.variety : '' }; };
   // '13:30' → { ap: '오후', txt: '1시 30분' }
   function ppKo(t){
     const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
@@ -14326,7 +14333,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const doc = prodPlanCache[dk] || { seq: [], req: [] };
     return {
       seq: ppSorted(doc.seq).filter(s => String(s.item || '').trim()).map(s => ({ range: ppRange(s.from, s.to), item: String(s.item).trim() })),
-      req: doc.req.filter(r => String(r.text || '').trim()).map(r => ({ text: String(r.text).trim(), by: r.by || '' })),
+      req: doc.req.filter(r => String(r.text || '').trim()).map(r => ({ text: String(r.text).trim(), by: r.by || '' })),   // 적힌 칸만, 칸 순서(순번)대로
+      variety: String(doc.variety || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean),
     };
   }
   async function ppLoad(dk, force){
@@ -14355,7 +14363,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r && r.value){ try{ doc = JSON.parse(r.value); }catch(e){ /* 깨진 값은 새로 시작 */ } }
       doc = ppNorm(doc);
       mut(doc);
-      await window.storage.set(k, JSON.stringify({ seq: doc.seq, req: doc.req }), true);
+      await window.storage.set(k, JSON.stringify({ seq: doc.seq, req: doc.req, variety: doc.variety }), true);
       prodPlanCache[dk] = doc;
       return doc;
     });
@@ -14385,9 +14393,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!dk){ seqEl.innerHTML = ''; reqEl.innerHTML = ''; return; }
     if(!prodPlanCache[dk]){ seqEl.innerHTML = '<div class="sub">불러오는 중…</div>'; reqEl.innerHTML = ''; ppLoad(dk); return; }
     const doc = prodPlanCache[dk];
-    const sig = dk + JSON.stringify([doc.seq, doc.req, !!doc.error]);
+    const sig = dk + JSON.stringify([doc.seq, doc.req, doc.variety, !!doc.error]);
     if(!force && sig === ppSig && seqEl.children.length) return;   // 바뀐 게 없으면 다시 그리지 않음 (입력 중 커서 유지)
     ppSig = sig;
+    const vr = document.getElementById('prod-variety');
+    if(vr && document.activeElement !== vr) vr.value = doc.variety || '';   // 오늘 생산 사용 품종
     // 품목 목록(자동완성): SKU 관리의 품목 이름
     const dl = document.getElementById('prod-item-list');
     if(dl){ dl.innerHTML = ''; [...new Set(dict.map(d => spStockLabel(d)).filter(Boolean))].forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); }
@@ -14411,18 +14421,28 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       seqEl.appendChild(row);
     });
     reqEl.innerHTML = '';
-    if(!doc.req.length){ const e = document.createElement('div'); e.className = 'sub'; e.style.margin = '4px 0'; e.textContent = '요청이 없으면 현황판에는 이 칸이 나오지 않습니다.'; reqEl.appendChild(e); }
-    doc.req.forEach(r => {
+    // 생산 지시 요청: 순번(1 → 2 → 3 …)대로 먼저 생산해 달라는 품목을 적는 칸. 기본 4칸, [+ 칸 추가]로 늘림. 현황판에는 적힌 칸만 순번대로 표시
+    const slots = doc.req.slice(); while(slots.length < 4) slots.push(null);
+    slots.forEach((r, i) => {
       const row = document.createElement('div'); row.className = 'pp-row';
-      const t = document.createElement('input'); t.type = 'text'; t.value = r.text || ''; t.placeholder = '예: 망고 먼저 생산해주세요 (오전 중 출고 급함)'; t.style.cssText = 'flex:1;min-width:260px;';
+      const no = document.createElement('span'); no.className = 'pp-no'; no.textContent = String(i + 1);
+      const t = document.createElement('input'); t.type = 'text'; t.setAttribute('list', 'prod-item-list'); t.value = r ? (r.text || '') : ''; t.placeholder = i === 0 ? '가장 먼저 생산할 품목 (예: 망고)' : '다음 품목'; t.style.cssText = 'flex:1;min-width:220px;max-width:420px;';
       t.addEventListener('change', () => {
         const v = t.value.trim();
-        ppCommit(dk, d => { if(!v){ d.req = d.req.filter(q => q.id !== r.id); return; } const x = d.req.find(q => q.id === r.id); if(x){ x.text = v; x.by = who(); x.at = Date.now(); } });
+        ppCommit(dk, d => {
+          while(d.req.length <= i) d.req.push({ id: cryptoId(), text: '', by: '', at: 0 });   // 아직 저장되지 않은 앞 칸은 빈 칸으로 채움
+          const x = r ? d.req.find(q => q.id === r.id) : d.req[i];
+          if(x){ x.text = v; x.by = who(); x.at = Date.now(); }
+        });
       });
-      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '✕'; del.title = '이 요청 삭제';
+      const mkBtn = (txt, title) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost small-btn'; b.textContent = txt; b.title = title; return b; };
+      const up = mkBtn('▲', '순번을 하나 앞으로'), dn = mkBtn('▼', '순번을 하나 뒤로'), del = mkBtn('✕', '이 칸 삭제');
+      up.disabled = !r || i === 0; dn.disabled = !r || i >= doc.req.length - 1; del.disabled = !r;
+      const swap = dir => ppCommit(dk, d => { const k = d.req.findIndex(q => q.id === r.id), k2 = k + dir; if(k >= 0 && k2 >= 0 && k2 < d.req.length){ const tmp = d.req[k]; d.req[k] = d.req[k2]; d.req[k2] = tmp; } });
+      up.addEventListener('click', () => swap(-1)); dn.addEventListener('click', () => swap(1));
       del.addEventListener('click', () => ppCommit(dk, d => { d.req = d.req.filter(q => q.id !== r.id); }));
       const st = document.createElement('span'); st.className = 'sub'; st.style.cssText = 'margin:0;font-size:11px;'; st.textContent = stamp(r);
-      row.append(t, del, st);
+      row.append(no, t, up, dn, del, st);
       reqEl.appendChild(row);
     });
   }
@@ -14439,8 +14459,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
     add2.addEventListener('click', () => {
       const dk = currentDateKey; if(!dk) return;
-      ppCommit(dk, d => { d.req.push({ id: cryptoId(), text: '', by: spWho(), at: Date.now() }); }).then(() => { const ins = document.querySelectorAll('#prod-req-body input[type=text]'); if(ins.length) ins[ins.length - 1].focus(); });
+      ppCommit(dk, d => { const target = Math.max(4, d.req.length) + 1; while(d.req.length < target) d.req.push({ id: cryptoId(), text: '', by: '', at: 0 }); }).then(() => { const ins = document.querySelectorAll('#prod-req-body input[type=text]'); if(ins.length) ins[ins.length - 1].focus(); });
     });
+    const vr = document.getElementById('prod-variety');
+    if(vr) vr.addEventListener('change', () => { const dk = currentDateKey, v = vr.value.trim(); if(dk) ppCommit(dk, d => { d.variety = v; }); });
     if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); await ppRoutineLoad(true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
   })();
 
@@ -14867,7 +14889,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 사용 원물량: 서식 위쪽(B3)의 원물사용량 수식을 오늘 합계로 계산 (수식이 없거나 못 읽으면 표시 안 함)
     const rawUse = poEvalConcat(poFormulaText(ctx, 'B3'), total, Y.totalsRow).replace(/\s{2,}/g, '   ').trim();
     const pp = ppBoardData(dateKey);
-    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
   }
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
@@ -14893,9 +14915,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     // 위쪽 요약: 사용 원물량 + 기사별 배차 현황
     // 왼쪽 위: 생산 순서 / 생산 지시 요청 (요청은 내용이 있을 때만)
     const seqHtml = (m.prodSeq && m.prodSeq.length) ? `<div class="pb-seq"><div class="pb-seq-t">생산 순서</div>${m.prodSeq.map((x, i) => `<div class="pb-seq-r"><span class="pb-seq-n">${i + 1}</span>${x.range ? `<span class="pb-seq-time">${e(x.range)}</span>` : ''}<b>${e(x.item)}</b></div>`).join('')}</div>` : '';
-    const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 지시 요청</div>${m.prodReq.map(x => `<div class="pb-req-r">${e(x.text)}</div>`).join('')}</div>` : '';
-    if(seqHtml || reqHtml || m.rawUse || (m.ship && m.ship.length)){
-      html += '<div class="pb-info">' + seqHtml + reqHtml;
+    const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 지시 요청 (순서대로)</div>${m.prodReq.map((x, i) => `<div class="pb-req-r"><span class="pb-req-n">${i + 1}</span>${e(x.text)}</div>`).join('')}</div>` : '';
+    const varHtml = (m.prodVariety && m.prodVariety.length) ? `<div class="pb-var"><div class="pb-var-t">오늘 사용 품종</div>${m.prodVariety.map(x => `<div class="pb-var-r">${e(x)}</div>`).join('')}</div>` : '';
+    if(seqHtml || reqHtml || varHtml || m.rawUse || (m.ship && m.ship.length)){
+      html += '<div class="pb-info">' + seqHtml + reqHtml + varHtml;
       if(m.rawUse) html += `<div class="pb-raw">${e(m.rawUse)}</div>`;
       if(m.ship && m.ship.length){
         html += '<table class="pb-ship"><thead><tr><th>납품담당</th><th>업체</th><th>총수량(박스)</th><th>파렛트</th><th>까대기(박스)</th><th>하차지</th></tr></thead><tbody>' +
