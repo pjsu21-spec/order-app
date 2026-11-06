@@ -211,6 +211,9 @@
   .sp-neg{ color:var(--warn); }
   #ship-plan-table td{ vertical-align:middle; }
   .pp-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:4px 0; }
+  .pp-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
+  .pp-chip{ border:1px solid var(--line); background:var(--paper); color:var(--fg); border-radius:14px; padding:3px 10px; font-size:12.5px; cursor:pointer; }
+  .pp-chip.on{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
   .pp-no{ display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:700; flex:none; }
   .sp-stock-btn.sp-has{ color:var(--accent); font-weight:700; }
   .sp-stock-row{ display:none; }
@@ -1020,16 +1023,16 @@
   <!-- ───────────── 패널: 생산 / 물류 ───────────── -->
   <div id="panel-plan" class="order-sub-panel">
   <div class="card" id="prod-plan-card">
-    <h2>생산 순서 · 생산 지시 요청 <span class="badge" id="prod-plan-date"></span></h2>
+    <h2>생산 순서 · 생산 순서 지시 요청 <span class="badge" id="prod-plan-date"></span></h2>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
-      <b>생산 순서</b>는 생산본부가 오늘 생산할 순서(시간대·품목)를 적는 칸이고, <b>생산 지시 요청</b>은 영업이 "오늘 급한 물량을 이 순서대로 먼저 생산해 달라"는 품목을 순번대로 적는 칸(기본 4칸, [+ 칸 추가]로 늘리고 ▲▼로 순서 변경)이고, <b>오늘 생산 사용 품종</b>은 오늘 생산에 쓰는 품종을 적는 칸입니다. 모두 <b>생산 현황판의 왼쪽 위</b>에 표시되며, 생산 지시 요청과 사용 품종은 <b>적은 내용이 없으면 현황판에 나오지 않습니다</b>. 칸을 고칠 때마다 바로 저장되고, 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.
+      <b>생산 순서</b>는 생산본부가 오늘 생산할 순서(시간대·품목)를 적는 칸이고, <b>생산 순서 지시 요청</b>은 영업이 "오늘 급한 물량을 이 순서대로 먼저 생산해 달라"는 품목을 순번대로 적는 칸(기본 4칸, [+ 칸 추가]로 늘리고 ▲▼로 순서 변경)이고, <b>오늘 생산 사용 품종</b>은 오늘 생산에 쓰는 품종을 적는 칸입니다. 모두 <b>생산 현황판의 왼쪽 위</b>에 표시되며, 생산 순서 지시 요청과 사용 품종은 <b>적은 내용이 없으면 현황판에 나오지 않습니다</b>. 칸을 고칠 때마다 바로 저장되고, 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.
     </div></details>
     <div class="row" style="margin-top:0;">
       <button class="btn-ghost small-btn" id="prod-plan-refresh-btn" title="다른 직원이 입력한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
       <span id="prod-plan-meta" style="font-size:12px;color:var(--muted);"></span>
     </div>
+    <div id="prod-plan-hint" class="sub" style="margin:0 0 4px;"></div>
     <h3 style="margin:8px 0 4px;">① 생산 순서 <span class="sub" style="font-weight:400;margin:0;">(시간 · 품목 지정 — 시간 순으로 정렬되어 현황판에 표시)</span></h3>
-    <datalist id="prod-item-list"></datalist>
     <div id="prod-seq-body"></div>
     <div class="row" style="margin-top:4px;align-items:center;">
       <button type="button" class="btn-ghost small-btn" id="prod-seq-add">+ 순서 추가</button>
@@ -1038,11 +1041,12 @@
       <button type="button" class="btn-ghost small-btn" id="prod-seq-routine-clear" style="display:none;" title="저장해 둔 시간대 루틴을 지웁니다">루틴 삭제</button>
       <span id="prod-seq-routine-note" class="sub" style="margin:0;"></span>
     </div>
-    <h3 style="margin:14px 0 4px;">② 생산 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 먼저 생산해 달라는 품목을 순번대로 — 예: 1 망고 → 2 자몽 → 3 스테비아 → 4 복숭아. 하나도 안 적으면 현황판에 표시되지 않음)</span></h3>
+    <h3 style="margin:14px 0 4px;">② 생산 순서 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 먼저 생산해 달라는 품목을 순번대로 — 예: 1 망고 → 2 자몽 → 3 스테비아 → 4 복숭아. 하나도 안 적으면 현황판에 표시되지 않음)</span></h3>
     <div id="prod-req-body"></div>
     <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-req-add">+ 칸 추가</button></div>
     <h3 style="margin:14px 0 4px;">③ 오늘 생산 사용 품종 <span class="sub" style="font-weight:400;margin:0;">(오늘 생산에 쓰는 품종 — 줄바꿈으로 여러 개 적으면 현황판에 한 줄씩 표시)</span></h3>
     <textarea id="prod-variety" rows="2" placeholder="예) 스테비아: OO 품종&#10;망고: OO 품종" style="width:100%;max-width:560px;"></textarea>
+    <div id="prod-variety-picks"></div>
   </div>
   <div class="card" id="ship-plan-card">
     <h2>배차 · 적재 · 재고사용 <span class="badge" id="ship-plan-date"></span></h2>
@@ -1323,6 +1327,9 @@
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
         <label style="font-size:13px;">농가 :</label>
         <select id="inbound-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">품종 :</label>
+        <input type="text" id="inbound-variety" list="inbound-variety-list" placeholder="예: 스마트" style="width:130px;">
+        <datalist id="inbound-variety-list"></datalist>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="inbound-date">
         <label style="font-size:13px;">무게(kg) :</label>
@@ -1344,6 +1351,9 @@
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
         <label style="font-size:13px;">사입처 :</label>
         <select id="purchase-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">품종 :</label>
+        <input type="text" id="purchase-variety" list="purchase-variety-list" placeholder="예: 스마트" style="width:130px;">
+        <datalist id="purchase-variety-list"></datalist>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="purchase-date">
         <label style="font-size:13px;">무게(kg) :</label>
@@ -2925,7 +2935,7 @@ function goHome() {
     renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
     updateRefreshStamp();
     spLoad(currentDateKey, true); // 배차·적재·재고사용 입력값도 서버에서 최신으로
-    ppLoad(currentDateKey, true); // 생산 순서·생산 지시 요청도
+    ppLoad(currentDateKey, true); // 생산 순서·생산 순서 지시 요청도
     qcRenderSettings();
   }
 
@@ -10661,6 +10671,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   // ══════════════════ 원물선별 · 원물입고 / 사입 (공통 로직) ══════════════════
+  // 입고·사입의 품종 칸: DB에 variety 컬럼이 필요 (없으면 등록할 때 안내하고, 그 입고 건은 비고에 "품종: …"으로 남김)
+  const SORTING_VARIETY_SQL = `ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS variety text;
+ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   const SORTING_INBOUND_CONFIGS = {
     inbound:  { table:'sorting_inbound',  originTable:'sorting_farms',   originField:'farm_id',   originLabel:'농가',   prefix:'inbound' },
     purchase: { table:'sorting_purchases', originTable:'sorting_vendors', originField:'vendor_id', originLabel:'사입처', prefix:'purchase' }
@@ -10727,18 +10740,30 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const a1 = Number(document.getElementById(`${cfg.prefix}-a1`).value || 0);
     const kpp = Number(document.getElementById(`${cfg.prefix}-kpp`).value || 0);
     const note = document.getElementById(`${cfg.prefix}-note`).value.trim();
+    const variety = (document.getElementById(`${cfg.prefix}-variety`) || { value: '' }).value.trim();
     if(!originId){ toast(`${cfg.originLabel}을(를) 선택해주세요`); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
     if(!weight){ toast('무게를 입력해주세요'); return; }
     const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note, created_by: window.currentUser?.id };
     data[cfg.originField] = Number(originId);
+    if(variety) data.variety = variety;
     try{
-      await sbInsert(cfg.table, data);
-      await writeLog(`sorting_${kind}_add`, `${cfg.originLabel} ${weight}kg 입고 등록`);
+      try{ await sbInsert(cfg.table, data); }
+      catch(e){
+        if(variety && /variety/i.test(e.message || '')){
+          // DB에 품종 컬럼이 아직 없음 → 안내하고, 품종은 비고에 남겨 입고 등록 자체는 진행
+          alert('입고 테이블에 품종(variety) 컬럼이 아직 없습니다.\n이번 입고는 품종을 비고에 적어서 등록합니다. 품종을 따로 저장하고 생산 화면에서 고르려면 Supabase SQL Editor에서 아래를 실행해주세요.\n\n' + SORTING_VARIETY_SQL);
+          const d2 = Object.assign({}, data); delete d2.variety; d2.note = '품종: ' + variety + (note ? ' / ' + note : '');
+          await sbInsert(cfg.table, d2);
+        } else throw e;
+      }
+      await writeLog(`sorting_${kind}_add`, `${cfg.originLabel} ${weight}kg 입고 등록${variety ? ' (' + variety + ')' : ''}`);
       document.getElementById(`${cfg.prefix}-weight`).value = '';
       document.getElementById(`${cfg.prefix}-a1`).value = '0';
       document.getElementById(`${cfg.prefix}-kpp`).value = '0';
       document.getElementById(`${cfg.prefix}-note`).value = '';
+      const vEl = document.getElementById(`${cfg.prefix}-variety`); if(vEl) vEl.value = '';
+      if(typeof ppVarLoad === 'function') ppVarInfo.at = 0;   // 생산 화면의 입고 품종 목록을 다음에 다시 읽음
       loadSortingStock(kind);
       loadSortingInboundTable(kind);
       toast('등록되었습니다');
@@ -10755,11 +10780,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const userMap = await getSortingUserDisplayNameMap();
       const originMap = Object.fromEntries(originRows.map(o=>[o.id, o.name]));
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>날짜</th><th>${cfg.originLabel}</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>날짜</th><th>${cfg.originLabel}</th><th>품종</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      const vdl = document.getElementById(`${cfg.prefix}-variety-list`);
+      if(vdl) vdl.innerHTML = [...new Set(rows.map(r => r.variety).filter(Boolean))].map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
       const tbody = document.createElement('tbody');
       rows.forEach(r=>{
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
@@ -14303,8 +14330,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
   }
 
-  // ══════════════════ 생산 순서 · 생산 지시 요청 (납품일별) ══════════════════
-  // 생산 현황판 왼쪽 위에 표시된다. 생산 순서: 시간대·품목을 지정(예: 오전 9시~10시 30분 스테비아). 생산 지시 요청: 영업이 급한 물량을 먼저 생산해 달라고 적는 내용 — 없으면 현황판에 나오지 않는다.
+  // ══════════════════ 생산 순서 · 생산 순서 지시 요청 (납품일별) ══════════════════
+  // 생산 현황판 왼쪽 위에 표시된다. 생산 순서: 시간대·품목을 지정(예: 오전 9시~10시 30분 스테비아). 생산 순서 지시 요청: 영업이 급한 물량을 먼저 생산해 달라고 적는 내용 — 없으면 현황판에 나오지 않는다.
   // 저장: 'prod-plan-날짜' = { seq: [{ id, from:'HH:MM', to:'HH:MM', item, by, at }], req: [{ id, text, by, at }] }
   // 칸을 고칠 때마다 서버의 최신 값을 읽어 그 줄 하나만 바꿔 저장하므로 영업·생산이 동시에 입력해도 서로 덮어쓰지 않는다.
   const prodPlanCache = {};   // { 'YYYY-MM-DD': { seq: [], req: [], error? } }
@@ -14387,20 +14414,23 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const seqEl = document.getElementById('prod-seq-body'), reqEl = document.getElementById('prod-req-body');
     if(!seqEl || !reqEl) return;
     ppRoutineLoad();   // 저장해 둔 시간대 루틴 (처음 한 번만 읽음)
+    ppVarLoad();       // 입고된 품종 목록 (1분 단위로 갱신)
     const dk = currentDateKey;
     const dateEl = document.getElementById('prod-plan-date');
     if(dateEl) dateEl.textContent = dk ? `납품일: ${dk}` : '';
     if(!dk){ seqEl.innerHTML = ''; reqEl.innerHTML = ''; return; }
     if(!prodPlanCache[dk]){ seqEl.innerHTML = '<div class="sub">불러오는 중…</div>'; reqEl.innerHTML = ''; ppLoad(dk); return; }
     const doc = prodPlanCache[dk];
-    const sig = dk + JSON.stringify([doc.seq, doc.req, doc.variety, !!doc.error]);
+    const labels = ppOrderedLabels(dk);   // 오늘 발주가 들어온 품목
+    const sig = dk + JSON.stringify([doc.seq, doc.req, doc.variety, !!doc.error, labels]);
     if(!force && sig === ppSig && seqEl.children.length) return;   // 바뀐 게 없으면 다시 그리지 않음 (입력 중 커서 유지)
     ppSig = sig;
     const vr = document.getElementById('prod-variety');
     if(vr && document.activeElement !== vr) vr.value = doc.variety || '';   // 오늘 생산 사용 품종
+    ppVarRenderPicks();
     // 품목 목록(자동완성): SKU 관리의 품목 이름
-    const dl = document.getElementById('prod-item-list');
-    if(dl){ dl.innerHTML = ''; [...new Set(dict.map(d => spStockLabel(d)).filter(Boolean))].forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); }
+    const hint = document.getElementById('prod-plan-hint');
+    if(hint) hint.textContent = labels.length ? `※ 품목은 오늘 발주가 들어온 품목(${labels.join(', ')})만 고를 수 있습니다.` : '※ 오늘 발주가 아직 없어 고를 품목이 없습니다. 먼저 발주를 입력해주세요.';
     const who = () => (typeof spWho === 'function' ? spWho() : '');
     const stamp = x => (x && x.at ? `${x.by || ''} ${spHM(x.at)}`.trim() : '');
     seqEl.innerHTML = '';
@@ -14410,7 +14440,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sorted.forEach(s => {
       const row = document.createElement('div'); row.className = 'pp-row';
       const mkTime = field => { const i = document.createElement('input'); i.type = 'time'; i.value = s[field] || ''; i.addEventListener('change', () => { const v = i.value; ppCommit(dk, d => { const x = d.seq.find(q => q.id === s.id); if(x){ x[field] = v; x.by = who(); x.at = Date.now(); } }); }); return i; };
-      const item = document.createElement('input'); item.type = 'text'; item.setAttribute('list', 'prod-item-list'); item.value = s.item || ''; item.placeholder = '품목 (예: 스테비아)'; item.style.width = '220px';
+      const item = ppItemSelect(s.item || '', '품목 선택', labels);
       item.addEventListener('change', () => { const v = item.value.trim(); ppCommit(dk, d => { const x = d.seq.find(q => q.id === s.id); if(x){ x.item = v; x.by = who(); x.at = Date.now(); } }); });
       const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '✕'; del.title = '이 줄 삭제';
       del.addEventListener('click', () => ppCommit(dk, d => { d.seq = d.seq.filter(q => q.id !== s.id); }));
@@ -14421,12 +14451,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       seqEl.appendChild(row);
     });
     reqEl.innerHTML = '';
-    // 생산 지시 요청: 순번(1 → 2 → 3 …)대로 먼저 생산해 달라는 품목을 적는 칸. 기본 4칸, [+ 칸 추가]로 늘림. 현황판에는 적힌 칸만 순번대로 표시
+    // 생산 순서 지시 요청: 순번(1 → 2 → 3 …)대로 먼저 생산해 달라는 품목을 적는 칸. 기본 4칸, [+ 칸 추가]로 늘림. 현황판에는 적힌 칸만 순번대로 표시
     const slots = doc.req.slice(); while(slots.length < 4) slots.push(null);
     slots.forEach((r, i) => {
       const row = document.createElement('div'); row.className = 'pp-row';
       const no = document.createElement('span'); no.className = 'pp-no'; no.textContent = String(i + 1);
-      const t = document.createElement('input'); t.type = 'text'; t.setAttribute('list', 'prod-item-list'); t.value = r ? (r.text || '') : ''; t.placeholder = i === 0 ? '가장 먼저 생산할 품목 (예: 망고)' : '다음 품목'; t.style.cssText = 'flex:1;min-width:220px;max-width:420px;';
+      const t = ppItemSelect(r ? (r.text || '') : '', i === 0 ? '가장 먼저 생산할 품목 선택' : '다음 품목 선택', labels);
       t.addEventListener('change', () => {
         const v = t.value.trim();
         ppCommit(dk, d => {
@@ -14462,9 +14492,84 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       ppCommit(dk, d => { const target = Math.max(4, d.req.length) + 1; while(d.req.length < target) d.req.push({ id: cryptoId(), text: '', by: '', at: 0 }); }).then(() => { const ins = document.querySelectorAll('#prod-req-body input[type=text]'); if(ins.length) ins[ins.length - 1].focus(); });
     });
     const vr = document.getElementById('prod-variety');
-    if(vr) vr.addEventListener('change', () => { const dk = currentDateKey, v = vr.value.trim(); if(dk) ppCommit(dk, d => { d.variety = v; }); });
-    if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); await ppRoutineLoad(true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
+    if(vr) vr.addEventListener('change', () => { const dk = currentDateKey, v = vr.value.trim(); if(dk) ppCommit(dk, d => { d.variety = v; }); ppVarRenderPicks(); });
+    if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); await ppRoutineLoad(true); ppVarLoad(true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
   })();
+
+  // ── 오늘 발주가 들어온 품목만 고르는 드롭다운 (생산 순서·생산 순서 지시 요청) ──
+  function ppOrderedLabels(dk){
+    const ids = new Set(), orders = ordersByDate[dk] || {};
+    Object.keys(orders).forEach(c => { if(c === '_meta') return; Object.entries(orders[c] || {}).forEach(([id, q]) => { if(id !== '_meta' && Number(q) > 0) ids.add(id); }); });
+    (dispatchByDate[dk] || []).forEach(e => Object.entries(e.items || {}).forEach(([id, q]) => { if(Number(q) > 0) ids.add(id); }));
+    return [...new Set(dict.filter(d => ids.has(d.id)).map(d => spStockLabel(d)).filter(Boolean))];
+  }
+  function ppItemSelect(val, placeholder, labels){
+    const sel = document.createElement('select');
+    const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+    add('', placeholder);
+    labels.forEach(l => add(l, l));
+    if(val && !labels.includes(val)) add(val, val + ' (오늘 발주 없음)');   // 예전에 저장된 값은 잃지 않고 보여 줌
+    sel.value = val || '';
+    return sel;
+  }
+
+  // ── 입고된 품종에서 오늘 사용 품종 고르기 ──
+  // 원물입고·사입 화면에서 입력한 품종(최근 PP_VARIETY_DAYS일)을 모아 칩으로 보여 주고, 누르면 '오늘 생산 사용 품종'에 넣고 뺀다.
+  const PP_VARIETY_DAYS = 7;
+  let ppVarInfo = { at: 0, date: '', list: [], err: '', loading: false };
+  async function ppVarLoad(force){
+    const dk = currentDateKey;
+    if(!dk || ppVarInfo.loading) return;
+    if(!force && ppVarInfo.date === dk && Date.now() - ppVarInfo.at < 60000) return;
+    ppVarInfo.loading = true;
+    try{
+      const from = sampleAddDays(dk, -PP_VARIETY_DAYS);
+      const q = `?work_date=gte.${from}&select=work_date,variety,weight_kg&order=work_date.desc&limit=300`;
+      const [a, b] = await Promise.all([sbQuery('sorting_inbound', q), sbQuery('sorting_purchases', q)]);
+      const map = new Map();
+      [...(a || []), ...(b || [])].forEach(r => {
+        const v = String(r.variety || '').trim(); if(!v) return;
+        const e = map.get(v) || { variety: v, last: '', kg: 0 };
+        if(String(r.work_date) > e.last) e.last = String(r.work_date);
+        e.kg += Number(r.weight_kg) || 0;
+        map.set(v, e);
+      });
+      ppVarInfo = { at: Date.now(), date: dk, list: [...map.values()].sort((x, y) => (y.last === dk) - (x.last === dk) || y.last.localeCompare(x.last) || x.variety.localeCompare(y.variety, 'ko')), err: '', loading: false };
+    }catch(e){
+      ppVarInfo = { at: Date.now(), date: dk, list: [], err: String((e && e.message) || e), loading: false };
+    }
+    ppVarRenderPicks();
+  }
+  function ppVarRenderPicks(){
+    const box = document.getElementById('prod-variety-picks'), ta = document.getElementById('prod-variety');
+    if(!box || !ta) return;
+    const dk = currentDateKey;
+    box.innerHTML = '';
+    const lead = document.createElement('div'); lead.className = 'sub'; lead.style.cssText = 'margin:6px 0 2px;';
+    lead.textContent = '입고된 품종에서 선택 (원물입고·사입 화면에 입력한 최근 ' + PP_VARIETY_DAYS + '일 품종 — 누르면 위 칸에 넣고 빼요)';
+    box.appendChild(lead);
+    if(ppVarInfo.date !== dk && !ppVarInfo.err){ const s = document.createElement('div'); s.className = 'sub'; s.textContent = '불러오는 중…'; box.appendChild(s); return; }
+    if(ppVarInfo.err){ const s = document.createElement('div'); s.className = 'sub'; s.style.color = 'var(--danger,#c0392b)'; s.textContent = '입고 품종을 불러오지 못했습니다 — 원물입고 화면의 품종 칸이 아직 준비되지 않았다면 그 화면의 안내 SQL을 먼저 실행해주세요.'; box.appendChild(s); return; }
+    if(!ppVarInfo.list.length){ const s = document.createElement('div'); s.className = 'sub'; s.textContent = '최근 입고 중 품종이 입력된 건이 없습니다. 원물선별 → 원물입고(또는 사입)에서 품종을 입력하면 여기서 고를 수 있습니다.'; box.appendChild(s); return; }
+    const lines = ta.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const wrap = document.createElement('div'); wrap.className = 'pp-chips';
+    ppVarInfo.list.forEach(v => {
+      const on = lines.includes(v.variety);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'pp-chip' + (on ? ' on' : '');
+      const md = v.last ? `${Number(v.last.slice(5, 7))}/${Number(v.last.slice(8, 10))}` : '';
+      b.textContent = `${on ? '✓ ' : ''}${v.variety}${v.last === dk ? ' ★' : ''} · ${md} 입고${v.kg ? ' ' + Math.round(v.kg * 10) / 10 + 'kg' : ''}`;
+      b.title = v.last === dk ? '오늘 입고된 품종' : '최근 입고된 품종';
+      b.addEventListener('click', () => {
+        const cur = ta.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        const next = cur.includes(v.variety) ? cur.filter(x => x !== v.variety) : cur.concat(v.variety);
+        ta.value = next.join('\n');
+        if(dk) ppCommit(dk, d => { d.variety = ta.value.trim(); });
+        ppVarRenderPicks();
+      });
+      wrap.appendChild(b);
+    });
+    box.appendChild(wrap);
+  }
 
   // 생산 순서 시간대 루틴: 매일 비슷한 시간대(예: 9:00~10:30, 11:00~12:30 …)를 한 번 저장해 두고 날짜마다 불러다 품목만 채운다.
   // 저장: 'prod-seq-routine' = { slots: [{ from, to }], by, at } (공용, 하나)
@@ -14594,7 +14699,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   function renderShipPlan(){
-    try{ renderProdPlan(); }catch(e){ console.error(e); }   // 같은 탭의 생산 순서·생산 지시 요청
+    try{ renderProdPlan(); }catch(e){ console.error(e); }   // 같은 탭의 생산 순서·생산 순서 지시 요청
     const body = document.getElementById('ship-plan-body');
     if(!body) return;
     const dk = currentDateKey;
@@ -14794,7 +14899,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!productionTemplateB64) throw new Error('발주취합 서식이 등록되지 않았습니다. 서식을 먼저 등록해주세요');
     const ctx = await poLoadTemplate(productionTemplateB64);
     await spLoad(dateKey, true); // 영업·생산이 입력한 배차·적재·재고사용 최신값
-    await ppLoad(dateKey, true); // 생산 순서·생산 지시 요청
+    await ppLoad(dateKey, true); // 생산 순서·생산 순서 지시 요청
     const orders = ordersByDate[dateKey] || {};
     const hdr0 = poTemplateHeaders(ctx);
     let sampleRows = [];
@@ -14913,9 +15018,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const pBlank = P ? `<td colspan="${P}" class="pb-p"></td>` : '';
     let html = '';
     // 위쪽 요약: 사용 원물량 + 기사별 배차 현황
-    // 왼쪽 위: 생산 순서 / 생산 지시 요청 (요청은 내용이 있을 때만)
+    // 왼쪽 위: 생산 순서 / 생산 순서 지시 요청 (요청은 내용이 있을 때만)
     const seqHtml = (m.prodSeq && m.prodSeq.length) ? `<div class="pb-seq"><div class="pb-seq-t">생산 순서</div>${m.prodSeq.map((x, i) => `<div class="pb-seq-r"><span class="pb-seq-n">${i + 1}</span>${x.range ? `<span class="pb-seq-time">${e(x.range)}</span>` : ''}<b>${e(x.item)}</b></div>`).join('')}</div>` : '';
-    const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 지시 요청 (순서대로)</div>${m.prodReq.map((x, i) => `<div class="pb-req-r"><span class="pb-req-n">${i + 1}</span>${e(x.text)}</div>`).join('')}</div>` : '';
+    const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 순서 지시 요청</div>${m.prodReq.map((x, i) => `<div class="pb-req-r"><span class="pb-req-n">${i + 1}</span>${e(x.text)}</div>`).join('')}</div>` : '';
     const varHtml = (m.prodVariety && m.prodVariety.length) ? `<div class="pb-var"><div class="pb-var-t">오늘 사용 품종</div>${m.prodVariety.map(x => `<div class="pb-var-r">${e(x)}</div>`).join('')}</div>` : '';
     if(seqHtml || reqHtml || varHtml || m.rawUse || (m.ship && m.ship.length)){
       html += '<div class="pb-info">' + seqHtml + reqHtml + varHtml;
