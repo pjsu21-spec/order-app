@@ -210,6 +210,7 @@
   .sp-chip.bad{ background:var(--warn-soft); border-color:var(--warn); color:var(--warn); }
   .sp-neg{ color:var(--warn); }
   #ship-plan-table td{ vertical-align:middle; }
+  .pp-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:4px 0; }
   .sp-stock-btn.sp-has{ color:var(--accent); font-weight:700; }
   .sp-stock-row{ display:none; }
   .sp-stock-row.open{ display:table-row; }
@@ -222,6 +223,14 @@
   .pb-ship th, .pb-ship td{ border:1px solid #2a3858; padding:3px 10px; white-space:nowrap; }
   .pb-ship th{ background:#16233f; color:#bcd0f5; font-weight:700; }
   .pb-ship td.n{ text-align:right; font-variant-numeric:tabular-nums; font-size:18px; }
+  #po-board .pb-seq{ border:1px solid #2a3858; border-radius:8px; background:#10192e; padding:6px 12px; min-width:220px; }
+  #po-board .pb-seq-t{ font-size:15px; font-weight:800; color:#8fb4ff; margin-bottom:3px; }
+  #po-board .pb-seq-r{ font-size:20px; color:#e8efff; white-space:nowrap; padding:1px 0; }
+  #po-board .pb-seq-n{ display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#2c4a8a; color:#fff; font-size:14px; font-weight:800; margin-right:8px; }
+  #po-board .pb-seq-time{ color:#9fe0b0; margin-right:8px; font-variant-numeric:tabular-nums; }
+  #po-board .pb-req{ border:2px solid #ff6b5e; border-radius:8px; background:#2a1315; padding:6px 12px; min-width:220px; max-width:420px; }
+  #po-board .pb-req-t{ font-size:15px; font-weight:800; color:#ff8a80; margin-bottom:3px; }
+  #po-board .pb-req-r{ font-size:20px; font-weight:700; color:#ffe3df; padding:1px 0; }
   .pb-ship .pb-sname{ font-weight:800; color:#fff; font-size:17px; }
   .pb-table .pb-ph{ background:#16233f; color:#fff; font-size:15px; text-align:center; }
   .pb-table .pb-p{ font-size:14px; color:#d7e3ff; background:#0e1628; text-align:center; white-space:normal; max-width:240px; }
@@ -655,7 +664,7 @@
   <nav class="order-sub-nav">
     <button class="order-sub-nav-btn active" data-order-panel="panel-order">📋 발주 입력</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-agg">📊 집계 / 출고</button>
-    <button class="order-sub-nav-btn" data-order-panel="panel-plan">🚚 배차 / 적재</button>
+    <button class="order-sub-nav-btn" data-order-panel="panel-plan">🚚 생산 / 물류</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-ship">📨 송장/명세서</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-sales">📈 실적 / 매출</button>
     <button class="order-sub-nav-btn" data-order-panel="panel-settings">⚙️ 설정</button>
@@ -1003,8 +1012,25 @@
   </div><!-- close agg card -->
   </div><!-- /panel-agg -->
 
-  <!-- ───────────── 패널: 배차 / 적재 ───────────── -->
+  <!-- ───────────── 패널: 생산 / 물류 ───────────── -->
   <div id="panel-plan" class="order-sub-panel">
+  <div class="card" id="prod-plan-card">
+    <h2>생산 순서 · 생산 지시 요청 <span class="badge" id="prod-plan-date"></span></h2>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
+      <b>생산 순서</b>는 생산본부가 오늘 생산할 순서(시간대·품목)를 적는 칸이고, <b>생산 지시 요청</b>은 영업이 "오늘 급한 물량을 먼저 생산해 달라"는 내용을 적는 칸입니다. 둘 다 <b>생산 현황판의 왼쪽 위</b>에 표시되며, 생산 지시 요청은 <b>적은 내용이 없으면 현황판에 나오지 않습니다</b>. 칸을 고칠 때마다 바로 저장되고, 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.
+    </div></details>
+    <div class="row" style="margin-top:0;">
+      <button class="btn-ghost small-btn" id="prod-plan-refresh-btn" title="다른 직원이 입력한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
+      <span id="prod-plan-meta" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+    <h3 style="margin:8px 0 4px;">① 생산 순서 <span class="sub" style="font-weight:400;margin:0;">(시간 · 품목 지정 — 시간 순으로 정렬되어 현황판에 표시)</span></h3>
+    <datalist id="prod-item-list"></datalist>
+    <div id="prod-seq-body"></div>
+    <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-seq-add">+ 순서 추가</button></div>
+    <h3 style="margin:14px 0 4px;">② 생산 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 급한 물량 먼저 생산 요청, 없으면 현황판에 표시되지 않음)</span></h3>
+    <div id="prod-req-body"></div>
+    <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-req-add">+ 요청 추가</button></div>
+  </div>
   <div class="card" id="ship-plan-card">
     <h2>배차 · 적재 · 재고사용 <span class="badge" id="ship-plan-date"></span></h2>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
@@ -1118,7 +1144,7 @@
 
   <div class="card" id="sd-card">
     <h2>송품장 만들기(JPG)</h2>
-    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">물건을 출고할 때 동봉하는 <b>표준송품장</b>을 업체별 1장으로 만들어 JPG로 저장합니다(엑셀 송품장 양식과 같은 칸 구성). 품목·수량은 당일 발주(박스 기준), <b>운송자(기사)</b>는 <b>배차 / 적재</b> 탭의 납품담당을 따르고 차량번호·전화번호는 아래 설정의 운송자 목록에서 찾아 채웁니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. 3PL 업체는 한 장으로 합쳐 3PL 수신처 앞으로 만들어집니다. 기사·도착(당일/익일)·비고는 줄에서 바꿀 수 있고 그 송품장에만 적용됩니다.</div></details>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">물건을 출고할 때 동봉하는 <b>표준송품장</b>을 업체별 1장으로 만들어 JPG로 저장합니다(엑셀 송품장 양식과 같은 칸 구성). 품목·수량은 당일 발주(박스 기준), <b>운송자(기사)</b>는 <b>생산 / 물류</b> 탭의 납품담당을 따르고 차량번호·전화번호는 아래 설정의 운송자 목록에서 찾아 채웁니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. 3PL 업체는 한 장으로 합쳐 3PL 수신처 앞으로 만들어집니다. 기사·도착(당일/익일)·비고는 줄에서 바꿀 수 있고 그 송품장에만 적용됩니다.</div></details>
     <div class="row" style="margin-top:0;">
       <span style="font-size:13px;">대상 일자 : <b id="sd-date"></b></span>
       <button class="btn-ghost small-btn" id="sd-refresh-btn">↻ 새로고침</button>
@@ -1152,7 +1178,7 @@
         </div>
 
         <h3 style="margin:16px 0 6px;">운송자(기사) 목록</h3>
-        <div class="sub" style="margin:0 0 6px;">배차 / 적재 탭의 납품담당 이름과 같은 성함으로 등록하면 송품장에 차량번호·전화번호가 자동으로 들어갑니다.</div>
+        <div class="sub" style="margin:0 0 6px;">생산 / 물류 탭의 납품담당 이름과 같은 성함으로 등록하면 송품장에 차량번호·전화번호가 자동으로 들어갑니다.</div>
         <div id="sd-drivers" style="max-height:300px;overflow:auto;"></div>
         <div class="row"><button class="btn-ghost small-btn" id="sd-driver-add">+ 기사 추가</button></div>
 
@@ -2886,6 +2912,7 @@ function goHome() {
     renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
     updateRefreshStamp();
     spLoad(currentDateKey, true); // 배차·적재·재고사용 입력값도 서버에서 최신으로
+    ppLoad(currentDateKey, true); // 생산 순서·생산 지시 요청도
     qcRenderSettings();
   }
 
@@ -3070,8 +3097,10 @@ function goHome() {
   // 보관 기간이 지난 날짜의 배차·적재 입력값('ship-plan-날짜')을 서버에서 지움
   async function spCleanup(cutoff){
     try{
-      const r = await window.storage.list('ship-plan-', true);
-      (r.keys || []).forEach(k => { const m = /^ship-plan-(\d{4}-\d{2}-\d{2})$/.exec(k); if(m && m[1] < cutoff && m[1] !== currentDateKey) window.storage.delete(k, true).catch(() => {}); });
+      for(const pre of ['ship-plan-', 'prod-plan-']){
+        const r = await window.storage.list(pre, true);
+        (r.keys || []).forEach(k => { const m = new RegExp('^' + pre + '(\\d{4}-\\d{2}-\\d{2})$').exec(k); if(m && m[1] < cutoff && m[1] !== currentDateKey) window.storage.delete(k, true).catch(() => {}); });
+      }
     }catch(e){ /* 정리는 다음 기회에 */ }
   }
 
@@ -4432,7 +4461,7 @@ function goHome() {
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
     hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
       '<b>오늘 생산량</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
-      '<b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(배차 / 적재 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
+      '<b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
     dict.forEach(item=>{
       const id = item.id;
@@ -7606,7 +7635,7 @@ function goHome() {
   // 물건을 출고할 때 동봉하는 「표준송품장」을 업체별 1장으로 만들어 JPG로 저장한다 (다름달음_표준송품장(거래처별).xlsx 양식과 같은 칸 구성).
   //  - 수신: 업체별 표기(설정) → 없으면 업체명. 3PL 업체는 한 장으로 합쳐 3PL 수신처(예: 제이엠로지스) 앞으로.
   //  - 품목·수량: 그날 발주(박스 환산). 쿠팡처럼 출고일을 따로 지정한 업체는 출고일별 줄로 나누고 출고일을 적요에 표시.
-  //  - 운송자: 배차 / 적재 탭에서 입력한 납품담당(기사) → 설정의 운송자 목록에서 차량번호·전화번호를 찾아 채움. 명일 출고로 표시한 업체는 출하일이 하루 뒤.
+  //  - 운송자: 생산 / 물류 탭에서 입력한 납품담당(기사) → 설정의 운송자 목록에서 차량번호·전화번호를 찾아 채움. 명일 출고로 표시한 업체는 출하일이 하루 뒤.
   //  - 설정(출하자 정보·운송자 목록·로고)은 'shipdoc-settings'(공용)에 저장. 엑셀 송품장 파일에서 한 번에 불러올 수 있음.
   const SD_DEFAULTS = {
     shipper: { name: '㈜ 다름달음', addr: '경기도 안성시 공도읍 신두만곡로 134', contact: '', reportNo: '', bank: 'IBK기업은행', account: '954-032148-04-012', holder: '㈜ 다름달음' },
@@ -7809,8 +7838,8 @@ function goHome() {
       const meta = document.createElement('span'); meta.className = 'meta';
       meta.textContent = `${c.lines.length}줄 · ${doc.total} · 출하 ${sdKo(doc.shipDate)}`;
       row.append(cb, nm, meta);
-      // 기사: 배차/적재 탭의 납품담당이 기본값. 여기서 바꾸면 이번 송품장에만 적용
-      const dsel = document.createElement('select'); dsel.title = '운송자(기사). 기본값은 배차 / 적재 탭의 납품담당입니다';
+      // 기사: 생산/물류 탭의 납품담당이 기본값. 여기서 바꾸면 이번 송품장에만 적용
+      const dsel = document.createElement('select'); dsel.title = '운송자(기사). 기본값은 생산 / 물류 탭의 납품담당입니다';
       const names = [...new Set([...(doc.driver.name ? [doc.driver.name] : []), ...driverNames()])];
       dsel.innerHTML = '<option value="">기사 선택</option>' + names.map(n => `<option value="${escapeHtml(n)}" ${n === doc.driver.name ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
       dsel.addEventListener('change', () => { (sdRowState[c.key] = sdRowState[c.key] || {}).driver = dsel.value; sdRenderList(); });
@@ -14256,6 +14285,153 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
   }
 
+  // ══════════════════ 생산 순서 · 생산 지시 요청 (납품일별) ══════════════════
+  // 생산 현황판 왼쪽 위에 표시된다. 생산 순서: 시간대·품목을 지정(예: 오전 9시~10시 30분 스테비아). 생산 지시 요청: 영업이 급한 물량을 먼저 생산해 달라고 적는 내용 — 없으면 현황판에 나오지 않는다.
+  // 저장: 'prod-plan-날짜' = { seq: [{ id, from:'HH:MM', to:'HH:MM', item, by, at }], req: [{ id, text, by, at }] }
+  // 칸을 고칠 때마다 서버의 최신 값을 읽어 그 줄 하나만 바꿔 저장하므로 영업·생산이 동시에 입력해도 서로 덮어쓰지 않는다.
+  const prodPlanCache = {};   // { 'YYYY-MM-DD': { seq: [], req: [], error? } }
+  const ppLoading = {};
+  let ppQueue = Promise.resolve(), ppSig = '';
+  const ppNorm = doc => { const d = doc && typeof doc === 'object' ? doc : {}; return { seq: Array.isArray(d.seq) ? d.seq : [], req: Array.isArray(d.req) ? d.req : [] }; };
+  // '13:30' → { ap: '오후', txt: '1시 30분' }
+  function ppKo(t){
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+    if(!m) return null;
+    const h = +m[1], mi = +m[2];
+    return { ap: h < 12 ? '오전' : '오후', txt: `${h % 12 === 0 ? 12 : h % 12}시${mi ? ' ' + mi + '분' : ''}` };
+  }
+  // 시간대 글: "오전 9시 ~ 10시 30분" / "오전 11시 ~ 오후 12시 30분" (끝 시각의 오전·오후는 시작과 같으면 생략)
+  function ppRange(from, to){
+    const a = ppKo(from), b = ppKo(to);
+    if(a && b) return `${a.ap} ${a.txt} ~ ${b.ap === a.ap ? '' : b.ap + ' '}${b.txt}`;
+    if(a) return `${a.ap} ${a.txt} ~`;
+    if(b) return `~ ${b.ap} ${b.txt}`;
+    return '';
+  }
+  const ppSorted = seq => seq.map((s, i) => ({ s, i })).sort((x, y) => String(x.s.from || '99:99').localeCompare(String(y.s.from || '99:99')) || x.i - y.i).map(x => x.s);
+  const ppAddMin = (t, n) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t || ''); if(!m) return ''; const v = Math.min(23 * 60 + 59, +m[1] * 60 + +m[2] + n); return `${pad2(Math.floor(v / 60))}:${pad2(v % 60)}`; };
+  // 현황판용: 품목이 적힌 순서 줄과 내용이 있는 요청만
+  function ppBoardData(dk){
+    const doc = prodPlanCache[dk] || { seq: [], req: [] };
+    return {
+      seq: ppSorted(doc.seq).filter(s => String(s.item || '').trim()).map(s => ({ range: ppRange(s.from, s.to), item: String(s.item).trim() })),
+      req: doc.req.filter(r => String(r.text || '').trim()).map(r => ({ text: String(r.text).trim(), by: r.by || '' })),
+    };
+  }
+  async function ppLoad(dk, force){
+    if(!dk) return;
+    if(ppLoading[dk]) return ppLoading[dk];
+    if(prodPlanCache[dk] && !force) return;
+    ppLoading[dk] = (async () => {
+      try{
+        const r = await window.storage.get('prod-plan-' + dk, true);
+        let doc = null;
+        if(r && r.value){ try{ doc = JSON.parse(r.value); }catch(e){ /* 깨진 값은 빈 값 */ } }
+        prodPlanCache[dk] = ppNorm(doc);
+      }catch(e){
+        if(!prodPlanCache[dk]) prodPlanCache[dk] = Object.assign(ppNorm(null), { error: true });
+      }finally{ delete ppLoading[dk]; }
+      if(dk === currentDateKey) renderProdPlan();
+    })();
+    return ppLoading[dk];
+  }
+  // 저장: 서버의 최신 값을 읽어 한 줄만 바꿔 쓴다 (읽기에 실패하면 저장하지 않음)
+  function ppUpdate(dk, mut){
+    const job = ppQueue.then(async () => {
+      const k = 'prod-plan-' + dk;
+      const r = await window.storage.get(k, true);
+      let doc = null;
+      if(r && r.value){ try{ doc = JSON.parse(r.value); }catch(e){ /* 깨진 값은 새로 시작 */ } }
+      doc = ppNorm(doc);
+      mut(doc);
+      await window.storage.set(k, JSON.stringify({ seq: doc.seq, req: doc.req }), true);
+      prodPlanCache[dk] = doc;
+      return doc;
+    });
+    ppQueue = job.catch(() => {});
+    return job;
+  }
+  function ppCommit(dk, mut){
+    const meta = document.getElementById('prod-plan-meta');
+    if(meta){ meta.textContent = '저장 중…'; meta.style.color = 'var(--muted)'; }
+    return ppUpdate(dk, mut).then(() => {
+      if(meta){ meta.textContent = `저장됨 ${spHM(Date.now())}`; meta.style.color = 'var(--accent)'; }
+      if(dk === currentDateKey) renderProdPlan(true);
+      return true;
+    }).catch(() => {
+      if(meta){ meta.textContent = '⚠ 저장 실패 — 인터넷 연결을 확인하고 다시 입력해주세요'; meta.style.color = 'var(--danger,#c0392b)'; }
+      toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요');
+      return false;
+    });
+  }
+  function renderProdPlan(force){
+    const seqEl = document.getElementById('prod-seq-body'), reqEl = document.getElementById('prod-req-body');
+    if(!seqEl || !reqEl) return;
+    const dk = currentDateKey;
+    const dateEl = document.getElementById('prod-plan-date');
+    if(dateEl) dateEl.textContent = dk ? `납품일: ${dk}` : '';
+    if(!dk){ seqEl.innerHTML = ''; reqEl.innerHTML = ''; return; }
+    if(!prodPlanCache[dk]){ seqEl.innerHTML = '<div class="sub">불러오는 중…</div>'; reqEl.innerHTML = ''; ppLoad(dk); return; }
+    const doc = prodPlanCache[dk];
+    const sig = dk + JSON.stringify([doc.seq, doc.req, !!doc.error]);
+    if(!force && sig === ppSig && seqEl.children.length) return;   // 바뀐 게 없으면 다시 그리지 않음 (입력 중 커서 유지)
+    ppSig = sig;
+    // 품목 목록(자동완성): SKU 관리의 품목 이름
+    const dl = document.getElementById('prod-item-list');
+    if(dl){ dl.innerHTML = ''; [...new Set(dict.map(d => spStockLabel(d)).filter(Boolean))].forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); }
+    const who = () => (typeof spWho === 'function' ? spWho() : '');
+    const stamp = x => (x && x.at ? `${x.by || ''} ${spHM(x.at)}`.trim() : '');
+    seqEl.innerHTML = '';
+    if(doc.error){ const w = document.createElement('div'); w.className = 'sub'; w.style.cssText = 'color:var(--danger,#c0392b);font-weight:700;'; w.textContent = '⚠ 저장된 내용을 불러오지 못했습니다. [새로고침]을 눌러주세요.'; seqEl.appendChild(w); }
+    const sorted = ppSorted(doc.seq);
+    if(!sorted.length){ const e = document.createElement('div'); e.className = 'sub'; e.style.margin = '4px 0'; e.textContent = '아직 입력된 생산 순서가 없습니다. [+ 순서 추가]를 눌러 시간과 품목을 지정하세요.'; seqEl.appendChild(e); }
+    sorted.forEach(s => {
+      const row = document.createElement('div'); row.className = 'pp-row';
+      const mkTime = field => { const i = document.createElement('input'); i.type = 'time'; i.value = s[field] || ''; i.addEventListener('change', () => { const v = i.value; ppCommit(dk, d => { const x = d.seq.find(q => q.id === s.id); if(x){ x[field] = v; x.by = who(); x.at = Date.now(); } }); }); return i; };
+      const item = document.createElement('input'); item.type = 'text'; item.setAttribute('list', 'prod-item-list'); item.value = s.item || ''; item.placeholder = '품목 (예: 스테비아)'; item.style.width = '220px';
+      item.addEventListener('change', () => { const v = item.value.trim(); ppCommit(dk, d => { const x = d.seq.find(q => q.id === s.id); if(x){ x.item = v; x.by = who(); x.at = Date.now(); } }); });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '✕'; del.title = '이 줄 삭제';
+      del.addEventListener('click', () => ppCommit(dk, d => { d.seq = d.seq.filter(q => q.id !== s.id); }));
+      const prev = document.createElement('span'); prev.className = 'sub'; prev.style.margin = '0'; prev.textContent = ppRange(s.from, s.to);
+      const st = document.createElement('span'); st.className = 'sub'; st.style.cssText = 'margin:0;font-size:11px;'; st.textContent = stamp(s);
+      const tilde = document.createElement('span'); tilde.textContent = '~';
+      row.append(mkTime('from'), tilde, mkTime('to'), item, del, prev, st);
+      seqEl.appendChild(row);
+    });
+    reqEl.innerHTML = '';
+    if(!doc.req.length){ const e = document.createElement('div'); e.className = 'sub'; e.style.margin = '4px 0'; e.textContent = '요청이 없으면 현황판에는 이 칸이 나오지 않습니다.'; reqEl.appendChild(e); }
+    doc.req.forEach(r => {
+      const row = document.createElement('div'); row.className = 'pp-row';
+      const t = document.createElement('input'); t.type = 'text'; t.value = r.text || ''; t.placeholder = '예: 망고 먼저 생산해주세요 (오전 중 출고 급함)'; t.style.cssText = 'flex:1;min-width:260px;';
+      t.addEventListener('change', () => {
+        const v = t.value.trim();
+        ppCommit(dk, d => { if(!v){ d.req = d.req.filter(q => q.id !== r.id); return; } const x = d.req.find(q => q.id === r.id); if(x){ x.text = v; x.by = who(); x.at = Date.now(); } });
+      });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '✕'; del.title = '이 요청 삭제';
+      del.addEventListener('click', () => ppCommit(dk, d => { d.req = d.req.filter(q => q.id !== r.id); }));
+      const st = document.createElement('span'); st.className = 'sub'; st.style.cssText = 'margin:0;font-size:11px;'; st.textContent = stamp(r);
+      row.append(t, del, st);
+      reqEl.appendChild(row);
+    });
+  }
+  (function wireProdPlan(){
+    const add1 = document.getElementById('prod-seq-add'), add2 = document.getElementById('prod-req-add'), rf = document.getElementById('prod-plan-refresh-btn');
+    if(!add1) return;
+    add1.addEventListener('click', () => {
+      const dk = currentDateKey; if(!dk) return;
+      ppCommit(dk, d => {
+        const last = ppSorted(d.seq).filter(s => s.to || s.from).pop();
+        const from = (last && (last.to || last.from)) || '09:00';
+        d.seq.push({ id: cryptoId(), from, to: ppAddMin(from, 90), item: '', by: spWho(), at: Date.now() });
+      });
+    });
+    add2.addEventListener('click', () => {
+      const dk = currentDateKey; if(!dk) return;
+      ppCommit(dk, d => { d.req.push({ id: cryptoId(), text: '', by: spWho(), at: Date.now() }); }).then(() => { const ins = document.querySelectorAll('#prod-req-body input[type=text]'); if(ins.length) ins[ins.length - 1].focus(); });
+    });
+    if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
+  })();
+
   // 입력 대상 업체: 그날 발주가 있는 업체 (3PL은 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 제외)
   function spCompanies(dk){
     const orders = ordersByDate[dk] || {};
@@ -14330,6 +14506,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   function renderShipPlan(){
+    try{ renderProdPlan(); }catch(e){ console.error(e); }   // 같은 탭의 생산 순서·생산 지시 요청
     const body = document.getElementById('ship-plan-body');
     if(!body) return;
     const dk = currentDateKey;
@@ -14472,7 +14649,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!$('ship-plan-card')) return;
     $('ship-plan-refresh-btn').addEventListener('click', async () => {
       const b = $('ship-plan-refresh-btn'); b.disabled = true;
-      try{ delete shipPlanCache[currentDateKey]; await spLoad(currentDateKey, true); toast('최신 입력 내용을 불러왔습니다'); }
+      try{ delete shipPlanCache[currentDateKey]; await Promise.all([spLoad(currentDateKey, true), ppLoad(currentDateKey, true)]); toast('최신 입력 내용을 불러왔습니다'); }
       finally{ b.disabled = false; }
     });
     $('sp-opt-save').addEventListener('click', async () => {
@@ -14529,6 +14706,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!productionTemplateB64) throw new Error('발주취합 서식이 등록되지 않았습니다. 서식을 먼저 등록해주세요');
     const ctx = await poLoadTemplate(productionTemplateB64);
     await spLoad(dateKey, true); // 영업·생산이 입력한 배차·적재·재고사용 최신값
+    await ppLoad(dateKey, true); // 생산 순서·생산 지시 요청
     const orders = ordersByDate[dateKey] || {};
     const hdr0 = poTemplateHeaders(ctx);
     let sampleRows = [];
@@ -14622,7 +14800,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       .sort((a, b) => (dOrder.has(a.name) ? dOrder.get(a.name) : 1e6) - (dOrder.has(b.name) ? dOrder.get(b.name) : 1e6) || a.name.localeCompare(b.name, 'ko'));
     // 사용 원물량: 서식 위쪽(B3)의 원물사용량 수식을 오늘 합계로 계산 (수식이 없거나 못 읽으면 표시 안 함)
     const rawUse = poEvalConcat(poFormulaText(ctx, 'B3'), total, Y.totalsRow).replace(/\s{2,}/g, '   ').trim();
-    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+    const pp = ppBoardData(dateKey);
+    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
   }
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
@@ -14646,8 +14825,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const pBlank = P ? `<td colspan="${P}" class="pb-p"></td>` : '';
     let html = '';
     // 위쪽 요약: 사용 원물량 + 기사별 배차 현황
-    if(m.rawUse || (m.ship && m.ship.length)){
-      html += '<div class="pb-info">';
+    // 왼쪽 위: 생산 순서 / 생산 지시 요청 (요청은 내용이 있을 때만)
+    const seqHtml = (m.prodSeq && m.prodSeq.length) ? `<div class="pb-seq"><div class="pb-seq-t">생산 순서</div>${m.prodSeq.map((x, i) => `<div class="pb-seq-r"><span class="pb-seq-n">${i + 1}</span>${x.range ? `<span class="pb-seq-time">${e(x.range)}</span>` : ''}<b>${e(x.item)}</b></div>`).join('')}</div>` : '';
+    const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 지시 요청</div>${m.prodReq.map(x => `<div class="pb-req-r">${e(x.text)}</div>`).join('')}</div>` : '';
+    if(seqHtml || reqHtml || m.rawUse || (m.ship && m.ship.length)){
+      html += '<div class="pb-info">' + seqHtml + reqHtml;
       if(m.rawUse) html += `<div class="pb-raw">${e(m.rawUse)}</div>`;
       if(m.ship && m.ship.length){
         html += '<table class="pb-ship"><thead><tr><th>납품담당</th><th>업체</th><th>총수량(박스)</th><th>파렛트</th><th>까대기(박스)</th><th>하차지</th></tr></thead><tbody>' +
