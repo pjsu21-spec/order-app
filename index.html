@@ -916,6 +916,13 @@
           <div class="fname" id="production-template-fname"></div>
           <input type="file" id="production-template-input" accept=".xlsx" style="display:none;">
         </div>
+        <h3 style="margin:14px 0 6px;">품질 확인용 샘플</h3>
+        <div class="row" style="margin:0 0 4px;">
+          <label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="qc-enabled"> 생산하는 품목마다 자동으로 추가</label>
+          <label style="font-size:13px;">품목당 <input type="number" id="qc-boxes" min="0" step="0.25" style="width:70px;"> 박스</label>
+          <span class="sub" id="qc-note" style="margin:0;"></span>
+        </div>
+        <div class="sub" style="margin:0 0 8px;">생산하는 품목(오늘 출고 합계가 전일 재고보다 많은 품목)은 품질 확인용으로 따로 빼 두어야 하므로, 발주취합 파일의 <b>샘플</b> 구분에 <b>"품질확인 샘플"</b> 줄이 자동으로 들어가고 총 수량에도 포함됩니다. 박스입수가 있는 품목에만 기본 적용되며, 품목별로 다르게 하려면 SKU 관리의 <b>품질샘플(박스)</b>에 숫자를 적으세요(0이면 그 품목은 제외).</div>
         <h3 style="margin:14px 0 6px;">품목 → 서식 열 지정</h3>
         <div class="row" style="margin:0 0 8px;">
           <button class="btn-ghost small-btn" id="po-suggest-btn" title="품목 이름·용량과 서식 머리글을 비교해, 미지정이거나 종이/스티로폼 열이 어긋난 품목만 알맞은 열로 지정합니다">🔎 열 자동 추천 (미지정·어긋난 품목만)</button>
@@ -2827,6 +2834,10 @@ function goHome() {
       const v = dsp ? JSON.parse(dsp.value) : {};
       dispatchByDate = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     }catch(e){ dispatchByDate = {}; }
+    try{
+      const qs = await window.storage.get('qc-sample-settings', true);
+      if(qs){ const v = JSON.parse(qs.value) || {}; qcSettings = { enabled: v.enabled !== false, boxes: v.boxes != null ? Math.max(0, Number(v.boxes) || 0) : 0.5 }; }
+    }catch(e){ /* 기본값(켜짐, 0.5박스) 사용 */ }
     // Ensure defaults exist (극소, 소)
     if(!deliveryFeeItems.find(d=>d.size==='극소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
@@ -2855,6 +2866,7 @@ function goHome() {
     renderManualQtyEditor(); // dict 로드 후 수동입력 품목 목록 갱신
     updateRefreshStamp();
     spLoad(currentDateKey, true); // 배차·적재·재고사용 입력값도 서버에서 최신으로
+    qcRenderSettings();
   }
 
   // 최신 내용 불러오기: 다른 직원이 입력·수정한 공용 데이터를 서버에서 다시 읽어 화면을 갱신
@@ -3887,6 +3899,19 @@ function goHome() {
       row.appendChild(shortNameInput);
       row.appendChild(boxTypeSelect);
       row.appendChild(priceGroupInput);
+
+      // 품질 확인용 샘플(박스): 비우면 기본값(설정), 0이면 이 품목은 제외
+      const qcInput = document.createElement('input');
+      qcInput.type = 'number'; qcInput.min = '0'; qcInput.step = '0.25';
+      qcInput.placeholder = '품질샘플(박스)';
+      qcInput.style.maxWidth = '110px';
+      qcInput.title = '생산하는 날 발주취합에 자동으로 넣는 품질 확인용 샘플 수량(박스). 비우면 기본값(발주취합 서식 설정, 0.5박스), 0이면 이 품목은 넣지 않습니다';
+      qcInput.value = item.qcSample === undefined || item.qcSample === null ? '' : item.qcSample;
+      qcInput.addEventListener('change', (e)=>{
+        item.qcSample = e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0);
+        saveDict();
+      });
+      row.appendChild(qcInput);
       row.appendChild(delBtn);
       wrap.appendChild(row);
     });
@@ -12605,6 +12630,60 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return ctx.zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
   }
 
+  // ── 품질 확인용 샘플 ──
+  // 생산하는 품목(오늘 출고 합계 > 전일 재고)은 품질 확인을 위해 품목마다 0.5박스(설정값)를 따로 빼 두어야 하므로,
+  // 발주취합 서식의 샘플 구분에 '품질확인 샘플' 줄로 자동 추가한다. (실제 샘플 신청과 별개의 줄이며, 총 수량·합계에도 포함됨)
+  //  - 박스입수가 있는 품목에만 기본 적용. SKU 관리의 '품질샘플(박스)'에 숫자를 적으면 그 품목만 그 값(0이면 제외)으로 바꿈.
+  let qcSettings = { enabled: true, boxes: 0.5 };
+  const QC_ENTRY_NAME = '품질확인 샘플';
+  function qcBoxesOf(d){
+    const v = d.qcSample;
+    if(v !== undefined && v !== null && v !== '') return Math.max(0, Number(v) || 0);
+    return (Number(d.boxUnitCount) || 0) > 0 ? (Number(qcSettings.boxes) || 0) : 0;
+  }
+  // built.entries에 '품질확인 샘플' 줄을 추가하고, 추가한 품목 이름 목록을 돌려줌 (이미 있으면 다시 추가하지 않음)
+  function addQcSampleEntry(built, colMap){
+    if(!qcSettings.enabled || built.entries.some(e => e.name === QC_ENTRY_NAME)) return [];
+    const tot = {};
+    built.entries.forEach(e => Object.entries(e.colQty).forEach(([c, q]) => { tot[c] = (tot[c] || 0) + q; }));
+    (built.dispatchRows || []).forEach(g => Object.entries(g.colQty).forEach(([c, q]) => { tot[c] = (tot[c] || 0) + q; }));
+    const colQty = {}, items = [];
+    dict.forEach(d => {
+      const col = colMap[d.id];
+      if(!col) return;
+      const need = (tot[col] || 0) - ((built.stockByCol || {})[col] || 0);   // 생산 필요수량(박스): 출고 합계 − 전일 재고
+      if(!(need > 0.0001)) return;
+      const q = qcBoxesOf(d);
+      if(!(q > 0)) return;
+      colQty[col] = Math.round(((colQty[col] || 0) + q) * 100) / 100;
+      items.push(d.shortName || d.name);
+    });
+    if(!items.length) return [];
+    built.entries.push({ name: QC_ENTRY_NAME, category: '샘플', region: '본사', corp: '', isThirdParty: false, colQty });
+    return items;
+  }
+  async function qcSave(){
+    try{ await window.storage.set('qc-sample-settings', JSON.stringify(qcSettings), true); return true; }
+    catch(e){ console.error(e); toast('품질 확인용 샘플 설정을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+  }
+  function qcRenderSettings(){
+    const en = document.getElementById('qc-enabled'), bx = document.getElementById('qc-boxes'), note = document.getElementById('qc-note');
+    if(!en || !bx) return;
+    const admin = !!(window.currentUser && window.currentUser.role === 'admin');
+    en.checked = !!qcSettings.enabled; bx.value = qcSettings.boxes; en.disabled = !admin; bx.disabled = !admin;
+    note.textContent = admin ? '' : '※ 관리자만 수정할 수 있습니다.';
+  }
+  (function wireQc(){
+    const en = document.getElementById('qc-enabled'), bx = document.getElementById('qc-boxes');
+    if(!en || !bx) return;
+    en.addEventListener('change', async () => { qcSettings.enabled = en.checked; if(await qcSave()) toast(qcSettings.enabled ? '품질 확인용 샘플을 자동으로 추가합니다' : '품질 확인용 샘플 자동 추가를 껐습니다'); });
+    bx.addEventListener('change', async () => {
+      const v = Math.max(0, Math.round((parseFloat(bx.value) || 0) * 100) / 100);
+      qcSettings.boxes = v; bx.value = v;
+      if(await qcSave()) toast(`품질 확인용 샘플을 품목당 ${v}박스로 저장했습니다`);
+    });
+  })();
+
   // 앱의 발주 데이터 → 서식 열(skuColumnMap) 기준 박스 수량. 박스입수가 있으면 박스로 환산, 없으면 팩 수 그대로.
   function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch, samples }){
     const unitOf = d => Number(d.boxUnitCount) || 0;
@@ -13009,6 +13088,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     ensureCarryOver(dateKey);   // 점검은 저장하지 않고 화면의 값만 채워서 본다
     const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: colMapU, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
     if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ add('info', '발주 데이터 없음', '이 날짜에는 서식에 채울 주문이 없습니다'); return issues; }
+    built.qcItems = addQcSampleEntry(built, colMapU);
     if(built.unmapped.length) add('err', '서식에 열이 없는 품목', `${built.unmapped.join(', ')} — 서식에 열을 추가해 다시 등록하고 열을 지정하거나, 서식의 다른 열을 지정해주세요. 안 하면 파일 맨 아래 표에만 적힙니다`);
     if(built.noUnit.length) add('warn', '박스입수 없음', `${built.noUnit.join(', ')} — 박스 수가 아니라 팩 수 그대로 들어갑니다. SKU 관리에서 박스입수를 입력해주세요`);
 
@@ -13032,6 +13112,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.addedRows && r.addedRows.length) add('info', '행 자동 추가', `서식에 자리가 없어 행을 추가해 넣습니다 (소계·합계에 자동 포함): ${r.addedRows.join(', ')}`);
       if(r.aggregated.length) add('info', '3PL 합산', `${r.aggregated.join(', ')} → 서식의 3PL 출고 행에 합산`);
       if(built.sampleNames.length) add('info', '샘플 포함', `${built.sampleNames.join(', ')} → 샘플 행`);
+      if(built.qcItems && built.qcItems.length) add('info', '품질확인 샘플 자동 추가', `생산하는 품목 ${built.qcItems.length}개(${built.qcItems.join(', ')})에 품목당 ${qcSettings.boxes}박스(품목별 설정 우선)를 "${QC_ENTRY_NAME}" 줄로 넣습니다`);
       if(r.dispatch && r.dispatch.placed.length) add('info', '쿠팡 출고일 블록', `${r.dispatch.placed.join(', ')}`);
       const groupOverride = {};
       dict.forEach(d => { const c = colMapU[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = remapU(g); });
@@ -13116,6 +13197,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
       const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
+      built.qcItems = addQcSampleEntry(built, skuColumnMap);   // 생산하는 품목의 품질 확인용 샘플
       await spLoad(dateKey, true); // 다른 직원이 입력한 배차·적재·재고사용 최신값
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey) });
       const logos = await poReplaceLogos(ctx);
@@ -13143,6 +13225,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.newRows.length) lines.push({ text: `서식의 빈 행에 업체명을 새로 적어 넣었습니다: ${r.newRows.join(', ')}` });
       if(r.addedRows && r.addedRows.length) lines.push({ text: `서식에 자리가 없어 행을 추가해 넣었습니다 (소계·합계에 자동 포함): ${r.addedRows.join(', ')}` });
       if(built.sampleNames.length) lines.push({ text: `샘플 신청(생산본부 생산·생산일 기준) ${built.sampleNames.length}건을 서식의 샘플 행에 채웠습니다: ${built.sampleNames.join(', ')}` });
+      if(built.qcItems && built.qcItems.length) lines.push({ text: `품질 확인용 샘플을 생산하는 품목 ${built.qcItems.length}개에 자동으로 넣었습니다 ("${QC_ENTRY_NAME}" 줄): ${built.qcItems.join(', ')}` });
       if(sampleErr) lines.push({ warn: true, text: `※ 샘플 신청을 불러오지 못해 샘플은 넣지 못했습니다: ${sampleErr}` });
       if(r.dispatch && r.dispatch.placed.length) lines.push({ text: `출고일을 지정한 주문(쿠팡 등) ${r.dispatch.placed.length}건을 서식의 쿠팡 블록에 출고일별로 채웠습니다: ${r.dispatch.placed.join(', ')}` });
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
@@ -13933,6 +14016,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(need.length){ const ac = poAddItemColumns(ctx, need, colMap); cm = ac.colMap; remap = ac.remap; }
     ensureCarryOver(dateKey);   // 현황판은 읽기만 하므로 저장하지 않고 계산값을 채워서 표시
     const built = buildProductionOrderEntries({ dict, companies, orders, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: cm, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows });
+    addQcSampleEntry(built, cm);
     const saved = skuColumnMap;
     let res;
     try{
