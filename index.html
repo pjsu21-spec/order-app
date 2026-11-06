@@ -5534,8 +5534,9 @@ function goHome() {
       const smName = document.createElement('td');
       smName.className = 'name-cell';
       smName.style.cssText = 'cursor:pointer;font-weight:700;';
-      smName.textContent = `${aggSample.open ? '▾' : '▸'} 샘플 (${sampleRows.length}건)`;
-      smName.title = '샘플 신청 중 생산본부 생산으로 지정된 품목 (발주취합 파일의 샘플 행과 같은 기준, 생산일 기준). 아래 합계·생산 필요수량에 포함됩니다. 눌러서 신청자별로 펼치기/접기';
+      const stockN = sampleRows.filter(r => (r.items || []).some(i => i.fromStock)).length;
+      smName.textContent = `${aggSample.open ? '▾' : '▸'} 샘플 (${sampleRows.length}건${stockN ? `, 재고 사용 ${stockN}건 포함` : ''})`;
+      smName.title = '샘플 신청 중 생산본부 생산으로 지정된 품목 (발주취합 파일의 샘플 행과 같은 기준). 오늘 생산분과, 오늘 출고하면서 전일 생산분(재고)을 쓰는 샘플이 모두 포함되어 아래 합계·생산 필요수량에 들어갑니다. 눌러서 신청자별로 펼치기/접기';
       smName.addEventListener('click', ()=>{ aggSample.open = !aggSample.open; renderAggTable(); });
       smTr.appendChild(smName);
       smTr.appendChild(document.createElement('td'));
@@ -5555,19 +5556,20 @@ function goHome() {
       smTr.appendChild(document.createElement('td'));
       tbody.appendChild(smTr);
       if(aggSample.open){
-        sampleRows.forEach(r => {
+        // 신청 한 건을 오늘 생산분 / 재고 사용분(전일 생산)으로 나눠 줄로 보여 줌
+        sampleRows.flatMap(r => [false, true].map(fs => ({ r, fs, items: (r.items || []).filter(i => !!i.fromStock === fs) })).filter(x => x.items.length)).forEach(({ r, fs, items }) => {
           const tr = document.createElement('tr');
           tr.style.background = 'var(--hover)';
           tr.appendChild(document.createElement('td'));
           const nm = document.createElement('td');
           nm.className = 'name-cell';
-          nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '');
+          nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '') + (fs ? ' · 재고 사용' : '');
           tr.appendChild(nm);
           tr.appendChild(document.createElement('td'));
           const tt = document.createElement('td'); tt.className = 'totals-col'; tr.appendChild(tt);
           let rt = 0;
           cols.forEach(d=>{
-            const p = (r.items || []).filter(i => i.skuId === d.id).reduce((x, i) => x + (Number(i.packs) || 0), 0);
+            const p = items.filter(i => i.skuId === d.id).reduce((x, i) => x + (Number(i.packs) || 0), 0);
             rt += toBox(d, p);
             const td = document.createElement('td'); td.textContent = p > 0 ? fmt(toBox(d, p)) : ''; tr.appendChild(td);
           });
@@ -9501,12 +9503,17 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // ── 연동용: 생산일(dateKey) 하루의 샘플 ──
   // 품목마다 생산일(production_date)이 있으면 그날, 없으면 출고일 당일이 생산일. 생산일은 출고일보다 늦을 수 없고 최대 SAMPLE_PROD_DAYS_BACK일 앞서므로
   // 출고일이 dateKey ~ +7일인 신청(취소 제외)을 읽어 생산일이 dateKey인 품목만 남긴다.
-  async function sampleRowsForProdDay(dateKey, confirmedOnly){
+  // withStockUse=true 이면 출고일이 dateKey인데 생산일이 더 앞선(전일 생산 = 재고 사용) 품목도 포함하고 그 품목에 _fromStock 표시를 붙인다 (발주취합·집계에서 재고 사용을 파악하기 위함. 생산 공유 수요에는 넣지 않음)
+  async function sampleRowsForProdDay(dateKey, confirmedOnly, withStockUse){
     const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + (SAMPLE_PROD_DAYS_BACK + 1) * 86400000);
     let q = `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`;
     if(confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
     const rows = await sbQuery('sample_requests', q);
-    return rows.map(r => Object.assign({}, r, { items: (r.items || []).filter(i => sampleItemProdDay(r, i) === dateKey) })).filter(r => r.items.length);
+    return rows.map(r => Object.assign({}, r, { items: (r.items || []).map(i => {
+      if(sampleItemProdDay(r, i) === dateKey) return i;
+      if(withStockUse && sampleDayKey(r.ship_at) === dateKey) return Object.assign({}, i, { _fromStock: true });
+      return null;
+    }).filter(Boolean) })).filter(r => r.items.length);
   }
   //  window.getSampleDemand('YYYY-MM-DD', { confirmedOnly, productionMethod }) → { skuId: { packs, boxes, count } }  (생산일 기준)
   //  opts.confirmedOnly=true 이면 확인 처리된 건만 포함. 취소된 신청은 항상 제외.
@@ -9524,12 +9531,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   };
 
   // ── 발주취합 연동용: 생산일(dateKey) 하루의 샘플 신청(취소 제외)을 신청 건별로 돌려준다 ──
+  //  출고일이 dateKey인데 전일 이전에 생산한 품목(재고 사용)도 함께 돌려주며 items[].fromStock=true 로 표시한다.
   //  opts.productionMethod='생산본부 생산' 처럼 지정하면 그 생산 방식으로 지정된 품목만 남기고, 남는 품목이 없는 신청은 뺀다.
   window.getSampleRequestsForDate = async function(dateKey, opts){
-    const rows = await sampleRowsForProdDay(dateKey, false);
+    const rows = await sampleRowsForProdDay(dateKey, false, true);
     return rows.map(r => ({
       id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '',
-      items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0 })).filter(i => i.skuId && i.packs > 0)
+      items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0, fromStock: !!i._fromStock })).filter(i => i.skuId && i.packs > 0)
     })).filter(r => r.items.length);
   };
 
@@ -13012,10 +13020,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     (samples || []).forEach(r => {
       const who = (r.requester_name || '').trim() || '(신청자 미상)';
       const dept = (r.requester_dept || '').trim();
-      const key = `${who}|${dept}`;
-      let e = sampleMap.get(key);
-      if(!e){ e = { name: `${who} 샘플`, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {} }; sampleMap.set(key, e); }
       (r.items || []).forEach(i => {
+        // 오늘 생산분과 전일 생산분(재고 사용)은 줄을 나눠 재고 사용량을 알 수 있게 함
+        const fs = !!i.fromStock;
+        const key = `${who}|${dept}|${fs ? 1 : 0}`;
+        let e = sampleMap.get(key);
+        if(!e){ e = { name: `${who} 샘플${fs ? ' (재고 사용)' : ''}`, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {} }; sampleMap.set(key, e); }
         const d = dict.find(x => x.id === i.skuId);
         const q = Number(i.packs) || 0;
         if(!d || q <= 0) return;
