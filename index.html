@@ -1026,7 +1026,13 @@
     <h3 style="margin:8px 0 4px;">① 생산 순서 <span class="sub" style="font-weight:400;margin:0;">(시간 · 품목 지정 — 시간 순으로 정렬되어 현황판에 표시)</span></h3>
     <datalist id="prod-item-list"></datalist>
     <div id="prod-seq-body"></div>
-    <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-seq-add">+ 순서 추가</button></div>
+    <div class="row" style="margin-top:4px;align-items:center;">
+      <button type="button" class="btn-ghost small-btn" id="prod-seq-add">+ 순서 추가</button>
+      <button type="button" class="btn-ghost small-btn" id="prod-seq-routine-save" title="지금 입력된 시간대(시작~끝)를 매일 쓰는 루틴으로 저장합니다. 품목은 저장하지 않습니다">💾 시간대를 루틴으로 저장</button>
+      <button type="button" class="btn-ghost small-btn" id="prod-seq-routine-load" style="display:none;" title="저장해 둔 시간대로 오늘 생산 순서 줄을 만듭니다(품목은 비어 있음)">⏱ 저장한 시간대 불러오기</button>
+      <button type="button" class="btn-ghost small-btn" id="prod-seq-routine-clear" style="display:none;" title="저장해 둔 시간대 루틴을 지웁니다">루틴 삭제</button>
+      <span id="prod-seq-routine-note" class="sub" style="margin:0;"></span>
+    </div>
     <h3 style="margin:14px 0 4px;">② 생산 지시 요청 <span class="sub" style="font-weight:400;margin:0;">(영업 → 생산 · 급한 물량 먼저 생산 요청, 없으면 현황판에 표시되지 않음)</span></h3>
     <div id="prod-req-body"></div>
     <div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="prod-req-add">+ 요청 추가</button></div>
@@ -14367,6 +14373,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   function renderProdPlan(force){
     const seqEl = document.getElementById('prod-seq-body'), reqEl = document.getElementById('prod-req-body');
     if(!seqEl || !reqEl) return;
+    ppRoutineLoad();   // 저장해 둔 시간대 루틴 (처음 한 번만 읽음)
     const dk = currentDateKey;
     const dateEl = document.getElementById('prod-plan-date');
     if(dateEl) dateEl.textContent = dk ? `납품일: ${dk}` : '';
@@ -14429,7 +14436,61 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const dk = currentDateKey; if(!dk) return;
       ppCommit(dk, d => { d.req.push({ id: cryptoId(), text: '', by: spWho(), at: Date.now() }); }).then(() => { const ins = document.querySelectorAll('#prod-req-body input[type=text]'); if(ins.length) ins[ins.length - 1].focus(); });
     });
-    if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
+    if(rf) rf.addEventListener('click', async () => { rf.disabled = true; try{ delete prodPlanCache[currentDateKey]; await ppLoad(currentDateKey, true); await ppRoutineLoad(true); toast('최신 내용을 불러왔습니다'); } finally{ rf.disabled = false; } });
+  })();
+
+  // 생산 순서 시간대 루틴: 매일 비슷한 시간대(예: 9:00~10:30, 11:00~12:30 …)를 한 번 저장해 두고 날짜마다 불러다 품목만 채운다.
+  // 저장: 'prod-seq-routine' = { slots: [{ from, to }], by, at } (공용, 하나)
+  let ppRoutine = null, ppRoutineLoaded = false;
+  const ppSlotsText = slots => slots.map(x => ppRange(x.from, x.to)).join(' / ');
+  function ppRoutineRender(){
+    const note = document.getElementById('prod-seq-routine-note'), ld = document.getElementById('prod-seq-routine-load'), cl = document.getElementById('prod-seq-routine-clear');
+    if(!note) return;
+    const has = !!(ppRoutine && ppRoutine.slots && ppRoutine.slots.length);
+    if(ld) ld.style.display = has ? '' : 'none';
+    if(cl) cl.style.display = has ? '' : 'none';
+    note.textContent = has ? `저장된 루틴 (${ppRoutine.slots.length}칸): ${ppSlotsText(ppRoutine.slots)}` : '저장된 시간대 루틴이 없습니다 — 시간대를 입력한 뒤 [💾 시간대를 루틴으로 저장]을 누르면 다음부터 불러다 쓸 수 있습니다';
+  }
+  async function ppRoutineLoad(force){
+    if(ppRoutineLoaded && !force) return;
+    ppRoutineLoaded = true;
+    try{
+      const r = await window.storage.get('prod-seq-routine', true);
+      let v = null; if(r && r.value){ try{ v = JSON.parse(r.value); }catch(e){ /* 깨진 값은 없음으로 */ } }
+      ppRoutine = v && Array.isArray(v.slots) ? v : null;
+    }catch(e){ ppRoutineLoaded = false; }   // 읽기 실패 → 다음에 다시 시도
+    ppRoutineRender();
+  }
+  (function wireRoutine(){
+    const sv = document.getElementById('prod-seq-routine-save'), ld = document.getElementById('prod-seq-routine-load'), cl = document.getElementById('prod-seq-routine-clear');
+    if(!sv) return;
+    sv.addEventListener('click', async () => {
+      const dk = currentDateKey; if(!dk) return;
+      const doc = prodPlanCache[dk];
+      const slots = doc ? ppSorted(doc.seq).filter(x => x.from).map(x => ({ from: x.from, to: x.to || '' })) : [];
+      if(!slots.length){ toast('저장할 시간대가 없습니다. 먼저 생산 순서에 시간대를 입력해주세요'); return; }
+      if(ppRoutine && ppRoutine.slots && ppRoutine.slots.length && !confirm('이미 저장된 시간대 루틴이 있습니다. 지금 시간대로 바꿔 저장할까요?\n(' + ppSlotsText(ppRoutine.slots) + ')')) return;
+      try{
+        const v = { slots, by: spWho(), at: Date.now() };
+        await window.storage.set('prod-seq-routine', JSON.stringify(v), true);
+        ppRoutine = v; ppRoutineLoaded = true; ppRoutineRender();
+        toast(`시간대 ${slots.length}칸을 루틴으로 저장했습니다 (품목은 저장하지 않음)`);
+      }catch(e){ console.error(e); toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+    });
+    ld.addEventListener('click', async () => {
+      const dk = currentDateKey; if(!dk) return;
+      await ppRoutineLoad(true);
+      if(!(ppRoutine && ppRoutine.slots && ppRoutine.slots.length)){ toast('저장된 시간대 루틴이 없습니다'); return; }
+      const cur = prodPlanCache[dk];
+      if(cur && cur.seq.some(x => String(x.item || '').trim()) && !confirm('지금 입력된 생산 순서(품목 포함)가 있습니다. 저장한 시간대로 바꿀까요?\n품목은 비워지니 다시 입력해야 합니다.')) return;
+      const slots = ppRoutine.slots;
+      ppCommit(dk, d => { d.seq = slots.map(x => ({ id: cryptoId(), from: x.from, to: x.to || '', item: '', by: spWho(), at: Date.now() })); }).then(ok => { if(ok) toast(`저장한 시간대 ${slots.length}칸을 불러왔습니다. 품목을 지정하세요`); });
+    });
+    cl.addEventListener('click', async () => {
+      if(!confirm('저장해 둔 시간대 루틴을 지울까요?')) return;
+      try{ await window.storage.delete('prod-seq-routine', true); ppRoutine = null; ppRoutineRender(); toast('시간대 루틴을 지웠습니다'); }
+      catch(e){ console.error(e); toast('지우지 못했습니다. 인터넷 연결을 확인해주세요'); }
+    });
   })();
 
   // 입력 대상 업체: 그날 발주가 있는 업체 (3PL은 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 제외)
