@@ -225,7 +225,7 @@
   .pb-ship .pb-sname{ font-weight:800; color:#fff; font-size:17px; }
   .pb-table .pb-ph{ background:#16233f; color:#fff; font-size:15px; text-align:center; }
   .pb-table .pb-p{ font-size:14px; color:#d7e3ff; background:#0e1628; text-align:center; white-space:normal; max-width:240px; }
-  .pb-table .pb-pstock{ color:#ffd98a; text-align:left; }
+  .pb-table .pb-pstock{ color:#ffd98a; text-align:left; white-space:pre-line; }
   .pb-table .pb-pnote{ color:#ffb3a8; text-align:left; }
   .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
   #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#0b1220; color:#e8eefc; font-family:inherit; }
@@ -906,10 +906,13 @@
       <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 발주취합 다운로드</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
       <button class="btn-ghost small-btn" id="po-board-tv-btn" title="TV용 새 창: 로그인 후 현황판만 전체 화면으로 표시하고 10분마다 자동으로 최신 발주를 불러옵니다">TV용 새 창</button>
+      <button class="btn-ghost small-btn" id="po-draft-save-btn" title="지금 상태를 초안 공유본으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명 칸이 노란색으로 표시됩니다">📌 초안 공유본으로 저장</button>
+      <button class="btn-ghost small-btn" id="po-draft-clear-btn" style="display:none;" title="저장된 초안 공유본을 해제합니다">초안 해제</button>
       <button class="btn-ghost small-btn" id="po-check-btn" title="다운로드 전에, 오늘 주문이 서식에 제대로 들어갈지 미리 점검합니다 (파일은 만들지 않고 아무것도 바꾸지 않습니다)">🩺 서식 점검</button>
       <button class="btn-primary" id="export-3pl-btn" style="display:none;">3PL 엑셀 다운로드</button>
       <button class="btn-danger" id="reset-all-btn">이 날짜 초기화</button>
     </div>
+    <div id="po-draft-status" class="sub" style="margin:6px 0 0;"></div>
     <div id="po-check-report" style="font-size:12px;margin:8px 0 0;"></div>
     <div id="po-report" style="font-size:12px;margin:8px 0 0;"></div>
 
@@ -928,7 +931,7 @@
           <label style="font-size:13px;">품목당 <input type="number" id="qc-boxes" min="0" step="0.25" style="width:70px;"> 박스</label>
           <span class="sub" id="qc-note" style="margin:0;"></span>
         </div>
-        <div class="sub" style="margin:0 0 8px;">생산하는 품목(오늘 출고 합계가 전일 재고보다 많은 품목)은 품질 확인용으로 따로 빼 두어야 하므로, 발주취합 파일의 <b>샘플</b> 구분에 <b>"품질확인 샘플"</b> 줄이 자동으로 들어가고 총 수량에도 포함됩니다. 박스입수가 있는 품목에만 기본 적용되며, 품목별로 다르게 하려면 SKU 관리의 <b>품질샘플(박스)</b>에 숫자를 적으세요(0이면 그 품목은 제외).</div>
+        <div class="sub" style="margin:0 0 8px;">생산하는 품목(오늘 출고 합계가 전일 재고보다 많은 품목)은 품질 확인용으로 따로 빼 두어야 하므로, 발주취합 파일의 <b>샘플</b> 구분에 <b>"생산본부"</b> 줄이 자동으로 들어가고 총 수량에도 포함됩니다. 박스입수가 있는 품목에만 기본 적용되며, 품목별로 다르게 하려면 SKU 관리의 <b>품질샘플(박스)</b>에 숫자를 적으세요(0이면 그 품목은 제외).</div>
         <h3 style="margin:14px 0 6px;">품목 → 서식 열 지정</h3>
         <div class="row" style="margin:0 0 8px;">
           <button class="btn-ghost small-btn" id="po-suggest-btn" title="품목 이름·용량과 서식 머리글을 비교해, 미지정이거나 종이/스티로폼 열이 어긋난 품목만 알맞은 열로 지정합니다">🔎 열 자동 추천 (미지정·어긋난 품목만)</button>
@@ -1008,7 +1011,7 @@
       발주가 있는 업체마다 <b>납품담당(기사)</b> · <b>적재방식</b> · <b>재고사용</b> · <b>출고일(당일/명일)</b> · <b>비고</b>를 입력하면 <b>발주취합 파일의 오른쪽 칸과 생산 현황판</b>에 그대로 들어갑니다. 영업·생산 누구나 입력할 수 있고, 칸을 고칠 때마다 바로 저장됩니다(다른 사람이 다른 업체를 동시에 입력해도 서로 덮어쓰지 않습니다). 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.<br>
       · 비워 둔 칸은 서식에 적혀 있던 값을 그대로 씁니다. 기사·적재방식은 목록에서 고르거나 직접 입력(예: 용차1)할 수 있습니다.<br>
       · <b>적재방식</b>에 <b>일회용*2</b>, <b>KPP*3</b>처럼 *숫자를 붙이면 배차정보의 파렛트 수량이 그 숫자만큼 계산됩니다. <b>까대기</b>는 까대기 수량으로 계산됩니다.<br>
-      · <b>재고사용</b>은 박스 단위로 입력합니다. 파일의 재고사용 칸에는 "스테비아 13/망고 14"처럼 전일+이틀 전 재고 사용량이 합쳐 들어갑니다. 이틀 전 재고는 <b>발주 입력 → 전일 재고</b> 옆 칸에 입력하세요.<br>
+      · <b>재고사용</b>은 박스 단위로 입력합니다. 파일의 재고사용 칸에는 품목마다 한 줄씩("망고 3.25" / "자몽 9") 전일+이틀 전 재고 사용량이 합쳐 빨간 글씨로 들어갑니다. 오늘 출고하면서 전일 생산분을 쓰는 샘플은 "전량재고"로 표시됩니다. 이틀 전 재고는 <b>발주 입력 → 전일 재고</b> 옆 칸에 입력하세요.<br>
       · <b>명일</b>을 고르면 비고에 "명일 출고"가 자동으로 적히고 현황판에 표시됩니다. 수량 계산은 오늘 발주 그대로입니다.<br>
       · 3PL 업체는 파일에서 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 여기서 입력하지 않습니다.
     </div></details>
@@ -1653,8 +1656,14 @@
       </div>
       <div id="sample-items"></div>
       <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
-      <h3 style="margin-top:16px;">비고 <span class="sub" style="font-weight:400; margin:0;">(용도 · 포장방법 · 택배 발송 시 주소/연락처)</span></h3>
-      <textarea id="sample-note" rows="3" placeholder="예) 용도: 롯데백화점 청과 MD 미팅 샘플&#10;포장: 쇼핑백 포장&#10;택배 발송: 서울시 ○○구 ○○로 00 / 홍길동 010-0000-0000"></textarea>
+      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:16px;">
+        <label style="font-size:13px; font-weight:600;">용도 <span style="color:var(--danger,#c0392b);">*</span> :</label>
+        <input type="text" id="sample-purpose" list="sample-purpose-list" placeholder="예: 품질 확인용 / IR용 / 연구소" style="width:260px;">
+        <datalist id="sample-purpose-list"><option value="품질 확인용"><option value="IR용"><option value="연구소"><option value="영업용"><option value="미팅용"></datalist>
+        <span class="sub" style="margin:0;">발주취합 파일의 샘플 행 이름이 "신청자 용도 샘플"로 표시됩니다</span>
+      </div>
+      <h3 style="margin-top:12px;">비고 <span class="sub" style="font-weight:400; margin:0;">(포장방법 · 택배 발송 시 주소/연락처)</span></h3>
+      <textarea id="sample-note" rows="3" placeholder="예) 포장: 쇼핑백 포장&#10;택배 발송: 서울시 ○○구 ○○로 00 / 홍길동 010-0000-0000"></textarea>
       <div class="row" style="align-items:center;">
         <button type="button" class="btn-primary" id="sample-submit">신청하기</button>
         <button type="button" class="btn-ghost" id="sample-cancel-edit" style="display:none;">수정 취소</button>
@@ -5311,6 +5320,7 @@ function goHome() {
     const orders = currentOrders();
     const orderCompanies = Object.keys(orders);
     aggSampleEnsure();
+    try{ draftRenderStatus(); }catch(e){ /* 초안 표시는 부가 기능 */ }
     const sampleRows = aggSampleNow();
     const sampleTot = {};   // 품목id → 팩 (샘플 합계)
     sampleRows.forEach(r => (r.items || []).forEach(i => { sampleTot[i.skuId] = (sampleTot[i.skuId] || 0) + (Number(i.packs) || 0); }));
@@ -5563,7 +5573,7 @@ function goHome() {
           tr.appendChild(document.createElement('td'));
           const nm = document.createElement('td');
           nm.className = 'name-cell';
-          nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '') + (fs ? ' · 재고 사용' : '');
+          nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '') + (r.purpose ? ' · ' + r.purpose : '') + (fs ? ' · 재고 사용' : '');
           tr.appendChild(nm);
           tr.appendChild(document.createElement('td'));
           const tt = document.createElement('td'); tt.className = 'totals-col'; tr.appendChild(tt);
@@ -8885,6 +8895,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   let sampleDefaultPm = SAMPLE_PROD_METHODS[0];   // 새로 추가하는 품목 줄의 기본 생산 방식 (일괄 지정 버튼으로 바뀜)
   // 품목 한 줄의 생산 방식: 품목에 지정된 값 → 없으면(예전 신청) 신청 전체의 생산 방식
   const sampleItemPm = (r, it) => (it && it.production_method) || (r && r.production_method) || '';
+  // 신청의 용도: 비고(note)의 "용도: …" 줄 (신청 화면의 용도 칸에 쓴 내용은 이 줄로 저장됨. 발주취합 샘플 행 이름 '신청자 용도 샘플'에 쓰임)
+  const samplePurposeOf = r => { const m = /(?:^|\n)\s*용도\s*[:：]\s*([^\n\r]+)/.exec((r && r.note) || ''); return m ? m[1].trim() : ''; };
   // 품목별 생산일: 지정이 없으면 출고일 당일 생산. 발주취합·집계는 이 생산일 기준으로 샘플을 반영한다 (저장: 품목의 production_date, 'YYYY-MM-DD')
   const SAMPLE_PROD_DAYS_BACK = 7;   // 생산일은 출고일보다 늦을 수 없고, 최대 이만큼 앞설 수 있음
   const sampleDayDiff = (a, b) => { const p = k => { const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(a) - p(b)) / 86400000); };
@@ -9054,7 +9066,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
     sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
-    sEl('sample-note').value = '';
+    sEl('sample-note').value = ''; sEl('sample-purpose').value = '';
     sEl('sample-requester-select').value = sampleMe().id || '';
     sEl('sample-dept').value = sampleDeptOf(sampleMe().id);
     sampleDefaultPm = SAMPLE_PROD_METHODS[0]; sampleDefaultPd = '';
@@ -9142,8 +9154,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(items.error){ toast(items.error); return; }
     if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
     const prod = sampleSummaryPm(items);   // 신청 전체 요약(모두 같으면 그 방식, 섞이면 '혼합')
-    const note = sEl('sample-note').value.trim();
-    if(method.includes('택배') && !note && !confirm('택배 발송 요청인데 비고에 주소·연락처가 비어 있습니다. 그대로 신청할까요?')) return;
+    const purpose = sEl('sample-purpose').value.trim();
+    if(!purpose){ toast('용도를 입력해주세요 (예: 품질 확인용 / IR용 / 연구소) — 발주취합 파일의 샘플 행 이름에 표시됩니다'); sEl('sample-purpose').focus(); return; }
+    const noteRest = sEl('sample-note').value.split(/\r?\n/).filter(l => !/^\s*용도\s*[:：]/.test(l)).join('\n').trim();
+    const note = '용도: ' + purpose + (noteRest ? '\n' + noteRest : '');
+    if(method.includes('택배') && !noteRest && !confirm('택배 발송 요청인데 비고에 주소·연락처가 비어 있습니다. 그대로 신청할까요?')) return;
     const reqId = sampleCan('collect') ? (sEl('sample-requester-select').value || me.id) : me.id;
     const reqUser = reqId === me.id ? me : (sampleUsers.find(u => u.id === reqId) || {});
     const reqName = reqId === me.id ? me.display_name : (reqUser.display_name || reqUser.username || '');
@@ -9182,7 +9197,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     else { sEl('sample-ship-method').value = '기타'; sEl('sample-ship-method-etc').value = r.ship_method || ''; }
     sampleMethodToggle();
     sEl('sample-dept').value = r.requester_dept || '';
-    sEl('sample-note').value = r.note || '';
+    sEl('sample-purpose').value = samplePurposeOf(r);
+    sEl('sample-note').value = String(r.note || '').split(/\r?\n/).filter(l => !/^\s*용도\s*[:：]/.test(l)).join('\n').trim();
     const shipDay0 = sampleDayKey(r.ship_at);
     sampleItems = (r.items || []).map(i => {
       const m = sampleItemPm(r, i) || SAMPLE_PROD_METHODS[0];
@@ -9536,7 +9552,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   window.getSampleRequestsForDate = async function(dateKey, opts){
     const rows = await sampleRowsForProdDay(dateKey, false, true);
     return rows.map(r => ({
-      id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '',
+      id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '', purpose: samplePurposeOf(r),
       items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0, fromStock: !!i._fromStock })).filter(i => i.skuId && i.packs > 0)
     })).filter(r => r.items.length);
   };
@@ -12473,6 +12489,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const used = new Set();
     const pc = poPanelCols(ctx);
     rep.planApplied = []; rep.planSkipped = [];
+    rep.usedRows = used; rep.pc = pc; rep.changedRows = new Set(); rep.stockLines = new Map(); rep.driverVals = new Set(); rep.loadVals = new Set();
     const usedCols = new Set(Object.keys(input.stockByCol || {}).filter(c => input.stockByCol[c] > 0)); // 수량이나 재고가 있는 품목 열
     assigned.forEach((list, row) => {
       const sum = {};
@@ -12498,9 +12515,17 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(v > 0){ usedCols.add(col); if(!poSetNum(ctx, col + row, v)) warn.push(`${col}${row}`); }
       });
       // 배차·적재·재고사용 입력값 (납품담당·적재방식·재고사용·비고 칸). 3PL처럼 여러 업체가 합쳐진 줄은 제외
-      const pe = input.plan && list.length === 1 ? input.plan[list[0].planKey || list[0].name] : null;
+      // 3PL 줄은 합산 입력('3PL 택배 (합산)')을, 그 밖의 줄은 업체(출고 건) 입력을 씀
+      const isTplRow = !!(rowInfo && /^3pl/.test(rowInfo.category));
+      const peKey = isTplRow ? '__3pl__' : (list.length === 1 ? (list[0].planKey || list[0].name) : '');
+      let pe = input.plan && peKey ? input.plan[peKey] : null;
+      if(list.some(e => e.stockAll)){ pe = Object.assign({}, pe || {}); if(!pe.stockText) pe.stockText = '전량재고'; }   // 오늘 출고하면서 전일 생산분을 쓰는 샘플
+      if(list.some(e => e.changed)) rep.changedRows.add(row);
       if(pe && (pe.driver || pe.load || pe.stockText || pe.note)){
         const sk = poApplyPlan(ctx, pc, row, pe);
+        if(pe.driver && !sk.includes('납품담당')) rep.driverVals.add(pe.driver);
+        if(pe.load && !sk.includes('적재방식')) rep.loadVals.add(pe.load);
+        if(pe.stockText && /\n/.test(pe.stockText) && !sk.includes('재고사용')) rep.stockLines.set(row, pe.stockText.split('\n').length);
         rep.planApplied.push(list[0].name);
         if(sk.length) rep.planSkipped.push(`${list[0].name}(${sk.join('·')})`);
       }
@@ -12925,18 +12950,198 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return ctx.zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
   }
 
+  // ── 초안 공유 후 수정된 업체 표시 ──
+  // [📌 초안 공유본으로 저장]을 누르면 그 순간의 업체별(출고 건별)·샘플별 수량을 저장해 두고, 이후 다운로드할 때 수량이 바뀌었거나 새로 생긴 업체는 업체명 칸을 노란색으로 표시한다.
+  const draftKey = dk => 'draft-snap-' + dk;
+  let draftCache = { date: '', snap: null, at: 0 };
+  async function draftLoad(dk){
+    try{ const r = await window.storage.get(draftKey(dk), true); const v = r ? JSON.parse(r.value) : null; return v && v.entries ? v : null; }catch(e){ return null; }
+  }
+  // 파일 행(업체·출고 건·샘플)별 원래 수량(품목id → 팩)
+  function draftSrcOf(built){
+    const out = {};
+    built.entries.forEach(e => {
+      if(!e.srcKey || !e.src) return;
+      const m = out[e.srcKey] = out[e.srcKey] || {};
+      Object.entries(e.src).forEach(([id, q]) => { m[id] = Math.round(((m[id] || 0) + (Number(q) || 0)) * 100) / 100; });
+    });
+    return out;
+  }
+  // 초안과 비교: 바뀐 행의 entry에 changed 표시를 달고 { changed: [이름], removed: [이름] } 를 돌려줌
+  function draftCompare(built, snap){
+    const cur = draftSrcOf(built), old = snap.entries || {};
+    const same = (a, b) => { const ks = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]); for(const k of ks){ if(Math.abs(((a || {})[k] || 0) - ((b || {})[k] || 0)) > 0.001) return false; } return true; };
+    const changedKeys = new Set(Object.keys(cur).filter(k => !old[k] || !same(cur[k], old[k])));
+    const names = [];
+    built.entries.forEach(e => { if(e.srcKey && changedKeys.has(e.srcKey)){ e.changed = true; if(!names.includes(e.name)) names.push(e.name); } });
+    const removed = [...new Set(Object.keys(old).filter(k => !cur[k]).map(k => k.replace(/#.*$/, '')))];
+    return { changed: names, removed };
+  }
+  async function draftBuild(dk){
+    let samples = [];
+    if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' }); }catch(e){ /* 샘플 없이 */ } }
+    return buildProductionOrderEntries({ dict, companies, orders: currentOrders(), stockPacks: {}, colMap: skuColumnMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+  }
+  async function draftRenderStatus(force){
+    const el = document.getElementById('po-draft-status'), clr = document.getElementById('po-draft-clear-btn');
+    const dk = currentDateKey;
+    if(!el || !dk) return;
+    if(force || draftCache.date !== dk || Date.now() - draftCache.at > 30000) draftCache = { date: dk, snap: await draftLoad(dk), at: Date.now() };
+    if(dk !== currentDateKey) return;
+    const s = draftCache.snap;
+    if(s){
+      const d = new Date(s.at);
+      el.textContent = `📌 초안 공유본 저장됨 (${isNaN(d) ? '' : pad2(d.getHours()) + ':' + pad2(d.getMinutes())} ${s.by || ''}) — 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명이 노란색으로 표시됩니다`;
+    } else {
+      el.textContent = '초안 공유본 없음 — 초안을 공유한 뒤 [📌 초안 공유본으로 저장]을 누르면, 그 이후 수정된 업체가 노란색으로 표시됩니다';
+    }
+    if(clr) clr.style.display = s ? '' : 'none';
+  }
+  (function wireDraft(){
+    const save = document.getElementById('po-draft-save-btn'), clr = document.getElementById('po-draft-clear-btn');
+    if(!save) return;
+    save.addEventListener('click', async () => {
+      const dk = currentDateKey;
+      if(!dk) return;
+      await draftRenderStatus(true);
+      if(draftCache.snap && !confirm('이미 저장된 초안 공유본이 있습니다. 지금 상태로 다시 저장할까요?\n(이전 초안 기준으로 표시되던 변경 업체 표시는 사라집니다)')) return;
+      save.disabled = true;
+      try{
+        const built = await draftBuild(dk);
+        const entries = draftSrcOf(built);
+        await window.storage.set(draftKey(dk), JSON.stringify({ at: new Date().toISOString(), by: getStaffName(), entries }), true);
+        await draftRenderStatus(true);
+        toast(`초안 공유본을 저장했습니다 (${Object.keys(entries).length}개 행) — 이후 수정되는 업체는 다운로드할 때 노란색으로 표시됩니다`);
+      }catch(e){ console.error(e); toast('초안 공유본을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+      finally{ save.disabled = false; }
+    });
+    if(clr) clr.addEventListener('click', async () => {
+      const dk = currentDateKey;
+      if(!dk || !confirm('저장된 초안 공유본을 해제할까요? 해제하면 노란색 표시가 나오지 않습니다.')) return;
+      try{ await window.storage.delete(draftKey(dk), true); await draftRenderStatus(true); toast('초안 공유본을 해제했습니다'); }
+      catch(e){ console.error(e); toast('해제하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+    });
+  })();
+
+  // ── 발주취합 파일 색 처리 ──
+  //  · (상장) 업체명 칸: 회색 / 초안 공유 후 바뀐 업체: 업체명 칸 노란색 (조건부 서식이라 끼워 넣은 줄·새로 적은 업체에도 적용됨)
+  //  · 납품담당: 기사(담당)별 배경색 — 서식에 이미 있는 색(박근환 초록·민현기 보라·배차 하늘색 …)은 그대로 쓰고 나머지는 이름마다 고정 색
+  //  · 적재방식: 글자색 — KPP 빨강 · 까대기 회색 · 일회용 파랑(서식과 동일), 그 밖의 방식은 방식마다 고정 색
+  //  · 재고사용 칸에 여러 줄(품목별)이 들어가면 줄바꿈 표시와 줄 높이를 맞춤
+  const PO_DRIVER_COLORS = [['박근환', '92D050'], ['민현기', 'D1B2E8'], ['배차', '1DC4FF'], ['신영기', 'F4B084'], ['이상현', 'FFC000'], ['김호철', 'FFC000'], ['직접픽업', 'F8CBAD'], ['직접 픽업', 'F8CBAD']];
+  const PO_DRIVER_PALETTE = ['BDD7EE', 'C6E0B4', 'E4C7F2', 'F5CBA7', 'B7E4E8', 'D7CCA6', 'FFCCD5', 'C5C6F2'];
+  const PO_LOAD_COLORS = [['kpp', 'FF0000'], ['까대기', '7F7F7F'], ['일회용', '305496']];
+  const PO_LOAD_PALETTE = ['7030A0', '00A050', 'ED7D31', '0070C0', 'BF8F00', 'C55A11'];
+  const poHash = s => { let h = 0; for(const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+  const poDriverColor = v => { const f = PO_DRIVER_COLORS.find(([k]) => String(v).includes(k)); return f ? f[1] : PO_DRIVER_PALETTE[poHash(v) % PO_DRIVER_PALETTE.length]; };
+  const poLoadColor = v => { const lv = String(v).toLowerCase(); const f = PO_LOAD_COLORS.find(([k]) => lv.includes(k)); return f ? f[1] : PO_LOAD_PALETTE[poHash(v) % PO_LOAD_PALETTE.length]; };
+  // 값 목록 → 검색어 목록: 서식에 정해진 색이 있는 이름은 그 검색어(예: KPP*1·kpp → kpp, 직접배차 → 배차)로 합치고, 나머지는 값 그대로 (엑셀 SEARCH는 대소문자를 가리지 않음)
+  const poKeywords = (vals, table) => { const m = new Map(); [...vals].forEach(v => { const f = table.find(([k]) => String(v).toLowerCase().includes(k.toLowerCase())); const k = f ? f[0] : String(v); if(!m.has(k.toLowerCase())) m.set(k.toLowerCase(), k); }); return [...m.values()]; };
+  async function poDecorate(ctx, rep){
+    const out = { gray: false, changed: 0, drivers: 0, loads: 0, wrapped: 0 };
+    const rows = [...(rep.usedRows || [])].sort((a, b) => a - b);
+    const stFile = ctx.zip.file('xl/styles.xml');
+    if(!rows.length || !stFile) return out;
+    const NS = PO_NS;
+    const parse = x => new DOMParser().parseFromString(x, 'application/xml');
+    const stDoc = parse(await stFile.async('string'));
+    const dxfsEl = stDoc.getElementsByTagName('dxfs')[0];
+    const dxfCache = new Map();
+    const addDxf = (fill, font) => {
+      const key = (fill || '') + '|' + (font || '');
+      if(dxfCache.has(key)) return dxfCache.get(key);
+      if(!dxfsEl) return -1;
+      const n = [...dxfsEl.childNodes].filter(x => x.localName === 'dxf').length;
+      const xml = `<dxf xmlns="${NS}">${font ? `<font><b/><color rgb="FF${font}"/></font>` : ''}${fill ? `<fill><patternFill><bgColor rgb="FF${fill}"/></patternFill></fill>` : ''}</dxf>`;
+      dxfsEl.appendChild(stDoc.importNode(parse(xml).documentElement, true));
+      dxfsEl.setAttribute('count', String(n + 1));
+      dxfCache.set(key, n);
+      return n;
+    };
+    // 조건부 서식: 기존 규칙보다 우선하도록 기존 우선순위를 뒤로 밀고 새 규칙을 앞에 둠
+    const cfEls = [...ctx.doc.getElementsByTagName('conditionalFormatting')];
+    [...ctx.doc.getElementsByTagName('cfRule')].forEach(r => { r.setAttribute('priority', String((Number(r.getAttribute('priority')) || 0) + 1000)); });
+    let pri = 1, anchor = cfEls.length ? cfEls[cfEls.length - 1] : null;
+    const addCf = (sqref, rules) => {
+      const valid = rules.filter(r => r.dxf >= 0);
+      if(!valid.length) return;
+      const cf = ctx.doc.createElementNS(NS, 'conditionalFormatting');
+      cf.setAttribute('sqref', sqref);
+      valid.forEach(({ formula, dxf }) => {
+        const r = ctx.doc.createElementNS(NS, 'cfRule');
+        r.setAttribute('type', 'expression'); r.setAttribute('dxfId', String(dxf)); r.setAttribute('priority', String(pri++));
+        const f = ctx.doc.createElementNS(NS, 'formula'); f.textContent = formula; r.appendChild(f); cf.appendChild(r);
+      });
+      if(anchor) anchor.parentNode.insertBefore(cf, anchor.nextSibling);
+      else { const mc = ctx.doc.getElementsByTagName('mergeCells')[0] || ctx.sheetData; mc.parentNode.insertBefore(cf, mc.nextSibling); }
+      anchor = cf;
+    };
+    const q = v => String(v).replace(/"/g, '""');
+    const r0 = rows[0], r1 = rows[rows.length - 1];
+    // 1) 초안 공유 후 바뀐 업체: 업체명 칸 노란색 (가장 높은 우선순위)
+    const ch = [...(rep.changedRows || [])].sort((a, b) => a - b);
+    if(ch.length){ addCf(ch.map(r => `D${r}:F${r}`).join(' '), [{ formula: 'TRUE', dxf: addDxf('FFFF00', '') }]); out.changed = ch.length; }
+    // 2) (상장) 업체명 칸 회색
+    addCf(`E${r0}:F${r1}`, [{ formula: `OR(ISNUMBER(SEARCH("상장",$E${r0})),ISNUMBER(SEARCH("상장",$F${r0})))`, dxf: addDxf('D9D9D9', '') }]);
+    out.gray = true;
+    // 3) 납품담당(배경색) · 적재방식(글자색)
+    const pc = rep.pc || {};
+    if(pc.driver && rep.driverVals && rep.driverVals.size){
+      const dk = poKeywords(rep.driverVals, PO_DRIVER_COLORS);
+      addCf(`${pc.driver}${r0}:${pc.driver}${r1}`, dk.map(v => ({ formula: `NOT(ISERROR(SEARCH("${q(v)}",${pc.driver}${r0})))`, dxf: addDxf(poDriverColor(v), '') })));
+      out.drivers = dk.length;
+    }
+    if(pc.load && rep.loadVals && rep.loadVals.size){
+      const lk = poKeywords(rep.loadVals, PO_LOAD_COLORS);
+      addCf(`${pc.load}${r0}:${pc.load}${r1}`, lk.map(v => ({ formula: `NOT(ISERROR(SEARCH("${q(v)}",${pc.load}${r0})))`, dxf: addDxf('', poLoadColor(v)) })));
+      out.loads = lk.length;
+    }
+    // 4) 재고사용 칸의 여러 줄: 줄바꿈 표시 + 줄 높이
+    const xfsEl = stDoc.getElementsByTagName('cellXfs')[0];
+    const xfList = () => [...xfsEl.childNodes].filter(n => n.localName === 'xf');
+    const wrapMap = new Map();
+    const wrapOf = sid => {
+      if(wrapMap.has(sid)) return wrapMap.get(sid);
+      const src = xfList()[sid];
+      if(!src) return sid;
+      const nx = src.cloneNode(true);
+      let al = [...nx.childNodes].find(n => n.localName === 'alignment');
+      if(!al){ al = stDoc.createElementNS(NS, 'alignment'); nx.insertBefore(al, nx.firstChild); }
+      al.setAttribute('wrapText', '1'); if(!al.getAttribute('vertical')) al.setAttribute('vertical', 'center');
+      nx.setAttribute('applyAlignment', '1');
+      xfsEl.appendChild(nx);
+      const id = xfList().length - 1;
+      xfsEl.setAttribute('count', String(id + 1));
+      wrapMap.set(sid, id);
+      return id;
+    };
+    if(pc.stock) (rep.stockLines || new Map()).forEach((lines, row) => {
+      let addr = pc.stock + row;
+      const mm = ctx.mergeMaster.get(addr);
+      if(mm && mm !== addr) return;
+      const cell = ctx.cells.get(addr), rowEl = ctx.rows.get(row);
+      if(!cell || !rowEl) return;
+      cell.setAttribute('s', String(wrapOf(Number(cell.getAttribute('s')) || 0)));
+      const cur = parseFloat(rowEl.getAttribute('ht')) || 15, need = lines * 15.5;
+      if(need > cur){ rowEl.setAttribute('ht', String(need)); rowEl.setAttribute('customHeight', '1'); }
+      out.wrapped++;
+    });
+    ctx.zip.file('xl/styles.xml', new XMLSerializer().serializeToString(stDoc), { createFolders: false });
+    return out;
+  }
+
   // ── 품질 확인용 샘플 ──
   // 생산하는 품목(오늘 출고 합계 > 전일 재고)은 품질 확인을 위해 품목마다 0.5박스(설정값)를 따로 빼 두어야 하므로,
-  // 발주취합 서식의 샘플 구분에 '품질확인 샘플' 줄로 자동 추가한다. (실제 샘플 신청과 별개의 줄이며, 총 수량·합계에도 포함됨)
+  // 발주취합 서식의 샘플 구분에 '생산본부' 줄로 자동 추가한다. (실제 샘플 신청과 별개의 줄이며, 총 수량·합계에도 포함됨)
   //  - 박스입수가 있는 품목에만 기본 적용. SKU 관리의 '품질샘플(박스)'에 숫자를 적으면 그 품목만 그 값(0이면 제외)으로 바꿈.
   let qcSettings = { enabled: true, boxes: 0.5 };
-  const QC_ENTRY_NAME = '품질확인 샘플';
+  const QC_ENTRY_NAME = '생산본부';
   function qcBoxesOf(d){
     const v = d.qcSample;
     if(v !== undefined && v !== null && v !== '') return Math.max(0, Number(v) || 0);
     return (Number(d.boxUnitCount) || 0) > 0 ? (Number(qcSettings.boxes) || 0) : 0;
   }
-  // built.entries에 '품질확인 샘플' 줄을 추가하고, 추가한 품목 이름 목록을 돌려줌 (이미 있으면 다시 추가하지 않음)
+  // built.entries에 '생산본부' 줄을 추가하고, 추가한 품목 이름 목록을 돌려줌 (이미 있으면 다시 추가하지 않음)
   function addQcSampleEntry(built, colMap){
     if(!qcSettings.enabled || built.entries.some(e => e.name === QC_ENTRY_NAME)) return [];
     const tot = {};
@@ -13010,7 +13215,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
           if(unitOf(d) <= 0) noUnit.add(label(d));
           colQty[col] = (colQty[col] || 0) + toBox(d, q);
         });
-        if(Object.keys(colQty).length) entries.push({ name, registered: !!metaFound, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty, partOf: isPart ? name : '', planKey: planKey || name });
+        if(Object.keys(colQty).length) entries.push({ name, registered: !!metaFound, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty, partOf: isPart ? name : '', planKey: planKey || name, srcKey: planKey || name, src: Object.fromEntries(Object.entries(itemsObj).filter(([k, v]) => k !== '_meta' && Number(v) > 0)) });
       };
       mk(name, al.base, false);
       al.parts.forEach(o => mk(name + ' (추가 발주)', o.items, true, name + '#' + o.part.id));
@@ -13020,15 +13225,17 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     (samples || []).forEach(r => {
       const who = (r.requester_name || '').trim() || '(신청자 미상)';
       const dept = (r.requester_dept || '').trim();
+      const purpose = (r.purpose || '').trim();
       (r.items || []).forEach(i => {
         // 오늘 생산분과 전일 생산분(재고 사용)은 줄을 나눠 재고 사용량을 알 수 있게 함
         const fs = !!i.fromStock;
-        const key = `${who}|${dept}|${fs ? 1 : 0}`;
+        const key = `${who}|${dept}|${purpose}|${fs ? 1 : 0}`;
         let e = sampleMap.get(key);
-        if(!e){ e = { name: `${who} 샘플${fs ? ' (재고 사용)' : ''}`, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {} }; sampleMap.set(key, e); }
+        if(!e){ const nm = `${who}${purpose ? ' ' + purpose : ''}${/샘플$/.test(purpose) ? '' : ' 샘플'}${fs ? ' (재고 사용)' : ''}`; e = { name: nm, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {}, stockAll: fs, src: {}, srcKey: nm }; sampleMap.set(key, e); }
         const d = dict.find(x => x.id === i.skuId);
         const q = Number(i.packs) || 0;
         if(!d || q <= 0) return;
+        e.src[d.id] = Math.round(((e.src[d.id] || 0) + q) * 100) / 100;
         const col = colMap[d.id];
         if(!col){ unmapped.add(label(d)); extras.push({ company: e.name, item: label(d), qty: Math.round(toBox(d, q) * 100) / 100, unit: unitOf(d) > 0 ? '박스' : '팩' }); return; }
         if(unitOf(d) <= 0) noUnit.add(label(d));
@@ -13415,7 +13622,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.addedRows && r.addedRows.length) add('info', '행 자동 추가', `서식에 자리가 없어 행을 추가해 넣습니다 (소계·합계에 자동 포함): ${r.addedRows.join(', ')}`);
       if(r.aggregated.length) add('info', '3PL 합산', `${r.aggregated.join(', ')} → 서식의 3PL 출고 행에 합산`);
       if(built.sampleNames.length) add('info', '샘플 포함', `${built.sampleNames.join(', ')} → 샘플 행`);
-      if(built.qcItems && built.qcItems.length) add('info', '품질확인 샘플 자동 추가', `생산하는 품목 ${built.qcItems.length}개(${built.qcItems.join(', ')})에 품목당 ${qcSettings.boxes}박스(품목별 설정 우선)를 "${QC_ENTRY_NAME}" 줄로 넣습니다`);
+      if(built.qcItems && built.qcItems.length) add('info', '생산본부 샘플(품질 확인용) 자동 추가', `생산하는 품목 ${built.qcItems.length}개(${built.qcItems.join(', ')})에 품목당 ${qcSettings.boxes}박스(품목별 설정 우선)를 "${QC_ENTRY_NAME}" 줄로 넣습니다`);
       if(r.dispatch && r.dispatch.placed.length) add('info', '쿠팡 출고일 블록', `${r.dispatch.placed.join(', ')}`);
       const groupOverride = {};
       dict.forEach(d => { const c = colMapU[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = remapU(g); });
@@ -13501,6 +13708,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       built.qcItems = addQcSampleEntry(built, skuColumnMap);   // 생산하는 품목의 품질 확인용 샘플
+      let draftInfo = null;   // 초안 공유본과 비교해 바뀐 업체 표시
+      { const snap = await draftLoad(dateKey); if(snap) draftInfo = Object.assign(draftCompare(built, snap), { at: snap.at, by: snap.by }); }
       await spLoad(dateKey, true); // 다른 직원이 입력한 배차·적재·재고사용 최신값
       const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey) });
       const logos = await poReplaceLogos(ctx);
@@ -13509,6 +13718,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       dict.forEach(d => { const c = skuColumnMap[d.id], g = skuGroupMap[d.id]; if(c && g) groupOverride[c] = remapCol(g); });
       const regrouped = poRegroupHeaders(ctx, res.rep.usedCols, groupOverride);
       const reweighed = poRelabelWeights(ctx, res.rep.usedCols, groupOverride);
+      const deco = await poDecorate(ctx, res.rep);   // (상장) 회색 · 초안 이후 변경 노란색 · 납품담당/적재방식 색 · 재고사용 줄바꿈
       if(built.unmapped.length) await poAddNote(ctx, `※ 서식에 열이 없는 품목: ${built.unmapped.join(', ')} — 파일 맨 아래 "서식에 열이 없는 품목" 표 참고`);
       const blob = await poSave(ctx);
       const url = URL.createObjectURL(blob);
@@ -13534,6 +13744,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(r.dispatch && r.dispatch.unplaced.length) lines.push({ warn: true, text: `※ 서식의 쿠팡 블록에 자리가 없어 빠진 출고 내역: ${r.dispatch.unplaced.map(g => g.company + ' ' + shortDate(g.shipDate)).join(', ')} → 파일 맨 아래 "서식에 열이 없는 품목" 표에 따로 적었습니다. 서식에 쿠팡 행을 추가해주세요` });
       if(r.ambiguous.length) lines.push({ warn: true, text: `※ 서식에 이름이 같은 행이 여러 개라 첫 빈 행에 넣었습니다. 위치를 확인해주세요: ${r.ambiguous.join(', ')}` });
       if(r.planApplied && r.planApplied.length) lines.push({ text: `배차·적재·재고사용 입력 ${r.planApplied.length}곳을 서식 오른쪽 칸(납품담당·적재방식·재고사용·비고)에 채웠습니다` });
+      if(deco && (deco.drivers || deco.loads)) lines.push({ text: `납품담당 ${deco.drivers}종은 배경색, 적재방식 ${deco.loads}종은 글자색으로 구분했습니다 · (상장) 업체명은 회색` });
+      if(draftInfo){
+        const dt = new Date(draftInfo.at), hm = isNaN(dt) ? '' : `${pad2(dt.getHours())}:${pad2(dt.getMinutes())} `;
+        lines.push({ text: draftInfo.changed.length ? `📌 초안 공유본(${hm}${draftInfo.by || ''}) 이후 바뀐 업체 ${draftInfo.changed.length}곳을 업체명 노란색으로 표시했습니다: ${draftInfo.changed.join(', ')}` : `📌 초안 공유본(${hm}${draftInfo.by || ''}) 이후 바뀐 업체는 없습니다` });
+        if(draftInfo.removed.length) lines.push({ warn: true, text: `※ 초안 공유본에는 있었지만 지금은 없는(삭제·수량 0) 업체: ${draftInfo.removed.join(', ')} — 파일에는 나오지 않아 따로 알려드립니다` });
+      }
       if(r.planSkipped && r.planSkipped.length) lines.push({ warn: true, text: `※ 서식에서 위아래로 합쳐진 칸이라 넣지 못한 배차·적재 항목: ${r.planSkipped.join(', ')} → 합쳐진 칸의 첫 줄 업체에만 들어갑니다. 서식의 병합을 풀거나 직접 입력해주세요` });
       if(r.unregistered && r.unregistered.length) lines.push({ warn: true, text: `※ 거래처 관리에 등록되지 않아 서식에 못 넣은 업체: ${r.unregistered.join(', ')} → 거래처 관리에서 같은 이름으로 등록하고 "발주 구분"을 선택해주세요` });
       if(r.noCategory && r.noCategory.length) lines.push({ warn: true, text: `※ 발주 구분이 비어 있어 서식에 못 넣은 업체: ${r.noCategory.join(', ')} → 거래처 관리에서 "발주 구분"을 선택(또는 기타로 직접 입력)해주세요` });
@@ -14057,6 +14273,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
           if(total > 0) out.push({ name: u.key, display: u.isBase ? n : splitUnitName(n, u.label), company: n, meta, total, split: u.split, isBase: u.isBase });
         });
       });
+    // 3PL 택배 업체는 파일에서 한 줄로 합쳐지므로 입력도 한 줄(합산)로 받음
+    const tplNames = Object.keys(orders).filter(n => n !== '_meta' && !disp.has(n) && (companies.find(c => c.name === n) || {}).isThirdParty);
+    if(tplNames.length){
+      const total = spRound(dict.reduce((sum, d) => sum + spBox(d, tplNames.reduce((x, n) => x + (Number((orders[n] || {})[d.id]) || 0), 0)), 0));
+      if(total > 0) out.push({ name: '__3pl__', display: '3PL 택배 (합산 · ' + tplNames.length + '개 업체)', company: '__3pl__', meta: null, total, split: false, isBase: true });
+    }
     return out;
   }
   // 품목별 재고 현황: 전일/이틀 전 재고(박스)와 재고사용으로 쓴 양, 남은 양
@@ -14227,7 +14449,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(n3){
       const n = document.createElement('div');
       n.className = 'sub'; n.style.margin = '6px 0 0';
-      n.textContent = `※ 3PL 업체 ${n3}곳은 발주취합 파일에서 한 줄로 합쳐지므로 여기서 입력하지 않습니다.`;
+      n.textContent = `※ 3PL 업체 ${n3}곳은 발주취합 파일에서 한 줄로 합쳐지므로 위의 "3PL 택배 (합산)" 줄에서 한 번만 입력합니다.`;
       body.appendChild(n);
     }
     spRefreshStock();
@@ -14240,7 +14462,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     Object.entries((doc && doc.rows) || {}).forEach(([name, r]) => {
       const parts = [];
       dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
-      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('/'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
+      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('\n'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
     });
     return out;
   }
