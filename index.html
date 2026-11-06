@@ -3410,10 +3410,11 @@ function goHome() {
   // 같은 날 한 거래처가 두 가지 방식으로 나가는 경우(예: 오전 직접 픽업 / 오후 우리 쪽 배차)를 위해, 합계는 발주(ordersByDate)에 그대로 두고
   // 일부 수량을 '추가 출고 건'으로 splitByDate에 따로 적는다. 기본 건 = 전체 − 추가 건 합계(자동).
   //  - 집계·이카운트·거래명세서·재고 계산은 업체 단위 합계 그대로.
-  //  - 배차/적재 입력·발주취합 파일의 업체 행·생산 현황판·송품장은 출고 건마다 따로 (추가 건 이름: '업체명 (라벨)').
+  //  - 같은 업체를 같은 날 두 번 이상 발주 입력하면("발주를 추가하겠습니까?" → 네) 두 번째부터는 추가 발주로 따로 저장됨.
+  //  - 배차/적재 입력·발주취합 파일의 업체 행(업체명은 그대로)·생산 현황판·송품장은 발주마다 따로.
   let splitByDate = {};   // { 'YYYY-MM-DD': { 업체명: [{ id, label, items: { 품목id: 팩 } }] } }
   let splitOpen = '';     // 집계표에서 나누기 화면을 열어 둔 업체
-  const splitUnitName = (company, label) => `${company} (${label || '추가 출고'})`;
+  const splitUnitName = (company, label) => `${company} · ${label || '추가 발주'}`;   // 화면 표시용 (발주취합 파일의 업체명은 업체명 그대로)
   // 전체 수량을 추가 건들에 차례로 배분하고 남는 만큼이 기본 건 (발주 수량이 줄어 추가 건이 넘치면 앞 건부터 채우고 나머지는 잘라 냄)
   function splitAllocate(orderItems, parts){
     const base = {}, outParts = (parts || []).map(p => ({ part: p, items: {} }));
@@ -3434,7 +3435,7 @@ function goHome() {
   function splitUnits(dateKey, company, orderItems){
     const al = splitAllocate(orderItems, (splitByDate[dateKey] || {})[company] || []);
     const out = [{ key: company, company, label: '', id: '', items: al.base, isBase: true, split: al.parts.length > 0 }];
-    al.parts.forEach(o => { if(Object.keys(o.items).length) out.push({ key: company + '#' + o.part.id, company, label: o.part.label || '추가 출고', id: o.part.id, items: o.items, isBase: false, split: true }); });
+    al.parts.forEach((o, i) => { if(Object.keys(o.items).length) out.push({ key: company + '#' + o.part.id, company, label: o.part.label || ('추가 발주 ' + (i + 1)), id: o.part.id, items: o.items, isBase: false, split: true }); });
     return out.filter(u => !u.isBase || Object.keys(u.items).length > 0 || !u.split);
   }
   async function saveSplitByDate(){
@@ -5344,7 +5345,7 @@ function goHome() {
       if(!isChild && nSplit){
         const sp = document.createElement('div');
         sp.style.cssText = 'font-size:10.5px;color:var(--accent);font-weight:700;';
-        sp.textContent = `✂ 분할 출고 ${nSplit + 1}건`;
+        sp.textContent = `추가 발주 ${nSplit}건`;
         nameTd.appendChild(sp);
       }
       tr.appendChild(nameTd);
@@ -5391,11 +5392,11 @@ function goHome() {
         saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
       });
       const mTpl = companies.find(c => c.name === company);
-      if(!isChild && !dispEntries.length && !(mTpl && mTpl.isThirdParty)){
+      if(!isChild && nSplit && !dispEntries.length && !(mTpl && mTpl.isThirdParty)){
         const splitBtn = document.createElement('button');
         splitBtn.className = 'btn-ghost small-btn';
-        splitBtn.textContent = nSplit ? `나누기 (${nSplit + 1}건)` : '나누기';
-        splitBtn.title = '같은 날 한 거래처가 두 가지 방식으로 나갈 때(예: 오전 픽업 / 오후 배차) 출고 건을 나눕니다. 합계는 그대로입니다';
+        splitBtn.textContent = splitOpen === company ? '추가 발주 닫기' : `추가 발주 ${nSplit}건 보기`;
+        splitBtn.title = '같은 업체를 같은 날 두 번 발주 입력해 따로 저장된 추가 발주입니다. 수량을 고치거나 첫 발주로 합칠 수 있습니다';
         splitBtn.addEventListener('click', ()=>{ splitOpen = splitOpen === company ? '' : company; renderAggTable(); });
         actionTd.appendChild(splitBtn);
       }
@@ -5416,22 +5417,19 @@ function goHome() {
       const al = splitAllocate(orders[company], parts);
       const box = document.createElement('div');
       box.className = 'split-box';
-      box.innerHTML = '<div class="sub" style="margin:0 0 6px;"><b>출고 건 나누기</b> — 같은 날 한 거래처가 두 가지 방식으로 나갈 때(예: 오전 직접 픽업 / 오후 우리 쪽 배차) 수량을 나눠 적습니다. 합계는 그대로이고 <b>기본 건에는 나머지가 자동으로 남습니다</b>. 건마다 납품담당·적재방식을 따로 입력하고, 발주취합 파일에는 업체 행이 건별로 나뉩니다. 수량은 박스 단위입니다.</div>';
+      box.innerHTML = '<div class="sub" style="margin:0 0 6px;"><b>추가 발주</b> — 같은 업체의 두 번째 이후 발주입니다. 합계는 그대로이고 <b>첫 발주에는 나머지가 자동으로 남습니다</b>. 발주마다 납품담당·적재방식을 따로 입력하고, 발주취합 파일에는 같은 업체명으로 줄이 나뉩니다. 수량은 박스 단위이고, 새 추가 발주는 발주 입력에서 같은 업체를 한 번 더 입력하세요.</div>';
       const tbl = document.createElement('table');
       tbl.className = 'split-tbl';
-      tbl.innerHTML = '<thead><tr><th>출고 건</th>' + items.map(d => `<th>${escapeHtml(d.name)}</th>`).join('') + '<th></th></tr></thead>';
+      tbl.innerHTML = '<thead><tr><th>발주</th>' + items.map(d => `<th>${escapeHtml(d.name)}</th>`).join('') + '<th></th></tr></thead>';
       const tb = document.createElement('tbody');
       // 기본 건 (남은 수량, 수정 불가)
       const baseTr = document.createElement('tr');
-      baseTr.innerHTML = `<td><b>기본 건</b> <span class="sub" style="margin:0;">(${escapeHtml(company)} · 남은 수량)</span></td>` + items.map(d => `<td class="num">${fmt(toBox(d, al.base[d.id] || 0)) || ''}</td>`).join('') + '<td></td>';
+      baseTr.innerHTML = `<td><b>첫 발주</b> <span class="sub" style="margin:0;">(남은 수량)</span></td>` + items.map(d => `<td class="num">${fmt(toBox(d, al.base[d.id] || 0)) || ''}</td>`).join('') + '<td></td>';
       tb.appendChild(baseTr);
       parts.forEach((part, pi)=>{
         const ptr = document.createElement('tr');
         const lt = document.createElement('td');
-        const lab = document.createElement('input');
-        lab.type = 'text'; lab.value = part.label || ''; lab.placeholder = '예: 오후 배차'; lab.setAttribute('list', 'split-labels'); lab.style.width = '130px';
-        lab.addEventListener('change', ()=>{ part.label = lab.value.trim(); saveSplitByDate(); renderAggTable(); });
-        lt.appendChild(lab); ptr.appendChild(lt);
+        lt.innerHTML = '<b>' + escapeHtml(part.label || ('추가 발주 ' + (pi + 1))) + '</b>'; ptr.appendChild(lt);
         items.forEach(d=>{
           const cell = document.createElement('td');
           const inp = document.createElement('input');
@@ -5452,28 +5450,19 @@ function goHome() {
         });
         const delTd = document.createElement('td');
         const del = document.createElement('button');
-        del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '이 건 삭제'; del.title = '이 출고 건을 없애고 수량을 기본 건으로 되돌립니다';
-        del.addEventListener('click', ()=>{ parts.splice(pi, 1); splitTidy(currentDateKey, company); saveSplitByDate(); renderAggTable(); });
+        del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '첫 발주로 합치기'; del.title = '이 추가 발주를 없애고 수량을 첫 발주에 합칩니다(합계는 그대로)';
+        del.addEventListener('click', ()=>{ parts.splice(pi, 1); if(!parts.length){ splitTidy(currentDateKey, company); splitOpen = ''; } saveSplitByDate(); renderAggTable(); });
         delTd.appendChild(del); ptr.appendChild(delTd);
         tb.appendChild(ptr);
       });
       tbl.appendChild(tb);
       box.appendChild(tbl);
-      const dl = document.createElement('datalist'); dl.id = 'split-labels';
-      dl.innerHTML = ['오전 픽업', '오후 배차', '직접 픽업', '용차'].map(v => `<option value="${v}"></option>`).join('');
-      box.appendChild(dl);
       const bar = document.createElement('div');
       bar.style.cssText = 'display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;';
-      const add = document.createElement('button');
-      add.type = 'button'; add.className = 'btn-primary small-btn'; add.textContent = '+ 출고 건 추가';
-      add.addEventListener('click', ()=>{ parts.push({ id: cryptoId(), label: parts.length === 0 ? '오후 배차' : `출고 ${parts.length + 2}`, items: {} }); saveSplitByDate(); renderAggTable(); });
       const close = document.createElement('button');
       close.type = 'button'; close.className = 'btn-ghost small-btn'; close.textContent = '닫기';
       close.addEventListener('click', ()=>{ splitEnsure(currentDateKey, company); splitTidy(currentDateKey, company); splitOpen = ''; renderAggTable(); });
-      const hint = document.createElement('span');
-      hint.className = 'sub'; hint.style.margin = '0';
-      hint.textContent = parts.length ? '' : '[+ 출고 건 추가]를 누르고 둘째 건의 이름과 수량을 넣으세요.';
-      bar.append(add, close, hint);
+      bar.append(close);
       box.appendChild(bar);
       td.appendChild(box); tr.appendChild(td);
       return tr;
@@ -6097,7 +6086,28 @@ function goHome() {
     document.getElementById('new-company-row').style.display = 'none';
   });
 
-  document.getElementById('confirm-btn').addEventListener('click', ()=>{
+  // 같은 업체의 발주가 이미 있을 때: 추가 발주로 구분할지 물어봄 → 'part'(추가 발주) / 'merge'(기존 발주에 합산) / ''(취소)
+  function askAddOrder(company){
+    return new Promise(resolve => {
+      const back = document.createElement('div');
+      back.id = 'add-order-modal';
+      back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:var(--card,#fff);color:var(--fg,#222);border-radius:12px;padding:20px 22px;max-width:440px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);';
+      box.innerHTML = '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">기존 발주가 있습니다</div>' +
+        '<div style="font-size:14px;margin-bottom:6px;"><b>' + escapeHtml(company) + '</b> 발주가 이미 입력되어 있습니다. 발주를 추가하겠습니까?</div>' +
+        '<div class="sub" style="margin:0 0 14px;line-height:1.5;"><b>네</b>: 별도 발주로 구분해 입력합니다(발주취합 파일에 같은 업체명으로 줄이 따로 나뉘고, 납품담당·적재방식도 따로 입력). 합계는 그대로 더해집니다.<br><b>기존 발주에 합산</b>: 같은 발주에 수량만 더합니다.</div>';
+      const bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;';
+      const mk = (id, text, cls, val) => { const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = cls; b.textContent = text; b.addEventListener('click', () => { back.remove(); resolve(val); }); return b; };
+      bar.append(mk('add-order-cancel', '취소', 'btn-ghost', ''), mk('add-order-merge', '기존 발주에 합산', 'btn-ghost', 'merge'), mk('add-order-yes', '네, 발주 추가', 'btn-primary', 'part'));
+      box.appendChild(bar); back.appendChild(box);
+      back.addEventListener('click', e => { if(e.target === back){ back.remove(); resolve(''); } });
+      document.body.appendChild(back);
+      const yes = document.getElementById('add-order-yes'); if(yes) yes.focus();
+    });
+  }
+  async function confirmParsed(mode){
     if(!currentParsed) return;
     const company = (document.getElementById('company-select').value || '').trim();
     if(!company){ toast('업체명을 선택하거나 입력해주세요'); return; }
@@ -6112,6 +6122,16 @@ function goHome() {
     if(noUnit.length){
       toast(`박스입수가 없는 품목이 있습니다: ${noUnit.map(it => itemNameById(it.matchedId)).join(', ')} — SKU 관리에서 박스입수를 입력하거나 단위를 팩으로 바꿔주세요`);
       return;
+    }
+    const mTplC = companies.find(c => c.name === company);
+    if(!mode && !isDisp && !(mTplC && mTplC.isThirdParty)){
+      const ex = currentOrders()[company];
+      if(ex && Object.keys(ex).some(k => k !== '_meta' && (Number(ex[k]) || 0) > 0)){
+        const choice = await askAddOrder(company);
+        if(!choice) return;
+        mode = choice;
+        if(!currentParsed) return;
+      }
     }
     addCompanyIfNew(company);
     const orders = currentOrders();
@@ -6129,6 +6149,7 @@ function goHome() {
     if(!addedAny){ toast('추가된 품목이 없습니다. 매칭과 수량을 확인해주세요'); return; }
     orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
     saveOrdersByDate();
+    if(mode === 'part'){ splitEnsure(currentDateKey, company).push({ id: cryptoId(), label: '', items: addedItems }); saveSplitByDate(); }
     if(isDisp){
       // 출고일을 따로 지정한 업체: 출고일별 내역을 따로 저장 (발주취합 파일의 쿠팡 블록에 사용)
       currentDispatch().push({ id: cryptoId(), company, shipDate: currentParsed.shipDate, warehouse: DISPATCH_WAREHOUSE, items: addedItems, enteredBy: getStaffName(), createdAt: new Date().toISOString() });
@@ -6153,8 +6174,9 @@ function goHome() {
     document.getElementById('parse-status').textContent = '대기중';
     currentParsed = null;
     renderUnmatchedAlert();
-    toast(company + ' 발주가 집계표에 추가되었습니다');
-  });
+    toast(company + (mode === 'part' ? ' 추가 발주가 집계표에 추가되었습니다 (발주 구분)' : ' 발주가 집계표에 추가되었습니다'));
+  }
+  document.getElementById('confirm-btn').addEventListener('click', ()=>{ confirmParsed(''); });
 
   // ── 직원 개인구매 ──
   // 직접 수령: "OOO 과장 개인 구매" 업체(구분: 개인구매)의 발주로 집계표에 넣음 → 발주취합 파일의 개인구매 행에 이름과 수량이 표기됨
@@ -7586,7 +7608,7 @@ function goHome() {
           splitUnits(stmDate(), name, orders[name] || {}).forEach(u => {
             const ls = [];
             dict.forEach(d => { const q = Number(u.items[d.id]) || 0; if(q > 0) ls.push(sdLine(d, q, '')); });
-            if(ls.length) out.push({ key: u.key, name: u.isBase ? name : splitUnitName(name, u.label), company: name, label: u.label, co, lines: ls, dates: [], kind: 'order' });
+            if(ls.length) out.push({ key: u.key, name, company: name, label: u.label, co, lines: ls, dates: [], kind: 'order' });
           });
         }
         if(lines.length) out.push({ key: name, name, company: name, label: '', co, lines, dates, kind: 'dispatch' });
@@ -12266,6 +12288,20 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const free = () => scan.companyRows.filter(r => r.free && !assigned.has(r.row) && !r.claimed);
 
     entries.forEach(e => {
+      if(e.partOf){
+        // 같은 업체의 추가 발주: 첫 발주 줄 바로 아래의 빈 줄에 같은 업체명으로 (자리가 없으면 아래 poFill에서 그 아래에 줄을 끼워 넣음)
+        const mine = [...assigned.entries()].filter(([, l]) => l.some(x => x.name === e.name)).map(([r]) => r);
+        let hit2 = null;
+        if(mine.length){
+          const last = Math.max(...mine), i = scan.companyRows.findIndex(r => r.row === last), nx = scan.companyRows[i + 1];
+          if(nx && nx.free && !assigned.has(nx.row) && !nx.claimed && nx.category === scan.companyRows[i].category){
+            hit2 = nx; nx.claimed = true; nx.newName = e.name; nx.newCorp = e.corp || ''; nx.newMarket = e.market || ''; nx.copyFrom = last;
+            rep.newRows.push(e.name);
+          }
+        }
+        if(hit2){ take(hit2.row, e); rep.placed.push(e.name); } else rep.unplaced.push(e.name);
+        return;
+      }
       const key = poNameKey(e.name);
       let hit = null;
       const find = k => { for(let lv = 0; lv < 5; lv++){ const s = scan.companyRows.filter(r => r.cands[lv].includes(k) && k); if(s.length) return s; } return []; };
@@ -12307,7 +12343,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     for(let guard = 0; guard < 80; guard++){
       const nm = rep.unplaced.find(n => !skipped.has(n));
       if(!nm) break;
-      const e = input.entries.find(x => x.name === nm);
+      const placedSet = new Set(); assigned.forEach(l => l.forEach(x => placedSet.add(x)));
+      const e = input.entries.find(x => x.name === nm && !placedSet.has(x)) || input.entries.find(x => x.name === nm);
       const cat = poNorm(e && e.category);
       if(!e || !cat){ noCategory.push(nm); skipped.add(nm); continue; } // 발주 구분이 비어 있음 → 아래 안내로
       let sec = scan.companyRows.filter(r => r.category === cat);
@@ -12321,7 +12358,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       }
       const rk = poNameKey(e.region);
       const sameRegion = rk ? sec.filter(r => r.C === rk) : [];
-      const anchor = (sameRegion.length ? sameRegion : sec).reduce((a, r) => r.row > a.row ? r : a);
+      let anchor = (sameRegion.length ? sameRegion : sec).reduce((a, r) => r.row > a.row ? r : a);
+      if(e.partOf){
+        const mine = [...assigned.entries()].filter(([, l]) => l.some(x => x.name === nm)).map(([r]) => r);
+        const baseRow = mine.length ? scan.companyRows.find(r => r.row === Math.max(...mine)) : null;
+        if(baseRow) anchor = baseRow;   // 추가 발주는 첫 발주 바로 아래에 줄을 끼워 넣음
+      }
       if(!poInsertRowsAfter(ctx, anchor.row, 1, custom ? { category: e.category } : null)){ skipped.add(nm); continue; }
       const before = rep.unplaced.length;
       scan = poScanRows(ctx);
@@ -12361,13 +12403,21 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
           if(!poText(ctx, 'E' + row)) poSetStr(ctx, 'E' + row, rowInfo.newCorp || rowInfo.newName); // 상장청과명(E열), 없으면 업체명
           if(rowInfo.newMarket && !poText(ctx, 'D' + row)) poSetStr(ctx, 'D' + row, rowInfo.newMarket); // 시장명(D열)
         }
+        if(rowInfo.copyFrom){
+          // 추가 발주 줄: 지역·시장·상장청과명은 첫 발주 줄과 같게 (비어 있는 칸만)
+          ['C', 'D', 'E', 'F'].forEach(c => {
+            const a = c + row; if(a === rowInfo.nameAddr || poText(ctx, a)) return;
+            const mm = ctx.mergeMaster.get(a); if(mm && mm !== a) return;
+            const t = poText(ctx, c + rowInfo.copyFrom); if(t) poSetStr(ctx, a, t);
+          });
+        }
       }
       Object.entries(sum).forEach(([col, q]) => {
         const v = Math.round(q * 100) / 100;
         if(v > 0){ usedCols.add(col); if(!poSetNum(ctx, col + row, v)) warn.push(`${col}${row}`); }
       });
       // 배차·적재·재고사용 입력값 (납품담당·적재방식·재고사용·비고 칸). 3PL처럼 여러 업체가 합쳐진 줄은 제외
-      const pe = input.plan && list.length === 1 ? input.plan[list[0].name] : null;
+      const pe = input.plan && list.length === 1 ? input.plan[list[0].planKey || list[0].name] : null;
       if(pe && (pe.driver || pe.load || pe.stockText || pe.note)){
         const sk = poApplyPlan(ctx, pc, row, pe);
         rep.planApplied.push(list[0].name);
@@ -12862,9 +12912,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const nk = poNameKey(name);
       const metaFound = companies.find(c => c.name === name) || companies.find(c => poNameKey(c.name) === nk) || companies.find(c => c.listedMarketName && poNameKey(c.listedMarketName) === nk);
       const meta = metaFound || {};
-      // 출고 건을 나눈 업체는 기본 건(업체 행 그대로) + 추가 건('업체명 (라벨)' 행)으로 나눠 채움
+      // 같은 업체를 추가 발주한 경우: 첫 발주(업체 행 그대로) + 추가 발주(같은 업체명, 바로 아래 줄)로 나눠 채움
       const al = splitAllocate(orders[name] || {}, (splits || {})[name] || []);
-      const mk = (who, itemsObj, isPart) => {
+      const mk = (who, itemsObj, isPart, planKey) => {
         const colQty = {};
         dict.forEach(d => {
           const q = Number(itemsObj[d.id]) || 0;
@@ -12879,10 +12929,10 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
           if(unitOf(d) <= 0) noUnit.add(label(d));
           colQty[col] = (colQty[col] || 0) + toBox(d, q);
         });
-        if(Object.keys(colQty).length) entries.push({ name: who, registered: !!metaFound, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: isPart ? '' : (meta.listedMarketName || ''), isThirdParty: !!meta.isThirdParty, colQty, partOf: isPart ? name : '' });
+        if(Object.keys(colQty).length) entries.push({ name, registered: !!metaFound, category: meta.category || '', region: meta.region || '', market: meta.marketName || '', corp: meta.listedMarketName || '', isThirdParty: !!meta.isThirdParty, colQty, partOf: isPart ? name : '', planKey: planKey || name });
       };
       mk(name, al.base, false);
-      al.parts.forEach(o => mk(splitUnitName(name, o.part.label), o.items, true));
+      al.parts.forEach(o => mk(name + ' (추가 발주)', o.items, true, name + '#' + o.part.id));
     });
     // 샘플 신청(생산본부 생산으로 지정된 품목만): 신청자(부서)별로 묶어 서식의 샘플 행에 넣음. 영업 부서는 '영업용', 그 외는 '본사' 칸
     const sampleMap = new Map();
@@ -14011,7 +14061,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       tr.dataset.company = name;
       const tdName = document.createElement('td');
       tdName.className = 'name-cell';
-      tdName.innerHTML = `${escapeHtml(display || name)}<div class="sub" style="margin:0;font-size:10.5px;">${escapeHtml([split ? (isBase ? '기본 건' : '추가 출고 건') : '', meta && meta.category, meta && meta.region, total + '박스'].filter(Boolean).join(' · '))}</div>`;
+      tdName.innerHTML = `${escapeHtml(display || name)}<div class="sub" style="margin:0;font-size:10.5px;">${escapeHtml([split ? (isBase ? '첫 발주' : '추가 발주') : '', meta && meta.category, meta && meta.region, total + '박스'].filter(Boolean).join(' · '))}</div>`;
       tr.appendChild(tdName);
 
       const mkInput = (list, val, ph, w, field) => {
@@ -14100,22 +14150,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     spRefreshStock();
   }
 
-  // 배차 입력의 키('업체명#출고건id')를 발주취합 서식·현황판에서 쓰는 이름('업체명 (라벨)')으로 바꿈
-  function spPlanNameOf(dk, key){
-    const i = key.indexOf('#');
-    if(i < 0) return key;
-    const company = key.slice(0, i), id = key.slice(i + 1);
-    const part = (((splitByDate[dk] || {})[company]) || []).find(p => p.id === id);
-    return part ? splitUnitName(company, part.label) : key;
-  }
-  // 파일·현황판에 넣을 값: { 업체명: { driver, load, stockText, note, next } }
+  // 파일·현황판에 넣을 값: { 업체명 또는 '업체명#추가발주id': { driver, load, stockText, note, next } }
   function spPlanForFill(dk){
     const doc = shipPlanCache[dk];
     const out = {};
     Object.entries((doc && doc.rows) || {}).forEach(([name, r]) => {
       const parts = [];
       dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
-      out[spPlanNameOf(dk, name)] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('/'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
+      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('/'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
     });
     return out;
   }
