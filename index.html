@@ -14748,18 +14748,23 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       pbTimer = setTimeout(loop, PB_REFRESH_MS);
     }
     pbTick = setInterval(poBoardFoot, 1000);
+    // 현황판은 같은 페이지 위에 뜨는 화면이라, 뒤로가기를 누르면 현황판이 아니라 이전 페이지(상세페이지 등)로 나가 버림 → 열 때 기록을 한 칸 만들어 두고, 뒤로가기는 현황판 닫기로 처리
+    if(!kiosk && !pbPushed){ try{ history.pushState({ pbBoard: 1 }, ''); pbPushed = true; }catch(e){ /* 기록을 못 만들어도 현황판은 정상 동작 */ } }
   }
-  function poBoardClose(){
+  let pbPushed = false;
+  function poBoardClose(fromPop){
     document.getElementById('po-board').style.display = 'none';
     document.body.style.overflow = '';
     clearTimeout(pbTimer); clearInterval(pbTick);
+    if(pbPushed){ pbPushed = false; if(fromPop !== true){ try{ history.back(); }catch(e){ /* 무시 */ } } }   // 버튼·Esc로 닫으면 만들어 둔 기록도 되돌림
   }
+  window.addEventListener('popstate', () => { if(pbPushed && document.getElementById('po-board').style.display !== 'none') poBoardClose(true); else pbPushed = false; });
   window.addEventListener('resize', () => { if(document.getElementById('po-board').style.display !== 'none') poBoardFit(); });
   document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && !pbKiosk && document.getElementById('po-board').style.display !== 'none') poBoardClose(); });
   document.getElementById('po-board-btn').addEventListener('click', () => poBoardOpen(false));
   document.getElementById('po-board-tv-btn').addEventListener('click', () => { window.open(location.pathname + '?board=1', '_blank'); });
   document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(pbKiosk));
-  document.getElementById('pb-close').addEventListener('click', poBoardClose);
+  document.getElementById('pb-close').addEventListener('click', () => poBoardClose());
   // TV용 주소(?board=1)로 열면 로그인 후 바로 현황판만 표시
   window.__openBoardIfKiosk = () => { if(new URLSearchParams(location.search).get('board') === '1') poBoardOpen(true); };
 
