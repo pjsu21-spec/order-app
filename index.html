@@ -224,20 +224,22 @@
   .sp-stock-row.open{ display:table-row; }
   .sp-stock-row > td{ background:var(--paper); }
   .sp-grid{ font-size:12px; width:auto; }
-  /* 생산 현황판 (TV 표시용) — 흰 배경, 품목별 색 구분(엑셀 발주서와 같은 색), 제목·새로고침 정보는 오른쪽 칸 */
-  #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:row; background:#fff; color:#1a2233; font-family:inherit; }
-  #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:10px 8px 10px 14px; display:flex; justify-content:center; align-items:flex-start; }
-  #po-board .pb-side{ flex:0 0 236px; display:flex; flex-direction:column; gap:10px; padding:14px 14px 12px; background:#f3f5f9; border-left:1px solid #d5dbe8; }
-  #po-board .pb-title{ font-size:24px; font-weight:800; letter-spacing:.3px; line-height:1.25; }
-  #po-board .pb-date{ font-size:19px; font-weight:700; color:#1f5fbf; line-height:1.3; }
-  #po-board .pb-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-  #po-board .pb-actions button{ background:#fff; color:#1a2233; border:1px solid #b9c3d6; border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; }
-  #po-board .pb-notes{ flex:1 1 auto; overflow:hidden; color:#c0392b; font-size:14px; font-weight:600; line-height:1.4; }
-  #po-board .pb-notes div{ margin-bottom:6px; }
+  /* 생산 현황판 — 흰 배경, 품목별 색 구분(엑셀 발주서와 같은 색), 표가 가로 전체를 쓰고 제목·버튼은 표의 왼쪽 위 빈 칸에, 새로고침 정보는 오른쪽 아래에 */
+  #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#fff; color:#1a2233; font-family:inherit; }
+  #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:6px 6px 2px 6px; display:flex; justify-content:center; align-items:flex-start; }
+  #po-board .pb-head{ position:absolute; left:0; top:0; width:228px; box-sizing:border-box; padding:5px 10px 6px; background:#e9eef8; transform-origin:0 0; z-index:2; display:flex; flex-direction:column; gap:3px; }
+  #po-board .pb-bottom{ flex:0 0 auto; display:flex; align-items:flex-end; gap:16px; padding:0 12px 4px 10px; min-height:0; }
+  #po-board .pb-head.wide{ width:340px; flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:1px 12px; }
+  #po-board .pb-head.wide .pb-actions{ flex-basis:100%; }
+  #po-board .pb-title{ font-size:20px; font-weight:800; letter-spacing:.2px; line-height:1.2; white-space:nowrap; }
+  #po-board .pb-date{ font-size:15px; font-weight:700; color:#1f5fbf; line-height:1.25; white-space:nowrap; }
+  #po-board .pb-actions{ display:flex; gap:6px; flex-wrap:nowrap; }
+  #po-board .pb-actions button{ background:#fff; color:#1a2233; border:1px solid #b9c3d6; border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
+  #po-board .pb-notes{ flex:1 1 auto; min-width:0; max-height:64px; overflow:hidden; display:flex; flex-wrap:wrap; gap:2px 18px; align-items:center; color:#c0392b; font-size:13px; font-weight:600; line-height:1.35; }
   #po-board .pb-legend{ color:#1a2233 !important; font-weight:600; }
   #po-board .pb-legend .pb-ysamp{ display:inline-block; background:#ffee00; padding:0 8px; border-radius:3px; margin-right:4px; font-weight:800; }
   #po-board .pb-legend .sub2{ color:#5a6a88; font-weight:500; font-size:13px; }
-  #po-board .pb-foot{ flex:0 0 auto; padding:10px 0 0; border-top:1px solid #d5dbe8; font-size:13px; color:#4a5a78; line-height:1.5; }
+  #po-board .pb-foot{ flex:0 0 auto; margin-left:auto; max-width:300px; text-align:right; font-size:11.5px; color:#4a5a78; line-height:1.4; }
   #po-board .pb-empty{ font-size:28px; color:#4a5a78; padding:60px; }
   #po-board .pb-info{ display:flex; flex-wrap:wrap; gap:12px 20px; align-items:flex-start; margin-bottom:8px; width:0; min-width:100%; }
   #po-board .pb-info > *{ flex:0 0 auto; }
@@ -266,7 +268,7 @@
   .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
   .pb-table{ border-collapse:collapse; font-size:16px; white-space:nowrap; color:#111; background:#fff; }
   .pb-table th, .pb-table td{ border:1px solid #b8c2d6; padding:4px 10px; }
-  .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; }
+  .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; text-align:right; padding-right:18px; }
   .pb-table .pb-g{ color:#111; font-size:17px; font-weight:800; text-align:center; }
   .pb-table .pb-h{ color:#111; font-size:15px; font-weight:700; text-align:center; min-width:64px; white-space:normal; }
   .pb-table .pb-n{ text-align:right; font-variant-numeric:tabular-nums; font-size:20px; min-width:64px; }
@@ -2530,12 +2532,12 @@ function goHome() {
 </script>
 <div id="po-board">
   <div class="pb-body" id="pb-body"><div id="pb-fit"></div></div>
-  <div class="pb-side">
-    <div>
-      <div class="pb-title">🏭 생산 발주 현황</div>
-      <div class="pb-date" id="pb-date"></div>
-    </div>
+  <div class="pb-head" id="pb-head">
+    <div class="pb-title">🏭 생산 발주 현황</div>
+    <div class="pb-date" id="pb-date"></div>
     <div class="pb-actions"><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
+  </div>
+  <div class="pb-bottom">
     <div class="pb-notes" id="pb-notes"></div>
     <div class="pb-foot" id="pb-foot"></div>
   </div>
@@ -15404,7 +15406,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       }
       html += '</div>';
     }
-    html += `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner">업체</th>${g1}${pHead}</tr><tr>${heads}</tr></thead><tbody>`;
+    html += `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner"><span class="pb-cl">업체</span></th>${g1}${pHead}</tr><tr>${heads}</tr></thead><tbody>`;
     const cell = (key, L, v, cls, bg) => `<td class="pb-n${cls || ''}${chg(key, L, v)}" data-k="${e(key)}|${L}" data-v="${v}"${bg ? ` style="background:${bg}"` : ''}>${pbFmt(v)}</td>`;
     // 요약: 총 발주(박스·팩), 전일재고, 출고 후 재고
     html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big', m.total[c.L] > 0 ? baseOf(c) : '')).join('')}${pBlank}</tr>`;
@@ -15444,6 +15446,31 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const aw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const s = Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
     fit.style.zoom = s;
+    poBoardPlaceHead();
+  }
+  function poBoardPlaceHead(){
+    const head = document.getElementById('pb-head'), fit = document.getElementById('pb-fit');
+    if(!head || !fit) return;
+    head.style.transform = 'none';
+    const th = fit.querySelector('th.pb-corner');
+    if(!th){ head.classList.remove('wide'); head.style.left = '10px'; head.style.top = '6px'; return; }
+    const r = th.getBoundingClientRect(), lb = th.querySelector('.pb-cl'), lw = lb ? lb.getBoundingClientRect().width : 0;
+    if(!r.width) return;
+    const room = Math.max(40, r.width - lw - 26);   // 오른쪽에 붙은 '업체' 글자를 가리지 않는 가로 범위
+    // 칸이 세로로 넉넉하면 세로로 쌓는 모양, 가로로 길쭉하면 한 줄 + 버튼 줄 모양 중 더 크게 보이는 쪽을 고름
+    let best = null;
+    [false, true].forEach(wide => {
+      head.classList.toggle('wide', wide);
+      const hh = head.offsetHeight, hw = head.offsetWidth;
+      if(!hh || !hw) return;
+      const k = Math.min(1.8, room / hw, (r.height - 2) / hh);
+      if(!best || k > best.k) best = { wide, k };
+    });
+    if(!best) return;
+    head.classList.toggle('wide', best.wide);
+    const k = Math.max(0.4, best.k);
+    head.style.left = Math.round(r.left + 1) + 'px'; head.style.top = Math.round(r.top + 1) + 'px';
+    head.style.transform = 'scale(' + k.toFixed(3) + ')';
   }
   function poBoardFoot(){
     const el = document.getElementById('pb-foot');
