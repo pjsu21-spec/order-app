@@ -294,17 +294,26 @@
   }
   .toast.show{ opacity:1; }
   /* 읽기 전용 권한: 안내 띠 표시 + 삭제류 버튼 숨김 (실제 저장 차단은 스크립트의 쓰기 가드가 담당) */
-  #app.ro-order #panel-order-group::before,
+  #app.ro-order #panel-order::before, #app.ro-order #panel-agg::before, #app.ro-order #panel-sales::before, #app.ro-order #panel-settings::before,
+  #app.ro-plan #panel-plan::before, #app.ro-invoice #panel-ship::before,
   #app.ro-order #panel-ecount::before,
   #app.ro-sorting #panel-sorting::before{
     content:'👁 읽기 전용 권한입니다 — 조회와 엑셀 다운로드만 가능하며, 입력·수정한 내용은 저장되지 않습니다.';
     display:block; background:var(--warn-soft); color:var(--warn); border:1px solid var(--warn);
     padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:13px; font-weight:600;
   }
-  #app.ro-order #panel-order-group .btn-danger,
+  #app.ro-order #panel-order .btn-danger, #app.ro-order #panel-agg .btn-danger, #app.ro-order #panel-sales .btn-danger, #app.ro-order #panel-settings .btn-danger,
+  #app.ro-plan #panel-plan .btn-danger, #app.ro-invoice #panel-ship .btn-danger,
   #app.ro-order #panel-ecount .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
+  /* 발주자동화 세부 권한: 생산/물류·송장/명세서만 받은 직원은 그 두 탭만 보임 */
+  #app.order-core-off #panel-ecount, #app.order-core-off #main-nav-btn-ecount,
+  #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-order"], #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-agg"],
+  #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-sales"], #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-settings"],
+  #app.order-core-off #panel-order, #app.order-core-off #panel-agg, #app.order-core-off #panel-sales, #app.order-core-off #panel-settings,
+  #app.no-plan-access .order-sub-nav-btn[data-order-panel="panel-plan"], #app.no-plan-access #panel-plan,
+  #app.no-invoice-access .order-sub-nav-btn[data-order-panel="panel-ship"], #app.no-invoice-access #panel-ship{ display:none !important; }
   /* 긴 표: 한 줄씩 표시 + 표 안에서 스크롤(머리글 고정). 긴 글은 줄여서 보이고 마우스를 올리면 전체가 보임 */
   .tbl-scroll{ max-height:68vh; overflow:auto; }
   .tbl-scroll:has(table){ border:1px solid var(--line); border-radius:8px; }
@@ -928,7 +937,6 @@
       <button class="btn-primary" id="export-btn">전체 엑셀 다운로드</button>
       <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 발주취합 다운로드</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
-      <button class="btn-ghost small-btn" id="po-board-tv-btn" title="TV용 새 창: 로그인 후 현황판만 전체 화면으로 표시하고 10분마다 자동으로 최신 발주를 불러옵니다">TV용 새 창</button>
       <button class="btn-ghost small-btn" id="po-draft-save-btn" title="지금 상태를 초안 공유본으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명 칸이 노란색으로 표시됩니다">📌 초안 공유본으로 저장</button>
       <button class="btn-ghost small-btn" id="po-draft-clear-btn" style="display:none;" title="저장된 초안 공유본을 해제합니다">초안 해제</button>
       <button class="btn-ghost small-btn" id="po-check-btn" title="다운로드 전에, 오늘 주문이 서식에 제대로 들어갈지 미리 점검합니다 (파일은 만들지 않고 아무것도 바꾸지 않습니다)">🩺 서식 점검</button>
@@ -1035,6 +1043,7 @@
     </div></details>
     <div class="row" style="margin-top:0;">
       <button class="btn-ghost small-btn" id="prod-plan-refresh-btn" title="다른 직원이 입력한 최신 내용을 서버에서 다시 불러옵니다">🔄 새로고침</button>
+      <button class="btn-ghost small-btn" id="po-board-btn-plan" title="오늘 발주·생산 순서·배차 현황을 화면 표로 보여줍니다">📺 생산 현황판</button>
       <span id="prod-plan-meta" style="font-size:12px;color:var(--muted);"></span>
     </div>
     <div id="prod-plan-hint" class="sub" style="margin:0 0 4px;"></div>
@@ -1882,7 +1891,7 @@
 
     <!-- 권한 관리 (발주자동화 / 원물선별 접근 권한) -->
     <div id="admin-section-perms" style="display:none;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더/상세페이지 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. (공유폴더와 상세페이지는 같은 권한을 함께 씁니다) 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더·상세페이지에 항상 접근할 수 있습니다)</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 10px;">사용자별로 발주자동화 · 원물선별 · 공유폴더/상세페이지 권한을 차단 / 읽기만 / 전체 중에서 고릅니다. 발주자동화는 발주 입력·집계/출고·실적/매출·설정·이카운트이고, 생산/물류와 송장/명세서는 따로 줄 수 있습니다(생산·물류 부서처럼 이 두 기능만 써야 하는 직원은 발주자동화를 차단하고 이 두 항목만 허용). '발주자동화 따름'이면 발주자동화 권한과 같습니다. (공유폴더와 상세페이지는 같은 권한을 함께 씁니다) 「읽기만」은 조회와 다운로드만 가능하고 입력·수정·삭제는 저장되지 않습니다. 변경한 권한은 해당 사용자가 새로고침하거나 다시 로그인하면 적용됩니다. (관리자는 읽기 전용이 적용되지 않으며 공유폴더·상세페이지에 항상 접근할 수 있습니다)</div></details>
       <h3 style="margin:0 0 4px;">부서별 권한 <span class="sub" style="font-weight:400;margin:0;">(부서마다 권한 세트를 정해 두고 [부서 전체에 적용]을 누르면 그 부서 직원 전원에게 한꺼번에 적용됩니다 · 관리자 계정은 제외)</span></h3>
       <div class="sub" style="margin:0 0 6px;">부서는 <b>사용자 관리</b>에서 직원마다 지정합니다. 부서 권한을 바꾸면 세트만 저장되고, 직원에게는 [부서 전체에 적용]을 눌러야 반영됩니다. 새 직원을 만들 때 부서를 적으면 그 부서 권한이 자동 적용되고, 직원의 부서를 바꿀 때도 적용할지 묻습니다. 적용한 뒤에도 아래 사용자별 표에서 개인별로 따로 바꿀 수 있습니다.</div>
       <div id="admin-dept-perms-wrap" style="overflow-x:auto;"></div>
@@ -1942,6 +1951,17 @@ window.accessLevel = function(prog){
   if (isAdmin) return 'full';
   return u['readonly_' + prog] === true ? 'read' : 'full';
 };
+// ── 발주자동화 세부 권한: 생산/물류('plan')·송장/명세서('invoice') ──
+//    users.perm_plan / perm_invoice 가 비어 있으면(null) 발주자동화 권한을 따르고, 'none'/'read'/'full'이면 그 값. 관리자는 항상 전체.
+//    발주자동화(order)는 발주 입력·집계/출고·실적/매출·설정·이카운트를 뜻함.
+window.sectionLevel = function(sec){
+  const u = window.currentUser;
+  if (!u) return 'none';
+  if (u.role === 'admin') return 'full';
+  const v = u[sec === 'plan' ? 'perm_plan' : 'perm_invoice'];
+  if (v === 'none' || v === 'read' || v === 'full') return v;
+  return window.accessLevel('order');
+};
 
 // ── 읽기 전용 쓰기 가드: 읽기 전용 사용자의 저장/수정/삭제 요청을 서버로 보내지 않고 막습니다 ──
 (function(){
@@ -1964,20 +1984,38 @@ window.accessLevel = function(prog){
     if (table.startsWith('sorting_')) return 'sorting';
     return 'order'; // kv_store, returns 등 발주자동화 데이터
   }
+  // kv_store 요청이 어느 세부 권한의 저장값인지 (키 이름으로 구분): 생산/물류 = ship-plan-·prod-plan-·prod-seq-routine, 송장/명세서 = statement-·shipdoc-
+  function kvSection(url, init){
+    try {
+      let key = '';
+      const m = /[?&]key=eq\.([^&]+)/.exec(url);
+      if (m) key = decodeURIComponent(m[1]);
+      else if (init && typeof init.body === 'string') { const b = JSON.parse(init.body); key = String((Array.isArray(b) ? b[0] : b).key || ''); }
+      if (/^(ship-plan-|prod-plan-|prod-seq-routine)/.test(key)) return 'plan';
+      if (/^(statement-|shipdoc-)/.test(key)) return 'invoice';
+    } catch (e) { /* 구분 못 하면 발주자동화로 */ }
+    return null;
+  }
+  // 읽기 전용이라 막아야 하는 쓰기 요청인지
+  function writeBlocked(url, init, method){
+    if (method === 'GET' || method === 'HEAD' || !url.startsWith(REST)) return false;
+    const table = url.slice(REST.length).split(/[?\/]/)[0];
+    const prog = programFor(table);
+    let lvl = prog ? window.accessLevel(prog) : null;
+    if (table === 'kv_store') { const sec = kvSection(url, init); if (sec) lvl = window.sectionLevel(sec); }   // 생산/물류·송장/명세서 저장값은 그 세부 권한을 따름
+    return !!prog && lvl === 'read';
+  }
+  window.__writeBlocked = writeBlocked;   // (점검용)
   window.fetch = function(input, init){
     try {
       const url = typeof input === 'string' ? input : (input && input.url) || '';
       const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-      if (method !== 'GET' && method !== 'HEAD' && url.startsWith(REST)) {
-        const table = url.slice(REST.length).split(/[?\/]/)[0];
-        const prog = programFor(table);
-        if (prog && window.accessLevel(prog) === 'read') {
-          notice();
-          return Promise.resolve(new Response(
-            JSON.stringify({ message: '읽기 전용 권한입니다 (저장되지 않음)' }),
-            { status: 403, headers: { 'Content-Type': 'application/json' } }
-          ));
-        }
+      if (writeBlocked(url, init, method)) {
+        notice();
+        return Promise.resolve(new Response(
+          JSON.stringify({ message: '읽기 전용 권한입니다 (저장되지 않음)' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        ));
       }
     } catch (e) { /* 가드 오류 시 원래 요청 그대로 진행 */ }
     return origFetch(input, init);
@@ -2286,6 +2324,16 @@ function showApp() {
   loadHomeOrder(); // 관리자가 정한 타일 순서 불러오기
 }
 
+// 발주취합 안에서 지금 열린 탭이 권한 때문에 숨겨졌으면 보이는 첫 탭으로 옮김
+function orderEnsureTab(){
+  const btns = [...document.querySelectorAll('.order-sub-nav-btn')];
+  const shown = b => getComputedStyle(b).display !== 'none';
+  const act = btns.find(b => b.classList.contains('active'));
+  if (act && shown(act)) return;
+  const first = btns.find(shown);
+  if (first) first.click();
+}
+
 function applyUserUI() {
   if (!window.currentUser) return;
   const isAdmin = window.currentUser.role === 'admin';
@@ -2312,7 +2360,14 @@ function applyUserUI() {
   // 발주자동화 접근 권한 (명시적으로 false일 때만 차단 — 컬럼 미생성 시 undefined는 허용으로 취급)
   const appEl = document.getElementById('app');
   if (appEl) {
-    appEl.classList.toggle('no-order-access', window.currentUser.access_order === false);
+    // 발주자동화(발주 입력·집계·실적·설정·이카운트) / 생산·물류 / 송장·명세서 — 셋 다 없을 때만 전체 차단, 일부만 있으면 그 탭만 보임
+    const lvCore = window.accessLevel('order'), lvPlan = window.sectionLevel('plan'), lvInv = window.sectionLevel('invoice');
+    appEl.classList.toggle('no-order-access', lvCore === 'none' && lvPlan === 'none' && lvInv === 'none');
+    appEl.classList.toggle('order-core-off', lvCore === 'none' && (lvPlan !== 'none' || lvInv !== 'none'));
+    appEl.classList.toggle('no-plan-access', lvPlan === 'none');
+    appEl.classList.toggle('no-invoice-access', lvInv === 'none');
+    appEl.classList.toggle('ro-plan', lvPlan === 'read');
+    appEl.classList.toggle('ro-invoice', lvInv === 'read');
   }
   // 원물선별 접근 권한 (명시적으로 true일 때만 허용 — 기본값은 차단)
   const accessSorting = window.currentUser.access_sorting === true;
@@ -2336,6 +2391,7 @@ function applyUserUI() {
     appEl.classList.toggle('ro-order', roOrder);
     appEl.classList.toggle('ro-sorting', roSorting);
   }
+  orderEnsureTab();   // 보이지 않는 탭이 열려 있으면 보이는 첫 탭으로
   // 상단 사용자 배지
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
@@ -13869,7 +13925,6 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       await login(username, password);
       showApp();
       await loadState();
-      if(window.__openBoardIfKiosk) window.__openBoardIfKiosk();
     }catch(e){
       errEl.textContent = e.message;
       errEl.style.display = 'block';
@@ -13949,7 +14004,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
             try{
               await loadDeptPerms(true);
               if(deptPerms[nd] && confirm(`${nd} 부서에 저장된 권한을 ${u.display_name}님에게도 적용할까요?\n\n${dpDescribe(deptPerms[nd])}`)){
-                const r2 = await apiUpdateUser(u.id, dpFields(deptPerms[nd]));
+                const r2 = await apiUpdateUser(u.id, dpFields(deptPerms[nd], u));
                 if(r2.ok) await writeLog('perm_dept', `${u.username} 부서 변경: ${nd} 부서 권한 적용`);
                 toast(r2.ok ? '부서 권한을 적용했습니다' : '부서 권한을 적용하지 못했습니다');
               }
@@ -14002,8 +14057,10 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   // 부서마다 권한 세트를 정해 두고(kv_store 'dept-perms'), [부서 전체에 적용]을 누르면 그 부서의 직원 전원의 개인 권한(users 컬럼)에 한꺼번에 기록한다.
   // 개인 권한 구조·로그인 방식은 그대로라서, 적용 뒤에 개인별로 따로 바꿀 수도 있다(다르게 바꾼 사람은 '다른 사람 N명'으로 표시). 관리자 권한 계정은 적용 대상에서 제외.
   // 새 직원을 만들 때 부서를 적으면 그 부서 권한이 자동 적용되고, 부서를 바꿀 때도 적용할지 묻는다.
-  const DP_DEFAULT = { order: 'full', sorting: 'none', master: false, files: 'none', cost: false, sample: 'none' };
+  const DP_DEFAULT = { order: 'full', plan: 'inherit', invoice: 'inherit', sorting: 'none', master: false, files: 'none', cost: false, sample: 'none' };
   const DP_LEVELS = [['none', '⛔ 차단'], ['read', '👁 읽기만'], ['full', '✅ 전체']];
+  const DP_SUB = [['inherit', '↩ 발주자동화 따름'], ['none', '⛔ 차단'], ['read', '👁 읽기만'], ['full', '✅ 전체']];   // 생산/물류·송장/명세서: 발주자동화를 따르거나 따로 지정
+  const DP_SQL_NOTE = '권한 변경에 실패했습니다. 생산/물류·송장/명세서 세부 권한은 Supabase에 한 번 설정이 필요합니다.\n\n프로젝트 폴더의 「권한_생산물류_송장명세서_SQL.sql」 파일 내용을 전부 복사해 Supabase SQL Editor에 붙여넣고 Run 한 뒤 다시 시도해주세요.\n\n(요약) users에 perm_plan, perm_invoice 칸을 추가하고 app_admin_update_user 함수를 교체합니다.';
   const DP_SAMPLE = [['none', '⛔ 차단'], ['view', '👁 열람'], ['request', '✍ 신청'], ['collect', '📋 주문 취합']];
   let deptPerms = {};           // { 부서명: { order, sorting, master, files, cost, sample } }
   let deptPermsLoaded = false;
@@ -14023,9 +14080,10 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   }
   const dpNorm = p => Object.assign({}, DP_DEFAULT, p || {});
   // 권한 세트 → users 컬럼 값
-  function dpFields(p){
+  // 권한 세트 → users 컬럼 값. 세부 권한(생산/물류·송장/명세서)은 이 직원의 현재 값과 다를 때만 보냄 → 새 칸이 아직 없는 DB에서도 기존 6개 항목 적용은 그대로 동작
+  function dpFields(p, u){
     p = dpNorm(p);
-    return {
+    const f = {
       access_order: p.order !== 'none', readonly_order: p.order === 'read',
       access_sorting: p.sorting !== 'none', readonly_sorting: p.sorting === 'read',
       sorting_master_edit: !!p.master,
@@ -14033,11 +14091,17 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       access_cost: !!p.cost,
       access_sample: p.sample
     };
+    const cur = u ? dpOf(u) : null;
+    if(!cur || cur.plan !== p.plan) f.perm_plan = p.plan === 'inherit' ? null : p.plan;
+    if(!cur || cur.invoice !== p.invoice) f.perm_invoice = p.invoice === 'inherit' ? null : p.invoice;
+    return f;
   }
   // 사용자(users 행)의 현재 권한 → 권한 세트 (화면 표시와 같은 해석: access_order는 false일 때만 차단, 나머지는 true일 때만 허용)
   function dpOf(u){
     return {
       order: u.access_order === false ? 'none' : (u.readonly_order === true ? 'read' : 'full'),
+      plan: ['none', 'read', 'full'].includes(u.perm_plan) ? u.perm_plan : 'inherit',
+      invoice: ['none', 'read', 'full'].includes(u.perm_invoice) ? u.perm_invoice : 'inherit',
       sorting: u.access_sorting === true ? (u.readonly_sorting === true ? 'read' : 'full') : 'none',
       master: u.sorting_master_edit === true,
       files: u.access_files === true ? (u.readonly_files === true ? 'read' : 'full') : 'none',
@@ -14045,11 +14109,11 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       sample: ['view', 'request', 'collect'].includes(u.access_sample) ? u.access_sample : 'none'
     };
   }
-  const dpSame = (a, b) => ['order', 'sorting', 'master', 'files', 'cost', 'sample'].every(k => dpNorm(a)[k] === dpNorm(b)[k]);
+  const dpSame = (a, b) => ['order', 'plan', 'invoice', 'sorting', 'master', 'files', 'cost', 'sample'].every(k => dpNorm(a)[k] === dpNorm(b)[k]);
   function dpDescribe(p){
     p = dpNorm(p);
-    const lv = { none: '차단', read: '읽기만', full: '전체' }, sm = { none: '차단', view: '열람', request: '신청', collect: '주문 취합' };
-    return `발주자동화 ${lv[p.order]} · 원물선별 ${lv[p.sorting]} · 마스터관리 ${p.master ? '허용' : '차단'} · 공유폴더/상세페이지 ${lv[p.files]} · 단가 열람 ${p.cost ? '허용' : '차단'} · 샘플 신청 ${sm[p.sample]}`;
+    const lv = { none: '차단', read: '읽기만', full: '전체', inherit: '발주자동화 따름' }, sm = { none: '차단', view: '열람', request: '신청', collect: '주문 취합' };
+    return `발주자동화 ${lv[p.order]} · 생산/물류 ${lv[p.plan]} · 송장/명세서 ${lv[p.invoice]} · 원물선별 ${lv[p.sorting]} · 마스터관리 ${p.master ? '허용' : '차단'} · 공유폴더/상세페이지 ${lv[p.files]} · 단가 열람 ${p.cost ? '허용' : '차단'} · 샘플 신청 ${sm[p.sample]}`;
   }
   const dpDeptOf = u => String(u.department || '').trim();
   // 부서 구성원(관리자 제외)에게 권한 세트 적용 → { ok, fail, skipped }
@@ -14057,7 +14121,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     let ok = 0, fail = 0, skipped = 0;
     for(const u of targets){
       if(u.id === window.currentUser?.id && dpNorm(preset).order === 'none'){ skipped++; continue; }   // 자기 자신의 발주자동화 접근은 끌 수 없음
-      const r = await apiUpdateUser(u.id, dpFields(preset));
+      const r = await apiUpdateUser(u.id, dpFields(preset, u));
       if(r.ok) ok++; else fail++;
     }
     return { ok, fail, skipped };
@@ -14066,7 +14130,15 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const wrap = document.getElementById('admin-dept-perms-wrap');
     if(!wrap) return;
     await loadDeptPerms();
-    const depts = [...new Set([...rows.map(dpDeptOf).filter(Boolean), ...Object.keys(deptPerms)])].sort((a, b) => a.localeCompare(b, 'ko'));
+    // 직원이 한 명도 없는 부서(예전에 저장해 둔 부서 권한)는 자동으로 지움 — 사용자 목록을 정상으로 읽었을 때만
+    const live = new Set(rows.map(dpDeptOf).filter(Boolean));
+    const stale = rows.length ? Object.keys(deptPerms).filter(d => !live.has(d)) : [];
+    if(stale.length){
+      stale.forEach(d => { delete deptPerms[d]; });
+      try{ await saveDeptPerms(); await writeLog('perm_dept', `인원이 0명인 부서 권한 자동 삭제: ${stale.join(', ')}`); toast(`직원이 없는 부서 ${stale.length}곳(${stale.join(', ')})은 목록에서 자동으로 지웠습니다`); }
+      catch(e){ console.error(e); }
+    }
+    const depts = [...live].sort((a, b) => a.localeCompare(b, 'ko'));
     // 사용자별 표의 부서 필터 목록
     const fsel = document.getElementById('admin-perms-dept-filter');
     if(fsel){
@@ -14077,7 +14149,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     wrap.innerHTML = '';
     if(!depts.length){ wrap.innerHTML = '<div class="empty">부서가 지정된 사용자가 없습니다. 사용자 관리에서 직원의 부서를 먼저 입력해주세요.</div>'; return; }
     const table = document.createElement('table');
-    table.innerHTML = '<thead><tr><th>부서</th><th>인원</th><th>발주자동화</th><th>원물선별</th><th>마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>적용</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>부서</th><th>인원</th><th>발주자동화</th><th>생산/물류</th><th>송장/명세서</th><th>원물선별</th><th>마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>적용</th></tr></thead>';
     const tbody = document.createElement('tbody');
     depts.forEach(dept => {
       const members = rows.filter(u => dpDeptOf(u) === dept);
@@ -14118,14 +14190,14 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         try{
           const res = await applyDeptPerm(dept, targets, preset);
           await writeLog('perm_dept', `${dept} 부서 권한 일괄 적용: ${res.ok}명 성공${res.fail ? ', ' + res.fail + '명 실패' : ''}${res.skipped ? ', ' + res.skipped + '명 제외' : ''} (${dpDescribe(preset)})`);
-          if(res.fail) alert(`${res.ok}명에게 적용했고 ${res.fail}명은 적용하지 못했습니다. Supabase users 테이블에 권한 컬럼(access_order / access_sorting / sorting_master_edit / access_files / access_cost / access_sample / readonly_*)이 모두 있는지 확인해주세요.`);
+          if(res.fail) alert(`${res.ok}명에게 적용했고 ${res.fail}명은 적용하지 못했습니다. Supabase users 테이블에 권한 컬럼(access_order / access_sorting / sorting_master_edit / access_files / access_cost / access_sample / readonly_*)이 모두 있는지, 생산/물류·송장/명세서를 바꾸는 경우 「권한_생산물류_송장명세서_SQL.sql」을 실행했는지 확인해주세요.`);
           else toast(`${dept} 부서 ${res.ok}명에게 권한을 적용했습니다${res.skipped ? ` (본인 ${res.skipped}명은 발주자동화 차단이라 제외)` : ''}. 해당 직원은 새로고침하거나 다시 로그인하면 적용됩니다`);
         }catch(e){ console.error(e); toast('적용하지 못했습니다: ' + (e.message || e)); }
         finally{ loadAdminPerms(); }
       });
       act.append(btn, st);
       tr.append(nameTd, cntTd,
-        td(mkSel(DP_LEVELS, preset.order, 'order')), td(mkSel(DP_LEVELS, preset.sorting, 'sorting')),
+        td(mkSel(DP_LEVELS, preset.order, 'order')), td(mkSel(DP_SUB, preset.plan, 'plan')), td(mkSel(DP_SUB, preset.invoice, 'invoice')), td(mkSel(DP_LEVELS, preset.sorting, 'sorting')),
         td(mkSel([['false', '⛔ 차단'], ['true', '✅ 허용']], String(preset.master), 'master')),
         td(mkSel(DP_LEVELS, preset.files, 'files')),
         td(mkSel([['false', '⛔ 차단'], ['true', '✅ 열람']], String(preset.cost), 'cost')),
@@ -14144,7 +14216,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       try{ await renderDeptPerms(rows); }catch(e){ console.error(e); }
       const rowsView = permsDeptFilter ? rows.filter(u => dpDeptOf(u) === permsDeptFilter) : rows;
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화</th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">발주 입력·집계/출고·실적·설정·이카운트</div></th><th>생산/물류<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>송장/명세서<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rowsView.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
@@ -14212,6 +14284,29 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         }
 
         cells[2].appendChild(makeLevel('order', accessOrder));
+        // 생산/물류 · 송장/명세서: 발주자동화와 따로 줄 수 있는 세부 권한 ('발주자동화 따름'이면 예전과 같음)
+        const makeSub = (label, field) => {
+          if(u.role === 'admin'){
+            const span = document.createElement('span');
+            span.textContent = '전체 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);';
+            return span;
+          }
+          const cur = ['none', 'read', 'full'].includes(u[field]) ? u[field] : 'inherit';
+          const sel = document.createElement('select');
+          sel.style.cssText = 'font-size:13px; padding:4px 6px;';
+          DP_SUB.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; if(v === cur) o.selected = true; sel.appendChild(o); });
+          sel.addEventListener('change', async () => {
+            const next = sel.value;
+            const res = await apiUpdateUser(u.id, { [field]: next === 'inherit' ? null : next });
+            if(!res.ok){ alert(DP_SQL_NOTE); sel.value = cur; return; }
+            await writeLog('perm_change', `${u.username} ${label} 권한: ${cur} → ${next}`);
+            loadAdminPerms();
+          });
+          return sel;
+        };
+        const tdPlan = document.createElement('td'), tdInv = document.createElement('td');
+        tdPlan.appendChild(makeSub('생산/물류', 'perm_plan')); tdInv.appendChild(makeSub('송장/명세서', 'perm_invoice'));
+        tr.insertBefore(tdPlan, cells[3]); tr.insertBefore(tdInv, cells[3]);
         cells[3].appendChild(makeLevel('sorting', accessSorting));
         cells[4].appendChild(makeToggle(masterEdit, 'sorting_master_edit', '✅ 허용', '⛔ 차단'));
         cells[5].appendChild(makeLevel('files', accessFiles));
@@ -14285,7 +14380,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
           await loadDeptPerms(true);
           if(deptPerms[dept]){
             const all = await apiUsersAdmin(), nu = all.find(x => x.username === username);
-            const r = nu ? await apiUpdateUser(nu.id, dpFields(deptPerms[dept])) : { ok: false };
+            const r = nu ? await apiUpdateUser(nu.id, dpFields(deptPerms[dept], nu)) : { ok: false };
             deptNote = r.ok ? ` · ${dept} 부서 권한을 자동 적용했습니다` : ` · 부서 권한은 적용하지 못했습니다(권한 관리에서 [부서 전체에 적용])`;
             if(r.ok) await writeLog('perm_dept', `${username} 신규 생성: ${dept} 부서 권한 자동 적용`);
           }
@@ -15070,7 +15165,6 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     }catch(e){ return ''; }
   }
 
-  const PB_REFRESH_MS = 10 * 60 * 1000;
   async function poBoardCollect(dateKey){
     if(!productionTemplateB64) throw new Error('발주취합 서식이 등록되지 않았습니다. 서식을 먼저 등록해주세요');
     const ctx = await poLoadTemplate(productionTemplateB64);
@@ -15252,7 +15346,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   }
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
-  let pbPrev = null, pbTimer = null, pbTick = null, pbNextAt = 0, pbKiosk = false, pbLast = null, pbErr = '';
+  let pbPrev = null, pbLast = null, pbErr = '';
   function poBoardHtml(m, prev){
     const e = escapeHtml;
     const chg = (key, L, v) => (prev && prev[key + '|' + L] !== undefined && prev[key + '|' + L] !== v) ? ' pb-chg' : '';
@@ -15338,10 +15432,9 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const el = document.getElementById('pb-foot');
     if(!el) return;
     const t = d => d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : '-';
-    const left = Math.max(0, Math.round((pbNextAt - Date.now()) / 1000));
-    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>${pbKiosk ? '10분마다 자동으로 서버에서 다시 불러옵니다' : '화면 보기 모드 (자동 새로고침은 TV용 주소에서 동작)'}${pbKiosk ? `<br>다음 새로고침까지 ${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초` : ''}${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
+    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>[지금 새로고침]을 누르면 서버의 최신 입력 내용을 불러옵니다${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
   }
-  // 서버에서 최신 발주 데이터를 다시 불러옴 (TV용 화면에서만: 다른 화면에서 입력 중인 내용을 덮어쓰지 않도록)
+  // 서버에서 최신 발주 데이터를 다시 불러옴 ([지금 새로고침] 버튼)
   async function poBoardReload(){
     const get = async k => { const r = await window.storage.get(k, true); return r ? r.value : null; };
     const jp = (v, d) => { try{ return v ? JSON.parse(v) : d; }catch(e){ return d; } };
@@ -15378,40 +15471,29 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       pbErr = '새로고침 실패 — 이전 화면을 유지합니다 (' + (e.message || e) + ')';
       if(!pbPrev) body.innerHTML = `<div class="pb-empty">${escapeHtml(e.message || String(e))}</div>`;
     }
-    pbNextAt = Date.now() + PB_REFRESH_MS;
     poBoardFit(); poBoardFoot();
   }
-  function poBoardOpen(kiosk){
+  function poBoardOpen(){
     const el = document.getElementById('po-board');
-    el.style.display = 'flex'; pbKiosk = !!kiosk; pbPrev = null; pbLast = null; pbErr = '';
-    document.getElementById('pb-close').style.display = kiosk ? 'none' : '';
+    el.style.display = 'flex'; pbPrev = null; pbLast = null; pbErr = '';
     document.body.style.overflow = 'hidden';
     poBoardRefresh(false);
-    clearTimeout(pbTimer); clearInterval(pbTick);
-    if(kiosk){
-      const loop = async () => { await poBoardRefresh(true); pbTimer = setTimeout(loop, PB_REFRESH_MS); };
-      pbTimer = setTimeout(loop, PB_REFRESH_MS);
-    }
-    pbTick = setInterval(poBoardFoot, 1000);
     // 현황판은 같은 페이지 위에 뜨는 화면이라, 뒤로가기를 누르면 현황판이 아니라 이전 페이지(상세페이지 등)로 나가 버림 → 열 때 기록을 한 칸 만들어 두고, 뒤로가기는 현황판 닫기로 처리
-    if(!kiosk && !pbPushed){ try{ history.pushState({ pbBoard: 1 }, ''); pbPushed = true; }catch(e){ /* 기록을 못 만들어도 현황판은 정상 동작 */ } }
+    if(!pbPushed){ try{ history.pushState({ pbBoard: 1 }, ''); pbPushed = true; }catch(e){ /* 기록을 못 만들어도 현황판은 정상 동작 */ } }
   }
   let pbPushed = false;
   function poBoardClose(fromPop){
     document.getElementById('po-board').style.display = 'none';
     document.body.style.overflow = '';
-    clearTimeout(pbTimer); clearInterval(pbTick);
     if(pbPushed){ pbPushed = false; if(fromPop !== true){ try{ history.back(); }catch(e){ /* 무시 */ } } }   // 버튼·Esc로 닫으면 만들어 둔 기록도 되돌림
   }
   window.addEventListener('popstate', () => { if(pbPushed && document.getElementById('po-board').style.display !== 'none') poBoardClose(true); else pbPushed = false; });
   window.addEventListener('resize', () => { if(document.getElementById('po-board').style.display !== 'none') poBoardFit(); });
-  document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && !pbKiosk && document.getElementById('po-board').style.display !== 'none') poBoardClose(); });
-  document.getElementById('po-board-btn').addEventListener('click', () => poBoardOpen(false));
-  document.getElementById('po-board-tv-btn').addEventListener('click', () => { window.open(location.pathname + '?board=1', '_blank'); });
-  document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(pbKiosk));
+  document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && document.getElementById('po-board').style.display !== 'none') poBoardClose(); });
+  document.getElementById('po-board-btn').addEventListener('click', () => poBoardOpen());
+  { const b2 = document.getElementById('po-board-btn-plan'); if(b2) b2.addEventListener('click', () => poBoardOpen()); }
+  document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(true));
   document.getElementById('pb-close').addEventListener('click', () => poBoardClose());
-  // TV용 주소(?board=1)로 열면 로그인 후 바로 현황판만 표시
-  window.__openBoardIfKiosk = () => { if(new URLSearchParams(location.search).get('board') === '1') poBoardOpen(true); };
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
   (async ()=>{
@@ -15420,7 +15502,6 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       if(ok){
         showApp();
         await loadState();
-        if(window.__openBoardIfKiosk) window.__openBoardIfKiosk();
       } else {
         showLoginScreen();
       }
