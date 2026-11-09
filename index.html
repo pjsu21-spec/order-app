@@ -1653,7 +1653,7 @@
     <h3 style="margin-top:14px;">거래처별 품목 단가 설정</h3>
     <div class="sub" style="margin:0 0 8px;">거래처 관리에서 구분이 설정된 업체만 표시됩니다.</div>
     <div class="row" style="margin:0 0 6px;">
-      <input type="search" id="price-search-input" class="view-ctl" placeholder="업체 검색" style="min-width:160px; flex:0 1 200px;">
+      <input type="search" id="price-search-input" class="view-ctl" placeholder="업체명·코드 검색" title="업체명 또는 거래처 코드(일부만 입력해도 됨)로 찾습니다" style="min-width:160px; flex:0 1 200px;">
       <select id="price-cat-filter" class="view-ctl" title="발주 구분으로 걸러 보기 (직거래·SP·도매 …)"></select>
       <select id="price-region-filter" class="view-ctl" title="지역으로 걸러 보기"></select>
       <select id="price-sort" class="view-ctl" title="정렬 기준"></select>
@@ -4772,7 +4772,7 @@ function goHome() {
   function refreshPriceViewOptions(){
     viewFillSelect(document.getElementById('price-cat-filter'), [['', '발주 구분 전체'], ...companyCategoryOptions().map(c => [c, c])]);
     viewFillSelect(document.getElementById('price-region-filter'), [['', '지역 전체'], ['수도권', '수도권'], ['지방', '지방'], [VIEW_NONE, '(지역 미지정)']]);
-    viewFillSelect(document.getElementById('price-sort'), COMPANY_SORT_OPTS.filter(o => ['', 'name', 'cat', 'region', 'market'].includes(o[0])));
+    viewFillSelect(document.getElementById('price-sort'), COMPANY_SORT_OPTS.filter(o => ['', 'name', 'cat', 'region', 'market', 'code'].includes(o[0])));
   }
   function priceViewState(){
     return { raw: viewVal('price-search-input'), q: viewKey(viewVal('price-search-input')), cat: viewVal('price-cat-filter'), region: viewVal('price-region-filter'), flag: '', sort: viewVal('price-sort') };
@@ -4981,7 +4981,7 @@ function goHome() {
 
     // 헤더 1행: 그룹 단위로 병합 + 개별 품목
     const groupHeaderRow = document.createElement('tr');
-    groupHeaderRow.innerHTML = '<th class="name-cell" rowspan="2">업체명</th>';
+    groupHeaderRow.innerHTML = '<th class="name-cell" rowspan="2">업체명</th><th rowspan="2" title="이카운트 거래처 코드">코드</th>';
 
     // 그룹이 있으면 그룹 헤더 표시
     if(hasGroups){
@@ -5034,7 +5034,7 @@ function goHome() {
       });
     } else {
       // 그룹 없으면 단순 헤더 (업체명 칸 포함)
-      subHeaderRow.innerHTML = '<th class="name-cell">업체명</th>';
+      subHeaderRow.innerHTML = '<th class="name-cell">업체명</th><th title="이카운트 거래처 코드">코드</th>';
       dict.forEach(d=>{
         const th = document.createElement('th');
         th.style.fontSize = '10px';
@@ -5091,6 +5091,7 @@ function goHome() {
     bulkName.textContent = `⬇ 표시된 ${shown.length}곳 한꺼번에`;
     bulkName.title = '위쪽 조건(구분·지역·검색)에 맞아 지금 표에 보이는 업체 전체에 단가를 한꺼번에 넣습니다';
     bulkTr.appendChild(bulkName);
+    { const bc = document.createElement('td'); bc.style.background = '#fff4d6'; bulkTr.appendChild(bc); }
     if(hasGroups){
       Object.entries(groups).forEach(([gName, items])=>{
         bulkTr.appendChild(bulkCell(items.map(d=>d.id), `${gName} 그룹 전체 품목(${items.length}개)`, 80, '그룹'));
@@ -5110,6 +5111,10 @@ function goHome() {
       nameTd.textContent = companyDisplayName(company);
       nameTd.title = [company.category, company.region].filter(Boolean).join(' · ');
       tr.appendChild(nameTd);
+      const codeTd = document.createElement('td');
+      codeTd.className = 'price-code'; codeTd.textContent = company.code || '';
+      codeTd.style.cssText = 'font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;';
+      tr.appendChild(codeTd);
 
       // 그룹별 처리
       if(hasGroups){
