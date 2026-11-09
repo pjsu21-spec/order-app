@@ -15476,7 +15476,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const el = document.getElementById('pb-foot');
     if(!el) return;
     const t = d => d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : '-';
-    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>[지금 새로고침]을 누르면 서버의 최신 입력 내용을 불러옵니다${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
+    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>${PB_AUTO_MS / 60000}분마다 자동 새로고침 · [지금 새로고침]을 누르면 바로 불러옵니다${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
   }
   // 서버에서 최신 발주 데이터를 다시 불러옴 ([지금 새로고침] 버튼)
   async function poBoardReload(){
@@ -15517,16 +15517,32 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     }
     poBoardFit(); poBoardFoot();
   }
+  // 현황판을 켜 둔 동안 5분마다 서버의 최신 값을 자동으로 다시 불러옴 (이전 새로고침이 아직 진행 중이면 건너뜀)
+  const PB_AUTO_MS = 5 * 60 * 1000;
+  let pbTimer = null, pbBusy = false;
+  window.__PB_AUTO_MS = PB_AUTO_MS;
+  function poBoardAutoStop(){ if(pbTimer){ clearInterval(pbTimer); pbTimer = null; } }
+  function poBoardAutoStart(){
+    poBoardAutoStop();
+    pbTimer = setInterval(async () => {
+      if(document.getElementById('po-board').style.display === 'none'){ poBoardAutoStop(); return; }
+      if(pbBusy) return;
+      pbBusy = true;
+      try{ await poBoardRefresh(true); }finally{ pbBusy = false; }
+    }, PB_AUTO_MS);
+  }
   function poBoardOpen(){
     const el = document.getElementById('po-board');
     el.style.display = 'flex'; pbPrev = null; pbLast = null; pbErr = '';
     document.body.style.overflow = 'hidden';
     poBoardRefresh(false);
+    poBoardAutoStart();
     // 현황판은 같은 페이지 위에 뜨는 화면이라, 뒤로가기를 누르면 현황판이 아니라 이전 페이지(상세페이지 등)로 나가 버림 → 열 때 기록을 한 칸 만들어 두고, 뒤로가기는 현황판 닫기로 처리
     if(!pbPushed){ try{ history.pushState({ pbBoard: 1 }, ''); pbPushed = true; }catch(e){ /* 기록을 못 만들어도 현황판은 정상 동작 */ } }
   }
   let pbPushed = false;
   function poBoardClose(fromPop){
+    poBoardAutoStop();
     document.getElementById('po-board').style.display = 'none';
     document.body.style.overflow = '';
     if(pbPushed){ pbPushed = false; if(fromPop !== true){ try{ history.back(); }catch(e){ /* 무시 */ } } }   // 버튼·Esc로 닫으면 만들어 둔 기록도 되돌림
