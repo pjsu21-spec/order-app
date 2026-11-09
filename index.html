@@ -220,63 +220,69 @@
   .sp-stock-row.open{ display:table-row; }
   .sp-stock-row > td{ background:var(--paper); }
   .sp-grid{ font-size:12px; width:auto; }
-  /* 생산 현황판 (TV 표시용) */
-  #po-board .pb-info{ display:flex; gap:20px; align-items:flex-start; margin-bottom:8px; }
-  #po-board .pb-raw{ font-size:22px; font-weight:800; color:#9fe0b0; padding:6px 14px; border:1px solid #2a3858; border-radius:8px; background:#10192e; white-space:nowrap; }
+  /* 생산 현황판 (TV 표시용) — 흰 배경, 품목별 색 구분(엑셀 발주서와 같은 색), 제목·새로고침 정보는 오른쪽 칸 */
+  #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:row; background:#fff; color:#1a2233; font-family:inherit; }
+  #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:10px 8px 10px 14px; display:flex; justify-content:center; align-items:flex-start; }
+  #po-board .pb-side{ flex:0 0 236px; display:flex; flex-direction:column; gap:10px; padding:14px 14px 12px; background:#f3f5f9; border-left:1px solid #d5dbe8; }
+  #po-board .pb-title{ font-size:24px; font-weight:800; letter-spacing:.3px; line-height:1.25; }
+  #po-board .pb-date{ font-size:19px; font-weight:700; color:#1f5fbf; line-height:1.3; }
+  #po-board .pb-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  #po-board .pb-actions button{ background:#fff; color:#1a2233; border:1px solid #b9c3d6; border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  #po-board .pb-notes{ flex:1 1 auto; overflow:hidden; color:#c0392b; font-size:14px; font-weight:600; line-height:1.4; }
+  #po-board .pb-notes div{ margin-bottom:6px; }
+  #po-board .pb-legend{ color:#1a2233 !important; font-weight:600; }
+  #po-board .pb-legend .pb-ysamp{ display:inline-block; background:#ffee00; padding:0 8px; border-radius:3px; margin-right:4px; font-weight:800; }
+  #po-board .pb-legend .sub2{ color:#5a6a88; font-weight:500; font-size:13px; }
+  #po-board .pb-foot{ flex:0 0 auto; padding:10px 0 0; border-top:1px solid #d5dbe8; font-size:13px; color:#4a5a78; line-height:1.5; }
+  #po-board .pb-empty{ font-size:28px; color:#4a5a78; padding:60px; }
+  #po-board .pb-info{ display:flex; flex-wrap:wrap; gap:12px 20px; align-items:flex-start; margin-bottom:8px; width:0; min-width:100%; }
+  #po-board .pb-info > *{ flex:0 0 auto; }
+  #po-board .pb-raw{ font-size:22px; font-weight:800; color:#1e7a3c; padding:6px 14px; border:1px solid #cfe0d3; border-radius:8px; background:#f4f9f5; white-space:nowrap; }
   .pb-ship{ border-collapse:collapse; font-size:15px; }
-  .pb-ship th, .pb-ship td{ border:1px solid #2a3858; padding:3px 10px; white-space:nowrap; }
-  .pb-ship th{ background:#16233f; color:#bcd0f5; font-weight:700; }
+  .pb-ship th, .pb-ship td{ border:1px solid #c3cde0; padding:3px 10px; white-space:nowrap; }
+  .pb-ship th{ background:#e9eef8; color:#2a3a5c; font-weight:700; }
   .pb-ship td.n{ text-align:right; font-variant-numeric:tabular-nums; font-size:18px; }
-  #po-board .pb-seq{ border:1px solid #2a3858; border-radius:8px; background:#10192e; padding:6px 12px; min-width:220px; }
-  #po-board .pb-seq-t{ font-size:15px; font-weight:800; color:#8fb4ff; margin-bottom:3px; }
-  #po-board .pb-seq-r{ font-size:20px; color:#e8efff; white-space:nowrap; padding:1px 0; }
-  #po-board .pb-seq-n{ display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#2c4a8a; color:#fff; font-size:14px; font-weight:800; margin-right:8px; }
-  #po-board .pb-seq-time{ color:#9fe0b0; margin-right:8px; font-variant-numeric:tabular-nums; }
-  #po-board .pb-req{ border:2px solid #ff6b5e; border-radius:8px; background:#2a1315; padding:6px 12px; min-width:220px; max-width:420px; }
-  #po-board .pb-req-t{ font-size:15px; font-weight:800; color:#ff8a80; margin-bottom:3px; }
-  #po-board .pb-req-r{ font-size:20px; font-weight:700; color:#ffe3df; padding:1px 0; white-space:nowrap; }
+  .pb-ship .pb-sname{ font-weight:800; color:#111; font-size:17px; }
+  #po-board .pb-seq{ border:1px solid #bcd0f0; border-radius:8px; background:#f1f6ff; padding:6px 12px; min-width:220px; }
+  #po-board .pb-seq-t{ font-size:15px; font-weight:800; color:#2c5aa0; margin-bottom:3px; }
+  #po-board .pb-seq-r{ font-size:20px; color:#12233f; white-space:nowrap; padding:1px 0; }
+  #po-board .pb-seq-n{ display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#2c5aa0; color:#fff; font-size:14px; font-weight:800; margin-right:8px; }
+  #po-board .pb-seq-time{ color:#1e7a3c; margin-right:8px; font-variant-numeric:tabular-nums; }
+  #po-board .pb-req{ border:2px solid #d6453a; border-radius:8px; background:#fff1ef; padding:6px 12px; min-width:220px; max-width:420px; }
+  #po-board .pb-req-t{ font-size:15px; font-weight:800; color:#c0392b; margin-bottom:3px; }
+  #po-board .pb-req-r{ font-size:20px; font-weight:700; color:#5a1410; padding:1px 0; white-space:nowrap; }
   #po-board .pb-req-n{ display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:#d6453a; color:#fff; font-size:14px; font-weight:800; margin-right:8px; }
-  #po-board .pb-var{ border:1px solid #2a5a3c; border-radius:8px; background:#0f2218; padding:6px 12px; min-width:200px; }
-  #po-board .pb-var-t{ font-size:15px; font-weight:800; color:#7fe0a0; margin-bottom:3px; }
-  #po-board .pb-var-r{ font-size:20px; font-weight:700; color:#dcffe8; padding:1px 0; white-space:nowrap; }
-  .pb-ship .pb-sname{ font-weight:800; color:#fff; font-size:17px; }
-  .pb-table .pb-ph{ background:#16233f; color:#fff; font-size:15px; text-align:center; }
-  .pb-table .pb-p{ font-size:14px; color:#d7e3ff; background:#0e1628; text-align:center; white-space:normal; max-width:240px; }
-  .pb-table .pb-pstock{ color:#ffd98a; text-align:left; white-space:pre-line; }
-  .pb-table .pb-pnote{ color:#ffb3a8; text-align:left; }
+  #po-board .pb-var{ border:1px solid #9ccdab; border-radius:8px; background:#eefaf1; padding:6px 12px; min-width:200px; }
+  #po-board .pb-var-t{ font-size:15px; font-weight:800; color:#1e7a3c; margin-bottom:3px; }
+  #po-board .pb-var-r{ font-size:20px; font-weight:700; color:#0f3d20; padding:1px 0; white-space:nowrap; }
+  .pb-table .pb-ph{ background:#e9eef8; color:#1a2233; font-size:15px; text-align:center; }
+  .pb-table .pb-p{ font-size:14px; color:#1a2233; background:#fff; text-align:center; white-space:normal; max-width:240px; }
+  .pb-table .pb-pstock{ color:#b45f00; text-align:left; white-space:pre-line; }
+  .pb-table .pb-pnote{ color:#c0392b; text-align:left; }
   .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
-  #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#0b1220; color:#e8eefc; font-family:inherit; }
-  #po-board .pb-head{ display:flex; align-items:center; gap:18px; padding:10px 22px; background:#111a2e; border-bottom:1px solid #26334f; flex:0 0 auto; }
-  #po-board .pb-title{ font-size:26px; font-weight:800; letter-spacing:.5px; }
-  #po-board .pb-date{ font-size:22px; font-weight:700; color:#8ec5ff; }
-  #po-board .pb-actions{ margin-left:auto; display:flex; gap:8px; }
-  #po-board .pb-actions button{ background:#1d2b4a; color:#e8eefc; border:1px solid #34476e; border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; }
-  #po-board .pb-notes{ flex:0 0 auto; padding:0 22px; color:#ff9e91; font-size:15px; font-weight:600; }
-  #po-board .pb-body{ flex:1 1 auto; overflow:hidden; padding:10px 14px; display:flex; justify-content:center; align-items:flex-start; }
-  #po-board .pb-foot{ flex:0 0 auto; padding:8px 22px; background:#111a2e; border-top:1px solid #26334f; font-size:15px; color:#9fb0d0; }
-  #po-board .pb-empty{ font-size:28px; color:#9fb0d0; padding:60px; }
-  .pb-table{ border-collapse:collapse; font-size:16px; white-space:nowrap; }
-  .pb-table th, .pb-table td{ border:1px solid #2a3858; padding:4px 10px; }
-  .pb-table .pb-corner{ background:#16233f; font-size:20px; }
-  .pb-table .pb-g{ color:#fff; font-size:17px; font-weight:800; text-align:center; }
-  .pb-table .pb-h{ color:#fff; font-size:15px; font-weight:700; text-align:center; min-width:64px; white-space:normal; }
+  .pb-table{ border-collapse:collapse; font-size:16px; white-space:nowrap; color:#111; background:#fff; }
+  .pb-table th, .pb-table td{ border:1px solid #b8c2d6; padding:4px 10px; }
+  .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; }
+  .pb-table .pb-g{ color:#111; font-size:17px; font-weight:800; text-align:center; }
+  .pb-table .pb-h{ color:#111; font-size:15px; font-weight:700; text-align:center; min-width:64px; white-space:normal; }
   .pb-table .pb-n{ text-align:right; font-variant-numeric:tabular-nums; font-size:20px; min-width:64px; }
-  .pb-table .pb-lbl{ text-align:right; font-weight:700; color:#bcd0f5; background:#14213a; }
-  .pb-table .pb-sum .pb-big{ font-size:30px; font-weight:800; color:#ffe27a; background:#1b2744; }
-  .pb-table .pb-sum2 .pb-n{ background:#121c33; }
-  .pb-table .pb-dim{ color:#8fa3c8; font-size:15px; }
-  .pb-table .pb-neg{ color:#ff7b72; font-weight:800; }
-  .pb-table .pb-cat{ background:#1a2a4d; font-weight:800; text-align:center; font-size:17px; }
-  .pb-table .pb-reg{ color:#a9bde6; font-size:14px; background:#10192e; }
-  .pb-table .pb-name{ font-weight:700; font-size:19px; background:#10192e; }
-  .pb-table .pb-row .pb-n{ background:#0e1628; }
-  .pb-table .pb-subtotal td{ background:#17233f; font-weight:700; }
-  .pb-table .pb-subtotal .pb-n{ color:#9fd0ff; }
-  .pb-table .pb-sec td{ background:#3a2a52; font-weight:800; font-size:17px; padding:6px 10px; }
-  .pb-table .pb-grand td{ background:#1f3358; font-weight:800; font-size:22px; }
-  .pb-table .pb-grand .pb-n{ color:#ffe27a; font-size:26px; }
-  .pb-table td.pb-chg{ animation:pbflash 3s ease-in-out 3; background:#7a4b00 !important; color:#fff; }
-  @keyframes pbflash{ 50%{ background:#d98200; } }
+  .pb-table .pb-lbl{ text-align:right; font-weight:700; color:#34415c; background:#eef1f7; }
+  .pb-table .pb-sum .pb-big{ font-size:30px; font-weight:800; color:#111; }
+  .pb-table .pb-sum2 .pb-n{ background:#fafbfd; }
+  .pb-table .pb-dim{ color:#6f7f9f; font-size:15px; }
+  .pb-table .pb-neg{ color:#d32f2f; font-weight:800; }
+  .pb-table .pb-cat{ background:#e4eaf6; color:#1a2233; font-weight:800; text-align:center; font-size:17px; }
+  .pb-table .pb-reg{ color:#4a5a78; font-size:14px; background:#f7f9fc; }
+  .pb-table .pb-name{ font-weight:700; font-size:19px; background:#fff; color:#111; }
+  .pb-table .pb-name.pb-ychg{ background:#ffee00; }
+  .pb-table .pb-row .pb-n{ background:#fff; }
+  .pb-table .pb-subtotal td{ background:#eaf0fb; font-weight:700; }
+  .pb-table .pb-subtotal .pb-n{ color:#111; }
+  .pb-table .pb-sec td{ background:#ece3f7; font-weight:800; font-size:17px; padding:6px 10px; color:#3a2a52; }
+  .pb-table .pb-grand td{ background:#dfe7f5; font-weight:800; font-size:22px; }
+  .pb-table .pb-grand .pb-n{ color:#111; font-size:26px; }
+  .pb-table td.pb-chg{ animation:pbflash 3s ease-in-out 3; outline:3px solid #ff9800; outline-offset:-3px; }
+  @keyframes pbflash{ 50%{ filter:brightness(.8); } }
   .empty{ color:var(--muted); font-size:13px; padding:20px; text-align:center; }
   .small-btn{ padding:4px 8px; font-size:11.5px; }
   .totals-col{ background:#f7f4ea; font-weight:700; }
@@ -2461,14 +2467,16 @@ function goHome() {
 }
 </script>
 <div id="po-board">
-  <div class="pb-head">
-    <div class="pb-title">🏭 생산 발주 현황</div>
-    <div class="pb-date" id="pb-date"></div>
-    <div class="pb-actions"><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
-  </div>
-  <div class="pb-notes" id="pb-notes"></div>
   <div class="pb-body" id="pb-body"><div id="pb-fit"></div></div>
-  <div class="pb-foot" id="pb-foot"></div>
+  <div class="pb-side">
+    <div>
+      <div class="pb-title">🏭 생산 발주 현황</div>
+      <div class="pb-date" id="pb-date"></div>
+    </div>
+    <div class="pb-actions"><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
+    <div class="pb-notes" id="pb-notes"></div>
+    <div class="pb-foot" id="pb-foot"></div>
+  </div>
 </div>
 <script>
 (function(){
@@ -15089,6 +15097,8 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     ensureCarryOver(dateKey);   // 현황판은 읽기만 하므로 저장하지 않고 계산값을 채워서 표시
     const built = buildProductionOrderEntries({ dict, companies, orders, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: cm, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
     addQcSampleEntry(built, cm);
+    let draftInfo = null;   // 초안 공유본과 비교해 수정·추가된 업체를 노란색으로 표시 (발주취합 파일과 같은 기준)
+    { const snap = await draftLoad(dateKey); if(snap) draftInfo = Object.assign(draftCompare(built, snap), { at: snap.at, by: snap.by }); }
     const saved = skuColumnMap;
     let res;
     try{
@@ -15115,9 +15125,11 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const pc = poPanelCols(ctx);
     const pt = (col, r) => col ? clean(poText(ctx, col + r)) : '';        // 화면에 보이는 값 (위아래로 합쳐진 칸은 대표 칸 값)
     const pr = (col, r) => col ? clean(poRawText(ctx, col + r)) : '';     // 칸 자신의 값 (배차정보 시트의 집계가 보는 값)
+    const changedRows = (res.rep && res.rep.changedRows) || new Set();
     const mkRow = r => {
       const qty = Object.fromEntries(cols.map(c => [c.L, num(c.L, r.row)]));
       return {
+        changed: changedRows.has(r.row),
         key: 'r' + r.row, cat: r.categoryRaw || '', region: clean(poText(ctx, 'C' + r.row)), name: clean(poText(ctx, 'F' + r.row)) || clean(poText(ctx, 'E' + r.row)) || clean(poText(ctx, 'D' + r.row)),
         qty, boxes: cols.reduce((a, c) => a + qty[c.L], 0), drop: clean(poText(ctx, 'D' + r.row)),
         p: { driver: pt(pc.driver, r.row), load: pt(pc.load, r.row), stock: pt(pc.stock, r.row), note: pt(pc.note, r.row) },
@@ -15162,7 +15174,81 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     // 사용 원물량: 서식 위쪽(B3)의 원물사용량 수식을 오늘 합계로 계산 (수식이 없거나 못 읽으면 표시 안 함)
     const rawUse = poEvalConcat(poFormulaText(ctx, 'B3'), total, Y.totalsRow).replace(/\s{2,}/g, '   ').trim();
     const pp = ppBoardData(dateKey);
-    return { dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+    const colors = await poBoardColors(ctx, cols);
+    return { colors, draft: draftInfo, dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+  }
+
+  // ── 현황판 색: 엑셀 발주서(서식)와 같은 품목별·묶음별 색 ──
+  // 품목 열 색 = 서식의 조건부 서식 중 "열의 값이 0보다 크면 칠하기" 규칙의 색(가장 많이 쓰인 색). 묶음(투맛토·투래곤후르츠 …) 색 = 서식 머리글 칸의 채우기 색.
+  // 못 읽으면 null → 화면에서 묶음별 고정 색으로 대신함.
+  const pbHexToHsl = hex => { const n = parseInt(hex, 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0, s = 0; const l = (mx + mn) / 2; if(mx !== mn){ const d = mx - mn; s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; } return [h, s, l]; };
+  const pbHslToHex = ([h, s, l]) => { const f = (p, q, t) => { if(t < 0) t += 1; if(t > 1) t -= 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }; let r, g, b; if(!s){ r = g = b = l; } else { const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q; r = f(p, q, h + 1 / 3); g = f(p, q, h); b = f(p, q, h - 1 / 3); } return [r, g, b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('').toUpperCase(); };
+  const pbTint = (hex, tint) => { const [h, s, l] = pbHexToHsl(hex); return pbHslToHex([h, s, tint < 0 ? l * (1 + tint) : l * (1 - tint) + tint]); };   // 엑셀의 색조(tint) 계산
+  async function poBoardColors(ctx, cols){
+    const out = { cols: {}, groups: {} };
+    try{
+      const parse = x => new DOMParser().parseFromString(x, 'application/xml');
+      const stF = ctx.zip.file('xl/styles.xml');
+      if(!stF) return out;
+      const st = parse(await stF.async('string'));
+      // 테마 색 (엑셀 순서: 0 밝은1, 1 어두운1, 2 밝은2, 3 어두운2, 4~9 강조1~6)
+      let theme = ['FFFFFF', '000000', 'E7E6E6', '44546A', '5B9BD5', 'ED7D31', 'A5A5A5', 'FFC000', '4472C4', '70AD47'];
+      const thF = ctx.zip.file('xl/theme/theme1.xml');
+      if(thF){
+        const tx = await thF.async('string'), g = n => { const m = new RegExp('<a:' + n + '>\\s*<a:(?:srgbClr val|sysClr val="[^"]*" lastClr)="([0-9A-Fa-f]{6})"').exec(tx); return m ? m[1].toUpperCase() : null; };
+        const arr = ['lt1', 'dk1', 'lt2', 'dk2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6'].map(g);
+        if(arr.every(Boolean)) theme = arr;
+      }
+      const resolve = el => {
+        if(!el) return null;
+        let hex = null;
+        if(el.getAttribute('rgb')) hex = el.getAttribute('rgb').slice(-6).toUpperCase();
+        else if(el.getAttribute('theme') !== null && el.getAttribute('theme') !== '') hex = theme[+el.getAttribute('theme')] || null;
+        if(!hex) return null;
+        const tint = parseFloat(el.getAttribute('tint'));
+        return tint ? pbTint(hex, tint) : hex;
+      };
+      // 품목 열: "열 값 > 0" 조건부 서식의 채우기 색
+      const dxfs = [...st.getElementsByTagName('dxf')];
+      const count = {};
+      [...ctx.doc.getElementsByTagName('cfRule')].forEach(r => {
+        const fe = r.getElementsByTagName('formula')[0], m = fe && /^\$?([A-Z]{1,3})\$?\d+>0$/.exec((fe.textContent || '').trim());
+        if(!m) return;
+        const dx = dxfs[+r.getAttribute('dxfId')], bg = dx && dx.getElementsByTagName('bgColor')[0], hex = resolve(bg);
+        if(!hex || hex === 'FFFFFF') return;
+        const c = count[m[1]] = count[m[1]] || {};
+        c[hex] = (c[hex] || 0) + 1;
+      });
+      cols.forEach(c => { const o = count[c.L]; if(o) out.cols[c.L] = Object.entries(o).sort((a, b) => b[1] - a[1])[0][0]; });
+      const Y = poLayout(ctx);
+      const fills = [...st.getElementsByTagName('fills')[0].childNodes].filter(n => n.localName === 'fill');
+      const xfs = [...st.getElementsByTagName('cellXfs')[0].childNodes].filter(n => n.localName === 'xf');
+      const fillOf = addr => { const cell = ctx.cells.get(addr), xf = cell && xfs[Number(cell.getAttribute('s')) || 0], fill = xf && fills[Number(xf.getAttribute('fillId')) || 0]; const hex = fill && resolve(fill.getElementsByTagName('fgColor')[0]); return hex && hex !== 'FFFFFF' ? hex : null; };
+      // 서식 위쪽의 품목별 범례("□스테비아 : …" 줄)의 칸 색이 가장 정확한 품목 색 → 열 머리글의 맛 이름과 맞춰 우선 사용
+      const nk = t => String(t || '').replace(/[□\s()（）]/g, '').replace(/투맛토|향|\d+g|\d+kg/gi, '').toLowerCase();
+      const legend = [];
+      for(let r = 1; r < 40; r++){
+        const t = poText(ctx, 'B' + r).trim();
+        if(poNorm(t) === '구분') break;   // 표 머리글 위쪽(범례 영역)만
+        if(!t.startsWith('□')) continue;
+        const key = nk(t.split(':')[0]), hex = fillOf('B' + r);
+        if(key && hex) legend.push({ key, hex });
+      }
+      cols.forEach(c => {
+        const k = nk(c.header); if(!k) return;
+        const hit = legend.find(l => l.key === k) || legend.find(l => l.key.length >= 2 && (k.includes(l.key) || l.key.includes(k)));
+        if(hit) out.cols[c.L] = hit.hex;
+      });
+      // 서로 다른 품목이 같은 색이 되면 알아보기 쉽도록 뒤쪽 열의 색을 조금씩 어둡게
+      const seen = {};
+      cols.forEach(c => { let h = out.cols[c.L]; if(!h) return; let n = 0; while(seen[h] && n < 6){ h = pbTint(h, -0.1); n++; } seen[h] = true; out.cols[c.L] = h; });
+      // 묶음 머리글 색: 서식 머리글 칸의 채우기
+      [...new Set(cols.map(c => c.gid).filter(g => g > 0))].forEach(gid => {
+        const hex = fillOf(colLetter(gid - 1) + Y.groupRow);
+        if(hex) out.groups[gid] = hex;
+      });
+    }catch(e){ console.error(e); }
+    return out;
   }
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
@@ -15171,14 +15257,21 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const e = escapeHtml;
     const chg = (key, L, v) => (prev && prev[key + '|' + L] !== undefined && prev[key + '|' + L] !== v) ? ' pb-chg' : '';
     const hue = gid => (Math.abs(gid) * 47) % 360;
+    // 품목 색(서식과 같은 색): 열마다 서식의 색, 못 읽은 열은 묶음별 고정 색
+    const colM = m.colors || { cols: {}, groups: {} };
+    const baseOf = c => '#' + (colM.cols[c.L] || pbHslToHex([hue(c.gid) / 360, .55, .88]));
+    const deepOf = hex => '#' + pbTint(hex.slice(1), -0.1);
+    const groupOf = c => '#' + (colM.groups[c.gid] || pbHslToHex([hue(c.gid) / 360, .5, .72]));
+    const textOn = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) < 140 ? '#fff' : '#111'; };
     // 묶음 머리글 행 (같은 묶음의 연속된 열을 합침)
     let g1 = '', i = 0;
     while(i < m.cols.length){
       let j = i; while(j + 1 < m.cols.length && m.cols[j + 1].gid === m.cols[i].gid) j++;
-      g1 += `<th colspan="${j - i + 1}" class="pb-g" style="background:hsl(${hue(m.cols[i].gid)},55%,32%)">${e(m.cols[i].group.replace(/\s*\/\s*/g, ' ') || '')}</th>`;
+      const gc = groupOf(m.cols[i]);
+      g1 += `<th colspan="${j - i + 1}" class="pb-g" style="background:${gc};color:${textOn(gc)}">${e(m.cols[i].group.replace(/\s*\/\s*/g, ' ') || '')}</th>`;
       i = j + 1;
     }
-    const heads = m.cols.map(c => `<th class="pb-h" style="background:hsl(${hue(c.gid)},40%,22%)">${e(c.header)}</th>`).join('');
+    const heads = m.cols.map(c => `<th class="pb-h" style="background:${deepOf(baseOf(c))}">${e(c.header)}</th>`).join('');
     const fixed = 3;
     // 오른쪽 칸: 납품담당 · 적재방식 · 재고사용 · 비고 (서식에 해당 칸이 있을 때만)
     const P = m.hasPanel ? 4 : 0;
@@ -15201,9 +15294,9 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       html += '</div>';
     }
     html += `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner">업체</th>${g1}${pHead}</tr><tr>${heads}</tr></thead><tbody>`;
-    const cell = (key, L, v, cls) => `<td class="pb-n${cls || ''}${chg(key, L, v)}" data-k="${e(key)}|${L}" data-v="${v}">${pbFmt(v)}</td>`;
+    const cell = (key, L, v, cls, bg) => `<td class="pb-n${cls || ''}${chg(key, L, v)}" data-k="${e(key)}|${L}" data-v="${v}"${bg ? ` style="background:${bg}"` : ''}>${pbFmt(v)}</td>`;
     // 요약: 총 발주(박스·팩), 전일재고, 출고 후 재고
-    html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big')).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big', m.total[c.L] > 0 ? baseOf(c) : '')).join('')}${pBlank}</tr>`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">팩 수</td>${m.cols.map(c => `<td class="pb-n pb-dim">${c.unit && m.total[c.L] ? Math.round(m.total[c.L] * c.unit) + '팩' : ''}</td>`).join('')}${pBlank}</tr>`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">전일재고 (박스)</td>${m.cols.map(c => cell('stock', c.L, m.stock[c.L])).join('')}${pBlank}</tr>`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
@@ -15215,18 +15308,18 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         const p = r.p || {};
         const next = /명일/.test(p.note || '');
         const pCells = P ? `<td class="pb-p">${e(p.driver || '')}</td><td class="pb-p">${e(p.load || '')}</td><td class="pb-p pb-pstock">${e(p.stock || '')}</td><td class="pb-p pb-pnote">${e(p.note || '')}</td>` : '';
-        html += `<tr class="pb-row">${first ? `<td rowspan="${span}" class="pb-cat">${e(r.cat)}</td>` : ''}<td class="pb-reg">${e(r.region)}</td><td class="pb-name">${e(r.name)}${next ? '<span class="pb-badge">명일</span>' : ''}</td>${m.cols.map(c => cell(r.key, c.L, r.qty[c.L])).join('')}${pCells}</tr>`;
+        html += `<tr class="pb-row">${first ? `<td rowspan="${span}" class="pb-cat">${e(r.cat)}</td>` : ''}<td class="pb-reg">${e(r.region)}</td><td class="pb-name${r.changed ? ' pb-ychg' : ''}">${e(r.name)}${next ? '<span class="pb-badge">명일</span>' : ''}</td>${m.cols.map(c => cell(r.key, c.L, r.qty[c.L], '', r.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${pCells}</tr>`;
       });
-      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(b.sub[c.L])}</td>`).join('')}${pBlank}</tr>`;
+      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n"${b.sub[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(b.sub[c.L])}</td>`).join('')}${pBlank}</tr>`;
     });
     if(m.dispatch.length){
       html += `<tr class="pb-sec"><td colspan="${fixed + m.cols.length + P}">출고일 지정 주문 (쿠팡 등)</td></tr>`;
       m.dispatch.forEach(d => {
-        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L])).join('')}${pBlank}</tr>`;
+        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L], '', d.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${pBlank}</tr>`;
       });
-      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.disp[c.L])}</td>`).join('')}${pBlank}</tr>`;
+      html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n"${m.disp[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(m.disp[c.L])}</td>`).join('')}${pBlank}</tr>`;
     }
-    html += `<tr class="pb-grand"><td colspan="${fixed}" class="pb-lbl">합계</td>${m.cols.map(c => `<td class="pb-n">${pbFmt(m.total[c.L])}</td>`).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-grand"><td colspan="${fixed}" class="pb-lbl">합계</td>${m.cols.map(c => `<td class="pb-n"${m.total[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(m.total[c.L])}</td>`).join('')}${pBlank}</tr>`;
     html += '</tbody></table>';
     return html;
   }
@@ -15236,7 +15329,9 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     fit.style.zoom = 1;
     const w = fit.offsetWidth, h = fit.offsetHeight;
     if(!w || !h) return;
-    const s = Math.max(0.4, Math.min(3, Math.min(body.clientWidth / w, body.clientHeight / h)));
+    const cs = getComputedStyle(body);   // 안쪽 여백을 뺀 실제 표시 영역에 맞춤 (아래쪽 합계 줄이 잘리지 않게)
+    const aw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const s = Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
     fit.style.zoom = s;
   }
   function poBoardFoot(){
@@ -15244,7 +15339,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     if(!el) return;
     const t = d => d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : '-';
     const left = Math.max(0, Math.round((pbNextAt - Date.now()) / 1000));
-    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b> · ${pbKiosk ? '10분마다 자동으로 서버에서 다시 불러옵니다' : '화면 보기 모드 (자동 새로고침은 TV용 주소에서 동작)'}${pbKiosk ? ` · 다음 새로고침까지 ${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초` : ''}${pbErr ? ` · <span style="color:#ff8a80">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
+    el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>${pbKiosk ? '10분마다 자동으로 서버에서 다시 불러옵니다' : '화면 보기 모드 (자동 새로고침은 TV용 주소에서 동작)'}${pbKiosk ? `<br>다음 새로고침까지 ${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초` : ''}${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
   }
   // 서버에서 최신 발주 데이터를 다시 불러옴 (TV용 화면에서만: 다른 화면에서 입력 중인 내용을 덮어쓰지 않도록)
   async function poBoardReload(){
@@ -15270,7 +15365,13 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       pbPrev = prev;
       const [y, mo, da] = currentDateKey.split('-').map(Number);
       document.getElementById('pb-date').textContent = `${y}년 ${mo}월 ${da}일 (${PO_DAYS[new Date(y, mo - 1, da).getDay()]}) 납품`;
-      const nt = document.getElementById('pb-notes'); nt.innerHTML = m.notes.map(n => `<div>⚠ ${escapeHtml(n)}</div>`).join('');
+      const nt = document.getElementById('pb-notes');
+      let legend = '';
+      if(m.draft){
+        const dt = new Date(m.draft.at), hm = isNaN(dt) ? '' : `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+        legend = `<div class="pb-legend"><span class="pb-ysamp">노란색</span> 초안 공유본(${hm}) 이후 수정·추가된 업체 ${m.draft.changed.length}곳${m.draft.removed.length ? `<div class="sub2">초안에는 있었으나 지금은 없는 업체: ${escapeHtml(m.draft.removed.join(', '))}</div>` : ''}</div>`;
+      }
+      nt.innerHTML = legend + m.notes.map(n => `<div>⚠ ${escapeHtml(n)}</div>`).join('');
       if(!m.cols.length) body.innerHTML = '<div class="pb-empty">이 날짜에는 발주 데이터가 없습니다</div>';
       pbErr = ''; pbLast = new Date();
     }catch(e){
