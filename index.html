@@ -1152,7 +1152,7 @@
           <button class="tab-btn active" id="stm-tab-offline">오프라인 (직거래·도매·SP 등)</button>
           <button class="tab-btn" id="stm-tab-online">온라인 (3PL)</button>
         </div>
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">위쪽 탭에서 <b>오프라인</b>(3PL이 아닌 업체)과 <b>온라인</b>(3PL 업체)을 나눠서 봅니다. 당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 판매입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">위쪽 탭에서 <b>오프라인</b>(3PL이 아닌 업체)과 <b>온라인</b>(3PL 업체)을 나눠서 봅니다. 당일 집계된 발주를 업체별 거래명세서 1장으로 만들어 JPG로 저장합니다. 품목·수량·단가·택배비 과세 처리는 이카운트 매출입력 엑셀과 같은 기준입니다. 일련번호는 날짜별로 1, 2, 3…이 자동 부여되며 다시 만들어도 번호가 바뀌지 않습니다.</div></details>
         <div class="row" style="margin-top:0;">
           <span style="font-size:13px;">대상 일자 : <b id="stm-date"></b></span>
           <button class="btn-ghost small-btn" id="stm-refresh-btn">↻ 새로고침</button>
@@ -1624,9 +1624,9 @@
   </div>
   <div class="card">
     <details open>
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 판매입력 엑셀 다운로드</summary>
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
       <div style="margin-top:10px;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 판매입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div></details>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;">다운로드 일자 :</label>
       <select id="ecount-date-select" style="min-width:230px;"></select>
@@ -1646,7 +1646,7 @@
       <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
     </div>
     <div class="row">
-      <button class="btn-primary small-btn" id="export-ecount-btn">이카운트 엑셀 다운로드</button>
+      <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
 
@@ -7253,7 +7253,7 @@ function goHome() {
     document.getElementById(id).addEventListener('change', saveEcountSettings);
   });
 
-  // 이카운트 엑셀 다운로드 일자: 기본은 발주 입력의 배송일자, 목록에서 과거 일자를 고를 수 있음
+  // 매출 엑셀 다운로드 일자: 기본은 발주 입력의 배송일자, 목록에서 과거 일자를 고를 수 있음
   function ecountDateKey(){ return document.getElementById('ecount-date-select').value || currentDateKey; }
     function ecountDateText(key){ const KO_DOW = ['일','월','화','수','목','금','토']; const d = new Date(key + 'T00:00:00'); return isNaN(d) ? key : `${key}(${KO_DOW[d.getDay()]})`; }
   function ecountCompanyCount(key){ return Object.keys(ordersByDate[key] || {}).filter(n => n !== '_meta').length; }
@@ -7269,7 +7269,7 @@ function goHome() {
     sel.value = pastKeys.includes(prev) ? prev : '';
     const key = ecountDateKey();
     const n = ecountCompanyCount(key);
-    document.getElementById('export-ecount-btn').textContent = `${ecountDateText(key)} 이카운트 엑셀 다운로드`;
+    document.getElementById('export-ecount-btn').textContent = `${ecountDateText(key)} 매출 엑셀 다운로드`;
     document.getElementById('ecount-date-warn').textContent = n === 0 ? '※ 이 일자에는 집계된 발주가 없습니다' : (key !== currentDateKey ? '※ 과거 일자 — 현재 설정된 단가·택배비로 계산됩니다' : '');
   }
   document.getElementById('ecount-date-select').addEventListener('mousedown', renderEcountDateSelect);
@@ -7374,7 +7374,7 @@ function goHome() {
     });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '판매입력');
-    XLSX.writeFile(wb, `이카운트_판매입력_${dateLabel.replace(/-/g,'')}.xlsx`);
+    XLSX.writeFile(wb, `이카운트_매출입력_${dateLabel.replace(/-/g,'')}.xlsx`);
 
     // ── 매출 집계 자동 저장 ──
     // 이카운트 다운로드 시점의 단가/수량으로 일자별 매출을 기록
@@ -7399,9 +7399,9 @@ function goHome() {
         else salesByDate[dateLabel][companyName].push(entry);
       });
       await window.storage.set('sales-by-date', JSON.stringify(salesByDate), true);
-      toast(`이카운트 엑셀 다운로드 완료 — ${dateLabel} 매출 집계에 자동 저장됐습니다`);
+      toast(`매출 엑셀 다운로드 완료 — ${dateLabel} 매출 집계에 자동 저장됐습니다`);
     }catch(e){
-      toast('이카운트 판매입력 엑셀이 다운로드되었습니다');
+      toast('이카운트 매출입력 엑셀이 다운로드되었습니다');
       console.error('매출 저장 오류:', e);
     }
   });
@@ -7409,7 +7409,7 @@ function goHome() {
 
 
   // ══════════════════ 3PL 거래명세서 (JPG) ══════════════════
-  // 당일 집계(이카운트 판매입력과 같은 기준)를 업체별 1장으로 만들어 JPG로 저장한다.
+  // 당일 집계(이카운트 매출입력과 같은 기준)를 업체별 1장으로 만들어 JPG로 저장한다.
   //  - 업체 정보(상호·전화)는 이카운트 거래처 엑셀로 불러온다. 업체 주소는 넣지 않는다.
   //  - 일련번호는 'YYYY/MM/DD -N' (날짜별 1,2,3…). 한 번 부여한 번호는 다시 만들어도 유지한다.
   const STM_DEFAULTS = {
@@ -7471,7 +7471,7 @@ function goHome() {
   async function stmSaveSeq(){ try{ await window.storage.set('statement-seq', JSON.stringify(stmSeq), true); }catch(e){ console.error(e); } }
   const stmSeqLabel = (dateLabel, n) => `${dateLabel.replace(/-/g, '/')} -${n}`;
 
-  // 택배비 건수(업체·사이즈별) — 이카운트 판매입력과 같은 방식
+  // 택배비 건수(업체·사이즈별) — 이카운트 매출입력과 같은 방식
   function stmFeeCounts(){
     const out = {};
     const tracked = currentLineItems().filter(r => r.trackingNo && r.trackingNo.trim());
