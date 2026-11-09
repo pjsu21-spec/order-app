@@ -214,6 +214,19 @@
   .pp-fold:not([open]) > summary{ padding-bottom:2px; }
   .pp-fold .pp-sumhint{ font-size:12px; font-weight:400; color:var(--muted); }
   .pp-fold[open] .pp-sumhint{ display:none; }
+  /* 자재·재고 관리 */
+  .mat-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:2px 0; }
+  .mat-tabs button{ border:1px solid var(--line); background:var(--paper); color:var(--fg); border-radius:16px; padding:5px 14px; font-size:13px; cursor:pointer; }
+  .mat-tabs button.on{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
+  .mat-t{ border-collapse:collapse; font-size:13px; }
+  .mat-t th, .mat-t td{ border:1px solid var(--line); padding:4px 8px; vertical-align:middle; }
+  .mat-t th{ background:var(--paper); font-weight:700; text-align:center; white-space:nowrap; }
+  .mat-t td.n{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mat-low{ color:#c0392b; font-weight:700; }
+  .mat-ok{ color:#1e7a3c; }
+  .mat-bomd{ border:1px solid var(--line); border-radius:8px; margin:6px 0; padding:6px 10px; }
+  .mat-bomd > summary{ cursor:pointer; font-weight:600; }
+  .mat-dirty{ background:#fff4d6; border:1px solid var(--accent); border-radius:8px; padding:6px 12px; margin:0 0 8px; font-size:13px; }
   .pp-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:4px 0; }
   .pp-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
   .pp-chip{ border:1px solid var(--line); background:var(--paper); color:var(--fg); border-radius:14px; padding:3px 10px; font-size:12.5px; cursor:pointer; }
@@ -1665,11 +1678,28 @@
     </details>
   </div>
 
-  <div class="card">
-    <details>
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 구매입력 (원물 구매) — 준비 중</summary>
+  <div class="card" id="mat-card">
+    <details id="mat-fold">
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">📦 자재·재고 관리 (정전개 / 역전개 · 구매입력)</summary>
       <div style="margin-top:10px;">
-        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">원물선별의 사입(타사 구매) 내역을 이카운트 구매입력 양식으로 내려받는 기능은 추후 추가 예정입니다.</div></details>
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">
+          <b>정전개</b>: 제품(SKU) 1팩을 만들 때 쓰는 자재(트레이·스티커·방울토마토 원물·습지·외박스·향료 등)와 소요량을 등록합니다. 반제품을 거치면 <b>반제품 → 자재</b>로 한 단계 더 전개합니다. 계획 수량을 넣으면 필요한 자재 총량과 부족분(구매 필요량)을 계산합니다.<br>
+          <b>역전개</b>: 자재를 고르면 그 자재가 쓰이는 제품(반제품 경유 포함)과 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.<br>
+          <b>재고</b>는 입고·로스·사용·조정 기록의 합계입니다. 신규 자재가 들어오면 <b>입고·수불</b>에서 구매 입력(입고)을 하고, 실제 재고와 다르면 <b>재고 현황</b>에서 실사 수량을 넣어 맞춥니다. 파손·손망실은 <b>로스</b>로 기록합니다.<br>
+          원물(방울토마토)은 자재 마스터에서 <b>원물선별 입고 연동</b>을 켜면, 시작일 이후 원물선별에 입력한 원물입고·사입 kg이 자동으로 재고에 더해집니다(이중 입력 없음).<br>
+          ※ 출고 수량에 따른 자동 차감과 이카운트 구매입력 엑셀 다운로드는 다음 단계에서 추가됩니다.</div></details>
+        <div class="row" style="margin:6px 0;">
+          <div class="mat-tabs" id="mat-tabs">
+            <button type="button" data-mt="stock" class="on">재고 현황</button>
+            <button type="button" data-mt="bom">정전개 (제품→자재)</button>
+            <button type="button" data-mt="rev">역전개 (자재→제품)</button>
+            <button type="button" data-mt="led">입고·수불</button>
+            <button type="button" data-mt="master">자재 마스터</button>
+          </div>
+          <button type="button" class="btn-ghost small-btn" id="mat-reload">↻ 새로고침</button>
+          <span class="sub" id="mat-msg" style="margin:0;"></span>
+        </div>
+        <div id="mat-body"></div>
       </div>
     </details>
   </div>
@@ -15554,6 +15584,490 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   { const b2 = document.getElementById('po-board-btn-plan'); if(b2) b2.addEventListener('click', () => poBoardOpen()); }
   document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(true));
   document.getElementById('pb-close').addEventListener('click', () => poBoardClose());
+
+  // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
+  // 제품(SKU) 1팩을 만들 때 쓰는 자재를 정전개로 등록하고, 자재를 고르면 쓰이는 제품을 역전개로 확인한다.
+  // 재고 = 수불 기록(입고·로스·사용·조정)의 합계. 원물은 원물선별 입고·사입 kg을 자동으로 더할 수 있다.
+  // 저장(kv_store, 공유): mat-master(자재 목록) · mat-bom(제품/반제품별 구성) · mat-led-YYYY-MM(수불 기록, 월별)
+  const MAT_K_MASTER = 'mat-master', MAT_K_BOM = 'mat-bom', MAT_K_LED = 'mat-led-';
+  const MAT_KIND = { raw: '원자재', semi: '반제품' };
+  const MAT_TYPES = { in: '입고(구매)', loss: '로스(파손·손망실)', use: '사용(수기)', adj: '재고조정' };
+  const MAT = { loaded: false, loading: false, err: '', master: { items: [] }, mdraft: [], bom: {}, led: [], rawIn: {}, rawErr: '', tab: 'stock', bomDirty: false, mdirty: false, plan: {}, calc: null, openP: new Set(), stockQ: '', stockLow: false, stockOff: false, revMat: '', ledMat: '', ledDays: 30, ledVoid: false };
+  const matEl = id => document.getElementById(id);
+  const matJp = (v, d) => { try{ return v ? JSON.parse(v) : d; }catch(e){ return d; } };
+  const matN = n => (Math.round((Number(n) || 0) * 10000) / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
+  const matRid = p => p + Math.random().toString(36).slice(2, 10);
+  function matParseQty(s){   // 0.25 또는 1/4 처럼 분수도 입력 가능
+    s = String(s == null ? '' : s).trim().replace(/,/g, '');
+    if(!s) return null;
+    const f = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(s);
+    if(f){ const d = Number(f[2]); return d ? Number(f[1]) / d : null; }
+    const v = Number(s);
+    return isFinite(v) ? v : null;
+  }
+  const matItems = withOff => MAT.master.items.filter(i => withOff || !i.off);
+  const matById = id => MAT.master.items.find(i => i.id === id);
+  const matLabel = id => { const i = matById(id); return i ? i.name : '(삭제된 자재)'; };
+  const matUnitOf = id => (matById(id) || {}).unit || '';
+  const matProducts = () => (dict || []).map(d => ({ id: d.id, name: d.shortName || d.name, box: Number(d.boxUnitCount) || 0 }));
+  const matParentName = pid => { const p = matProducts().find(x => x.id === pid); if(p) return p.name; const m = matById(pid); return m ? m.name + ' (반제품)' : '(없음)'; };
+  const matUser = () => (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+  function matMsg(t, bad){ const e = matEl('mat-msg'); if(e){ e.textContent = t || ''; e.style.color = bad ? 'var(--danger,#c0392b)' : ''; } }
+  function matStockMap(){
+    const m = {};
+    MAT.led.forEach(e => { if(e.void) return; m[e.m] = (m[e.m] || 0) + (Number(e.q) || 0); });
+    Object.entries(MAT.rawIn).forEach(([id, kg]) => { m[id] = (m[id] || 0) + (Number(kg) || 0); });
+    Object.keys(m).forEach(k => { m[k] = Math.round(m[k] * 10000) / 10000; });
+    return m;
+  }
+  const matLossMul = l => 1 + (Number(l && l.l) || 0) / 100;
+  const matGoodLines = pid => (MAT.bom[pid] || []).filter(l => l.m && Number(l.q) > 0);
+
+  // 지금 재고로 만들 수 있는 최대 수량(반제품은 재고 + 만들 수 있는 양까지 계산). 구성이 없으면 null
+  function matPossible(pid, sm, depth){
+    depth = depth || 0;
+    const lines = matGoodLines(pid);
+    if(!lines.length || depth > 6) return null;
+    let best = Infinity, lim = '';
+    lines.forEach(l => {
+      const per = Number(l.q) * matLossMul(l);
+      let avail = Math.max(0, sm[l.m] || 0);
+      const it = matById(l.m);
+      if(it && it.kind === 'semi'){ const sub = matPossible(l.m, sm, depth + 1); if(sub) avail += sub.packs; }
+      const n = Math.floor(avail / per + 1e-9);
+      if(n < best){ best = n; lim = l.m; }
+    });
+    return { packs: best, limit: lim };
+  }
+  // 계획 수량 {제품id: 팩} → 필요한 자재 총량. 반제품은 재고로 먼저 채우고 모자란 만큼만 아래 자재로 다시 전개
+  function matExplode(plan){
+    const avail = Object.assign({}, matStockMap()), need = {}, warn = [];
+    const walk = (pid, qty, depth) => {
+      if(depth > 6){ if(!warn.length) warn.push('구성이 너무 깊거나 서로 순환합니다'); return; }
+      matGoodLines(pid).forEach(l => {
+        const n = qty * Number(l.q) * matLossMul(l);
+        need[l.m] = (need[l.m] || 0) + n;
+        const it = matById(l.m);
+        if(it && it.kind === 'semi' && matGoodLines(l.m).length){
+          const use = Math.min(Math.max(avail[l.m] || 0, 0), n);
+          avail[l.m] = (avail[l.m] || 0) - use;
+          const net = n - use;
+          if(net > 1e-9) walk(l.m, net, depth + 1);
+        }
+      });
+    };
+    Object.entries(plan).forEach(([pid, q]) => { if(Number(q) > 0) walk(pid, Number(q), 0); });
+    return { need, warn };
+  }
+  // 자재가 쓰이는 제품 목록(반제품 경유 포함)
+  function matUsages(mid, mult, via, depth, out){
+    if(depth > 6) return;
+    Object.entries(MAT.bom).forEach(([pid, lines]) => {
+      (lines || []).forEach(l => {
+        if(l.m !== mid || !(Number(l.q) > 0)) return;
+        const per = mult * Number(l.q) * matLossMul(l);
+        const prod = matProducts().find(p => p.id === pid);
+        if(prod) out.push({ pid, name: prod.name, per, via });
+        else { const s = matById(pid); if(s) matUsages(pid, per, via.concat(s.name), depth + 1, out); }
+      });
+    });
+  }
+  function matWouldCycle(parent, child, depth){   // child 반제품 아래 어딘가에 parent가 있으면 순환
+    depth = depth || 0;
+    if(child === parent) return true;
+    if(depth > 8) return true;
+    return (MAT.bom[child] || []).some(l => l.m && matWouldCycle(parent, l.m, depth + 1));
+  }
+
+  // ── 저장·불러오기 ──
+  const matGet = async k => { const r = await window.storage.get(k, true); return r ? r.value : null; };
+  async function matLoadRaw(){
+    MAT.rawIn = {}; MAT.rawErr = '';
+    const linked = MAT.master.items.filter(i => i.link && i.from && !i.off);
+    for(const it of linked){
+      let sum = 0;
+      try{
+        for(const tbl of ['sorting_inbound', 'sorting_purchases']){
+          for(let off = 0; off <= 50000; off += 1000){
+            const rows = await sbQuery(tbl, `?work_date=gte.${it.from}&select=weight_kg&order=work_date&limit=1000&offset=${off}`);
+            (rows || []).forEach(r => { sum += Number(r.weight_kg) || 0; });
+            if(!rows || rows.length < 1000) break;
+          }
+        }
+        MAT.rawIn[it.id] = Math.round(sum * 100) / 100;
+      }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다: ' + ((e && e.message) || e); MAT.rawIn[it.id] = 0; }
+    }
+  }
+  async function matLoad(force){
+    if(MAT.loading || (MAT.loaded && !force)) return;
+    MAT.loading = true; MAT.err = ''; matMsg('불러오는 중…');
+    try{
+      const [m, b, ks] = await Promise.all([matGet(MAT_K_MASTER), matGet(MAT_K_BOM), window.storage.list(MAT_K_LED, true)]);
+      MAT.master = matJp(m, { items: [] }); if(!Array.isArray(MAT.master.items)) MAT.master.items = [];
+      const bd = matJp(b, { boms: {} }); MAT.bom = (bd && bd.boms) || {};
+      const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED)).sort();
+      const docs = await Promise.all(keys.map(matGet));
+      MAT.led = [];
+      docs.forEach(v => { const a = matJp(v, []); if(Array.isArray(a)) MAT.led.push(...a); });
+      MAT.mdraft = JSON.parse(JSON.stringify(MAT.master.items)); MAT.mdirty = false; MAT.bomDirty = false;
+      await matLoadRaw();
+      MAT.loaded = true; matMsg('');
+    }catch(e){
+      MAT.err = String((e && e.message) || e); matMsg('불러오기 실패: ' + MAT.err, true);
+    }
+    MAT.loading = false;
+    matRender();
+  }
+  // 수불 기록 추가·수정(같은 id는 덮어씀): 저장 직전에 서버의 월별 기록을 다시 읽어 합쳐서, 동시에 입력해도 서로 지우지 않게 함
+  async function matLedAdd(entries){
+    const byMonth = {};
+    entries.forEach(e => { const k = MAT_K_LED + String(e.d).slice(0, 7); (byMonth[k] = byMonth[k] || []).push(e); });
+    for(const [k, arr] of Object.entries(byMonth)){
+      const cur = matJp(await matGet(k), []);
+      const map = new Map((Array.isArray(cur) ? cur : []).map(x => [x.id, x]));
+      arr.forEach(e => map.set(e.id, e));
+      await window.storage.set(k, JSON.stringify([...map.values()]), true);
+    }
+    const lm = new Map(MAT.led.map(x => [x.id, x]));
+    entries.forEach(e => lm.set(e.id, e));
+    MAT.led = [...lm.values()];
+  }
+  async function matSaveBom(){
+    // 자재·소요량이 비었거나 같은 자재가 겹치면 저장하지 않음
+    const out = {};
+    for(const [pid, lines] of Object.entries(MAT.bom)){
+      const seen = new Set(), keep = [];
+      for(const l of (lines || [])){
+        if(!l.m && !(Number(l.q) > 0)) continue;   // 빈 줄은 버림
+        if(!l.m || !(Number(l.q) > 0)){ matMsg(`「${matParentName(pid)}」에 자재나 소요량이 비어 있는 줄이 있습니다`, true); return; }
+        if(seen.has(l.m)){ matMsg(`「${matParentName(pid)}」에 「${matLabel(l.m)}」이(가) 두 번 들어 있습니다`, true); return; }
+        seen.add(l.m); keep.push({ m: l.m, q: Number(l.q), l: Number(l.l) || 0 });
+      }
+      if(keep.length) out[pid] = keep;
+    }
+    try{
+      await window.storage.set(MAT_K_BOM, JSON.stringify({ boms: out }), true);
+      MAT.bom = out; MAT.bomDirty = false; matMsg('정전개 구성을 저장했습니다'); toast('정전개 구성 저장됨');
+    }catch(e){ matMsg('저장 실패: ' + ((e && e.message) || e), true); return; }
+    matRender();
+  }
+  async function matSaveMaster(){
+    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, link: !!r.link, from: r.link ? String(r.from || '') : '', off: !!r.off }));
+    const names = new Set();
+    for(const r of rows){
+      if(!r.name){ matMsg('이름이 비어 있는 자재가 있습니다', true); return; }
+      if(names.has(r.name)){ matMsg(`「${r.name}」이(가) 두 번 들어 있습니다`, true); return; }
+      names.add(r.name);
+      if(!r.unit){ matMsg(`「${r.name}」의 단위를 입력하세요 (예: 개, 장, kg, g, 박스)`, true); return; }
+      if(r.link && !/^\d{4}-\d{2}-\d{2}$/.test(r.from)){ matMsg(`「${r.name}」의 원물선별 입고 연동 시작일을 입력하세요`, true); return; }
+    }
+    if(rows.filter(r => r.link).length > 1){ matMsg('원물선별 입고 연동은 자재 한 가지에만 켤 수 있습니다', true); return; }
+    // 지워진 자재가 구성·수불에 쓰이고 있으면 막음 (대신 '사용 안 함')
+    const keepIds = new Set(rows.map(r => r.id));
+    for(const old of MAT.master.items){
+      if(keepIds.has(old.id)) continue;
+      const inBom = Object.entries(MAT.bom).some(([pid, ls]) => pid === old.id || (ls || []).some(l => l.m === old.id));
+      const inLed = MAT.led.some(e => e.m === old.id);
+      if(inBom || inLed){ matMsg(`「${old.name}」은(는) 정전개나 수불 기록에 쓰이고 있어 지울 수 없습니다. 지우는 대신 '사용 안 함'을 체크하세요`, true); return; }
+    }
+    try{
+      await window.storage.set(MAT_K_MASTER, JSON.stringify({ items: rows }), true);
+      MAT.master = { items: rows }; MAT.mdraft = JSON.parse(JSON.stringify(rows)); MAT.mdirty = false;
+      await matLoadRaw();
+      matMsg('자재 마스터를 저장했습니다'); toast('자재 마스터 저장됨');
+    }catch(e){ matMsg('저장 실패: ' + ((e && e.message) || e), true); return; }
+    matRender();
+  }
+
+  // ── 화면 ──
+  function matRender(){
+    const body = matEl('mat-body'); if(!body) return;
+    document.querySelectorAll('#mat-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mt === MAT.tab));
+    if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '아래 탭을 누르면 불러옵니다.'}</div>`; return; }
+    if(MAT.rawErr) matMsg(MAT.rawErr, true);
+    ({ stock: matRenderStock, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
+  }
+  const matOpt = (list, sel, ph) => (ph ? `<option value="">${escapeHtml(ph)}</option>` : '') + list.map(i => `<option value="${escapeHtml(i.id)}"${i.id === sel ? ' selected' : ''}>${escapeHtml(i.name)}${i.unit ? ' (' + escapeHtml(i.unit) + ')' : ''}</option>`).join('');
+
+  // 재고 현황
+  function matLastIn(id){ let d = ''; MAT.led.forEach(e => { if(!e.void && e.m === id && e.t === 'in' && e.d > d) d = e.d; }); return d; }
+  function matRenderStock(){
+    const body = matEl('mat-body');
+    body.innerHTML = `<div class="row" style="margin:0 0 6px;">
+      <input type="search" id="mat-s-q" placeholder="자재 검색" style="min-width:150px; flex:0 1 200px;" value="${escapeHtml(MAT.stockQ)}">
+      <label style="font-size:12.5px;"><input type="checkbox" id="mat-s-low"${MAT.stockLow ? ' checked' : ''}> 안전재고 미만만</label>
+      <label style="font-size:12.5px;"><input type="checkbox" id="mat-s-off"${MAT.stockOff ? ' checked' : ''}> 사용 안 함 포함</label>
+      <span id="mat-s-sum" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span></div>
+      <div id="mat-s-tbl" style="overflow-x:auto;"></div>
+      <h3 style="margin:16px 0 4px;">제품별 지금 재고로 만들 수 있는 수량</h3>
+      <div class="sub" style="margin:0 0 6px;">정전개에 등록된 제품만 표시됩니다. 가장 먼저 떨어지는 자재(병목)를 같이 보여 줍니다.</div>
+      <div id="mat-s-prod" style="overflow-x:auto;"></div>`;
+    const fill = () => {
+      const sm = matStockMap();
+      const all = matItems(MAT.stockOff);
+      const isLow = i => Number(i.safety) > 0 && (sm[i.id] || 0) < Number(i.safety);
+      const q = MAT.stockQ.trim().toLowerCase();
+      const items = all.filter(i => (!q || i.name.toLowerCase().includes(q)) && (!MAT.stockLow || isLow(i)));
+      matEl('mat-s-sum').textContent = `총 ${matItems(false).length}종 · 안전재고 미만 ${matItems(false).filter(isLow).length}종`;
+      const t = matEl('mat-s-tbl');
+      if(!all.length){ t.innerHTML = '<div class="sub">등록된 자재가 없습니다. <b>자재 마스터</b> 탭에서 자재(트레이·스티커·원물·습지·외박스·향료 등)를 먼저 등록하세요.</div>'; }
+      else if(!items.length){ t.innerHTML = '<div class="sub">조건에 맞는 자재가 없습니다.</div>'; }
+      else {
+        t.innerHTML = `<table class="mat-t"><thead><tr><th>자재</th><th>구분</th><th>현재고</th><th>안전재고</th><th>상태</th><th>최근 입고일</th><th>재고 실사 (실제 수량 입력)</th></tr></thead><tbody>${items.map(i => {
+          const cur = sm[i.id] || 0, low = isLow(i), rawn = MAT.rawIn[i.id];
+          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${i.link ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn || 0)}${escapeHtml(i.unit)} 포함 (${escapeHtml(i.from)}~)</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
+        }).join('')}</tbody></table>`;
+      }
+      const pt = matEl('mat-s-prod');
+      const prods = matProducts().filter(p => matGoodLines(p.id).length);
+      if(!prods.length){ pt.innerHTML = '<div class="sub">정전개가 등록된 제품이 없습니다. <b>정전개</b> 탭에서 제품별 자재를 등록하세요.</div>'; }
+      else {
+        pt.innerHTML = `<table class="mat-t"><thead><tr><th>제품</th><th>만들 수 있는 팩 수</th><th>병목 자재</th></tr></thead><tbody>${prods.map(p => { const r = matPossible(p.id, sm); return `<tr><td>${escapeHtml(p.name)}</td><td class="n${r.packs <= 0 ? ' mat-low' : ''}">${matN(r.packs)} 팩</td><td>${escapeHtml(matLabel(r.limit))}</td></tr>`; }).join('')}</tbody></table>`;
+      }
+    };
+    fill();
+    matEl('mat-s-q').addEventListener('input', e => { MAT.stockQ = e.target.value; fill(); });
+    matEl('mat-s-low').addEventListener('change', e => { MAT.stockLow = e.target.checked; fill(); });
+    matEl('mat-s-off').addEventListener('change', e => { MAT.stockOff = e.target.checked; fill(); });
+    matEl('mat-s-tbl').addEventListener('click', async ev => {
+      const btn = ev.target.closest('.mat-cnt-btn'); if(!btn) return;
+      const tr = btn.closest('tr'), id = tr.dataset.id, it = matById(id);
+      const v = matParseQty(tr.querySelector('.mat-cnt').value);
+      if(v == null || v < 0){ matMsg('실제 수량을 0 이상의 숫자로 입력하세요', true); return; }
+      const cur = matStockMap()[id] || 0, diff = Math.round((v - cur) * 10000) / 10000;
+      if(Math.abs(diff) < 1e-9){ matMsg(`「${it.name}」은(는) 이미 ${matN(cur)}${it.unit}으로 맞습니다`); return; }
+      btn.disabled = true;
+      try{
+        await matLedAdd([{ id: matRid('e'), d: getTodayKey(), m: id, t: 'adj', q: diff, note: `재고 실사 (전산 ${matN(cur)} → 실사 ${matN(v)})`, by: matUser(), ts: Date.now() }]);
+        matMsg(`「${it.name}」 재고를 ${matN(v)}${it.unit}으로 맞췄습니다 (${diff > 0 ? '+' : ''}${matN(diff)})`); toast('재고 실사 반영됨');
+      }catch(e){ matMsg('저장 실패: ' + ((e && e.message) || e), true); }
+      matRender();
+    });
+  }
+
+  // 정전개: 계획 수량 계산 + 제품/반제품별 구성 편집
+  function matRenderBom(){
+    const body = matEl('mat-body'), prods = matProducts(), semis = matItems(false).filter(i => i.kind === 'semi');
+    const items = matItems(false);
+    if(!items.length){ body.innerHTML = '<div class="sub">먼저 <b>자재 마스터</b> 탭에서 자재를 등록하세요.</div>'; return; }
+    const parents = prods.map(p => ({ id: p.id, name: p.name, box: p.box, semi: false })).concat(semis.map(s => ({ id: s.id, name: s.name + ' (반제품, 1' + (s.unit || '') + '당)', box: 0, semi: true })));
+    const sm = matStockMap();
+    const lineHtml = (pid, l, idx) => {
+      const opts = items.filter(i => i.id !== pid);
+      return `<tr data-p="${escapeHtml(pid)}" data-i="${idx}"><td><select class="mat-b-m">${matOpt(opts, l.m, '자재 선택')}</select></td><td><input type="text" class="mat-b-q" inputmode="decimal" placeholder="예: 0.25 또는 1/4" value="${l.q ? escapeHtml(String(l.q)) : ''}" style="width:130px;"> <span class="mat-b-u">${escapeHtml(matUnitOf(l.m))}</span></td><td><input type="text" class="mat-b-l" inputmode="decimal" placeholder="0" value="${Number(l.l) ? escapeHtml(String(l.l)) : ''}" style="width:60px;"> %</td><td><button type="button" class="btn-ghost small-btn mat-b-del" title="이 줄 삭제">✕</button></td></tr>`;
+    };
+    const calcRows = prods.filter(p => matGoodLines(p.id).length);
+    body.innerHTML = `<div id="mat-bom-wrap"><div id="mat-dirty" class="mat-dirty" style="display:${MAT.bomDirty ? 'flex' : 'none'}; align-items:center; gap:10px; flex-wrap:wrap;">저장하지 않은 변경이 있습니다. <button type="button" class="btn-primary small-btn" id="mat-bom-save">정전개 구성 저장</button></div>
+      <h3 style="margin:4px 0 4px;">자재 소요량 계산 (계획 수량 → 필요한 자재·부족분)</h3>
+      ${calcRows.length ? `<div class="sub" style="margin:0 0 6px;">생산(출고) 계획 팩 수를 입력하고 [계산]을 누르세요. 반제품은 재고를 먼저 쓰고 모자란 만큼만 자재로 다시 전개합니다.</div>
+      <div class="row" style="margin:0 0 6px;">${calcRows.map(p => `<label style="font-size:13px; display:flex; align-items:center; gap:4px;">${escapeHtml(p.name)} <input type="text" class="mat-plan" data-p="${escapeHtml(p.id)}" inputmode="numeric" style="width:70px;" value="${MAT.plan[p.id] ? escapeHtml(String(MAT.plan[p.id])) : ''}"> 팩</label>`).join('')}</div>
+      <div class="row" style="margin:0 0 6px;"><button type="button" class="btn-primary small-btn" id="mat-calc-btn">계산</button><button type="button" class="btn-ghost small-btn" id="mat-calc-ord">선택 날짜 발주 수량 불러오기</button><button type="button" class="btn-ghost small-btn" id="mat-calc-clr">비우기</button><span class="sub" id="mat-calc-hint" style="margin:0;"></span></div>
+      <div id="mat-calc" style="overflow-x:auto;"></div>` : '<div class="sub">정전개가 등록된 제품이 아직 없습니다. 아래에서 제품별 자재를 등록하면 여기서 소요량을 계산할 수 있습니다.</div>'}
+      <h3 style="margin:16px 0 4px;">제품·반제품별 정전개 (1팩/1단위를 만들 때 쓰는 자재)</h3>
+      <div class="sub" style="margin:0 0 6px;">제품을 눌러 펼치고 자재와 <b>1팩당 소요량</b>을 입력하세요. 외박스는 박스 입수(예: 4팩)가 있으면 <b>1/4</b>처럼 분수로 적어도 됩니다. 로스%는 불량·손실 여유분입니다(원물 선별 손실 등).</div>
+      <div id="mat-bom-list">${parents.map(p => {
+        const ls = MAT.bom[p.id] || [], pr = matPossible(p.id, sm);
+        return `<details class="mat-bomd" data-p="${escapeHtml(p.id)}"${MAT.openP.has(p.id) ? ' open' : ''}><summary>${escapeHtml(p.name)} <span class="sub" style="margin:0 0 0 6px;">구성 ${ls.filter(l => l.m).length}개${pr ? ` · 지금 ${matN(pr.packs)}${p.semi ? '' : '팩'} 생산 가능` : ''}</span></summary>
+          ${p.box ? `<div class="sub" style="margin:4px 0;">박스 입수 ${p.box}팩 → 외박스는 1/${p.box} 로 입력</div>` : ''}
+          <table class="mat-t" style="margin:6px 0;"><thead><tr><th>자재</th><th>${p.semi ? '1단위당' : '1팩당'} 소요량</th><th>로스</th><th></th></tr></thead><tbody>${ls.map((l, i) => lineHtml(p.id, l, i)).join('')}</tbody></table>
+          <button type="button" class="btn-ghost small-btn mat-b-add" data-p="${escapeHtml(p.id)}">+ 자재 추가</button></details>`;
+      }).join('')}</div></div>`;
+    const wrap = matEl('mat-bom-wrap');
+    const dirty = () => { MAT.bomDirty = true; const d = matEl('mat-dirty'); if(d) d.style.display = 'flex'; };
+    body.querySelectorAll('.mat-bomd').forEach(d => d.addEventListener('toggle', () => { if(d.open) MAT.openP.add(d.dataset.p); else MAT.openP.delete(d.dataset.p); }));
+    wrap.addEventListener('change', ev => {
+      const tr = ev.target.closest('tr[data-p]'); if(!tr) return;
+      const pid = tr.dataset.p, l = (MAT.bom[pid] || [])[Number(tr.dataset.i)]; if(!l) return;
+      if(ev.target.classList.contains('mat-b-m')){
+        const it = matById(ev.target.value);
+        if(it && it.kind === 'semi' && matWouldCycle(pid, it.id)){ matMsg(`「${it.name}」을(를) 넣으면 구성이 서로 순환합니다`, true); ev.target.value = l.m || ''; return; }
+        l.m = ev.target.value; tr.querySelector('.mat-b-u').textContent = matUnitOf(l.m); dirty();
+      } else if(ev.target.classList.contains('mat-b-q')){
+        const v = matParseQty(ev.target.value); l.q = v == null ? 0 : v; if(v != null) ev.target.value = String(Math.round(v * 100000) / 100000); dirty();
+      } else if(ev.target.classList.contains('mat-b-l')){ l.l = Math.max(0, Number(matParseQty(ev.target.value)) || 0); dirty(); }
+    });
+    wrap.addEventListener('click', ev => {
+      const add = ev.target.closest('.mat-b-add');
+      if(add){ const pid = add.dataset.p; (MAT.bom[pid] = MAT.bom[pid] || []).push({ m: '', q: 0, l: 0 }); MAT.openP.add(pid); MAT.bomDirty = true; matRender(); return; }
+      const del = ev.target.closest('.mat-b-del');
+      if(del){ const tr = del.closest('tr'), pid = tr.dataset.p; MAT.bom[pid].splice(Number(tr.dataset.i), 1); MAT.openP.add(pid); MAT.bomDirty = true; matRender(); return; }
+    });
+    const sv = matEl('mat-bom-save'); if(sv) sv.addEventListener('click', () => matSaveBom());
+    // 계산기
+    const readPlan = () => { const p = {}; body.querySelectorAll('.mat-plan').forEach(i => { const v = matParseQty(i.value); MAT.plan[i.dataset.p] = i.value; if(v > 0) p[i.dataset.p] = v; }); return p; };
+    const cb = matEl('mat-calc-btn');
+    if(cb){
+      cb.addEventListener('click', () => { const plan = readPlan(); if(!Object.keys(plan).length){ matEl('mat-calc').innerHTML = '<div class="sub">계획 수량을 하나 이상 입력하세요.</div>'; return; } matShowCalc(plan); });
+      matEl('mat-calc-clr').addEventListener('click', () => { MAT.plan = {}; body.querySelectorAll('.mat-plan').forEach(i => { i.value = ''; }); matEl('mat-calc').innerHTML = ''; matEl('mat-calc-hint').textContent = ''; });
+      matEl('mat-calc-ord').addEventListener('click', () => {
+        const tot = {}, day = (ordersByDate || {})[currentDateKey] || {};
+        Object.values(day).forEach(items2 => Object.entries(items2 || {}).forEach(([id, q]) => { tot[id] = (tot[id] || 0) + (Number(q) || 0); }));
+        let n = 0;
+        body.querySelectorAll('.mat-plan').forEach(i => { const q = tot[i.dataset.p]; if(q > 0){ i.value = String(q); MAT.plan[i.dataset.p] = String(q); n++; } else { i.value = ''; MAT.plan[i.dataset.p] = ''; } });
+        matEl('mat-calc-hint').textContent = n ? `${currentDateKey} 발주 입력 기준(팩)으로 채웠습니다 (정전개가 등록된 제품만)` : `${currentDateKey}에 정전개가 등록된 제품의 발주가 없습니다`;
+        if(n) matShowCalc(readPlan());
+      });
+      if(MAT.calc) matShowCalc(readPlan());
+    }
+  }
+  function matShowCalc(plan){
+    const box = matEl('mat-calc'); if(!box) return;
+    const { need, warn } = matExplode(plan), sm = matStockMap();
+    MAT.calc = true;
+    const ids = Object.keys(need).sort((a, b) => matLabel(a).localeCompare(matLabel(b), 'ko'));
+    if(!ids.length){ box.innerHTML = '<div class="sub">필요한 자재가 없습니다.</div>'; return; }
+    const rows = ids.map(id => {
+      const it = matById(id) || {}, n = need[id], cur = sm[id] || 0, short = Math.round((n - cur) * 10000) / 10000;
+      const semiNote = it.kind === 'semi' && matGoodLines(id).length;
+      return { id, it, n, cur, short, semiNote };
+    });
+    const lack = rows.filter(r => r.short > 1e-9);
+    box.innerHTML = `${warn.length ? `<div class="sub" style="color:var(--danger,#c0392b);">⚠ ${escapeHtml(warn[0])}</div>` : ''}
+      <div class="sub" style="margin:0 0 4px;"><b>${lack.length ? `부족 자재 ${lack.length}종` : '모든 자재 재고가 충분합니다'}</b></div>
+      <table class="mat-t"><thead><tr><th>자재</th><th>필요량</th><th>현재고</th><th>부족(구매·생산 필요)</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.it.name || matLabel(r.id))}${r.semiNote ? ' <span class="sub" style="margin:0;">(반제품 · 부족분은 아래 자재로 전개)</span>' : ''}</td><td class="n">${matN(r.n)} ${escapeHtml(r.it.unit || '')}</td><td class="n">${matN(r.cur)} ${escapeHtml(r.it.unit || '')}</td><td class="n${r.short > 1e-9 ? ' mat-low' : ' mat-ok'}">${r.short > 1e-9 ? matN(r.short) + ' ' + escapeHtml(r.it.unit || '') : '충분'}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  // 역전개: 자재 → 쓰이는 제품
+  function matRenderRev(){
+    const body = matEl('mat-body'), items = matItems(false);
+    if(!items.length){ body.innerHTML = '<div class="sub">먼저 <b>자재 마스터</b> 탭에서 자재를 등록하세요.</div>'; return; }
+    body.innerHTML = `<div class="row" style="margin:0 0 6px;"><label style="font-size:13px;">자재 선택 : <select id="mat-rev-sel" style="min-width:220px;">${matOpt(items, MAT.revMat, '자재를 고르세요')}</select></label></div><div id="mat-rev-out"></div>`;
+    const fill = () => {
+      const out = matEl('mat-rev-out'), id = MAT.revMat;
+      if(!id){ out.innerHTML = '<div class="sub">자재를 고르면 그 자재가 쓰이는 제품과 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.</div>'; return; }
+      const it = matById(id), cur = matStockMap()[id] || 0, rows = [];
+      matUsages(id, 1, [], 0, rows);
+      out.innerHTML = `<div class="sub" style="margin:0 0 6px;">「${escapeHtml(it.name)}」 현재고 <b>${matN(cur)} ${escapeHtml(it.unit)}</b>${Number(it.safety) > 0 ? ` · 안전재고 ${matN(it.safety)} ${escapeHtml(it.unit)}` : ''}</div>` + (rows.length ? `<table class="mat-t"><thead><tr><th>제품</th><th>경로</th><th>1팩당 소요량</th><th>이 자재만으로 만들 수 있는 팩 수</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml([it.name].concat(r.via, [r.name]).join(' → '))}</td><td class="n">${matN(r.per)} ${escapeHtml(it.unit)}</td><td class="n">${matN(Math.floor(cur / r.per + 1e-9))} 팩</td></tr>`).join('')}</tbody></table>` : '<div class="sub">이 자재를 쓰는 제품이 없습니다. <b>정전개</b> 탭에서 제품 구성에 넣으면 여기에 나타납니다.</div>');
+    };
+    fill();
+    matEl('mat-rev-sel').addEventListener('change', e => { MAT.revMat = e.target.value; fill(); });
+  }
+
+  // 입고·수불
+  function matRenderLed(){
+    const body = matEl('mat-body'), items = matItems(false);
+    if(!items.length){ body.innerHTML = '<div class="sub">먼저 <b>자재 마스터</b> 탭에서 자재를 등록하세요.</div>'; return; }
+    const vendors = [...new Set(MAT.led.map(e => e.vendor).filter(Boolean).concat(items.map(i => i.vendor).filter(Boolean)))];
+    body.innerHTML = `<h3 style="margin:2px 0 6px;">수불 기록 입력</h3>
+      <div class="row" style="margin:0 0 6px; align-items:flex-end;">
+        <label style="font-size:12.5px;">날짜<br><input type="date" id="mat-l-date" value="${getTodayKey()}"></label>
+        <label style="font-size:12.5px;">구분<br><select id="mat-l-type">${Object.entries(MAT_TYPES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+        <label style="font-size:12.5px;">자재<br><select id="mat-l-mat" style="min-width:200px;">${matOpt(items, '', '자재 선택')}</select></label>
+        <label style="font-size:12.5px;">수량 <span id="mat-l-unit"></span><br><input type="text" id="mat-l-qty" inputmode="decimal" placeholder="수량" style="width:90px;"></label>
+        <label style="font-size:12.5px;" class="mat-l-in">단가(원)<br><input type="text" id="mat-l-price" inputmode="decimal" style="width:90px;"></label>
+        <label style="font-size:12.5px;" class="mat-l-in">거래처<br><input type="text" id="mat-l-vendor" list="mat-vendors" style="width:130px;"><datalist id="mat-vendors">${vendors.map(v => `<option value="${escapeHtml(v)}">`).join('')}</datalist></label>
+        <label style="font-size:12.5px;">비고<br><input type="text" id="mat-l-note" style="width:170px;" placeholder="사유·전표번호 등"></label>
+        <button type="button" class="btn-primary small-btn" id="mat-l-save">기록 저장</button>
+      </div>
+      <div class="sub" id="mat-l-prev" style="margin:0 0 10px;">구분이 <b>입고</b>면 재고가 늘고, <b>로스·사용</b>이면 줄어듭니다. <b>재고조정</b>은 늘릴 때 5, 줄일 때 -5처럼 부호를 붙여 입력하세요.</div>
+      <h3 style="margin:12px 0 6px;">수불 내역</h3>
+      <div class="row" style="margin:0 0 6px;">
+        <select id="mat-lf-mat" style="min-width:180px;">${matOpt(matItems(true), MAT.ledMat, '전체 자재')}</select>
+        <select id="mat-lf-days"><option value="30">최근 30일</option><option value="90">최근 90일</option><option value="365">최근 1년</option><option value="0">전체</option></select>
+        <label style="font-size:12.5px;"><input type="checkbox" id="mat-lf-void"${MAT.ledVoid ? ' checked' : ''}> 취소된 기록 보기</label>
+      </div>
+      <div id="mat-l-list" style="overflow-x:auto;"></div>`;
+    matEl('mat-lf-days').value = String(MAT.ledDays);
+    const sign = t => (t === 'in' ? 1 : (t === 'adj' ? 0 : -1));
+    const typeUI = () => { const t = matEl('mat-l-type').value; document.querySelectorAll('.mat-l-in').forEach(e => { e.style.display = t === 'in' ? '' : 'none'; }); };
+    const itUI = () => { const it = matById(matEl('mat-l-mat').value); matEl('mat-l-unit').textContent = it ? '(' + it.unit + ')' : ''; if(it && matEl('mat-l-type').value === 'in'){ if(!matEl('mat-l-price').value && it.price) matEl('mat-l-price').value = String(it.price); if(!matEl('mat-l-vendor').value && it.vendor) matEl('mat-l-vendor').value = it.vendor; } prev(); };
+    const prev = () => {
+      const id = matEl('mat-l-mat').value, t = matEl('mat-l-type').value, v = matParseQty(matEl('mat-l-qty').value), it = matById(id);
+      if(!it || v == null){ return; }
+      const cur = matStockMap()[id] || 0, d = t === 'adj' ? v : sign(t) * Math.abs(v);
+      matEl('mat-l-prev').innerHTML = `「${escapeHtml(it.name)}」 현재고 ${matN(cur)} ${escapeHtml(it.unit)} → 기록 후 <b>${matN(cur + d)} ${escapeHtml(it.unit)}</b> (${d > 0 ? '+' : ''}${matN(d)})${cur + d < 0 ? ' <span class="mat-low">⚠ 재고가 마이너스가 됩니다</span>' : ''}`;
+    };
+    matEl('mat-l-type').addEventListener('change', () => { typeUI(); prev(); });
+    matEl('mat-l-mat').addEventListener('change', itUI);
+    matEl('mat-l-qty').addEventListener('input', prev);
+    typeUI();
+    matEl('mat-l-save').addEventListener('click', async () => {
+      const id = matEl('mat-l-mat').value, t = matEl('mat-l-type').value, d = matEl('mat-l-date').value, v = matParseQty(matEl('mat-l-qty').value);
+      if(!id){ matMsg('자재를 선택하세요', true); return; }
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ matMsg('날짜를 입력하세요', true); return; }
+      if(v == null || v === 0 || (t !== 'adj' && v < 0)){ matMsg(t === 'adj' ? '조정 수량을 입력하세요 (줄일 때는 -5처럼)' : '수량을 0보다 큰 숫자로 입력하세요', true); return; }
+      const q = t === 'adj' ? v : sign(t) * Math.abs(v);
+      const e = { id: matRid('e'), d, m: id, t, q, note: matEl('mat-l-note').value.trim(), by: matUser(), ts: Date.now() };
+      if(t === 'in'){ const p = matParseQty(matEl('mat-l-price').value); if(p > 0) e.price = p; const vn = matEl('mat-l-vendor').value.trim(); if(vn) e.vendor = vn; }
+      matEl('mat-l-save').disabled = true;
+      try{ await matLedAdd([e]); matMsg(`${MAT_TYPES[t]} 기록을 저장했습니다`); toast('수불 기록 저장됨'); }
+      catch(err){ matMsg('저장 실패: ' + ((err && err.message) || err), true); matEl('mat-l-save').disabled = false; return; }
+      matRender();
+    });
+    const fillList = () => {
+      const days = Number(MAT.ledDays), from = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : '';
+      const rows = MAT.led.filter(e => (MAT.ledVoid || !e.void) && (!MAT.ledMat || e.m === MAT.ledMat) && (!from || e.d >= from)).sort((a, b) => b.d.localeCompare(a.d) || (b.ts || 0) - (a.ts || 0));
+      const box = matEl('mat-l-list');
+      if(!rows.length){ box.innerHTML = '<div class="sub">조건에 맞는 기록이 없습니다.</div>'; return; }
+      box.innerHTML = `<table class="mat-t"><thead><tr><th>날짜</th><th>자재</th><th>구분</th><th>수량</th><th>단가</th><th>거래처</th><th>비고</th><th>기록자</th><th></th></tr></thead><tbody>${rows.slice(0, 300).map(e => `<tr data-id="${escapeHtml(e.id)}"${e.void ? ' style="opacity:.5; text-decoration:line-through;"' : ''}><td>${escapeHtml(e.d)}</td><td>${escapeHtml(matLabel(e.m))}</td><td>${escapeHtml(MAT_TYPES[e.t] || e.t)}</td><td class="n${e.q < 0 ? ' mat-low' : ''}">${e.q > 0 ? '+' : ''}${matN(e.q)} ${escapeHtml(matUnitOf(e.m))}</td><td class="n">${e.price ? matN(e.price) : ''}</td><td>${escapeHtml(e.vendor || '')}</td><td>${escapeHtml(e.note || '')}</td><td>${escapeHtml(e.by || '')}</td><td>${e.void ? '취소됨' : '<button type="button" class="btn-danger small-btn mat-l-void">취소</button>'}</td></tr>`).join('')}</tbody></table>${rows.length > 300 ? `<div class="sub">최근 300건만 표시됩니다 (전체 ${rows.length}건)</div>` : ''}`;
+      box.querySelectorAll('.mat-l-void').forEach(btn => armConfirmButton(btn, async () => {
+        const id = btn.closest('tr').dataset.id, cur = MAT.led.find(x => x.id === id); if(!cur) return;
+        try{ await matLedAdd([Object.assign({}, cur, { void: true, voidBy: matUser(), voidAt: Date.now() })]); matMsg('기록을 취소했습니다 (재고에서 빠집니다)'); }
+        catch(err){ matMsg('취소 실패: ' + ((err && err.message) || err), true); return; }
+        matRender();
+      }));
+    };
+    fillList();
+    matEl('mat-lf-mat').addEventListener('change', e => { MAT.ledMat = e.target.value; fillList(); });
+    matEl('mat-lf-days').addEventListener('change', e => { MAT.ledDays = Number(e.target.value); fillList(); });
+    matEl('mat-lf-void').addEventListener('change', e => { MAT.ledVoid = e.target.checked; fillList(); });
+  }
+
+  // 자재 마스터
+  function matRenderMaster(){
+    const body = matEl('mat-body');
+    const rowHtml = (r, i) => `<tr data-i="${i}"><td><input type="text" class="mat-m-name" value="${escapeHtml(r.name || '')}" placeholder="자재명" style="width:160px;"></td>
+      <td><select class="mat-m-kind"><option value="raw"${r.kind !== 'semi' ? ' selected' : ''}>원자재</option><option value="semi"${r.kind === 'semi' ? ' selected' : ''}>반제품</option></select></td>
+      <td><input type="text" class="mat-m-unit" value="${escapeHtml(r.unit || '')}" placeholder="개/장/kg" style="width:60px;"></td>
+      <td><input type="text" class="mat-m-code" value="${escapeHtml(r.code || '')}" placeholder="이카운트 품목코드" style="width:110px;"></td>
+      <td><input type="text" class="mat-m-vendor" value="${escapeHtml(r.vendor || '')}" placeholder="기본 거래처" style="width:110px;"></td>
+      <td><input type="text" class="mat-m-price" inputmode="decimal" value="${r.price ? escapeHtml(String(r.price)) : ''}" placeholder="단가" style="width:70px;"></td>
+      <td><input type="text" class="mat-m-safety" inputmode="decimal" value="${r.safety ? escapeHtml(String(r.safety)) : ''}" placeholder="안전재고" style="width:70px;"></td>
+      <td style="white-space:nowrap;"><label><input type="checkbox" class="mat-m-link"${r.link ? ' checked' : ''}> 연동</label> <input type="date" class="mat-m-from" value="${escapeHtml(r.from || '')}" style="${r.link ? '' : 'display:none;'}" title="이 날짜 이후의 원물입고·사입 kg을 재고에 더함"></td>
+      <td><label><input type="checkbox" class="mat-m-off"${r.off ? ' checked' : ''}> 안 씀</label></td>
+      <td><button type="button" class="btn-danger small-btn mat-m-del" title="삭제">✕</button></td></tr>`;
+    body.innerHTML = `<div id="mat-mdirty" class="mat-dirty" style="display:${MAT.mdirty ? 'flex' : 'none'}; align-items:center; gap:10px; flex-wrap:wrap;">저장하지 않은 변경이 있습니다.</div>
+      <div class="sub" style="margin:0 0 6px;">트레이·스티커·방울토마토 원물·습지·외박스·향료 같은 원자재와, 중간 단계의 반제품을 등록합니다. <b>단위</b>는 재고를 세는 단위(개·장·kg …)이고 정전개 소요량도 이 단위로 입력합니다. <b>원물선별 입고 연동</b>은 원물(방울토마토) 한 가지에만 켜며, 시작일 이후의 원물입고·사입 kg이 재고에 자동으로 더해집니다(연동을 켠 뒤 시작일 이전 재고는 재고 실사로 입력).</div>
+      <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th>원물선별 입고 연동</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
+      ${MAT.mdraft.length ? '' : '<div class="sub">아직 등록된 자재가 없습니다. [+ 자재 추가]를 눌러 시작하세요.</div>'}
+      <div class="row" style="margin-top:8px;"><button type="button" class="btn-ghost small-btn" id="mat-m-add">+ 자재 추가</button><button type="button" class="btn-primary small-btn" id="mat-m-save">자재 마스터 저장</button></div>`;
+    const dirty = () => { MAT.mdirty = true; matEl('mat-mdirty').style.display = 'flex'; };
+    const tb = matEl('mat-m-tb');
+    tb.addEventListener('input', ev => {
+      const tr = ev.target.closest('tr'), r = MAT.mdraft[Number(tr.dataset.i)]; if(!r) return;
+      const c = ev.target.classList;
+      if(c.contains('mat-m-name')) r.name = ev.target.value; else if(c.contains('mat-m-unit')) r.unit = ev.target.value; else if(c.contains('mat-m-code')) r.code = ev.target.value;
+      else if(c.contains('mat-m-vendor')) r.vendor = ev.target.value; else if(c.contains('mat-m-price')) r.price = matParseQty(ev.target.value) || 0; else if(c.contains('mat-m-safety')) r.safety = matParseQty(ev.target.value) || 0;
+      else if(c.contains('mat-m-from')) r.from = ev.target.value; else return;
+      dirty();
+    });
+    tb.addEventListener('change', ev => {
+      const tr = ev.target.closest('tr'), r = MAT.mdraft[Number(tr.dataset.i)]; if(!r) return;
+      const c = ev.target.classList;
+      if(c.contains('mat-m-kind')) r.kind = ev.target.value;
+      else if(c.contains('mat-m-off')) r.off = ev.target.checked;
+      else if(c.contains('mat-m-link')){
+        if(ev.target.checked){ MAT.mdraft.forEach(x => { x.link = false; }); r.link = true; if(!r.from) r.from = getTodayKey(); } else r.link = false;   // 연동은 한 가지에만
+        dirty(); matRender(); return;
+      } else return;
+      dirty();
+    });
+    tb.addEventListener('click', ev => {
+      const del = ev.target.closest('.mat-m-del'); if(!del) return;
+      MAT.mdraft.splice(Number(del.closest('tr').dataset.i), 1); dirty(); matRender();
+    });
+    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, link: false, from: '', off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
+    matEl('mat-m-save').addEventListener('click', () => matSaveMaster());
+  }
+
+  // 탭·열기·새로고침 연결
+  (function wireMat(){
+    const fold = matEl('mat-fold'); if(!fold) return;
+    fold.addEventListener('toggle', () => { if(fold.open) matLoad(false); });
+    document.querySelectorAll('#mat-tabs button').forEach(b => b.addEventListener('click', () => { MAT.tab = b.dataset.mt; matMsg(''); if(!MAT.loaded) matLoad(false); matRender(); }));
+    matEl('mat-reload').addEventListener('click', () => matLoad(true));
+    window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster };
+  })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
   (async ()=>{
