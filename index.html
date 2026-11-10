@@ -1475,18 +1475,19 @@
         <select id="shipment-destination-select" style="min-width:120px;"></select>
         <label style="font-size:13px;">등급 :</label>
         <select id="shipment-grade-select" style="min-width:100px;"></select>
-        <label style="font-size:13px;">포장단위 :</label>
-        <select id="shipment-packaging-select" style="min-width:140px;">
-          <option value="">(직접 kg 입력)</option>
+        <label style="font-size:13px;">포장단위 (출고 제품) :</label>
+        <select id="shipment-packaging-select" style="min-width:260px;">
+          <option value="">(품목 선택 안 함 · 직접 kg 입력)</option>
         </select>
-        <label style="font-size:13px;">박스/콘테이너 수 :</label>
+        <label style="font-size:13px;">박스 수 :</label>
         <input type="number" id="shipment-box" style="width:80px;">
         <label style="font-size:13px;">수량(kg) :</label>
         <input type="number" id="shipment-qty" style="width:90px;">
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
       </div>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">포장단위를 고르고 박스/콘테이너 수를 입력하면 수량(kg)이 자동 계산됩니다 (직접 수정도 가능).</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">포장단위는 <b>SKU 관리에 등록된 출고 제품</b> 중에서 고릅니다. 박스 수를 입력하면 <b>수량(kg) = 품목명에 적힌 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다 (예: 500g × 4팩 × 3박스 = 6kg, 직접 수정도 가능). 품목명에서 중량을 찾지 못하면 안내가 나오니 수량(kg)을 직접 입력하세요.</div></details>
+      <div id="shipment-calc-hint" class="sub" style="margin:2px 0 0;"></div>
       <div class="row">
         <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="shipment-add-btn">+ 출고 등록</button>
@@ -1522,8 +1523,12 @@
       </div>
       <div class="row" style="flex-wrap:wrap;">
         <div id="equipment-business-wrap">
-          <label style="font-size:13px;display:block;">사업자 :</label>
-          <select id="equipment-business-select" style="min-width:100px;"></select>
+          <label style="font-size:13px;display:block;">사업자 (기기를 소유한 회사) :</label>
+          <select id="equipment-business-select" style="min-width:120px;"></select>
+          <span class="sorting-master-only" style="display:none;">
+            <input type="text" id="equipment-new-business" placeholder="새 회사명 (예: 다름달음)" style="width:150px;">
+            <button type="button" class="btn-ghost small-btn" id="equipment-new-business-btn" title="우리 회사나 다른 회사를 사업자로 추가합니다 (마스터관리 → 사업자에도 같이 들어갑니다)">+ 사업자 추가</button>
+          </span>
         </div>
         <div id="equipment-to-business-wrap" style="display:none;">
           <label style="font-size:13px;display:block;">받는 사업자 :</label>
@@ -1538,6 +1543,7 @@
           <select id="equipment-farm-select" style="min-width:100px;"></select>
         </div>
       </div>
+      <details class="help"><summary>ⓘ 사업자</summary><div class="sub" style="margin-top:4px;">사업자는 물류기기를 소유한 회사입니다. 자담 외에 <b>우리 회사나 다른 회사</b>를 [+ 사업자 추가]로 등록하면 그 회사 자산으로 이력을 기록하고, 아래 현재 보유 현황이 회사별로 따로 집계됩니다. 이관은 이동유형 <b>내부이관</b>(보내는 사업자 → 받는 사업자)으로 기록하세요. 농가·사입 입고로 자동 회수되는 기기는 계속 <b>자담</b>에 잡힙니다. 사업자 추가는 마스터관리 권한이 있는 계정만 보입니다.</div></details>
       <div class="row">
         <input type="text" id="equipment-note" placeholder="메모" style="flex:1; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="equipment-add-btn">+ 물류기기 이력 등록</button>
@@ -11412,12 +11418,9 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       document.getElementById('shipment-grade-select').innerHTML = grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
     }catch(e){ document.getElementById('shipment-grade-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
 
-    try{
-      shipmentPackagingUnits = await sbQuery('sorting_packaging_units', '?is_active=eq.true&order=name.asc');
-      const pkgSel = document.getElementById('shipment-packaging-select');
-      pkgSel.innerHTML = `<option value="">(직접 kg 입력)</option>` + shipmentPackagingUnits.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${Number(p.unit_weight_kg).toLocaleString()}kg)</option>`).join('');
-    }catch(e){ /* 포장단위 목록 로드 실패는 치명적이지 않으므로 무시 */ }
-
+    // 포장단위 = SKU 관리의 출고 제품 (SKU가 늦게 불러와져도 드롭다운을 열 때마다 최신 목록으로 채움)
+    shipmentFillSkuOptions();
+    ['mousedown', 'focus'].forEach(ev => document.getElementById('shipment-packaging-select').addEventListener(ev, shipmentFillSkuOptions));
     document.getElementById('shipment-packaging-select').addEventListener('change', recalcShipmentQtyFromPackaging);
     document.getElementById('shipment-box').addEventListener('input', recalcShipmentQtyFromPackaging);
     document.getElementById('shipment-add-btn').addEventListener('click', submitSortingShipment);
@@ -11430,14 +11433,53 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     loadSortingShipmentTable();
   }
 
-  function recalcShipmentQtyFromPackaging(){
-    const pkgId = document.getElementById('shipment-packaging-select').value;
-    const boxCount = Number(document.getElementById('shipment-box').value || 0);
-    if(!pkgId || !boxCount) return;
-    const pkg = shipmentPackagingUnits.find(p=> String(p.id) === pkgId);
-    if(!pkg) return;
-    document.getElementById('shipment-qty').value = (boxCount * Number(pkg.unit_weight_kg)).toString();
+  // SKU 한 박스의 kg: 품목 약칭의 중량(예: 투맛토(스테비아) 500g)은 1팩 중량 × 박스입수, 없으면 품목명의 [2kg]은 박스 중량 그대로
+  function shipmentSkuWeight(d){
+    const unit = Number(d.boxUnitCount) || 0;
+    const tok = t => { const m = /(\d+(?:\.\d+)?)\s*(kg|g)\b/i.exec(t || ''); return m ? (m[2].toLowerCase() === 'kg' ? Number(m[1]) : Number(m[1]) / 1000) : null; };
+    const pk = tok(d.shortName);
+    if(pk) return { ok: true, packKg: pk, unit, boxKg: pk * (unit || 1), kind: 'pack' };
+    const bm = /\[\s*(\d+(?:\.\d+)?)\s*kg\s*\]/i.exec(d.name || '');
+    if(bm) return { ok: true, packKg: unit ? Number(bm[1]) / unit : null, unit, boxKg: Number(bm[1]), kind: 'box' };
+    const pn = tok(d.name);
+    if(pn) return { ok: true, packKg: pn, unit, boxKg: pn * (unit || 1), kind: 'pack' };
+    return { ok: false, unit };
   }
+  const shipmentFmtKg = n => (Math.round(n * 1000) / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
+  function shipmentSkuLabel(d){ return d.shortName || d.name || ''; }
+  function shipmentFillSkuOptions(){
+    const sel = document.getElementById('shipment-packaging-select');
+    if(!sel) return;
+    const prev = sel.value;
+    const list = (typeof dict !== 'undefined' ? dict : []).slice().sort((a, b) => shipmentSkuLabel(a).localeCompare(shipmentSkuLabel(b), 'ko'));
+    sel.innerHTML = '<option value="">(품목 선택 안 함 · 직접 kg 입력)</option>' + list.map(d => {
+      const w = shipmentSkuWeight(d);
+      const info = w.ok ? ` · ${shipmentFmtKg(w.boxKg)}kg/박스${w.unit ? ' (' + w.unit + '팩)' : ''}` : ' · 중량 확인 필요';
+      return `<option value="${escapeHtml(d.id)}">${escapeHtml(shipmentSkuLabel(d))}${info}</option>`;
+    }).join('');
+    if(prev && list.some(d => String(d.id) === prev)) sel.value = prev;
+  }
+  function shipmentSelectedSku(){
+    const id = document.getElementById('shipment-packaging-select').value;
+    return id ? (dict || []).find(d => String(d.id) === id) : null;
+  }
+  function recalcShipmentQtyFromPackaging(){
+    const hint = document.getElementById('shipment-calc-hint');
+    const d = shipmentSelectedSku();
+    const boxCount = Number(document.getElementById('shipment-box').value || 0);
+    if(hint) hint.textContent = '';
+    if(!d) return;
+    const w = shipmentSkuWeight(d);
+    if(!w.ok){ if(hint){ hint.textContent = `⚠ 「${shipmentSkuLabel(d)}」 품목명에서 중량(예: 500g)을 찾지 못했습니다. SKU 관리의 품목 약칭에 중량을 적거나 수량(kg)을 직접 입력하세요.`; hint.style.color = 'var(--danger,#c0392b)'; } return; }
+    if(hint) hint.style.color = '';
+    const how = w.kind === 'pack' ? `${shipmentFmtKg(w.packKg * 1000)}g × ${w.unit || 1}팩` : `박스 ${shipmentFmtKg(w.boxKg)}kg`;
+    if(!boxCount){ if(hint) hint.textContent = `1박스 = ${how} = ${shipmentFmtKg(w.boxKg)}kg — 박스 수를 입력하면 수량(kg)이 계산됩니다${w.unit ? '' : ' (박스입수가 없어 1팩 기준)'}`; return; }
+    const qty = Math.round(boxCount * w.boxKg * 1000) / 1000;
+    document.getElementById('shipment-qty').value = String(qty);
+    if(hint) hint.textContent = `${how} × ${boxCount}박스 = ${shipmentFmtKg(qty)}kg${w.unit ? '' : ' (박스입수가 없어 1팩 기준)'}`;
+  }
+  const SORTING_SHIPMENT_SKU_SQL = `ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_id text;
+ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   async function submitSortingShipment(){
     const destId = document.getElementById('shipment-destination-select').value;
@@ -11453,13 +11495,24 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     if(!date){ toast('날짜를 입력해주세요'); return; }
     const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note, created_by: window.currentUser?.id };
     if(box) data.box_count = Number(box);
-    if(pkgId) data.packaging_unit_id = Number(pkgId);
+    const sku = shipmentSelectedSku();
+    if(sku){ data.sku_id = String(sku.id); data.sku_name = shipmentSkuLabel(sku); }
     try{
-      await sbInsert('sorting_shipment', data);
+      try{ await sbInsert('sorting_shipment', data); }
+      catch(e){
+        if(sku && /sku_(id|name)/i.test(e.message || '')){
+          // DB에 출고 제품 컬럼이 아직 없음 → 안내하고, 제품은 메모에 남겨 출고 등록 자체는 진행
+          alert('출고 테이블에 출고 제품(sku_id, sku_name) 컬럼이 아직 없습니다.\n이번 출고는 제품을 메모에 적어서 등록합니다. 제품을 따로 저장하려면 Supabase SQL Editor에서 아래를 실행해주세요.\n\n' + SORTING_SHIPMENT_SKU_SQL);
+          const d2 = Object.assign({}, data); delete d2.sku_id; delete d2.sku_name;
+          d2.note = '포장: ' + shipmentSkuLabel(sku) + (box ? ' × ' + box + '박스' : '') + (note ? ' / ' + note : '');
+          await sbInsert('sorting_shipment', d2);
+        } else throw e;
+      }
       await writeLog('sorting_shipment_add', `출고 등록 (${qty}kg)`);
       document.getElementById('shipment-qty').value = '';
       document.getElementById('shipment-box').value = '';
       document.getElementById('shipment-packaging-select').value = '';
+      document.getElementById('shipment-calc-hint').textContent = '';
       document.getElementById('shipment-note').value = '';
       loadSellableGradeStock('shipment-stock-wrap');
       loadSortingShipmentTable();
@@ -11491,7 +11544,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         const revenue = hasPrice ? r.qty_kg * r.unit_price : null;
         const fee = hasPrice ? revenue * feePct / 100 : null;
         const net = hasPrice ? revenue - fee : null;
-        const packagingText = r.packaging_unit_id ? `${packagingMap[r.packaging_unit_id]||''} × ${r.box_count||'?'}` : (r.box_count ? `${r.box_count}박스` : '');
+        const packagingText = r.sku_name ? `${r.sku_name} × ${r.box_count||'?'}박스` : (r.packaging_unit_id ? `${packagingMap[r.packaging_unit_id]||''} × ${r.box_count||'?'}` : (r.box_count ? `${r.box_count}박스` : ''));
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
@@ -11560,12 +11613,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       document.getElementById('equipment-type-select').innerHTML = types.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     }catch(e){ document.getElementById('equipment-type-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
 
-    try{
-      const businesses = await sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc');
-      const opts = businesses.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
-      document.getElementById('equipment-business-select').innerHTML = opts;
-      document.getElementById('equipment-to-business-select').innerHTML = opts;
-    }catch(e){ /* 사업자 목록 로드 실패는 무시 */ }
+    await loadEquipmentBusinessOptions();
 
     try{
       const dests = await sbQuery('sorting_destinations', '?is_active=eq.true&order=name.asc');
@@ -11580,9 +11628,42 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     document.getElementById('equipment-movement-select').addEventListener('change', updateEquipmentContextFields);
     updateEquipmentContextFields();
     document.getElementById('equipment-add-btn').addEventListener('click', submitSortingEquipmentLog);
+    document.getElementById('equipment-new-business-btn').addEventListener('click', addEquipmentBusiness);
+    document.getElementById('equipment-new-business').addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); addEquipmentBusiness(); } });
 
     loadEquipmentSummary();
     loadSortingEquipmentTable();
+  }
+
+  // 사업자 목록(드롭다운) 불러오기. selectId를 주면 그 사업자를 선택해 둠
+  async function loadEquipmentBusinessOptions(selectId){
+    try{
+      const businesses = await sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc');
+      const opts = businesses.map(b=>`<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+      const a = document.getElementById('equipment-business-select'), b2 = document.getElementById('equipment-to-business-select');
+      const pa = a.value, pb = b2.value;
+      a.innerHTML = opts; b2.innerHTML = opts;
+      if(pa) a.value = pa;
+      if(pb) b2.value = pb;
+      if(selectId != null) a.value = String(selectId);
+      return businesses;
+    }catch(e){ /* 사업자 목록 로드 실패는 무시 */ return []; }
+  }
+  async function addEquipmentBusiness(){
+    const inp = document.getElementById('equipment-new-business');
+    const name = inp.value.trim();
+    if(!name){ toast('추가할 회사명을 입력해주세요'); return; }
+    const exist = [...document.getElementById('equipment-business-select').options].some(o => o.textContent.trim().replace(/\s+/g, '') === name.replace(/\s+/g, ''));
+    if(exist){ toast('이미 있는 사업자입니다'); return; }
+    try{
+      const rows = await sbInsert('sorting_businesses', { name, is_active: true });
+      const id = rows && rows[0] ? rows[0].id : null;
+      await writeLog('sorting_master_add', `사업자 추가: ${name}`);
+      inp.value = '';
+      await loadEquipmentBusinessOptions(id);
+      loadEquipmentSummary();
+      toast(`사업자 「${name}」이(가) 추가되었습니다`);
+    }catch(e){ toast('추가 실패: ' + e.message); }
   }
 
   async function submitSortingEquipmentLog(){
