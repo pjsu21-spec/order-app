@@ -218,6 +218,12 @@
   .split-tbl{ border-collapse:collapse; font-size:12px; width:auto; }
   .split-tbl th, .split-tbl td{ border:1px solid var(--line); padding:3px 6px; text-align:left; }
   .split-tbl td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  /* 집계표: 업체별 비고 · 샘플 동봉 */
+  .agg-note-box{ display:flex; gap:4px; align-items:center; margin-top:3px; }
+  .agg-note-box input.agg-note-input{ width:150px; font-size:12px; padding:2px 6px; text-align:left; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .agg-note-box .agg-sample-btn{ padding:1px 6px; font-size:11px; white-space:nowrap; }
+  .agg-sample-tag{ font-size:11px; color:var(--accent); font-weight:700; white-space:normal; max-width:230px; margin-top:2px; }
+  .agg-sample-qty{ font-size:10.5px; color:var(--accent); font-weight:700; white-space:nowrap; }
   /* 배차 / 적재 입력 */
   .sp-strip{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
   .sp-chip{ font-size:12px; padding:3px 10px; border-radius:999px; background:var(--accent-soft); border:1px solid var(--line); }
@@ -893,6 +899,12 @@
     <div class="row" style="margin-top:6px;">
       <button class="btn-ghost small-btn" id="add-parsed-item-btn">+ 품목 추가</button>
     </div>
+    <details id="os-details" style="margin-top:10px;">
+      <summary style="cursor:pointer; font-size:13px; font-weight:700;">🎁 샘플 동봉 <span class="fold-hint" style="font-size:12px;font-weight:400;color:var(--muted);">(선택 · 눌러서 펼치기)</span></summary>
+      <div class="sub" style="margin:6px 0;">이 발주와 함께 보내는 샘플입니다. <b>매출·거래명세서·이카운트에는 잡히지 않고</b>, 생산·적재 수량과 송품장에는 따로 들어가며 집계표 비고에 "샘플 … 포함"으로 자동 표시됩니다.</div>
+      <div id="os-items"></div>
+      <div class="row" style="margin-top:4px;"><button class="btn-ghost small-btn" id="os-add-btn">+ 샘플 품목 추가</button></div>
+    </details>
     <div class="row">
       <button class="btn-primary" id="confirm-btn">✓ 집계표에 확정 추가</button>
       <button class="btn-ghost" id="cancel-preview-btn">취소</button>
@@ -2107,6 +2119,8 @@
 <div class="mn-tip"><b>팁</b>온라인몰(토스쇼핑 등)은 <b>옵션 관리 코드 열</b>을 지정하면 "망고향 1팩 + 자몽향 1팩"처럼 묶인 옵션을 품목별로 나누고 주문 건수만큼 곱해 줍니다.</div>
 <div class="mn-warn"><b>주의</b>이미 불러온 파일을 다시 올리면 "같은 파일" 경고가 뜹니다. 정말 다시 넣을 때만 <b>그래도 불러오기</b>를 누르세요.</div>
 
+<div class="mn-tip"><b>팁</b>발주와 함께 샘플을 보낼 때는 확정하기 전에 <b>🎁 샘플 동봉</b>을 펼쳐 품목과 수량을 넣으세요(선택). 예: 스테비아 10박스 + 샘플 2박스 → 매출은 10박스, 송품장에는 10박스와 샘플 2박스가 따로 나옵니다. 출고일을 따로 지정하는 업체와 3PL 업체는 쓸 수 없습니다.</div>
+
 <h3>4. 직원 개인구매</h3>
 <p><b>직원 개인구매</b>를 눌러 펼친 뒤 구매자(이름+직급), 수령 방식, 품목을 넣고 <span class="mn-b">개인구매 추가</span>를 누릅니다.</p>
 <ul>
@@ -2125,6 +2139,8 @@
   <li><b>전체 집계</b>: 업체 × 품목 수량(팩)과 합계. 잘못 들어간 줄은 체크해서 <b>선택 항목 삭제</b>합니다.</li>
   <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
   <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다.</li>
+  <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산/물류 탭의 배차·적재 화면과 발주취합 파일·생산 현황판의 비고 칸에 함께 표시됩니다.</li>
+  <li><b>🎁 샘플</b>: 발주와 함께 보내는 샘플 수량을 넣거나 고칩니다. 수량 칸 아래에 <b>+샘플</b>로 따로 표시되고 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않고, 생산·적재 수량(합계 줄)과 송품장에는 들어갑니다.</li>
 </ul>
 
 <h3>만들 수 있는 파일과 화면</h3>
@@ -3440,7 +3456,7 @@ function mnShow(id, keepScroll) {
   const carryIsKey = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
   function carryShipped(dateKey){
     const out = {};
-    Object.entries(ordersByDate[dateKey] || {}).forEach(([c, items]) => {
+    Object.entries(ordersPhys(dateKey) || {}).forEach(([c, items]) => {
       if(c === '_meta') return;
       Object.entries(items || {}).forEach(([id, q]) => { if(id !== '_meta') out[id] = (out[id] || 0) + (Number(q) || 0); });
     });
@@ -3518,7 +3534,7 @@ function mnShow(id, keepScroll) {
   const LOAD_STATE_KEYS = ['dictionary', 'companies', 'delivery-date', 'orders-by-date', 'thirdparty-lineitems', 'raw-materials', 'previous-stock',
     'raw-material-usage', 'company-categories', 'retention-months', 'internal-order-counters', 'uploaded-original-files', 'sender-info',
     'production-template-b64', 'sku-group-map', 'sku-column-map', 'tracking-col-mappings', 'ecount-settings', 'sales-by-date', 'delivery-fee-items',
-    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date'];
+    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date', 'order-extras-by-date'];
   // soft=true (화면에서 '새로고침'을 누른 경우): 서버 연결에 실패하면 예외를 던지고 화면의 현재 내용을 그대로 둠
   async function loadState(soft){
     if(window.storage.prefetch){
@@ -3692,6 +3708,11 @@ function mnShow(id, keepScroll) {
       const v = spl ? JSON.parse(spl.value) : {};
       splitByDate = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     }catch(e){ splitByDate = {}; }
+    try{
+      const oex = await window.storage.get('order-extras-by-date', true);
+      const v = oex ? JSON.parse(oex.value) : {};
+      orderExtras = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    }catch(e){ orderExtras = {}; }
     // 보관 기간이 지난 날짜 자동 정리 — 반드시 날짜별 자료를 전부 불러온 뒤에 실행
     // (예전에는 배차·발주 나누기 자료를 불러오기 전에 실행돼, 정리가 일어나는 날 그 두 자료가 빈 값으로 저장되는 문제가 있었음)
     cleanupOldData(true);
@@ -3880,7 +3901,8 @@ function mnShow(id, keepScroll) {
       ...Object.keys(uploadedOriginalFiles),
       ...Object.keys(rawMaterialUsage),
       ...Object.keys(dispatchByDate),
-      ...Object.keys(splitByDate)
+      ...Object.keys(splitByDate),
+      ...Object.keys(orderExtras)
     ]);
     const toRemove = Array.from(allDateKeys).filter(k => k < cutoff && k !== currentDateKey);
 
@@ -3898,7 +3920,8 @@ function mnShow(id, keepScroll) {
       [uploadedOriginalFiles, saveOriginalFiles],
       [rawMaterialUsage, saveRawMaterialUsage],
       [dispatchByDate, saveDispatchByDate],
-      [splitByDate, saveSplitByDate]
+      [splitByDate, saveSplitByDate],
+      [orderExtras, saveOrderExtras]
     ].forEach(([doc, save]) => {
       let hit = false;
       toRemove.forEach(k => { if(k in doc){ delete doc[k]; hit = true; } });
@@ -4268,6 +4291,85 @@ function mnShow(id, keepScroll) {
   //  - 같은 업체를 같은 날 두 번 이상 발주 입력하면("발주를 추가하겠습니까?" → 네) 두 번째부터는 추가 발주로 따로 저장됨.
   //  - 배차/적재 입력·발주취합 파일의 업체 행(업체명은 그대로)·생산 현황판·송품장은 발주마다 따로.
   let splitByDate = {};   // { 'YYYY-MM-DD': { 업체명: [{ id, label, items: { 품목id: 팩 } }] } }
+  // ── 업체별 비고 · 샘플 동봉 ──
+  //  - 비고: 그날 출고하는 업체별 특이 사항 (집계표에서 입력, 배차·적재 화면에 표시)
+  //  - 샘플 동봉: 발주와 함께 보내는 샘플 수량. 발주 수량(ordersByDate)과 따로 저장하므로 매출·거래명세서·이카운트에는 잡히지 않고,
+  //    생산·적재·재고 같은 실물 수량(ordersPhys)에는 더해지며 송품장에는 '샘플' 줄로 따로 나옴. 비고에는 '샘플 … 포함'이 자동으로 붙음.
+  //  - 출고일을 따로 지정하는 업체(쿠팡 등)와 3PL 업체는 대상이 아님.
+  let orderExtras = {};   // { 'YYYY-MM-DD': { 업체명: { note: '', sample: { 품목id: 팩 } } } }
+  function extrasGet(dateKey, company){ return (orderExtras[dateKey] || {})[company] || null; }
+  function extrasEnsure(dateKey, company){
+    if(!orderExtras[dateKey]) orderExtras[dateKey] = {};
+    if(!orderExtras[dateKey][company]) orderExtras[dateKey][company] = { note: '', sample: {} };
+    const e = orderExtras[dateKey][company];
+    if(!e.sample || typeof e.sample !== 'object') e.sample = {};
+    return e;
+  }
+  // 비어 있는 항목은 지움 (저장값이 쓸데없이 커지지 않게)
+  function extrasTidy(dateKey, company){
+    const d = orderExtras[dateKey]; if(!d) return;
+    const e = d[company];
+    if(e){
+      Object.keys(e.sample || {}).forEach(id => { if(!(Number(e.sample[id]) > 0)) delete e.sample[id]; });
+      if(!String(e.note || '').trim() && !Object.keys(e.sample || {}).length) delete d[company];
+    }
+    if(!Object.keys(d).length) delete orderExtras[dateKey];
+  }
+  function extrasRemove(dateKey, company){
+    const d = orderExtras[dateKey];
+    if(!d || !d[company]) return false;
+    delete d[company];
+    if(!Object.keys(d).length) delete orderExtras[dateKey];
+    return true;
+  }
+  async function saveOrderExtras(){
+    try{ await window.storage.set('order-extras-by-date', JSON.stringify(orderExtras), true); }catch(e){ console.error(e); toast('비고·샘플 내용을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+  }
+  // 샘플 동봉 수량 { 품목id: 팩 } (없으면 빈 객체)
+  function sampleOf(dateKey, company){
+    const e = extrasGet(dateKey, company), out = {};
+    if(e && e.sample) Object.keys(e.sample).forEach(id => { const q = Number(e.sample[id]) || 0; if(q > 0) out[id] = q; });
+    return out;
+  }
+  // 수량 표기: 박스입수가 있으면 박스, 없으면 팩
+  function sampleQtyText(itemId, packs){
+    const d = dict.find(x => x.id === itemId), n = d ? Number(d.boxUnitCount) || 0 : 0;
+    const r = v => Math.round(v * 100) / 100;
+    return n > 0 ? r(packs / n) + '박스' : r(packs) + '팩';
+  }
+  // '샘플 스테비아토마토 2박스 포함' (샘플이 없으면 '')
+  function sampleNoteText(dateKey, company){
+    const s = sampleOf(dateKey, company);
+    const parts = dict.filter(d => s[d.id]).map(d => `${d.name} ${sampleQtyText(d.id, s[d.id])}`);
+    Object.keys(s).forEach(id => { if(!dict.some(d => d.id === id)) parts.push('(삭제된 품목) ' + s[id] + '팩'); });
+    return parts.length ? '샘플 ' + parts.join(', ') + ' 포함' : '';
+  }
+  // 화면·출력용 비고 = 샘플 자동 문구 + 직접 적은 비고
+  function orderNoteText(dateKey, company){
+    const e = extrasGet(dateKey, company);
+    return [sampleNoteText(dateKey, company), e ? String(e.note || '').trim() : ''].filter(Boolean).join(' / ');
+  }
+  // 실물 기준 수량 = 발주 + 샘플 동봉 (생산·적재·재고·자재 차감용). 샘플이 없으면 발주 자료 그대로 돌려줌. 돌려준 값은 읽기 전용으로만 쓸 것.
+  function ordersPhys(dateKey){
+    const orders = ordersByDate[dateKey] || {}, ex = orderExtras[dateKey];
+    if(!ex) return orders;
+    let out = null;
+    Object.keys(ex).forEach(c => {
+      if(c === '_meta' || !orders[c]) return;
+      const s = sampleOf(dateKey, c), ids = Object.keys(s);
+      if(!ids.length) return;
+      if(!out) out = Object.assign({}, orders);
+      const co = Object.assign({}, orders[c]);
+      ids.forEach(id => { co[id] = Math.round(((Number(co[id]) || 0) + s[id]) * 100) / 100; });
+      out[c] = co;
+    });
+    return out || orders;
+  }
+  // 샘플 동봉을 쓸 수 있는 업체인지 (출고일 지정 업체·3PL 제외)
+  function sampleAllowed(company){
+    const m = companies.find(c => c.name === company);
+    return !(m && m.isThirdParty) && !isDispatchCompany(company);
+  }
   let splitOpen = '';     // 집계표에서 나누기 화면을 열어 둔 업체
   const splitUnitName = (company, label) => `${company} · ${label || '추가 발주'}`;   // 화면 표시용 (발주취합 파일의 업체명은 업체명 그대로)
   // 전체 수량을 추가 건들에 차례로 배분하고 남는 만큼이 기본 건 (발주 수량이 줄어 추가 건이 넘치면 앞 건부터 채우고 나머지는 잘라 냄)
@@ -4466,6 +4568,7 @@ function mnShow(id, keepScroll) {
   }
 
   function renderParsed(parsed){
+    if(parsed !== currentParsed) osReset();   // 다른 발주로 바뀌면 샘플 동봉 입력을 비움 (엉뚱한 업체에 붙지 않게)
     currentParsed = parsed;
     renderUnmatchedAlert();
     document.getElementById('preview-card').style.display = 'block';
@@ -4958,6 +5061,7 @@ function mnShow(id, keepScroll) {
         });
         Object.keys(splitByDate).forEach(dk => { const b = splitByDate[dk]; if(b && b[oldName]){ b[newName] = b[oldName]; delete b[oldName]; } });
         saveSplitByDate();
+        { let hit = false; Object.keys(orderExtras).forEach(dk => { const b = orderExtras[dk]; if(b && b[oldName]){ b[newName] = b[oldName]; delete b[oldName]; hit = true; } }); if(hit) saveOrderExtras(); }
         saveOrdersByDate(); saveLineItems();
         saveCompanies(); renderCompanyManager(); renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems();
       });
@@ -5161,8 +5265,8 @@ function mnShow(id, keepScroll) {
     const stock = currentPreviousStock();
     const usage = currentRawMaterialUsage();
 
-    // compute today's total units dispatched per item across all companies
-    const orders = currentOrders();
+    // compute today's total units dispatched per item across all companies (샘플 동봉 포함 — 실물 기준)
+    const orders = ordersPhys(currentDateKey);
     const todayUnitsByItemId = {};
     Object.values(orders).forEach(co=>{
       Object.keys(co).forEach(itemId=>{
@@ -6141,6 +6245,7 @@ function mnShow(id, keepScroll) {
   }
   // 발주 집계표에 함께 보여 줄 샘플 신청 (생산일이 이 날짜인 생산본부 생산 품목 — 발주취합 파일의 샘플 행과 같은 기준)
   let aggSample = { date: '', at: 0, rows: [], loading: false, open: false };
+  let extrasOpen = '';   // 집계표에서 샘플 동봉 입력을 열어 둔 업체
   function aggSampleNow(){ return aggSample.date === currentDateKey ? aggSample.rows : []; }
   function aggSampleEnsure(){
     const dk = currentDateKey;
@@ -6174,7 +6279,8 @@ function mnShow(id, keepScroll) {
     const sampleRows = aggSampleNow();
     const sampleTot = {};   // 품목id → 팩 (샘플 합계)
     sampleRows.forEach(r => (r.items || []).forEach(i => { sampleTot[i.skuId] = (sampleTot[i.skuId] || 0) + (Number(i.packs) || 0); }));
-    const cols = aggColumnOrder(Object.keys(sampleTot).length ? Object.assign({}, orders, { '__sample__': sampleTot }) : orders, true);
+    const phys = ordersPhys(currentDateKey);   // 발주 + 샘플 동봉 (열 순서·합계·생산 필요수량은 실물 기준)
+    const cols = aggColumnOrder(Object.keys(sampleTot).length ? Object.assign({}, phys, { '__sample__': sampleTot }) : phys, true);
     if((orderCompanies.length === 0 && !sampleRows.length) || dict.length === 0){
       wrap.innerHTML = '<div class="empty">아직 확정된 발주가 없습니다. 위에서 메시지를 입력하고 확정 추가해보세요.</div>';
       document.getElementById('agg-bulk-bar').style.display = 'none';
@@ -6228,6 +6334,35 @@ function mnShow(id, keepScroll) {
         sp.textContent = `추가 발주 ${nSplit}건`;
         nameTd.appendChild(sp);
       }
+      // 비고(이 업체 출고 특이 사항) + 샘플 동봉
+      const smp = sampleOf(currentDateKey, company);
+      let smpTotal = 0;
+      {
+        const st = sampleNoteText(currentDateKey, company);
+        if(st){ const sd = document.createElement('div'); sd.className = 'agg-sample-tag'; sd.textContent = '🎁 ' + st; nameTd.appendChild(sd); }
+        const nb = document.createElement('div');
+        nb.className = 'agg-note-box';
+        const ni = document.createElement('input');
+        ni.type = 'text'; ni.className = 'agg-note-input'; ni.placeholder = '비고'; ni.maxLength = 200;
+        ni.value = (extrasGet(currentDateKey, company) || {}).note || '';
+        ni.title = '이 업체 출고 특이 사항 — 배차·적재 화면과 발주취합 파일·현황판의 비고 칸에 함께 표시됩니다';
+        ni.addEventListener('change', ()=>{
+          extrasEnsure(currentDateKey, company).note = ni.value.trim();
+          extrasTidy(currentDateKey, company);
+          saveOrderExtras();
+          try{ renderShipPlan(); }catch(e){ console.error(e); }
+        });
+        nb.appendChild(ni);
+        if(sampleAllowed(company)){
+          const sb = document.createElement('button');
+          sb.type = 'button'; sb.className = 'btn-ghost small-btn agg-sample-btn';
+          sb.textContent = extrasOpen === company ? '샘플 닫기' : '🎁 샘플';
+          sb.title = '발주와 함께 보내는 샘플 수량 입력·수정 (매출에는 잡히지 않음)';
+          sb.addEventListener('click', ()=>{ extrasOpen = extrasOpen === company ? '' : company; renderAggTable(); });
+          nb.appendChild(sb);
+        }
+        nameTd.appendChild(nb);
+      }
       tr.appendChild(nameTd);
 
       const staffTd = document.createElement('td');
@@ -6255,10 +6390,18 @@ function mnShow(id, keepScroll) {
           saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
         });
         td.appendChild(input);
+        if(smp[d.id]){
+          const sh = document.createElement('div');
+          sh.className = 'agg-sample-qty'; sh.textContent = '+샘플 ' + fmt(toBox(d, smp[d.id]));
+          sh.title = '샘플 동봉 수량 (매출에는 잡히지 않고 생산·적재 수량에 더해짐)';
+          td.appendChild(sh);
+          smpTotal += toBox(d, smp[d.id]);
+        }
         tr.appendChild(td);
       });
 
       totalTd.textContent = fmt(rowTotal);
+      if(smpTotal > 0){ const sh = document.createElement('div'); sh.className = 'agg-sample-qty'; sh.textContent = '+샘플 ' + fmt(smpTotal); totalTd.appendChild(sh); }
 
       const actionTd = document.createElement('td');
       const delBtn = document.createElement('button');
@@ -6266,6 +6409,8 @@ function mnShow(id, keepScroll) {
       delBtn.textContent = '삭제';
       delBtn.addEventListener('click', ()=>{
         delete orders[company];
+        if(extrasRemove(currentDateKey, company)) saveOrderExtras();
+        if(extrasOpen === company) extrasOpen = '';
         if((splitByDate[currentDateKey] || {})[company]){ delete splitByDate[currentDateKey][company]; splitTidy(currentDateKey, company); saveSplitByDate(); }
         if(splitOpen === company) splitOpen = '';
         if(dispEntries.length){ dispatchByDate[currentDateKey] = currentDispatch().filter(e => e.company !== company); saveDispatchByDate(); }
@@ -6348,12 +6493,93 @@ function mnShow(id, keepScroll) {
       return tr;
     };
 
+    // 샘플 동봉 입력 화면 (업체 줄 바로 아래): 품목별 샘플 수량 수정·삭제·추가
+    const makeSampleEditorRow = (company)=>{
+      const tr = document.createElement('tr');
+      tr.className = 'split-editor-row';
+      const td = document.createElement('td');
+      td.colSpan = cols.length + 5;
+      const box = document.createElement('div');
+      box.className = 'split-box';
+      box.innerHTML = '<div class="sub" style="margin:0 0 6px;"><b>샘플 동봉</b> — ' + escapeHtml(company) + ' 발주와 함께 보내는 샘플입니다. <b>매출·거래명세서·이카운트에는 잡히지 않고</b>, 생산·적재 수량과 송품장에는 따로 들어가며 비고에 자동으로 표시됩니다.</div>';
+      const cur = sampleOf(currentDateKey, company);
+      const commit = ()=>{ extrasTidy(currentDateKey, company); saveOrderExtras(); renderAggTable(); renderRawStockEditor(); };
+      const tbl = document.createElement('table');
+      tbl.className = 'split-tbl';
+      tbl.innerHTML = '<thead><tr><th>샘플 품목</th><th>수량</th><th></th></tr></thead>';
+      const tb = document.createElement('tbody');
+      dict.filter(d => cur[d.id]).forEach(d => {
+        const r = document.createElement('tr');
+        const n = document.createElement('td'); n.textContent = d.name; r.appendChild(n);
+        const q = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.min = '0'; inp.step = 'any'; inp.style.width = '70px';
+        inp.value = fmt(toBox(d, cur[d.id]));
+        inp.title = unitOf(d) > 0 ? `박스 단위 (1박스 = ${unitOf(d)}팩)` : '박스입수 미설정 — 팩 단위';
+        inp.addEventListener('change', ()=>{
+          const packs = Math.max(0, (parseFloat(inp.value) || 0) * (unitOf(d) > 0 ? unitOf(d) : 1));
+          const ex = extrasEnsure(currentDateKey, company);
+          if(packs > 0) ex.sample[d.id] = Math.round(packs * 100) / 100; else delete ex.sample[d.id];
+          commit();
+        });
+        q.appendChild(inp); q.appendChild(document.createTextNode(' ' + unitLabel(d)));
+        r.appendChild(q);
+        const a = document.createElement('td');
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제';
+        del.addEventListener('click', ()=>{ const ex = extrasEnsure(currentDateKey, company); delete ex.sample[d.id]; commit(); });
+        a.appendChild(del); r.appendChild(a);
+        tb.appendChild(r);
+      });
+      // 추가 줄
+      const ar = document.createElement('tr');
+      const an = document.createElement('td');
+      const sel = document.createElement('select');
+      sel.className = 'agg-sample-add-sel';
+      sel.innerHTML = '<option value="">(샘플 품목 선택)</option>';
+      dict.filter(d => !cur[d.id]).forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; sel.appendChild(o); });
+      an.appendChild(sel); ar.appendChild(an);
+      const aq = document.createElement('td');
+      const ainp = document.createElement('input');
+      ainp.type = 'number'; ainp.min = '0'; ainp.step = 'any'; ainp.style.width = '70px'; ainp.placeholder = '수량'; ainp.className = 'agg-sample-add-qty';
+      const aunit = document.createElement('span');
+      const paintUnit = ()=>{ const d = dict.find(x => x.id === sel.value); aunit.textContent = d ? ' ' + unitLabel(d) : ''; };
+      sel.addEventListener('change', paintUnit);
+      aq.append(ainp, aunit); ar.appendChild(aq);
+      const aa = document.createElement('td');
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'btn-primary small-btn agg-sample-add-btn'; add.textContent = '추가';
+      add.addEventListener('click', ()=>{
+        const d = dict.find(x => x.id === sel.value);
+        const v = parseFloat(ainp.value) || 0;
+        if(!d){ toast('샘플 품목을 선택해주세요'); return; }
+        if(!(v > 0)){ toast('샘플 수량을 입력해주세요'); return; }
+        const ex = extrasEnsure(currentDateKey, company);
+        ex.sample[d.id] = Math.round(v * (unitOf(d) > 0 ? unitOf(d) : 1) * 100) / 100;
+        commit();
+      });
+      aa.appendChild(add); ar.appendChild(aa);
+      tb.appendChild(ar);
+      tbl.appendChild(tb);
+      box.appendChild(tbl);
+      const bar = document.createElement('div');
+      bar.className = 'row'; bar.style.marginTop = '6px';
+      const close = document.createElement('button');
+      close.type = 'button'; close.className = 'btn-ghost small-btn'; close.textContent = '닫기';
+      close.addEventListener('click', ()=>{ extrasOpen = ''; renderAggTable(); });
+      bar.append(close);
+      box.appendChild(bar);
+      td.appendChild(box); tr.appendChild(td);
+      return tr;
+    };
+
     // 3PL 업체는 한 줄로 묶어서 오프라인 발주 업체 줄들 바로 아래(합계 위)에 보여줌. 이름을 누르면 업체별로 펼침. 합계·재고 계산에는 그대로 포함됨.
     const isThreePl = name => { const m = companies.find(c => c.name === name); return !!(m && m.isThirdParty); };
     const tplCompanies = orderCompanies.filter(isThreePl);
     orderCompanies.filter(c => !isThreePl(c)).forEach(company => {
       tbody.appendChild(makeCompanyRow(company, false));
       if(splitOpen === company) tbody.appendChild(makeSplitEditorRow(company));
+      if(extrasOpen === company && sampleAllowed(company)) tbody.appendChild(makeSampleEditorRow(company));
     });
     if(tplCompanies.length){
       const sumTr = document.createElement('tr');
@@ -6446,7 +6672,7 @@ function mnShow(id, keepScroll) {
     const colTotals = [];
     cols.forEach(d=>{
       let colTotal = 0;
-      orderCompanies.forEach(c=>{ colTotal += Number(orders[c][d.id]) || 0; });
+      orderCompanies.forEach(c=>{ colTotal += Number((phys[c] || {})[d.id]) || 0; });   // 샘플 동봉 포함
       colTotal += Number(sampleTot[d.id]) || 0;   // 샘플(생산본부 생산)도 합계·생산 필요수량에 포함
       grandTotal += toBox(d, colTotal);
       colTotals.push(colTotal);
@@ -6978,6 +7204,7 @@ function mnShow(id, keepScroll) {
   document.getElementById('cancel-preview-btn').addEventListener('click', ()=>{
     document.getElementById('preview-card').style.display = 'none';
     currentParsed = null;
+    osReset();
     renderUnmatchedAlert();
   });
 
@@ -7058,6 +7285,10 @@ function mnShow(id, keepScroll) {
       toast(`박스입수가 없는 품목이 있습니다: ${noUnit.map(it => itemNameById(it.matchedId)).join(', ')} — SKU 관리에서 박스입수를 입력하거나 단위를 팩으로 바꿔주세요`);
       return;
     }
+    // 샘플 동봉 (선택)
+    const osLines = osCollect();
+    if(!osLines) return;
+    if(osLines.length && !sampleAllowed(company)){ toast('출고일을 따로 지정하는 업체와 3PL 업체는 샘플 동봉을 등록할 수 없습니다. 샘플 줄을 지우고 확정해주세요'); return; }
     const mTplC = companies.find(c => c.name === company);
     if(!mode && !isDisp && !(mTplC && mTplC.isThirdParty)){
       const ex = currentOrders()[company];
@@ -7084,6 +7315,12 @@ function mnShow(id, keepScroll) {
     if(!addedAny){ toast('추가된 품목이 없습니다. 매칭과 수량을 확인해주세요'); return; }
     orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
     saveOrdersByDate();
+    if(osLines.length){
+      const ex = extrasEnsure(currentDateKey, company);
+      osLines.forEach(l => { ex.sample[l.itemId] = Math.round(((Number(ex.sample[l.itemId]) || 0) + l.packs) * 100) / 100; });
+      saveOrderExtras();
+      osReset();
+    }
     if(mode === 'part'){ splitEnsure(currentDateKey, company).push({ id: cryptoId(), label: '', items: addedItems }); saveSplitByDate(); }
     if(isDisp){
       // 출고일을 따로 지정한 업체: 출고일별 내역을 따로 저장 (발주취합 파일의 쿠팡 블록에 사용)
@@ -7109,7 +7346,7 @@ function mnShow(id, keepScroll) {
     document.getElementById('parse-status').textContent = '대기중';
     currentParsed = null;
     renderUnmatchedAlert();
-    toast(company + (mode === 'part' ? ' 추가 발주가 집계표에 추가되었습니다 (발주 구분)' : ' 발주가 집계표에 추가되었습니다'));
+    toast(company + (mode === 'part' ? ' 추가 발주가 집계표에 추가되었습니다 (발주 구분)' : ' 발주가 집계표에 추가되었습니다') + (osLines.length ? ` · 샘플 ${osLines.length}품목 동봉` : ''));
   }
   document.getElementById('confirm-btn').addEventListener('click', ()=>{ confirmParsed(''); });
 
@@ -7121,6 +7358,70 @@ function mnShow(id, keepScroll) {
   let ppItems = [{ itemId: '', qty: '', unit: '팩' }];
 
   const ppPacks = it => parsedItemPacks({ qty: it.qty === '' || it.qty == null ? null : Number(it.qty), unit: it.unit, matchedId: it.itemId });
+  // ── 샘플 동봉 (발주 확정 때 함께 등록, 선택 사항) ──
+  let osItems = [];   // [{ itemId, qty, unit }]
+  function osReset(){
+    osItems = [];
+    const dt = document.getElementById('os-details');
+    if(dt) dt.open = false;
+    osRender();
+  }
+  function osRender(){
+    const wrap = document.getElementById('os-items');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    osItems.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'parsed-row';
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;';
+      const sel = document.createElement('select');
+      sel.innerHTML = '<option value="">(샘플 품목 선택)</option>';
+      dict.forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; if(d.id === it.itemId) o.selected = true; sel.appendChild(o); });
+      const qty = document.createElement('input');
+      qty.type = 'number'; qty.step = 'any'; qty.min = '0'; qty.placeholder = '수량'; qty.style.width = '80px'; qty.value = it.qty;
+      const unit = document.createElement('select');
+      ['박스', '팩'].forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; unit.appendChild(o); });
+      unit.value = it.unit; unit.style.width = '70px';
+      const conv = document.createElement('span');
+      conv.style.fontSize = '12px';
+      const paint = ()=>{
+        let txt = '', warn = false;
+        if(it.unit === '박스' && it.itemId){
+          const p = ppPacks(it);
+          if(p == null && it.qty !== ''){ txt = '⚠ 박스입수 미설정 (단위를 팩으로)'; warn = true; } else if(p != null) txt = `= ${p}팩`;
+        }
+        conv.textContent = txt;
+        conv.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)';
+        conv.style.fontWeight = warn ? '700' : '400';
+      };
+      sel.addEventListener('change', e => { it.itemId = e.target.value; paint(); });
+      qty.addEventListener('input', e => { it.qty = e.target.value; paint(); });
+      unit.addEventListener('change', e => { it.unit = e.target.value; paint(); });
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제';
+      del.addEventListener('click', ()=>{ osItems.splice(idx, 1); osRender(); });
+      paint();
+      row.append(sel, qty, unit, conv, del);
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('os-add-btn').addEventListener('click', ()=>{ osItems.push({ itemId: '', qty: '', unit: '박스' }); osRender(); });
+  document.getElementById('os-details').addEventListener('toggle', e => { if(e.target.open && !osItems.length){ osItems.push({ itemId: '', qty: '', unit: '박스' }); osRender(); } });
+  // 입력한 샘플 줄 → [{ itemId, packs }] (문제가 있으면 안내하고 null)
+  function osCollect(){
+    const lines = [];
+    for(const it of osItems){
+      const blankQty = it.qty === '' || it.qty == null;
+      if(!it.itemId && blankQty) continue;   // 빈 줄은 무시
+      if(!it.itemId){ toast('샘플 동봉: 품목을 선택해주세요'); return null; }
+      if(blankQty || !(Number(it.qty) > 0)){ toast(`샘플 동봉 ${itemNameById(it.itemId)}: 수량을 입력해주세요`); return null; }
+      const packs = ppPacks(it);
+      if(packs == null){ toast(`샘플 동봉 ${itemNameById(it.itemId)}: 박스입수가 없어 박스를 팩으로 바꿀 수 없습니다. 단위를 팩으로 바꿔주세요`); return null; }
+      lines.push({ itemId: it.itemId, packs });
+    }
+    return lines;
+  }
+
   function ppEnsureCompany(name, isThirdParty){
     let c = companies.find(x => x.name === name);
     if(!c){
@@ -7821,12 +8122,12 @@ function mnShow(id, keepScroll) {
     const orderCompanies = Object.keys(orders);
     if(orderCompanies.length === 0){ toast('집계된 발주가 없습니다'); return; }
     const dateLabel = getDeliveryDateLabel() || currentDateKey;
-    const header = ['업체명', '담당자', ...dict.map(d=>d.name), '합계'];
+    const header = ['업체명', '담당자', ...dict.map(d=>d.name), '합계', '비고'];
     const rows = orderCompanies.map(c=>{
       let total = 0;
       const vals = dict.map(d=>{ const v = Number(orders[c][d.id])||0; total += v; return v; });
       const enteredBy = (orders[c]._meta && orders[c]._meta.enteredBy) || '';
-      return [c, enteredBy, ...vals, total];
+      return [c, enteredBy, ...vals, total, orderNoteText(currentDateKey, c)];   // 수량은 발주 수량(샘플 제외), 샘플 동봉은 비고에 표시
     });
     const totalsRow = ['합계', '', ...dict.map(d=>{
       let t = 0; orderCompanies.forEach(c=>{ t += Number(orders[c][d.id])||0; }); return t;
@@ -8540,11 +8841,19 @@ function mnShow(id, keepScroll) {
           });
         } else {
           // 출고 건을 나눈 업체는 건마다 한 장 (기본 건 + 추가 건)
+          const smp = sampleOf(stmDate(), name);   // 샘플 동봉: 첫 발주 장에 '샘플' 줄로 따로 표시
+          let baseDone = false;
           splitUnits(stmDate(), name, orders[name] || {}).forEach(u => {
             const ls = [];
             dict.forEach(d => { const q = Number(u.items[d.id]) || 0; if(q > 0) ls.push(sdLine(d, q, '')); });
+            if(u.isBase){ baseDone = true; dict.forEach(d => { if(smp[d.id]) ls.push(sdLine(d, smp[d.id], '샘플')); }); }
             if(ls.length) out.push({ key: u.key, name, company: name, label: u.label, co, lines: ls, dates: [], kind: 'order' });
           });
+          if(!baseDone && Object.keys(smp).length){
+            const ls = [];
+            dict.forEach(d => { if(smp[d.id]) ls.push(sdLine(d, smp[d.id], '샘플')); });
+            if(ls.length) out.push({ key: name, name, company: name, label: '', co, lines: ls, dates: [], kind: 'order' });
+          }
         }
         if(lines.length) out.push({ key: name, name, company: name, label: '', co, lines, dates, kind: 'dispatch' });
       });
@@ -9189,7 +9498,9 @@ function mnShow(id, keepScroll) {
     ()=>{
       const checked = Array.from(document.querySelectorAll('.agg-row-check:checked'));
       const orders = currentOrders();
-      checked.forEach(cb=>{ delete orders[cb.dataset.company]; });
+      let exHit = false;
+      checked.forEach(cb=>{ delete orders[cb.dataset.company]; if(extrasRemove(currentDateKey, cb.dataset.company)) exHit = true; });
+      if(exHit) saveOrderExtras();
       saveOrdersByDate();
       renderAggTable();
       renderThirdPartyAggTable();
@@ -9240,6 +9551,7 @@ function mnShow(id, keepScroll) {
       const count = bucket.filter(r=>r.company === company).length;
       thirdPartyLineItems[currentDateKey] = bucket.filter(r=>r.company !== company);
       delete currentOrders()[company];
+      if(extrasRemove(currentDateKey, company)) saveOrderExtras();
       const origFiles = currentOriginalFiles();
       if(origFiles[company]){ delete origFiles[company]; saveOriginalFiles(); }
       saveOrdersByDate();
@@ -9262,6 +9574,7 @@ function mnShow(id, keepScroll) {
   armConfirmButton(document.getElementById('reset-all-btn'), ()=>{
     ordersByDate[currentDateKey] = {};
     delete splitByDate[currentDateKey]; saveSplitByDate();
+    if(orderExtras[currentDateKey]){ delete orderExtras[currentDateKey]; saveOrderExtras(); }
     thirdPartyLineItems[currentDateKey] = [];
     saveOrdersByDate();
     saveLineItems();
@@ -9555,6 +9868,7 @@ function mnShow(id, keepScroll) {
       salesByDate,
       dispatchByDate,
       splitByDate,
+      orderExtras,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -9624,6 +9938,7 @@ function mnShow(id, keepScroll) {
     if(data.salesByDate) salesByDate = data.salesByDate;
     if(data.dispatchByDate && typeof data.dispatchByDate === 'object') dispatchByDate = data.dispatchByDate;
     if(data.splitByDate && typeof data.splitByDate === 'object') splitByDate = data.splitByDate;
+    if(data.orderExtras && typeof data.orderExtras === 'object') orderExtras = data.orderExtras;
 
     // Persist everything
     await Promise.allSettled([
@@ -9639,6 +9954,8 @@ function mnShow(id, keepScroll) {
       saveDeliveryFeeItems(),
       saveDeliveryCourierName(),
       saveDispatchByDate(),
+      saveSplitByDate(),
+      saveOrderExtras(),
       saveSkuColumnMap(),
       saveSkuGroupMap(),
       window.storage.set('sales-by-date', JSON.stringify(salesByDate), true).catch(e=>console.error(e)),
@@ -14118,7 +14435,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   async function draftBuild(dk){
     let samples = [];
     if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' }); }catch(e){ /* 샘플 없이 */ } }
-    return buildProductionOrderEntries({ dict, companies, orders: currentOrders(), stockPacks: {}, colMap: skuColumnMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+    return buildProductionOrderEntries({ dict, companies, orders: ordersPhys(currentDateKey), stockPacks: {}, colMap: skuColumnMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
   }
   async function draftRenderStatus(force){
     const el = document.getElementById('po-draft-status'), clr = document.getElementById('po-draft-clear-btn');
@@ -14698,8 +15015,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const hdrs = poTemplateHeaders(ctx);
     if(!hdrs.length){ add('err', '품목 열 머리글 없음', '서식에서 품목 열 머리글을 찾지 못했습니다. 서식 파일이 맞는지 확인해주세요.'); return issues; }
 
-    // 오늘 수량이 들어가는 품목 (주문 + 출고일 지정 + 샘플)
-    const ordersToday = currentOrders();
+    // 오늘 수량이 들어가는 품목 (주문 + 샘플 동봉 + 출고일 지정 + 샘플 신청)
+    const ordersToday = ordersPhys(currentDateKey);
     let sampleRows = [];
     if(typeof window.getSampleRequestsForDate === 'function'){
       try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }
@@ -14817,7 +15134,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const ctx = await poLoadTemplate(productionTemplateB64);
       // 주문이 있는 품목의 열 지정이 비었거나 종이/스티로폼이 어긋나 있으면 서식 머리글에 맞춰 자동으로 바로잡음 (결과는 안내에 표시)
       const tplHdrs = poTemplateHeaders(ctx);
-      const ordersToday = currentOrders();
+      const ordersToday = ordersPhys(currentDateKey);   // 샘플 동봉 포함 (실물 기준)
       // 샘플 신청 중 오늘 출고분(생산본부 생산으로 지정된 품목만)
       let sampleRows = [], sampleErr = '';
       if(typeof window.getSampleRequestsForDate === 'function'){
@@ -14898,7 +15215,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(built.noUnit.length) lines.push({ warn: true, text: `※ 박스입수가 없어 팩 수 그대로 들어간 품목: ${built.noUnit.join(', ')} → SKU 관리에서 박스입수를 입력하면 박스 수로 계산됩니다` });
       // 종이/스티로폼 열이 어긋나게 지정된 품목 (수량이 엉뚱한 열에 들어갈 수 있음)
       const hdrs = poTemplateHeaders(ctx);
-      const ordersNow = currentOrders();
+      const ordersNow = ordersPhys(currentDateKey);
       const colBad = dict.filter(d => skuColumnMap[d.id] && Object.keys(ordersNow).some(n => n !== '_meta' && Number((ordersNow[n] || {})[d.id]) > 0))
         .map(d => ({ d, p: poColumnProblem(d, skuColumnMap[d.id], hdrs) })).filter(x => x.p);
       if(colBad.length) lines.push({ warn: true, text: `※ 열 지정을 확인해주세요: ${colBad.map(x => `${x.d.shortName || x.d.name} → ${skuColumnMap[x.d.id]}열 (${x.p})`).join(', ')} → 서식 등록 아래의 "열 자동 추천"으로 고칠 수 있습니다` });
@@ -15777,7 +16094,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   // ── 오늘 발주가 들어온 품목만 고르는 드롭다운 (생산 순서·생산 순서 지시 요청) ──
   function ppOrderedLabels(dk){
-    const ids = new Set(), orders = ordersByDate[dk] || {};
+    const ids = new Set(), orders = ordersPhys(dk);
     Object.keys(orders).forEach(c => { if(c === '_meta') return; Object.entries(orders[c] || {}).forEach(([id, q]) => { if(id !== '_meta' && Number(q) > 0) ids.add(id); }); });
     (dispatchByDate[dk] || []).forEach(e => Object.entries(e.items || {}).forEach(([id, q]) => { if(Number(q) > 0) ids.add(id); }));
     return [...new Set(dict.filter(d => ids.has(d.id)).map(d => spStockLabel(d)).filter(Boolean))];
@@ -15906,7 +16223,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   // 입력 대상 업체: 그날 발주가 있는 업체 (3PL은 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 제외)
   function spCompanies(dk){
-    const orders = ordersByDate[dk] || {};
+    const orders = ordersPhys(dk);   // 샘플 동봉 포함 (실물 기준)
     const disp = new Set((dispatchByDate[dk] || []).map(e => e.company));
     const idx = new Map(companies.map((c, i) => [c.name, i]));
     const out = [];
@@ -16016,6 +16333,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const tdName = document.createElement('td');
       tdName.className = 'name-cell';
       tdName.innerHTML = `${escapeHtml(display || name)}<div class="sub" style="margin:0;font-size:10.5px;">${escapeHtml([split ? (isBase ? '첫 발주' : '추가 발주') : '', meta && meta.category, meta && meta.region, total + '박스'].filter(Boolean).join(' · '))}</div>`;
+      { const ont = isBase && name !== '__3pl__' ? orderNoteText(dk, name) : ''; if(ont){ const nd = document.createElement('div'); nd.style.cssText = 'font-size:11px;color:var(--accent);font-weight:700;white-space:normal;max-width:240px;'; nd.textContent = '📝 ' + ont; nd.title = '집계 / 출고 탭에서 적은 비고·샘플 동봉 (발주취합 파일과 현황판의 비고 칸에 함께 들어갑니다)'; tdName.appendChild(nd); } }
       tr.appendChild(tdName);
 
       const mkInput = (list, val, ph, w, field) => {
@@ -16113,6 +16431,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
       out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('\n'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
     });
+    // 집계표에서 적은 업체별 비고와 샘플 동봉 문구를 그 업체(첫 발주) 줄의 비고 앞에 붙임
+    Object.keys(orderExtras[dk] || {}).forEach(company => {
+      if(!(ordersByDate[dk] || {})[company] || !sampleAllowed(company)) return;
+      const t = orderNoteText(dk, company);
+      if(!t) return;
+      const cur = out[company] || { driver: '', load: '', stockText: '', note: '', next: false };
+      out[company] = Object.assign({}, cur, { note: [cur.next ? '명일 출고' : '', t, cur.next ? String(cur.note || '').replace(/^명일 출고( \/ )?/, '') : cur.note].filter(Boolean).join(' / ') });
+    });
     return out;
   }
 
@@ -16178,7 +16504,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const ctx = await poLoadTemplate(productionTemplateB64);
     await spLoad(dateKey, true); // 영업·생산이 입력한 배차·적재·재고사용 최신값
     await ppLoad(dateKey, true); // 생산 순서·생산 순서 지시 요청
-    const orders = ordersByDate[dateKey] || {};
+    const orders = ordersPhys(dateKey);   // 샘플 동봉 포함 (실물 기준)
     const hdr0 = poTemplateHeaders(ctx);
     let sampleRows = [];
     if(typeof window.getSampleRequestsForDate === 'function'){
@@ -16471,11 +16797,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   async function poBoardReload(){
     const get = async k => { const r = await window.storage.get(k, true); return r ? r.value : null; };
     const jp = (v, d) => { try{ return v ? JSON.parse(v) : d; }catch(e){ return d; } };
-    const [d, c, o, ps, dd, scm, sgm, dsp, tpl, cats, spl] = await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'delivery-date', 'sku-column-map', 'sku-group-map', 'dispatch-by-date', 'production-template-b64', 'company-categories', 'split-by-date'].map(get));
+    const [d, c, o, ps, dd, scm, sgm, dsp, tpl, cats, spl, oex] = await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'delivery-date', 'sku-column-map', 'sku-group-map', 'dispatch-by-date', 'production-template-b64', 'company-categories', 'split-by-date', 'order-extras-by-date'].map(get));
     if(d) dict = jp(d, dict);
     if(c) companies = jp(c, companies).map(x => typeof x === 'string' ? { name: x, isThirdParty: false } : x);
     ordersByDate = jp(o, {}); previousStock = jp(ps, {});
-    skuColumnMap = jp(scm, {}); skuGroupMap = jp(sgm, {}); dispatchByDate = jp(dsp, {}); splitByDate = jp(spl, {});
+    skuColumnMap = jp(scm, {}); skuGroupMap = jp(sgm, {}); dispatchByDate = jp(dsp, {}); splitByDate = jp(spl, {}); orderExtras = jp(oex, {});
     if(tpl) productionTemplateB64 = tpl;
     if(cats) companyCategories = jp(cats, companyCategories);
     if(dd){ const x = jp(dd, null); if(x){ document.getElementById('delivery-year').value = x.year || ''; document.getElementById('delivery-month').value = x.month || ''; document.getElementById('delivery-day').value = x.day || ''; } }
@@ -17115,7 +17441,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let samples = [];
     if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = (await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' })) || []; }catch(e){ warns.push('샘플 신청을 불러오지 못해 샘플 출고가 빠졌습니다'); } }
     const colMap = {}; dict.forEach(d => { colMap[d.id] = d.id; });
-    const built = buildProductionOrderEntries({ dict, companies, orders: ordersByDate[dk] || {}, stockPacks: {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dk), stockPacks: {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
     const qc = addQcSampleEntry(built, colMap);
     const boxes = {};
     built.entries.forEach(e => Object.entries(e.colQty).forEach(([c, q]) => { boxes[c] = (boxes[c] || 0) + q; }));
