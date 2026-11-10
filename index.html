@@ -470,11 +470,49 @@
   #no-order-access-msg, #no-sorting-access-msg{ display:none; }
   #app.no-order-access #panel-order-group,
   #app.no-order-access #panel-ecount,
-  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]):not([data-panel="panel-sample"]){ display:none !important; }
+  #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]):not([data-panel="panel-sample"]):not([data-panel="panel-manual"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
   #app.no-sorting-access #sorting-main-card{ display:none !important; }
   #app.no-sorting-access #no-sorting-access-msg{ display:block; }
+  /* 사용설명서 — 권한과 무관하게 누구나 열람. 앱 공통 스타일과 섞이지 않게 #panel-manual 안에서만 적용 */
+  #panel-manual .mn-wrap{ max-width:860px; margin:0 auto; font-size:15px; line-height:1.75; padding-bottom:40px; }
+  #panel-manual .mn-intro{ margin:6px 0 0; color:var(--muted); }
+  #panel-manual .mn-tabs{ position:sticky; top:var(--mn-top, 50px); z-index:30; background:var(--paper); border-bottom:1px solid var(--line); display:flex; gap:4px; overflow-x:auto; padding:8px 0 0; margin:6px 0 20px; }
+  #panel-manual .mn-tabs button{ flex:0 0 auto; background:none; border:none; border-bottom:3px solid transparent; border-radius:0; color:var(--muted); padding:8px 14px; font-size:14.5px; font-weight:500; white-space:nowrap; margin-bottom:-1px; }
+  #panel-manual .mn-tabs button:hover{ color:var(--ink); opacity:1; }
+  #panel-manual .mn-tabs button.on{ color:var(--accent); border-bottom-color:var(--accent); font-weight:700; }
+  #panel-manual .mn-pane{ display:none; }
+  #panel-manual .mn-pane.on{ display:block; }
+  #panel-manual .mn-pane h2{ font-size:20px; margin:36px 0 6px; line-height:1.4; }
+  #panel-manual .mn-pane h2:first-child{ margin-top:4px; }
+  #panel-manual .mn-pane h3{ font-size:16px; margin:26px 0 4px; }
+  #panel-manual .mn-lead{ color:var(--muted); margin:0 0 12px; }
+  #panel-manual .mn-pane p{ margin:8px 0; }
+  #panel-manual .mn-pane ol, #panel-manual .mn-pane ul{ padding-left:1.35em; margin:8px 0; }
+  #panel-manual .mn-pane li{ margin:4px 0; }
+  #panel-manual .mn-b{ display:inline-block; font-size:13px; font-weight:700; padding:0 7px; border-radius:5px; background:var(--accent-soft); color:var(--accent); white-space:nowrap; line-height:1.7; }
+  #panel-manual .mn-t{ font-weight:700; }
+  #panel-manual .mn-note, #panel-manual .mn-warn, #panel-manual .mn-tip{ border-radius:8px; padding:10px 14px; margin:12px 0; font-size:14.5px; }
+  #panel-manual .mn-note{ background:var(--accent-soft); }
+  #panel-manual .mn-tip{ background:#e5f3ea; }
+  #panel-manual .mn-warn{ background:#fdf0d8; }
+  #panel-manual .mn-note > b:first-child, #panel-manual .mn-tip > b:first-child, #panel-manual .mn-warn > b:first-child{ margin-right:6px; }
+  #panel-manual .mn-tw{ overflow-x:auto; margin:12px 0; }
+  #panel-manual .mn-tw table{ font-size:14px; min-width:560px; background:#fff; }
+  #panel-manual .mn-tw th, #panel-manual .mn-tw td{ padding:7px 10px; text-align:left; vertical-align:top; }
+  #panel-manual .mn-tw th{ background:var(--hover); }
+  #panel-manual .mn-pane details{ border:1px solid var(--line); border-radius:8px; background:#fff; margin:10px 0; padding:0 14px; }
+  #panel-manual .mn-pane details summary{ font-size:15px; font-weight:700; color:var(--ink); padding:10px 0; }
+  #panel-manual .mn-pane details[open] summary{ border-bottom:1px solid var(--line); margin-bottom:8px; }
+  #panel-manual .mn-pane details > :last-child{ margin-bottom:12px; }
+  #panel-manual .mn-who{ display:inline-block; font-size:12px; font-weight:700; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:0 9px; margin-left:6px; vertical-align:middle; }
+  #panel-manual ol.mn-flow{ display:grid; gap:8px; margin:12px 0; padding:0; list-style:none; counter-reset:mnf; }
+  #panel-manual ol.mn-flow li{ counter-increment:mnf; display:grid; grid-template-columns:34px 1fr; gap:10px; align-items:start; margin:0; background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  #panel-manual ol.mn-flow li::before{ content:counter(mnf); font-weight:700; color:var(--accent); font-size:18px; line-height:1.4; text-align:center; }
+  #panel-manual .mn-s{ display:block; color:var(--muted); font-size:13.5px; }
+  #panel-manual .mn-foot{ border-top:1px solid var(--line); color:var(--muted); font-size:13px; padding-top:16px; margin-top:40px; }
+  @media (max-width: 520px){ #panel-manual .mn-pane h2{ font-size:18.5px; } #panel-manual .mn-tabs button{ padding:8px 11px; } }
   /* 원물선별: 현장(모바일)에서 입력하는 화면이라 좁은 화면에서 세로로 쌓이도록 별도 대응 (발주취합 쪽은 PC 전용이라 손대지 않음) */
   @media (max-width: 640px){
     #panel-sorting .row{ flex-direction:column; align-items:stretch; gap:8px; }
@@ -702,6 +740,7 @@
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
     <a id="main-nav-link-detail" href="detail.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">🖼 상세페이지 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
+    <button class="main-nav-btn" id="main-nav-btn-manual" data-panel="panel-manual">📖 사용설명서</button>
   </nav>
 
   <!-- 홈 화면: 로그인하면 프로그램 타일이 나오고, 타일을 누르면 해당 프로그램으로 들어갑니다 -->
@@ -1962,6 +2001,480 @@
 
   </div><!-- /panel-admin -->
 
+  <!-- ───────────── 패널 7: 사용설명서 (권한과 무관하게 로그인한 누구나 열람) ───────────── -->
+  <div id="panel-manual" class="main-tab-panel">
+  <div class="mn-wrap">
+  <p class="mn-intro">발주 입력부터 생산·출고, 원물선별, 자재 재고, 이카운트 자료 내려받기까지 화면별 사용 방법입니다. 내 업무에 맞는 탭만 골라 읽으세요.</p>
+  <div class="mn-tabs" id="mn-tabs" role="tablist" aria-label="설명서 목차">
+    <button type="button" role="tab" data-mn="start">처음 시작</button>
+    <button type="button" role="tab" data-mn="order">발주 · 영업</button>
+    <button type="button" role="tab" data-mn="plan">생산 · 물류</button>
+    <button type="button" role="tab" data-mn="buy">구매 · 자재</button>
+    <button type="button" role="tab" data-mn="sorting">원물선별</button>
+    <button type="button" role="tab" data-mn="sample">샘플 신청</button>
+    <button type="button" role="tab" data-mn="admin">관리자</button>
+    <button type="button" role="tab" data-mn="faq">자주 묻는 질문</button>
+  </div>
+<section class="mn-pane" id="mn-p-start">
+<h2>이 프로그램으로 하는 일</h2>
+<p class="mn-lead">카카오톡 발주 메시지나 온라인몰 주문 파일을 넣으면 업체별·품목별로 집계되고, 그 집계로 발주취합 파일, 생산 현황판, 거래명세서와 송품장, 이카운트 매출 엑셀을 만듭니다.</p>
+
+<h3>내 업무에서 읽을 곳</h3>
+<div class="mn-tw"><table>
+<tr><th>내 업무</th><th>읽을 탭</th></tr>
+<tr><td>발주 메시지·주문 파일 입력, 집계, 명세서·송품장, 실적</td><td>발주 · 영업</td></tr>
+<tr><td>생산 순서, 배차·적재, 생산 현황판, 자재 출고 차감</td><td>생산 · 물류</td></tr>
+<tr><td>품목·거래처 관리, 이카운트 엑셀, 자재 재고·구매입력</td><td>구매 · 자재</td></tr>
+<tr><td>원물 입고, 선별 산출, 출고·정산, 물류기기</td><td>원물선별</td></tr>
+<tr><td>샘플이 필요할 때</td><td>샘플 신청</td></tr>
+<tr><td>사용자·권한 관리</td><td>관리자</td></tr>
+</table></div>
+
+<h2>하루 업무 흐름 (예시)</h2>
+<ol class="mn-flow">
+  <li><div><span class="mn-t">발주 입력</span><span class="mn-s">영업: 카카오톡 메시지를 붙여넣거나 온라인 주문 엑셀을 올려 업체별 수량을 확정합니다. → 발주 · 영업</span></div></li>
+  <li><div><span class="mn-t">집계 확인 후 초안 공유</span><span class="mn-s">집계 / 출고에서 합계를 확인하고 [초안 공유본으로 저장]을 누르면, 이후 바뀌는 업체가 노란색으로 표시됩니다.</span></div></li>
+  <li><div><span class="mn-t">생산 준비</span><span class="mn-s">생산 · 물류: 생산 순서, 지시 요청, 사용 품종, 업체별 기사·적재방식을 입력하고 생산 현황판을 띄웁니다.</span></div></li>
+  <li><div><span class="mn-t">파일·서류 만들기</span><span class="mn-s">발주취합 파일, 거래명세서(JPG), 송품장(JPG)을 내려받습니다.</span></div></li>
+  <li><div><span class="mn-t">출고 후 정리</span><span class="mn-s">택배 운송장 매칭, 자재 출고 차감, 이카운트 매출 엑셀 다운로드로 마무리합니다.</span></div></li>
+</ol>
+
+<h2>화면 구성과 기본 규칙</h2>
+<h3>홈 화면과 메뉴</h3>
+<p>로그인하면 <b>홈 화면</b>에 업무별 타일이 나타납니다. 타일을 누르면 그 화면으로 들어갑니다. <b>내 권한에 따라 보이는 타일이 다릅니다.</b> 타일이 안 보이면 권한이 없는 것이니 관리자에게 요청하세요.</p>
+<div class="mn-tw"><table>
+<tr><th>메뉴</th><th>용도</th></tr>
+<tr><td>발주취합</td><td>발주 입력 · 집계 / 출고 · 생산 / 물류 · 송장/명세서 · 실적 / 매출 · 설정</td></tr>
+<tr><td>샘플 신청</td><td>샘플 신청, 내역, 취합</td></tr>
+<tr><td>원물선별</td><td>현황 · 원물입고 · 선별산출 · 출고·정산 · 물류기기 · 마스터관리</td></tr>
+<tr><td>이카운트·기준정보</td><td>품목(SKU)·거래처 관리, 이카운트 엑셀, 단가 설정, 자재·재고 관리</td></tr>
+<tr><td>단가 확인</td><td>원가·이익률 확인 (권한자만)</td></tr>
+<tr><td>관리자</td><td>활동 로그, 사용자·권한 관리 (관리자만)</td></tr>
+<tr><td>사용설명서</td><td>이 설명서. 권한과 상관없이 누구나 볼 수 있습니다.</td></tr>
+</table></div>
+<p>오른쪽 위의 <span class="mn-b">비밀번호 변경</span>, <span class="mn-b">로그아웃</span>으로 내 계정을 관리합니다. 화면 왼쪽 위 <span class="mn-b">← 홈</span>을 누르면 처음 화면으로 돌아갑니다.</p>
+
+<h3>권한: 차단, 읽기만, 전체</h3>
+<ul>
+  <li><b>전체</b>: 입력·수정·삭제까지 모두 할 수 있습니다.</li>
+  <li><b>읽기만</b>: 조회와 다운로드만 됩니다. 입력하거나 고쳐도 <b>저장되지 않고</b> "읽기 전용 권한입니다" 안내가 뜹니다.</li>
+  <li><b>차단</b>: 그 타일(메뉴)이 보이지 않습니다.</li>
+</ul>
+<div class="mn-note"><b>참고</b>생산/물류와 송장/명세서는 발주자동화와 따로 권한을 줄 수 있습니다. 생산·물류 부서처럼 이 두 기능만 쓰는 직원이 있습니다.</div>
+
+<h3>다른 사람이 입력한 내용 보기</h3>
+<p>여러 직원이 같은 날짜를 함께 입력합니다. 다른 사람이 방금 입력·수정한 내용은 자동으로 나타나지 않을 수 있으니 <span class="mn-b">🔄 새로고침</span> 버튼을 누르세요. 생산 현황판은 켜 둔 동안 5분마다 자동으로 새로고침됩니다.</p>
+
+<h3>알아두면 편한 것</h3>
+<ul>
+  <li><b>ⓘ 설명</b> 버튼은 그 칸의 사용법을 펼쳐 보여 줍니다. 처음에는 눌러서 읽어 보세요.</li>
+  <li>담당자 이름, 부서 같은 <b>개인 설정은 내 브라우저에만</b> 저장됩니다. 다른 PC에서는 다시 입력해야 합니다.</li>
+  <li><b>삭제 버튼</b>은 한 번 더 눌러야 실행되는 것들이 있습니다. 눌렀는데 글자가 바뀌면 한 번 더 눌러 확인하세요.</li>
+  <li><b>납품일</b>이 모든 화면의 기준 날짜입니다. 날짜를 바꾸면 집계표, 현황판, 명세서가 그 날짜 기준으로 바뀝니다.</li>
+</ul>
+</section>
+
+<!-- ───────────── 발주 · 영업 ───────────── -->
+<section class="mn-pane" id="mn-p-order">
+<h2>발주 입력</h2>
+<p class="mn-lead">발주취합 → <b>발주 입력</b> 탭입니다.</p>
+
+<h3>1. 날짜와 담당자 확인</h3>
+<ul>
+  <li>위쪽에 <b>담당자</b>와 <b>부서</b>를 적어 둡니다(내 브라우저에만 저장).</li>
+  <li><b>납품일</b>을 년·월·일로 확인합니다. 새 날짜는 <span class="mn-b">+ 새 날짜로 집계 시작</span>, 이미 있는 날짜는 아래에 나타나는 날짜 버튼을 누르면 열립니다.</li>
+  <li>데이터 보관 기간(기본 3개월)이 지난 날짜는 자동으로 정리됩니다.</li>
+</ul>
+
+<h3>2. 카카오톡 발주 메시지 입력 (오프라인)</h3>
+<ol>
+  <li>왼쪽 <b>오프라인 발주 메시지 입력</b>에 메시지를 그대로 붙여넣고 <span class="mn-b">입력하기</span>를 누릅니다.</li>
+  <li><b>인식 결과 확인</b> 카드가 나옵니다. <b>업체명</b>이 맞는지, 품목과 수량이 맞는지 확인하고 틀리면 고칩니다.
+    <ul>
+      <li>괄호 위치나 이름이 조금 달라도 비슷한 등록 업체로 자동 인식됩니다("비슷한 업체로 인식" 안내).</li>
+      <li>처음 보는 업체면 <span class="mn-b">+ 새 업체</span>로 추가합니다. 품목이 빠졌으면 <span class="mn-b">+ 품목 추가</span>.</li>
+      <li><b>출고일</b>이 따로 있으면 지정합니다. 토요일은 생산 휴무라 금요일에 함께 출고합니다.</li>
+    </ul></li>
+  <li>맞으면 <span class="mn-b">✓ 집계표에 확정 추가</span>를 누릅니다. 이때부터 집계에 반영됩니다.</li>
+</ol>
+
+<h3>3. 온라인 주문 엑셀 업로드 (3PL 등)</h3>
+<ol>
+  <li>오른쪽 <b>온라인 주문 엑셀 업로드</b>에서 <b>업체 선택</b>을 하고 파일(xlsx / xls / csv)을 끌어다 놓습니다.</li>
+  <li>업체마다 파일 형식이 다르므로 <b>처음 한 번</b> 어떤 열이 무엇인지 지정하고 <b>데이터 시작 행</b>을 확인합니다. 한 번 지정하면 같은 업체 파일은 다음부터 자동으로 같은 열을 씁니다.</li>
+  <li><span class="mn-b">이 매핑으로 불러오기</span>를 누릅니다.</li>
+</ol>
+<div class="mn-tip"><b>팁</b>온라인몰(토스쇼핑 등)은 <b>옵션 관리 코드 열</b>을 지정하면 "망고향 1팩 + 자몽향 1팩"처럼 묶인 옵션을 품목별로 나누고 주문 건수만큼 곱해 줍니다.</div>
+<div class="mn-warn"><b>주의</b>이미 불러온 파일을 다시 올리면 "같은 파일" 경고가 뜹니다. 정말 다시 넣을 때만 <b>그래도 불러오기</b>를 누르세요.</div>
+
+<h3>4. 직원 개인구매</h3>
+<p><b>직원 개인구매</b>를 눌러 펼친 뒤 구매자(이름+직급), 수령 방식, 품목을 넣고 <span class="mn-b">개인구매 추가</span>를 누릅니다.</p>
+<ul>
+  <li><b>직접 수령</b>: "OOO 과장 개인 구매" 업체로 집계표에 들어갑니다.</li>
+  <li><b>택배 발송</b>: 받는 분·연락처·주소를 적으면 3PL 출고에 추가됩니다.</li>
+</ul>
+
+<h3>5. 전일 재고 / 원물사용량 (선택)</h3>
+<p>접혀 있는 <b>전일 재고 / 원물사용량 입력</b>에 전일 재고를 넣어 두면, 집계표에서 오늘 만들어야 할 수량을 바로 볼 수 있습니다.</p>
+
+<h2>집계 / 출고</h2>
+<p class="mn-lead">발주취합 → <b>집계 / 출고</b> 탭입니다. 입력한 발주가 표로 모이고, 여기서 파일과 화면을 만듭니다.</p>
+
+<h3>집계표 보기</h3>
+<ul>
+  <li><b>전체 집계</b>: 업체 × 품목 수량(팩)과 합계. 잘못 들어간 줄은 체크해서 <b>선택 항목 삭제</b>합니다.</li>
+  <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
+  <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다.</li>
+</ul>
+
+<h3>만들 수 있는 파일과 화면</h3>
+<div class="mn-tw"><table>
+<tr><th>버튼</th><th>하는 일</th></tr>
+<tr><td>전체 엑셀 다운로드</td><td>집계표 전체를 엑셀로 받습니다.</td></tr>
+<tr><td>📋 발주취합 다운로드</td><td>등록된 발주취합 서식 그대로 납품일·전일재고·업체별 박스 수량을 채워 받습니다. 수량이 없는 업체 줄은 숨겨집니다.</td></tr>
+<tr><td>📺 생산 현황판</td><td>발주취합 파일에 들어갈 내용을 화면 표로 보여 줍니다(파일 없이 확인).</td></tr>
+<tr><td>📌 초안 공유본으로 저장</td><td>지금 상태를 기준으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 파일과 현황판에서 <b>업체명 칸이 노란색</b>으로 표시됩니다. <b>초안 해제</b>로 지웁니다.</td></tr>
+<tr><td>🩺 서식 점검</td><td>다운로드 전에 오늘 주문이 서식에 제대로 들어갈지 미리 점검합니다(아무것도 바꾸지 않음).</td></tr>
+<tr><td>이 날짜 초기화</td><td>그 날짜 데이터를 지웁니다. 되돌릴 수 없으니 신중히 누르세요.</td></tr>
+</table></div>
+
+<h3>3PL 택배 처리</h3>
+<ol>
+  <li><b>3PL 출고 집계</b> 탭에서 개별 주문을 확인합니다.</li>
+  <li><b>택배사 발주서 다운로드</b>: 보내는 분 정보를 확인하고 <span class="mn-b">전체 발주서 다운로드 (.xls)</span>. 일부만 필요하면 목록에서 체크하고 <span class="mn-b">선택 건만 발주서 다운로드</span>.</li>
+  <li>택배사가 운송장번호 파일을 주면 <b>운송장번호 업로드</b>에 올리고, 주문번호 열과 운송장번호 열을 지정해 <span class="mn-b">운송장번호 매칭 적용</span>을 누릅니다. <span class="mn-b">💾 이 설정 저장</span>으로 다음번엔 자동 지정됩니다.</li>
+  <li><b>택배 건수 집계</b>에서 업체별·사이즈별(극소 1~4팩, 소 5~8팩) 건수를 보고 엑셀로 받아 택배비 청구에 씁니다.</li>
+</ol>
+
+<details><summary>반품 / 환불 등록</summary>
+<p>집계 / 출고 아래 <b>반품 / 환불</b>을 펼쳐 반품 접수일, 원래 배송일, 업체, 품목, 수량(팩), 사유, 처리방법을 넣고 <span class="mn-b">반품 등록</span>. 원래 배송일의 실적에서 차감되고 월간 합계에도 반영됩니다. 내역은 엑셀로 받을 수 있습니다.</p>
+</details>
+
+<details><summary>발주취합 서식 등록 · 품목별 열 지정 (관리 담당자)</summary>
+<p>발주취합 서식(.xlsx)은 한 번 등록해 두고 서식이 바뀌면 새 파일로 교체합니다. 새 품목이 생기면 <b>품목 → 서식 열 지정</b>에서 어느 열에 들어갈지 정하거나 <span class="mn-b">🔎 열 자동 추천</span>을 누릅니다. 오늘 수량이 있는데 서식에 열이 없는 품목은 다운로드할 때 열이 자동으로 끼워집니다.</p>
+<p><b>품질 확인용 샘플</b>을 켜 두면 생산하는 품목마다 "생산본부" 샘플 줄이 자동으로 들어갑니다.</p>
+</details>
+
+<h2>송장 / 명세서</h2>
+<p class="mn-lead">발주취합 → <b>송장/명세서</b> 탭입니다. 이 탭은 따로 권한을 받은 직원만 보입니다.</p>
+<h3>업체 송장 회신</h3>
+<p>업체가 보내준 원본 파일 형식 그대로 운송장번호를 지정한 열에 채워 회신 파일을 받습니다. 업체를 고르고 운송장번호를 넣을 열(예: L)을 적은 뒤 <span class="mn-b">업체 양식으로 다운로드</span>. 택배사 칸이 따로 있는 업체는 택배사 열과 이름도 적습니다.</p>
+
+<h3>거래명세서 (JPG)</h3>
+<ol>
+  <li><b>오프라인</b>(직거래·도매·SP 등)과 <b>온라인(3PL)</b> 탭 중 대상을 고릅니다.</li>
+  <li>대상 일자를 확인하고 업체를 체크합니다(<span class="mn-b">발주 있는 업체 일괄 선택</span> 가능).</li>
+  <li><span class="mn-b">선택한 업체 JPG 다운받기</span>를 누릅니다.</li>
+</ol>
+<ul>
+  <li>일련번호는 날짜별로 1, 2, 3 순으로 자동 부여되고, 다시 만들어도 번호가 바뀌지 않습니다.</li>
+  <li>공급자 정보·인감은 <b>명세서 설정</b>에 있습니다. 인감 이미지는 <b>그 PC의 브라우저에만</b> 저장되니 명세서를 만드는 PC마다 한 번 등록하세요.</li>
+</ul>
+
+<h3>송품장 (JPG)</h3>
+<p>출고할 때 동봉하는 표준송품장을 업체별로 만듭니다. 사용법은 명세서와 같고, <b>운송자(기사)</b>는 생산 / 물류 탭의 납품담당을 따릅니다. 기사 이름은 송품장 설정의 운송자 목록에 있어야 차량번호·전화번호가 자동으로 채워집니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다.</p>
+
+<h2>실적 / 매출 · 설정</h2>
+<ul>
+  <li><b>실적 / 매출</b>: 연·월을 넣고 <span class="mn-b">월간 합계 보기</span>, 필요하면 엑셀로 받습니다. 프로그램을 쓰지 않은 날짜는 <b>수동 날짜 데이터 입력</b>으로 넣어 월간 합계에 포함합니다.</li>
+  <li><b>설정</b>: <b>데이터 백업 / 복원</b>이 있습니다. 큰 변경 전에 <span class="mn-b">전체 데이터 백업</span>을 받아 두세요.</li>
+</ul>
+</section>
+
+<!-- ───────────── 생산 · 물류 ───────────── -->
+<section class="mn-pane" id="mn-p-plan">
+<h2>생산 / 물류 탭</h2>
+<p class="mn-lead">발주취합 → <b>생산 / 물류</b> 탭입니다. 여기서 입력한 내용은 <b>생산 현황판</b>과 발주취합 파일에 그대로 나옵니다. <b>칸을 고칠 때마다 바로 저장</b>되니 저장 버튼은 없습니다.</p>
+
+<h3>생산 순서 · 지시 요청 · 사용 품종</h3>
+<p>맨 위 카드는 제목을 누르면 접고 펼 수 있습니다(접은 상태는 이 브라우저에 기억됩니다).</p>
+<ol>
+  <li><b>① 생산 순서</b>: 생산본부가 시간대(시작~끝)와 품목을 적습니다. 품목은 <b>오늘 발주가 있는 품목</b> 중에서 고릅니다. 시간 순으로 정렬되어 현황판에 나옵니다. 매일 같은 시간대를 쓴다면 <span class="mn-b">시간대를 루틴으로 저장</span>해 두고 <span class="mn-b">저장한 시간대 불러오기</span>로 줄을 만듭니다.</li>
+  <li><b>② 생산 순서 지시 요청</b>: 영업이 "이 순서대로 먼저 생산해 달라"는 품목을 순번대로 적습니다. 기본 4칸이고 <span class="mn-b">+ 칸 추가</span>, ▲▼로 순서 변경, ✕로 삭제.</li>
+  <li><b>③ 오늘 생산 사용 품종</b>: 오늘 쓰는 품종을 줄바꿈으로 적습니다. 아래 <b>입고된 품종</b> 칩(원물입고 화면에서 입력한 최근 7일 품종)을 누르면 넣고 뺄 수 있습니다.</li>
+</ol>
+<div class="mn-note"><b>참고</b>지시 요청과 사용 품종은 <b>적은 내용이 없으면 현황판에 나타나지 않습니다.</b> 다른 사람이 입력한 내용은 <span class="mn-b">🔄 새로고침</span>으로 불러옵니다.</div>
+
+<h3>배차 · 적재 · 재고사용</h3>
+<p>발주가 있는 업체마다 다음을 입력합니다. 영업·생산 누구나 입력할 수 있고, 같은 시간에 다른 업체를 입력해도 서로 덮어쓰지 않습니다.</p>
+<div class="mn-tw"><table>
+<tr><th>칸</th><th>설명</th></tr>
+<tr><td>납품담당(기사)</td><td>목록에서 고르거나 직접 입력(예: 용차1). 송품장의 운송자로도 쓰입니다.</td></tr>
+<tr><td>적재방식</td><td>일회용*2, KPP*3처럼 <b>*숫자</b>를 붙이면 파렛트 수량이 그만큼 계산됩니다. 까대기는 까대기 수량으로 계산됩니다.</td></tr>
+<tr><td>재고사용</td><td>박스 단위. 전일·이틀 전 재고를 쓰는 양입니다.</td></tr>
+<tr><td>출고일</td><td>당일 / 명일. 명일을 고르면 비고에 "명일 출고"가 자동으로 적히고 현황판에 표시됩니다.</td></tr>
+<tr><td>비고</td><td>자유 메모.</td></tr>
+</table></div>
+<p>3PL 업체는 파일에서 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 여기서 입력하지 않습니다. 기사·적재방식 목록은 <b>기사 · 적재방식 목록 편집</b>에서 고칠 수 있고 모든 직원에게 같은 목록이 보입니다.</p>
+
+<h2>생산 현황판</h2>
+<p class="mn-lead">집계 / 출고나 생산 / 물류 탭의 <span class="mn-b">📺 생산 현황판</span>을 누르면 전체 화면으로 열립니다. 공장 모니터에 띄워 두는 용도로 만들었습니다.</p>
+<ul>
+  <li><b>왼쪽 위 칸</b>에 제목·납품일·<span class="mn-b">지금 새로고침</span>·<span class="mn-b">닫기</span>가 있습니다. 표는 화면 가로를 꽉 채웁니다.</li>
+  <li><b>오른쪽 아래</b>에 마지막 새로고침 시각이 있습니다. 켜 둔 동안 <b>5분마다 자동</b>으로 서버의 최신 값을 불러오고, 바로 확인하려면 <span class="mn-b">지금 새로고침</span>.</li>
+  <li>품목은 발주취합 서식과 같은 <b>색</b>으로 구분됩니다. 수량이 바뀐 칸은 잠깐 강조됩니다.</li>
+  <li>초안 공유본을 저장한 뒤 <b>수정·추가된 업체</b>는 업체명이 <b>노란색</b>입니다. 왼쪽 아래 안내에서 몇 곳인지 알려 줍니다.</li>
+  <li><b>닫기</b>, <b>Esc</b>, 브라우저 <b>뒤로가기</b> 어느 것으로도 닫을 수 있습니다.</li>
+</ul>
+
+<h2>자재 출고 차감</h2>
+<p class="mn-lead">생산 / 물류 탭 맨 아래 <b>📦 자재 출고 차감</b> 카드입니다. 출고한 만큼 트레이·스티커·원물 같은 자재 재고를 줄입니다.</p>
+<ol>
+  <li>카드를 펼치고 <b>납품 일자</b>를 확인한 뒤 <span class="mn-b">출고분 불러오기</span>를 누릅니다. 서버의 최신 발주값으로 다시 계산합니다.</li>
+  <li><b>제품별 출고 팩 수</b>와 <b>자재별 차감량</b>(현재고와 반영 후 재고 포함)이 나옵니다. 아직 재고는 줄지 않았습니다.</li>
+  <li>맞으면 <span class="mn-b">자재 차감 반영</span>을 누릅니다.</li>
+</ol>
+<ul>
+  <li>출고 팩 수에는 발주, 출고일을 따로 지정한 주문(쿠팡 등), 생산본부 샘플이 들어갑니다(현황판 합계와 같은 기준).</li>
+  <li>같은 날짜를 <b>다시 반영해도 중복 차감되지 않습니다.</b> 발주가 바뀌었다면 다시 불러와서 반영하면 차이만 맞춰집니다.</li>
+  <li><span class="mn-b">반영 되돌리기</span>는 그 날짜의 자동 차감을 모두 취소하고 재고를 되돌립니다.</li>
+  <li><b>정전개(제품별 자재 소요량)를 등록한 제품만</b> 차감됩니다. 정전개가 없는 제품은 "정전개 없음 (차감 안 됨)"으로 빨갛게 표시되니, 새 제품이 보이면 구매·자재 담당자에게 정전개 등록을 요청하세요.</li>
+</ul>
+<div class="mn-warn"><b>주의</b>자재 마스터와 정전개가 먼저 등록되어 있어야 이 기능을 쓸 수 있습니다. 등록은 이카운트·기준정보 → 자재·재고 관리에서 합니다. → 구매 · 자재 탭</div>
+</section>
+
+<!-- ───────────── 구매 · 자재 ───────────── -->
+<section class="mn-pane" id="mn-p-buy">
+<h2>이카운트 · 기준정보</h2>
+<p class="mn-lead">품목과 거래처 같은 기준 정보를 한 곳에서 관리하고, 이카운트에 올릴 엑셀을 내려받습니다. 품목·거래처 <b>수정은 관리자만</b> 할 수 있고 나머지 직원은 조회만 됩니다.</p>
+
+<h3>품목(SKU) 관리</h3>
+<p>발주취합, 샘플 신청, 단가 확인이 같은 품목 목록을 씁니다. 품목마다 이름, 별칭, <b>박스입수</b>(박스당 팩 수), 단가그룹, 이카운트 품목코드 등을 둡니다. 박스입수가 있어야 박스 수가 자동으로 계산됩니다. 새 상품이 나오면 여기서 먼저 등록합니다.</p>
+
+<h3>거래처 관리</h3>
+<p>이 목록은 이카운트 거래처와 발주취합 서식에 같이 쓰입니다.</p>
+<ul>
+  <li><b>거래처명</b>은 이카운트(ERP)의 거래처명과 똑같이 입력합니다.</li>
+  <li><b>발주 구분</b>(직거래·도매·SP 등), <b>지역</b>(수도권/지방), <b>시장명</b>, <b>상장청과명</b>은 발주취합 서식의 해당 칸에 들어갑니다.</li>
+  <li><b>코드</b>는 이카운트 거래처코드입니다. 거래처별 단가 표와 출고·정산 거래처 검색에서 이 코드로 찾을 수 있습니다.</li>
+  <li>이미 등록된 업체인지 위쪽 검색칸으로 먼저 확인하세요.</li>
+  <li><span class="mn-b">품목·거래처 코드표 다운로드</span>로 현재 코드표를 엑셀로 받습니다.</li>
+</ul>
+
+<h3>이카운트 매출입력 엑셀 다운로드</h3>
+<ol>
+  <li><b>다운로드 일자</b>를 고릅니다(기본은 발주 입력의 납품일, 과거 날짜도 가능).</li>
+  <li><b>출하창고</b>와 <b>거래유형</b>은 모두 같이 쓰는 값이라 한 번 저장되고, <b>담당자·부서</b>는 내 브라우저에만 저장됩니다.</li>
+  <li><span class="mn-b">매출 엑셀 다운로드</span>를 눌러 받은 파일을 이카운트에 올립니다.</li>
+</ol>
+<ul>
+  <li>단가는 아래 <b>거래처별 품목 단가 설정</b>에 입력된 값을 씁니다. 과거 날짜는 현재 설정된 단가로 계산됩니다.</li>
+  <li>다운로드하면 그날 <b>매출 집계에 자동 저장</b>되어 실적 / 매출에 반영됩니다.</li>
+  <li>3PL 택배비는 <b>3PL 택배비 품목 설정</b>의 품목·단가대로 행이 자동 추가됩니다.</li>
+</ul>
+
+<h3>거래처별 품목 단가 설정</h3>
+<ul>
+  <li>위쪽에서 <b>발주 구분</b>·<b>지역</b>을 고르거나 <b>업체명 또는 코드</b>로 검색하면 그 업체만 표에 보입니다. 코드는 표에서 업체명 오른쪽 칸에 나옵니다.</li>
+  <li>정렬은 등록순, 거래처명순, 구분순, 지역순, 시장명순, 코드순 중에서 고릅니다.</li>
+  <li>표 맨 윗줄 <b>"표시된 N곳 한꺼번에"</b> 칸에 단가를 넣고 Enter → 위쪽 안내의 <span class="mn-b">적용</span>을 누르면 표시된 업체 전체에 들어갑니다. <b>이미 입력된 단가는 유지</b>를 체크하면 빈 칸만 채웁니다. 실수했다면 안내 줄의 되돌리기를 쓰세요.</li>
+  <li>단가그룹이 있는 품목은 <b>그룹 단가</b>를 넣으면 그룹 안 모든 품목에 같은 단가가 들어가고, 개별 조정도 됩니다.</li>
+</ul>
+
+<h2>자재 · 재고 관리</h2>
+<p class="mn-lead">이카운트·기준정보 탭의 <b>📦 자재·재고 관리</b> 카드입니다. 제품 1팩을 만들 때 쓰는 자재(트레이·스티커·원물·습지·외박스·향료 등)를 등록하고 재고와 수불을 맞춥니다. 제목을 누르면 열립니다.</p>
+
+<div class="mn-tw"><table>
+<tr><th>탭</th><th>하는 일</th></tr>
+<tr><td>재고 현황</td><td>자재별 현재고, 안전재고 미만 경고, 최근 입고일. <b>실사 수량</b>을 넣고 <span class="mn-b">맞추기</span>를 누르면 차이만큼 조정 기록이 남습니다. 제품별로 지금 재고로 만들 수 있는 팩 수와 먼저 떨어지는 자재도 보입니다.</td></tr>
+<tr><td>정전개 (제품→자재)</td><td>제품·반제품마다 1팩당 소요량을 등록하고, 계획 수량을 넣어 필요한 자재와 부족분을 계산합니다.</td></tr>
+<tr><td>역전개 (자재→제품)</td><td>자재를 고르면 그 자재가 쓰이는 제품과, 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.</td></tr>
+<tr><td>입고·수불</td><td>입고(구매), 로스, 수기 사용, 재고조정을 기록하고 이카운트 구매입력 엑셀을 내려받습니다.</td></tr>
+<tr><td>자재 마스터</td><td>자재 목록, 단위, 이카운트 품목코드, 기본 거래처·단가, 안전재고, 부가세 구분, 매입 거래처 코드를 등록합니다.</td></tr>
+</table></div>
+
+<h3>처음 세팅하는 순서</h3>
+<ol class="mn-flow">
+  <li><div><span class="mn-t">자재 마스터 등록</span><span class="mn-s">자재명, 단위(개·장·kg), <b>이카운트 품목코드</b>, 안전재고를 넣고 저장합니다. 중간 단계 제품은 구분을 <b>반제품</b>으로 합니다. 부가세가 붙는 자재는 <b>부가세 별도</b>를 체크합니다.</span></div></li>
+  <li><div><span class="mn-t">매입 거래처 등록</span><span class="mn-s">같은 화면 아래 표에 자재를 사 오는 업체의 이름과 <b>이카운트 거래처코드</b>를 넣습니다.</span></div></li>
+  <li><div><span class="mn-t">정전개 등록</span><span class="mn-s">제품을 펼쳐 자재와 <b>1팩당 소요량</b>을 넣습니다. 외박스는 박스입수가 4팩이면 <b>1/4</b>처럼 분수로 적어도 됩니다. 로스%는 불량·손실 여유분입니다.</span></div></li>
+  <li><div><span class="mn-t">현재 재고 맞추기</span><span class="mn-s">재고 현황에서 자재별 실사 수량을 넣고 [맞추기]를 누릅니다. 이후 입고와 출고 차감으로 자동 관리됩니다.</span></div></li>
+</ol>
+
+<h3>입고·수불 기록</h3>
+<ul>
+  <li><b>입고(구매)</b>는 재고가 늘고, <b>로스(파손·손망실)</b>와 <b>사용(수기)</b>은 줄어듭니다. <b>재고조정</b>은 늘릴 때 5, 줄일 때 -5처럼 부호를 붙입니다. 저장 전에 "현재고 → 기록 후" 미리보기가 나옵니다.</li>
+  <li>입고에는 단가와 거래처를 넣습니다(마스터의 기본값이 자동으로 채워집니다).</li>
+  <li>잘못 넣은 기록은 <b>취소</b>하면 재고에서 빠지고 이력은 남습니다. 출고 차감으로 생긴 자동 기록은 여기서 취소하지 않고 생산 / 물류 탭에서 <b>반영 되돌리기</b>로 합니다.</li>
+</ul>
+
+<h3>이카운트 구매입력 엑셀</h3>
+<ol>
+  <li>입고·수불 탭 아래에서 <b>입고 기간</b>을 고릅니다.</li>
+  <li><b>입고창고</b>(기본 00019, 안성공장(생산))와 <b>거래유형</b>(부가세 적용 21, 미적용 22)은 모두 같이 쓰는 값입니다. <b>담당자 코드</b>는 본인 코드를 넣으며 내 브라우저에만 저장됩니다.</li>
+  <li><span class="mn-b">구매입력 엑셀 다운로드</span>를 눌러 받은 파일을 이카운트 구매입력에 올립니다.</li>
+</ol>
+<ul>
+  <li>품목코드는 자재 마스터, 거래처코드는 매입 거래처 표에서 가져옵니다. 코드가 없으면 이름만 들어가고 이카운트가 이름으로 찾습니다. 품목코드가 없는 자재는 다운로드 후 안내에 표시됩니다.</li>
+  <li>부가세 별도로 체크한 자재는 공급가액의 10%가 부가세로 들어가고 거래유형이 21이 됩니다.</li>
+  <li>내려받은 입고 기록에는 <b>"엑셀 ✓"</b>가 붙고, 기본적으로 <b>이미 내려받은 기록은 제외</b>되어 같은 입고를 두 번 올리는 일을 막습니다.</li>
+</ul>
+<div class="mn-tip"><b>팁</b>원물(방울토마토)은 원물선별 → 원물입고에서 입고할 때 <b>원물(자재 코드)</b>을 고르면 그 kg이 같은 코드의 자재 재고에 자동으로 더해집니다. 자재 마스터에 품목코드를 먼저 입력해 두세요.</div>
+</section>
+
+<!-- ───────────── 원물선별 ───────────── -->
+<section class="mn-pane" id="mn-p-sorting">
+<h2>원물선별</h2>
+<p class="mn-lead">원물(방울토마토)이 들어와서 선별되고 출고·정산되기까지를 기록합니다. 홈 화면의 <b>원물선별</b> 타일로 들어갑니다. 위쪽 탭으로 화면을 바꿉니다.</p>
+
+<h3>현황</h3>
+<p>사입처별 <b>선별전재고</b>, 등급별 <b>선별후재고</b>(판매 가능), 날짜별 작업·출고 현황을 한눈에 봅니다. 조회 날짜를 바꾸고 <span class="mn-b">🔄 새로고침</span>.</p>
+
+<h3>원물입고</h3>
+<p>원물이 들어올 때마다 한 건씩 등록합니다. 사입과 농가 입고를 따로 나누지 않고 <b>한 화면</b>에서 합니다.</p>
+<ol>
+  <li><b>사입처</b>를 고릅니다. <b>필수</b>입니다.</li>
+  <li><b>농가</b>는 선택입니다. 고르지 않으면 농가 없이 사입처만 기록·표시됩니다.</li>
+  <li><b>원물(자재 코드)</b>에서 이카운트 자재 마스터에 등록된 원물을 <b>코드 · 품목명</b>으로 고릅니다. 고르면 이 입고 kg이 자재 재고에 자동 반영됩니다. 선택 안 해도 등록은 됩니다.</li>
+  <li>품종, 날짜, 무게(kg), A1 콘테이너 수, KPP 팔레트 수, 메모를 넣고 <span class="mn-b">+ 원물입고 등록</span>.</li>
+</ol>
+<ul>
+  <li>사입처를 고르면 아래에 그 사입처의 <b>선별전재고</b>(입고 누계 − 선별산출 누계)가 나옵니다.</li>
+  <li><b>품종</b>은 생산 / 물류 탭의 "오늘 사용 품종"에서 고를 수 있는 목록이 됩니다.</li>
+  <li>A1·KPP 수량은 물류기기 보유 현황의 자동 회수로 집계됩니다.</li>
+</ul>
+
+<h3>선별산출</h3>
+<ol>
+  <li>날짜와 <b>오늘 총 처리량(kg)</b>을 입력하고 <span class="mn-b">자동 배분 계산 (선입선출)</span>을 누릅니다.</li>
+  <li>사입처마다 오래된 입고분부터 배분량이 나옵니다. 어느 날짜분만 일부가 필요하면 "직접 입력" 안내가 나오니 배분량을 조정합니다.</li>
+  <li>사입처별 카드에서 <b>등급별 산출량(kg)</b>을 넣고 <span class="mn-b">+ 선별산출 전체 등록</span>.</li>
+</ol>
+<p>아래쪽 <b>선별결과 공유 이미지</b>에서 날짜를 고르고 <span class="mn-b">이미지 생성</span>을 누르면 사입처별 결과표 이미지를 만들어 다운로드하거나 공유할 수 있습니다.</p>
+
+<h3>출고 · 정산</h3>
+<ol>
+  <li><b>거래처</b>는 이카운트 거래처 이름이나 <b>코드</b>(일부만 입력해도 됨)로 검색해 목록에서 고릅니다. 처음 출고하는 거래처는 정산용 거래처로 <b>자동 등록</b>되고 코드가 같이 저장됩니다. 수수료율은 처음에 0%이니 마스터관리 → 거래처에서 입력하세요.</li>
+  <li><b>등급</b>을 고릅니다.</li>
+  <li><b>포장단위</b>에서 출고 제품을 SKU 관리 품목 중에서 고르고 <b>박스 수</b>를 넣으면 <b>수량(kg) = 품목명의 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다. 예: 500g × 4팩 × 3박스 = 6kg. 중량을 찾지 못하면 안내가 나오니 직접 입력합니다(직접 고친 값도 인정).</li>
+  <li>날짜, 메모를 넣고 <span class="mn-b">+ 출고 등록</span>.</li>
+</ol>
+<ul>
+  <li><b>단가는 나중에 입력</b>해도 됩니다. 낙찰이 확정되면 출고 내역의 <span class="mn-b">단가 입력</span>을 눌러 채우면 매출액·수수료·실수령액이 계산됩니다. <b>단가 미확정 건만 보기</b>로 빠진 건을 찾으세요.</li>
+</ul>
+
+<h3>물류기기 (A1 콘테이너 · KPP 팔레트)</h3>
+<ol>
+  <li>날짜, 기기유형, 이동유형(확보입고·출고반출·거래처회수·농가발송·손실파손·내부이관), 수량을 고릅니다.</li>
+  <li><b>사업자</b>는 기기를 소유한 회사입니다. 이동유형에 따라 거래처·농가·받는 사업자 칸이 나타납니다.</li>
+  <li>메모를 쓰고 바로 옆 <span class="mn-b">+ 물류기기 이력 등록</span>을 누릅니다.</li>
+</ol>
+<ul>
+  <li>아래에 <b>현재 보유 현황</b>(기기유형 × 사업자)과 <b>거래처 미회수 / 농가 보유(미회수)</b>가 자동 계산됩니다.</li>
+  <li><b>이력 수정</b>: 최근 이동 이력의 <span class="mn-b">수정</span>을 누르면 위 입력칸에 내용이 채워지고, 고친 뒤 <span class="mn-b">수정 저장</span>(취소는 <span class="mn-b">수정 취소</span>)을 누릅니다. 이동유형을 바꾸면 필요 없어진 항목은 자동으로 비워집니다.</li>
+  <li><b>자담 외에 우리 회사나 다른 회사</b> 자산으로 잡으려면 「새 사업자(회사) 추가」를 펼쳐 회사명을 넣고 추가합니다(마스터관리 권한이 있는 계정에만 보입니다). 회사 간 이동은 <b>내부이관</b>으로 기록합니다.</li>
+  <li>농가·사입 입고에 적은 A1·KPP 수량은 자동 회수로 <b>자담</b>에 잡힙니다.</li>
+</ul>
+
+<h3>마스터관리 <span class="mn-who">마스터 권한</span></h3>
+<p>농가, 사입처, 등급, 거래처, 기기유형, 사업자 같은 목록을 추가·수정합니다. 마스터관리 권한이 있는 계정에만 이 탭이 보입니다.</p>
+</section>
+
+<!-- ───────────── 샘플 신청 ───────────── -->
+<section class="mn-pane" id="mn-p-sample">
+<h2>샘플 신청</h2>
+<p class="mn-lead">샘플이 필요한 출고일시·방식·품목을 신청하면 주문 취합 담당자가 확인 처리합니다. 홈 화면의 <b>샘플 신청</b> 타일로 들어갑니다.</p>
+
+<h3>신청하기</h3>
+<ol>
+  <li><b>생산 요청 부서</b>와 <b>출고일시</b>, <b>출고 방식</b>(직접 픽업·택배 발송 요청·퀵서비스·기타)을 입력합니다.</li>
+  <li>샘플 품목을 <b>팩 단위</b>로 넣습니다. 수량은 SKU 관리의 박스입수로 박스 수가 자동 환산됩니다(1박스 4팩이면 1팩 = 0.25박스).</li>
+  <li>품목마다 <b>생산 방식</b>(생산본부 생산 / 연구실 생산)을 고릅니다. 한 번에 정하려면 <span class="mn-b">전체 생산본부 생산</span>, <span class="mn-b">전체 연구실 생산</span>을 씁니다.</li>
+  <li>생산이 출고일과 다른 날이면 품목마다 <b>생산일</b>을 지정합니다. 발주취합과 집계에는 생산일 기준으로 반영됩니다. <span class="mn-b">전체 전일 생산 (재고 사용)</span>도 있습니다.</li>
+  <li><b>용도</b>(필수)를 적습니다. 발주취합 파일의 샘플 줄 이름이 "신청자 용도 샘플"로 표시됩니다.</li>
+  <li>비고에 포장방법, 택배 발송이면 주소·연락처를 적고 <span class="mn-b">신청하기</span>.</li>
+</ol>
+
+<h3>신청 내역 · 샘플 취합</h3>
+<ul>
+  <li><b>신청 내역</b>: 출고일 범위, 상태(미확인·확인됨·취소됨), 생산 방식, 검색어로 걸러 봅니다.</li>
+  <li><b>샘플 취합</b>: 기간을 정해 품목별 합계를 봅니다(취소 제외 전체 / 확인된 건만).</li>
+</ul>
+<div class="mn-note"><b>규칙</b>확인되기 전에는 신청자가 직접 수정·취소할 수 있고, <b>확인된 뒤에는 취합 담당자만</b> 바꿀 수 있습니다. 확인된 샘플은 발주취합 파일의 샘플 줄에 반영됩니다.</div>
+</section>
+
+<!-- ───────────── 관리자 ───────────── -->
+<section class="mn-pane" id="mn-p-admin">
+<h2>관리자 <span class="mn-who">관리자 전용</span></h2>
+<p class="mn-lead">관리자 메뉴와 권한이 필요한 설정을 모았습니다. 일반 직원은 이 탭을 읽지 않아도 됩니다.</p>
+
+<h3>사용자 관리</h3>
+<p>관리자 → <b>사용자 관리</b>에서 직원 계정을 만들고 이름·부서·비밀번호를 관리합니다. 비밀번호는 서버에 그대로 저장되지 않습니다. 직원이 비밀번호를 잊으면 관리자가 초기화해 줍니다.</p>
+
+<h3>권한 관리</h3>
+<ul>
+  <li>직원마다 <b>발주자동화 · 원물선별 · 공유폴더/상세페이지</b>를 <b>차단 / 읽기만 / 전체</b> 중에서 정합니다. <b>생산/물류</b>와 <b>송장/명세서</b>는 따로 줄 수 있고, "발주자동화 따름"이면 발주자동화와 같습니다.</li>
+  <li><b>마스터관리</b>(원물선별 마스터), <b>단가 열람</b>, <b>샘플 신청</b> 권한도 여기서 정합니다.</li>
+  <li>생산·물류 부서처럼 두 기능만 써야 하는 직원은 발주자동화를 차단하고 생산/물류, 송장/명세서만 허용합니다.</li>
+  <li>변경한 권한은 해당 직원이 <b>새로고침하거나 다시 로그인하면</b> 적용됩니다.</li>
+</ul>
+
+<h3>부서별 권한 일괄 적용</h3>
+<p>부서마다 권한 세트를 저장해 두고 <span class="mn-b">부서 전체에 적용</span>하면 그 부서 직원 모두에게 한꺼번에 들어갑니다(관리자 계정은 제외). 새 직원을 만들거나 부서를 바꿀 때 그 부서 권한이 자동 적용되거나 확인 창이 뜹니다. 직원이 0명이 된 부서는 목록에서 자동으로 지워집니다.</p>
+
+<h3>활동 로그</h3>
+<p>누가 언제 무엇을 했는지 기록을 봅니다. 입력·삭제 같은 주요 작업이 남습니다.</p>
+
+<h3>정기적으로 할 일</h3>
+<ul>
+  <li>큰 변경 전에 <b>발주취합 → 설정 → 전체 데이터 백업</b>을 받아 둡니다.</li>
+  <li>새 상품이 나오면 SKU 관리 등록 → 발주취합 서식의 열 지정 → 단가 설정 → (자재를 쓰면) 정전개 등록 순서로 준비합니다.</li>
+  <li>새 거래처는 거래처 관리에 이카운트와 같은 이름·코드로 등록합니다.</li>
+</ul>
+</section>
+
+<!-- ───────────── 자주 묻는 질문 ───────────── -->
+<section class="mn-pane" id="mn-p-faq">
+<h2>자주 묻는 질문</h2>
+
+<details><summary>입력했는데 저장이 안 돼요 / "읽기 전용 권한입니다"가 떠요</summary>
+<p>그 메뉴의 권한이 <b>읽기만</b>으로 설정된 것입니다. 조회와 다운로드만 되고 저장은 막힙니다. 입력이 필요하면 관리자에게 전체 권한을 요청하세요.</p></details>
+
+<details><summary>화면 맨 위에 빨간 줄("일부 데이터를 불러오지 못했습니다")이 떠요</summary>
+<p>인터넷이 잠깐 끊겨 서버에서 자료를 다 받지 못한 상태입니다. 이 상태로 저장하면 기존 자료가 빈 값으로 덮어써질 수 있어서, <b>불러오지 못한 항목은 저장이 막힙니다</b>. 연결을 확인하고 빨간 줄의 <span class="mn-b">새로고침</span>을 누르세요. 정상으로 불러오면 빨간 줄이 사라지고 다시 저장됩니다.</p></details>
+
+<details><summary>아래쪽에 빨간 알림("⚠ 저장 실패")이 떠요</summary>
+<p>방금 입력한 내용이 서버에 저장되지 않았다는 뜻입니다. 화면에는 보여도 다른 사람에게는 보이지 않고, 새로고침하면 사라집니다. 인터넷 연결을 확인한 뒤 <b>같은 내용을 한 번 더 저장</b>하세요.</p></details>
+
+<details><summary>다른 직원이 입력했다는 내용이 안 보여요</summary>
+<p>화면 오른쪽 위 또는 카드 안의 <span class="mn-b">🔄 새로고침</span>을 누르세요. 브라우저 새로고침(F5)으로도 최신 값을 불러옵니다. 생산 현황판은 5분마다 자동으로 새로고침됩니다.</p></details>
+
+<details><summary>카카오톡 메시지를 붙여넣었는데 업체나 품목을 못 찾아요</summary>
+<p>인식 결과 확인 카드에서 업체를 직접 고르거나 <span class="mn-b">+ 새 업체</span>로 추가하세요. 품목은 SKU 관리에 등록되어 있어야 하고, 메시지에서 쓰는 이름이 다르면 품목 <b>별칭</b>에 추가해 두면 다음부터 인식됩니다. 등록되지 않은 품목은 집계표 아래에 붉은 글씨로 나옵니다.</p></details>
+
+<details><summary>현황판에서 업체 이름이 노란색이에요</summary>
+<p><b>초안 공유본</b>을 저장한 뒤에 수량이 바뀌었거나 새로 생긴 업체입니다. 다운로드한 발주취합 파일에서도 같은 업체가 노란색으로 표시됩니다. 초안이 필요 없으면 집계 / 출고의 <b>초안 해제</b>를 누르세요.</p></details>
+
+<details><summary>발주취합 다운로드에서 빠지는 업체가 있어요</summary>
+<p>다운로드 전에 <span class="mn-b">🩺 서식 점검</span>을 눌러 보세요. 서식에 자리가 없는 업체나 열이 없는 품목을 알려 줍니다. 열이 없는 품목은 파일 맨 아래 표에 따로 적히고, 서식 열 지정에서 열을 정해 주면 해결됩니다.</p></details>
+
+<details><summary>거래명세서에 인감이 안 나와요</summary>
+<p>인감 이미지는 <b>그 PC의 브라우저에만</b> 저장됩니다. 명세서를 만드는 PC에서 명세서 설정 → 인감 도장 이미지를 한 번 등록하세요(배경이 투명한 PNG 권장).</p></details>
+
+<details><summary>자재 출고 차감에서 "정전개 없음"이 떠요</summary>
+<p>그 제품에 자재 소요량이 등록되지 않았다는 뜻입니다. 이카운트·기준정보 → 자재·재고 관리 → 정전개에서 제품을 펼쳐 자재와 1팩당 소요량을 등록하면 다음 반영부터 차감됩니다.</p></details>
+
+<details><summary>자재 재고가 마이너스예요</summary>
+<p>입고 기록이 빠졌거나 실제 재고가 전산과 다르다는 뜻입니다. 재고 현황에서 <b>실사 수량</b>을 넣고 <span class="mn-b">맞추기</span>를 누르면 차이만큼 조정 기록이 남고 재고가 맞춰집니다. 파손·손망실은 입고·수불에서 <b>로스</b>로 기록하세요.</p></details>
+
+<details><summary>출고·정산에서 거래처가 목록에 없어요</summary>
+<p>이카운트·기준정보 → 거래처 관리에 그 거래처가 등록되어 있어야 검색됩니다. 거래처명이나 코드 일부를 입력해 보고, 없으면 거래처를 먼저 등록하세요. 목록에서 고르지 않고 임의로 입력하면 등록되지 않습니다.</p></details>
+
+<details><summary>원물입고에서 원물 코드 목록이 비어 있어요</summary>
+<p>이카운트·기준정보 → 자재·재고 관리 → 자재 마스터에 원물 자재를 등록하고 이카운트 품목코드를 입력해야 목록에 나옵니다. 코드를 비워 두면 "코드 미입력"으로 표시됩니다.</p></details>
+
+<details><summary>삭제한 데이터를 되돌릴 수 있나요?</summary>
+<p>대부분의 삭제는 되돌릴 수 없습니다. 중요한 작업 전에는 발주취합 → 설정의 <b>전체 데이터 백업</b>을 받아 두세요. 단가 일괄 변경은 안내 줄에서 되돌릴 수 있고, 자재 수불 기록은 취소하면 재고에서만 빠지고 이력은 남습니다.</p></details>
+
+<details><summary>다른 PC·브라우저에서 내 설정이 사라졌어요</summary>
+<p>담당자·부서, 접어 둔 카드 상태, 인감 이미지처럼 <b>내 브라우저에만 저장되는 설정</b>은 PC와 브라우저마다 따로입니다. 그 PC에서 한 번 다시 설정하세요.</p></details>
+
+<p style="margin-top:28px;color:var(--muted)">설명서에 없는 내용이나 오류는 관리자에게 알려 주세요.</p>
+</section>
+  <div class="mn-foot">화면은 업데이트되어 설명과 조금 다를 수 있습니다</div>
+  </div>
+  </div><!-- /panel-manual -->
+
   <!-- 내 비밀번호 변경 -->
   <div id="pw-dialog" style="display:none; position:fixed; inset:0; background:rgba(42,36,38,.45); z-index:900; align-items:center; justify-content:center; padding:16px;">
     <div style="background:#fff; border-radius:12px; padding:22px; width:100%; max-width:340px; border:1px solid var(--line);">
@@ -2560,6 +3073,7 @@ const HOME_TILES = [
   { key: 'detail', icon: '🖼', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'files', icon: '📁', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'admin', icon: '🛠', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
+  { key: 'manual', icon: '📖', name: '사용설명서', desc: '화면별 사용 방법 · 자주 묻는 질문', nav: '#main-nav-btn-manual' },   // 권한과 무관하게 누구나
 ];
 let homeOrder = null;       // 저장된 순서 (타일 key 배열)
 let homeEditing = false;    // 순서 편집 모드 (마스터 계정 admin 전용)
@@ -2663,6 +3177,29 @@ function goHome() {
   if (app) app.classList.remove('in-program');
   window.scrollTo(0, 0);
 }
+// ── 사용설명서 (권한과 무관하게 누구나 열람) ── 위쪽 탭으로 역할별 설명을 바꿔 봄. 마지막으로 본 탭은 이 브라우저에 기억
+function mnShow(id, keepScroll) {
+  const panes = [...document.querySelectorAll('#panel-manual .mn-pane')];
+  if (!panes.some(p => p.id === 'mn-p-' + id)) id = 'start';
+  panes.forEach(p => p.classList.toggle('on', p.id === 'mn-p-' + id));
+  document.querySelectorAll('#mn-tabs button').forEach(b => {
+    const on = b.dataset.mn === id;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    // 좁은 화면에서 고른 탭이 탭 줄 안에 보이도록 가로로만 옮김
+    if (on) { const t = b.parentElement; t.scrollLeft = Math.max(0, b.offsetLeft - t.offsetLeft - (t.clientWidth - b.offsetWidth) / 2); }
+  });
+  try { localStorage.setItem('mn-tab', id); } catch (e) {}
+  if (!keepScroll) window.scrollTo(0, 0);
+}
+(function () {
+  const tabs = document.getElementById('mn-tabs');
+  if (!tabs) return;
+  tabs.addEventListener('click', e => { const b = e.target.closest('button[data-mn]'); if (b) mnShow(b.dataset.mn); });
+  let saved = 'start';
+  try { saved = localStorage.getItem('mn-tab') || 'start'; } catch (e) {}
+  mnShow(saved, true);
+})();
 </script>
 <div id="po-board">
   <div class="pb-body" id="pb-body"><div id="pb-fit"></div></div>
@@ -9126,6 +9663,12 @@ function goHome() {
       // 단가 확인 탭 진입 시 초기화 (관리자만, 최초 1회 로드 / 이후 진입 시 SKU 목록·계산 갱신)
       if(panelId === 'panel-cost'){
         initCostPanel();
+      }
+      // 사용설명서: 탭 줄이 ‘← 홈’ 바 바로 아래에 붙도록 바 높이를 반영
+      if(panelId === 'panel-manual'){
+        document.getElementById(panelId).style.setProperty('--mn-top', document.getElementById('program-bar').offsetHeight + 'px');
+        const cur = document.querySelector('#mn-tabs button.on');
+        mnShow(cur ? cur.dataset.mn : 'start', true);   // 마지막으로 본 탭이 탭 줄 안에 보이게
       }
       // 샘플 신청 탭 진입 시 초기화 (권한 확인 후 데이터 로드)
       if(panelId === 'panel-sample'){
