@@ -1344,7 +1344,6 @@
     <div class="row sorting-tabstrip" style="margin-top:0; flex-wrap:wrap;">
       <button class="tab-btn active" id="sorting-tab-overview-btn">현황</button>
       <button class="tab-btn" id="sorting-tab-inbound-btn">원물입고</button>
-      <button class="tab-btn" id="sorting-tab-purchase-btn">사입</button>
       <button class="tab-btn" id="sorting-tab-output-btn">선별산출</button>
       <button class="tab-btn" id="sorting-tab-shipment-btn">출고·정산</button>
       <button class="tab-btn" id="sorting-tab-equipment-btn">물류기기</button>
@@ -1359,7 +1358,7 @@
       </div>
 
       <h3 style="margin-top:20px;">📦 재고 현황 (실시간 누계)</h3>
-      <div class="sub" style="margin-top:0;">선별전재고 (농가/사입처별)</div>
+      <div class="sub" style="margin-top:0;">선별전재고 (사입처별)</div>
       <div id="overview-prestock-wrap" style="overflow-x:auto;"></div>
       <div class="sub" style="margin-top:14px;">선별후재고 (등급별, 판매가능)</div>
       <div id="overview-poststock-wrap" style="overflow-x:auto;"></div>
@@ -1373,8 +1372,14 @@
 
     <div id="sorting-section-inbound" style="display:none;">
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
-        <label style="font-size:13px;">농가 :</label>
-        <select id="inbound-origin-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">사입처 <b style="color:var(--accent);">*</b> :</label>
+        <select id="inbound-vendor-select" style="min-width:140px;"></select>
+        <label style="font-size:13px;">농가 (선택) :</label>
+        <select id="inbound-origin-select" style="min-width:130px;"></select>
+        <label style="font-size:13px;">원물 (자재 코드) :</label>
+        <select id="inbound-item-select" style="min-width:220px;"></select>
+      </div>
+      <div class="row" style="flex-wrap:wrap;">
         <label style="font-size:13px;">품종 :</label>
         <input type="text" id="inbound-variety" list="inbound-variety-list" placeholder="예: 스마트" style="width:130px;">
         <datalist id="inbound-variety-list"></datalist>
@@ -1387,47 +1392,20 @@
         <label style="font-size:13px;">KPP팔레트 :</label>
         <input type="number" id="inbound-kpp" style="width:70px;" value="0">
       </div>
-      <div class="row">
-        <input type="text" id="inbound-note" placeholder="메모" style="flex:1; min-width:150px;">
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">원물입고 한 건에 <b>사입처(필수)</b>와 <b>농가(선택)</b>를 함께 기록합니다. 농가를 고르지 않으면 사입처만 기록·표시됩니다. <b>원물</b>은 이카운트 자재 마스터(원자재)에 등록된 <b>품목코드·품목명</b> 중에서 고르며, 고른 원물의 입고 kg은 자재 재고에 자동으로 더해집니다. 선별전재고와 선별산출(선입선출)은 사입처 기준으로 계산됩니다.</div></details>
+      <div class="row" style="flex-wrap:wrap;">
+        <input type="text" id="inbound-note" placeholder="메모" style="flex:0 1 380px; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="inbound-add-btn">+ 원물입고 등록</button>
       </div>
       <div id="inbound-stock-display" class="sub" style="margin-top:8px;"></div>
       <h3 style="margin-top:16px;">최근 입고 내역</h3>
       <div id="inbound-table-wrap" style="overflow-x:auto;"></div>
     </div>
-    <div id="sorting-section-purchase" style="display:none;">
-      <div class="row" style="margin-top:0; flex-wrap:wrap;">
-        <label style="font-size:13px;">사입처 :</label>
-        <select id="purchase-origin-select" style="min-width:120px;"></select>
-        <label style="font-size:13px;">품종 :</label>
-        <input type="text" id="purchase-variety" list="purchase-variety-list" placeholder="예: 스마트" style="width:130px;">
-        <datalist id="purchase-variety-list"></datalist>
-        <label style="font-size:13px;">날짜 :</label>
-        <input type="date" id="purchase-date">
-        <label style="font-size:13px;">무게(kg) :</label>
-        <input type="number" id="purchase-weight" style="width:90px;">
-        <label style="font-size:13px;">A1콘테이너 :</label>
-        <input type="number" id="purchase-a1" style="width:70px;" value="0">
-        <label style="font-size:13px;">KPP팔레트 :</label>
-        <input type="number" id="purchase-kpp" style="width:70px;" value="0">
-      </div>
-      <div class="row">
-        <input type="text" id="purchase-note" placeholder="메모" style="flex:1; min-width:150px;">
-        <button class="btn-primary small-btn form-submit-btn" id="purchase-add-btn">+ 사입 등록</button>
-      </div>
-      <div id="purchase-stock-display" class="sub" style="margin-top:8px;"></div>
-      <h3 style="margin-top:16px;">최근 사입 내역</h3>
-      <div id="purchase-table-wrap" style="overflow-x:auto;"></div>
-    </div>
     <div id="sorting-section-output" style="display:none;">
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
-        <label style="font-size:13px;">원본 :</label>
-        <select id="output-origin-type-select" style="min-width:90px;">
-          <option value="farm">농가</option>
-          <option value="vendor">사입처</option>
-        </select>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="output-date">
+        <span class="sub" style="margin:0;">※ 사입처 기준으로 선입선출 배분합니다</span>
       </div>
       <div class="row">
         <label style="font-size:13px;">오늘 총 처리량(kg) :</label>
@@ -1447,13 +1425,8 @@
       <div id="output-table-wrap" style="overflow-x:auto;"></div>
 
       <h3 style="margin-top:20px;">📤 선별결과 공유 이미지</h3>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 날짜의 농가/사입처별 선별 결과를 이미지로 만들어 다운로드하거나 바로 공유할 수 있습니다.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 날짜의 사입처별 선별 결과를 이미지로 만들어 다운로드하거나 바로 공유할 수 있습니다.</div></details>
       <div class="row" style="margin-top:8px; flex-wrap:wrap;">
-        <label style="font-size:13px;">원본 :</label>
-        <select id="share-origin-type-select" style="min-width:90px;">
-          <option value="farm">농가</option>
-          <option value="vendor">사입처</option>
-        </select>
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="share-date">
         <label style="font-size:13px;">사업자명 :</label>
@@ -1471,8 +1444,9 @@
     </div>
     <div id="sorting-section-shipment" style="display:none;">
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
-        <label style="font-size:13px;">거래처 :</label>
-        <select id="shipment-destination-select" style="min-width:120px;"></select>
+        <label style="font-size:13px;">거래처 (이카운트 거래처 검색) :</label>
+        <input type="text" id="shipment-destination-input" list="shipment-destination-list" placeholder="이름 또는 코드로 검색" autocomplete="off" style="min-width:240px;">
+        <datalist id="shipment-destination-list"></datalist>
         <label style="font-size:13px;">등급 :</label>
         <select id="shipment-grade-select" style="min-width:100px;"></select>
         <label style="font-size:13px;">포장단위 (출고 제품) :</label>
@@ -1486,8 +1460,9 @@
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
       </div>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">포장단위는 <b>SKU 관리에 등록된 출고 제품</b> 중에서 고릅니다. 박스 수를 입력하면 <b>수량(kg) = 품목명에 적힌 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다 (예: 500g × 4팩 × 3박스 = 6kg, 직접 수정도 가능). 품목명에서 중량을 찾지 못하면 안내가 나오니 수량(kg)을 직접 입력하세요.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;"><b>거래처</b>는 이카운트·기준정보의 거래처 관리 목록에서 이름이나 <b>코드</b>(일부만 입력해도 됨)로 검색해 고릅니다. 처음 출고하는 거래처는 정산용 거래처(수수료율 0%)로 자동 등록되고 코드가 같이 저장되니, 수수료율은 마스터관리 → 거래처에서 입력하세요.<br>포장단위는 <b>SKU 관리에 등록된 출고 제품</b> 중에서 고릅니다. 박스 수를 입력하면 <b>수량(kg) = 품목명에 적힌 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다 (예: 500g × 4팩 × 3박스 = 6kg, 직접 수정도 가능). 품목명에서 중량을 찾지 못하면 안내가 나오니 수량(kg)을 직접 입력하세요.</div></details>
       <div id="shipment-calc-hint" class="sub" style="margin:2px 0 0;"></div>
+      <div id="shipment-dest-hint" class="sub" style="margin:2px 0 0;"></div>
       <div class="row">
         <input type="text" id="shipment-note" placeholder="메모" style="flex:1; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="shipment-add-btn">+ 출고 등록</button>
@@ -1710,7 +1685,7 @@
           <b>정전개</b>: 제품(SKU) 1팩을 만들 때 쓰는 자재(트레이·스티커·방울토마토 원물·습지·외박스·향료 등)와 소요량을 등록합니다. 반제품을 거치면 <b>반제품 → 자재</b>로 한 단계 더 전개합니다. 계획 수량을 넣으면 필요한 자재 총량과 부족분(구매 필요량)을 계산합니다.<br>
           <b>역전개</b>: 자재를 고르면 그 자재가 쓰이는 제품(반제품 경유 포함)과 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.<br>
           <b>재고</b>는 입고·로스·사용·조정 기록의 합계입니다. 신규 자재가 들어오면 <b>입고·수불</b>에서 구매 입력(입고)을 하고, 실제 재고와 다르면 <b>재고 현황</b>에서 실사 수량을 넣어 맞춥니다. 파손·손망실은 <b>로스</b>로 기록합니다.<br>
-          원물(방울토마토)은 자재 마스터에서 <b>원물선별 입고 연동</b>을 켜면, 시작일 이후 원물선별에 입력한 원물입고·사입 kg이 자동으로 재고에 더해집니다(이중 입력 없음).<br>
+          원물(방울토마토)은 <b>원물선별 → 원물입고</b>에서 입고할 때 <b>원물(자재 코드)</b>을 고르면, 그 입고 kg이 같은 코드의 자재 재고에 자동으로 더해집니다(이중 입력 없음). 자재 마스터에 이카운트 품목코드를 먼저 입력해 두세요.<br>
           <b>출고 차감</b>은 <b>생산/물류 탭의 「자재 출고 차감」 카드</b>에서 합니다(생산/물류 담당자가 쓰는 기능). 정전개를 등록한 제품만 차감되고, 제품마다 정전개 탭에서 차감을 끌 수 있습니다.<br>
           <b>구매입력 엑셀</b>: <b>입고·수불</b> 탭 아래에서 입고(구매) 기록을 이카운트 구매입력 양식으로 내려받습니다.</div></details>
         <div class="row" style="margin:6px 0;">
@@ -10670,7 +10645,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   });
 
   // ── 원물선별: 서브탭 전환 ──
-  const SORTING_SECTIONS = ['overview','inbound','purchase','output','shipment','equipment','master'];
+  const SORTING_SECTIONS = ['overview','inbound','output','shipment','equipment','master'];
   function showSortingSection(sec){
     SORTING_SECTIONS.forEach(s=>{
       document.getElementById(`sorting-section-${s}`).style.display = (s===sec) ? 'block' : 'none';
@@ -10711,8 +10686,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(sortingPanelInited) return;
     sortingPanelInited = true;
     initSortingOverviewUI();
-    initSortingInboundUI('inbound');
-    initSortingInboundUI('purchase');
+    initSortingInboundUI();
     // 선별산출/출고·정산/물류기기 데이터 로더는 이후 단계에서 여기에 연결됩니다.
     // 마스터관리는 sortingMasterUIInited 플래그로 해당 탭 최초 클릭 시에만 로드됩니다.
   }
@@ -10740,16 +10714,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>구분</th><th>이름</th><th>선별전재고(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      for(const kind of ['inbound','purchase']){
-        const cfg = SORTING_INBOUND_CONFIGS[kind];
-        const origins = await sbQuery(cfg.originTable, '?is_active=eq.true&order=name.asc');
-        for(const o of origins){
-          const { stock } = await computeOriginPreStock(cfg.table, cfg.originField, o.id);
-          if(stock === 0) continue;
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(cfg.originLabel)}</td><td>${escapeHtml(o.name)}</td><td>${stock.toLocaleString()}</td>`;
-          tbody.appendChild(tr);
-        }
+      const vendors = await sbQuery('sorting_vendors', '?is_active=eq.true&order=name.asc');
+      for(const o of vendors){
+        const { stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', o.id);
+        if(stock === 0) continue;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>사입처</td><td>${escapeHtml(o.name)}</td><td>${stock.toLocaleString()}</td>`;
+        tbody.appendChild(tr);
       }
       table.appendChild(tbody);
       wrap.appendChild(table);
@@ -10763,8 +10734,6 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     try{
       const inboundRows = await sbQuery('sorting_inbound', `?work_date=eq.${date}&select=weight_kg`);
       const inboundTotal = inboundRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
-      const purchaseRows = await sbQuery('sorting_purchases', `?work_date=eq.${date}&select=weight_kg`);
-      const purchaseTotal = purchaseRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
       const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}&select=id`);
       let outputTotal = 0;
       if(outputs.length){
@@ -10775,7 +10744,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>구분</th><th>수량(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      [['원물입고', inboundTotal], ['사입', purchaseTotal], ['선별산출(처리량)', outputTotal]].forEach(([label, val])=>{
+      [['원물입고', inboundTotal], ['선별산출(처리량)', outputTotal]].forEach(([label, val])=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${val.toLocaleString()}</td>`;
         tbody.appendChild(tr);
@@ -10806,34 +10775,55 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
-  // ══════════════════ 원물선별 · 원물입고 / 사입 (공통 로직) ══════════════════
-  // 입고·사입의 품종 칸: DB에 variety 컬럼이 필요 (없으면 등록할 때 안내하고, 그 입고 건은 비고에 "품종: …"으로 남김)
-  const SORTING_VARIETY_SQL = `ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS variety text;
-ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
-  const SORTING_INBOUND_CONFIGS = {
-    inbound:  { table:'sorting_inbound',  originTable:'sorting_farms',   originField:'farm_id',   originLabel:'농가',   prefix:'inbound' },
-    purchase: { table:'sorting_purchases', originTable:'sorting_vendors', originField:'vendor_id', originLabel:'사입처', prefix:'purchase' }
-  };
+  // ══════════════════ 원물선별 · 원물입고 (사입처 필수 + 농가 선택 + 원물 자재 코드) ══════════════════
+  // 필요한 DB 변경: 입고 테이블에 vendor_id·item_code·item_name 컬럼, farm_id는 비워둘 수 있어야 함 (SQL 파일: 원물선별_입고통합_SQL.sql)
+  const SORTING_INBOUND_SQL = `ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS vendor_id bigint;
+ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS item_code text;
+ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS item_name text;
+ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS variety text;
+ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
+  let inboundMatItems = [];   // 이카운트 자재 마스터의 원자재 (코드·품목명 드롭다운)
+  function inboundFillMatSelect(){
+    const sel = document.getElementById('inbound-item-select');
+    if(!sel) return;
+    const prev = sel.value;
+    const items = inboundMatItems.slice().sort((a, b) => (b.code ? 1 : 0) - (a.code ? 1 : 0) || String(a.code || a.name).localeCompare(String(b.code || b.name), 'ko'));
+    sel.innerHTML = '<option value="">(원물 선택 안 함)</option>' + items.map(i => `<option value="${escapeHtml(i.id)}">${i.code ? escapeHtml(i.code) + ' · ' : ''}${escapeHtml(i.name)}${i.code ? '' : ' (코드 미입력)'}</option>`).join('');
+    if(prev && items.some(i => String(i.id) === prev)) sel.value = prev;
+  }
+  async function inboundLoadMatItems(){
+    try{
+      const r = await window.storage.get('mat-master', true);
+      const d = r ? JSON.parse(r.value) : { items: [] };
+      inboundMatItems = (d.items || []).filter(i => i && !i.off && i.kind !== 'semi');
+    }catch(e){ inboundMatItems = []; }
+    inboundFillMatSelect();
+  }
 
-  async function initSortingInboundUI(kind){
-    const cfg = SORTING_INBOUND_CONFIGS[kind];
-    const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
-    const dateInput = document.getElementById(`${cfg.prefix}-date`);
+  async function initSortingInboundUI(){
+    const vendorSel = document.getElementById('inbound-vendor-select'), farmSel = document.getElementById('inbound-origin-select');
+    const dateInput = document.getElementById('inbound-date');
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
 
     try{
-      const origins = await sbQuery(cfg.originTable, '?is_active=eq.true&order=name.asc');
-      originSel.innerHTML = origins.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
-    }catch(e){ originSel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+      const vendors = await sbQuery('sorting_vendors', '?is_active=eq.true&order=name.asc');
+      vendorSel.innerHTML = '<option value="">(사입처 선택)</option>' + vendors.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+    }catch(e){ vendorSel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+    try{
+      const farms = await sbQuery('sorting_farms', '?is_active=eq.true&order=name.asc');
+      farmSel.innerHTML = '<option value="">(농가 없음)</option>' + farms.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+    }catch(e){ farmSel.innerHTML = `<option value="">(농가 없음)</option>`; }
+    await inboundLoadMatItems();
+    ['mousedown', 'focus'].forEach(ev => document.getElementById('inbound-item-select').addEventListener(ev, inboundLoadMatItems));
 
-    originSel.addEventListener('change', ()=> loadSortingStock(kind));
-    document.getElementById(`${cfg.prefix}-add-btn`).addEventListener('click', ()=> submitSortingInbound(kind));
+    vendorSel.addEventListener('change', ()=> loadSortingStock());
+    document.getElementById('inbound-add-btn').addEventListener('click', ()=> submitSortingInbound());
 
-    loadSortingStock(kind);
-    loadSortingInboundTable(kind);
+    loadSortingStock();
+    loadSortingInboundTable();
   }
 
-  // 선별전재고(origin) = 입고/사입 누계 − 해당 origin으로 등록된 선별산출 누계
+  // 선별전재고(사입처) = 입고 누계 − 해당 사입처로 등록된 선별산출 누계
   async function computeOriginPreStock(sourceTable, originField, originId){
     const inRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=weight_kg`);
     const totalIn = inRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
@@ -10855,84 +10845,94 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     }catch(e){ return {}; }
   }
 
-  async function loadSortingStock(kind){
-    const cfg = SORTING_INBOUND_CONFIGS[kind];
-    const originSel = document.getElementById(`${cfg.prefix}-origin-select`);
-    const display = document.getElementById(`${cfg.prefix}-stock-display`);
-    const originId = originSel.value;
-    if(!originId){ display.textContent = ''; return; }
+  async function loadSortingStock(){
+    const vendorSel = document.getElementById('inbound-vendor-select');
+    const display = document.getElementById('inbound-stock-display');
+    const vendorId = vendorSel.value;
+    if(!vendorId){ display.textContent = ''; return; }
     try{
-      const { totalIn, totalOut, stock } = await computeOriginPreStock(cfg.table, cfg.originField, originId);
-      const originName = originSel.selectedOptions[0]?.textContent || '';
-      display.innerHTML = `<strong>선별전재고(${escapeHtml(originName)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
+      const { totalIn, totalOut, stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', vendorId);
+      const name = vendorSel.selectedOptions[0]?.textContent || '';
+      display.innerHTML = `<strong>선별전재고(${escapeHtml(name)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
     }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
   }
 
-  async function submitSortingInbound(kind){
-    const cfg = SORTING_INBOUND_CONFIGS[kind];
-    const originId = document.getElementById(`${cfg.prefix}-origin-select`).value;
-    const date = document.getElementById(`${cfg.prefix}-date`).value;
-    const weight = Number(document.getElementById(`${cfg.prefix}-weight`).value || 0);
-    const a1 = Number(document.getElementById(`${cfg.prefix}-a1`).value || 0);
-    const kpp = Number(document.getElementById(`${cfg.prefix}-kpp`).value || 0);
-    const note = document.getElementById(`${cfg.prefix}-note`).value.trim();
-    const variety = (document.getElementById(`${cfg.prefix}-variety`) || { value: '' }).value.trim();
-    if(!originId){ toast(`${cfg.originLabel}을(를) 선택해주세요`); return; }
+  async function submitSortingInbound(){
+    const vendorId = document.getElementById('inbound-vendor-select').value;
+    const farmId = document.getElementById('inbound-origin-select').value;
+    const item = inboundMatItems.find(i => String(i.id) === document.getElementById('inbound-item-select').value) || null;
+    const date = document.getElementById('inbound-date').value;
+    const weight = Number(document.getElementById('inbound-weight').value || 0);
+    const a1 = Number(document.getElementById('inbound-a1').value || 0);
+    const kpp = Number(document.getElementById('inbound-kpp').value || 0);
+    const note = document.getElementById('inbound-note').value.trim();
+    const variety = (document.getElementById('inbound-variety') || { value: '' }).value.trim();
+    if(!vendorId){ toast('사입처를 선택해주세요 (필수)'); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
     if(!weight){ toast('무게를 입력해주세요'); return; }
-    const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note, created_by: window.currentUser?.id };
-    data[cfg.originField] = Number(originId);
+    const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note, created_by: window.currentUser?.id, vendor_id: Number(vendorId) };
+    if(farmId) data.farm_id = Number(farmId);
     if(variety) data.variety = variety;
+    if(item){ data.item_code = item.code || ''; data.item_name = item.name; }
     try{
-      try{ await sbInsert(cfg.table, data); }
+      try{ await sbInsert('sorting_inbound', data); }
       catch(e){
-        if(variety && /variety/i.test(e.message || '')){
+        const msg = e.message || '';
+        if(/vendor_id|item_code|item_name|farm_id/i.test(msg)){
+          alert('입고 테이블이 아직 새 방식(사입처·원물 코드)으로 바뀌지 않았습니다.\nSupabase SQL Editor에서 「원물선별_입고통합_SQL.sql」(또는 아래)을 한 번 실행한 뒤 다시 등록해주세요.\n\n' + SORTING_INBOUND_SQL);
+          return;
+        }
+        if(variety && /variety/i.test(msg)){
           // DB에 품종 컬럼이 아직 없음 → 안내하고, 품종은 비고에 남겨 입고 등록 자체는 진행
-          alert('입고 테이블에 품종(variety) 컬럼이 아직 없습니다.\n이번 입고는 품종을 비고에 적어서 등록합니다. 품종을 따로 저장하고 생산 화면에서 고르려면 Supabase SQL Editor에서 아래를 실행해주세요.\n\n' + SORTING_VARIETY_SQL);
+          alert('입고 테이블에 품종(variety) 컬럼이 아직 없습니다.\n이번 입고는 품종을 비고에 적어서 등록합니다. 품종을 따로 저장하고 생산 화면에서 고르려면 Supabase SQL Editor에서 아래를 실행해주세요.\n\n' + SORTING_INBOUND_SQL);
           const d2 = Object.assign({}, data); delete d2.variety; d2.note = '품종: ' + variety + (note ? ' / ' + note : '');
-          await sbInsert(cfg.table, d2);
+          await sbInsert('sorting_inbound', d2);
         } else throw e;
       }
-      await writeLog(`sorting_${kind}_add`, `${cfg.originLabel} ${weight}kg 입고 등록${variety ? ' (' + variety + ')' : ''}`);
-      document.getElementById(`${cfg.prefix}-weight`).value = '';
-      document.getElementById(`${cfg.prefix}-a1`).value = '0';
-      document.getElementById(`${cfg.prefix}-kpp`).value = '0';
-      document.getElementById(`${cfg.prefix}-note`).value = '';
-      const vEl = document.getElementById(`${cfg.prefix}-variety`); if(vEl) vEl.value = '';
+      await writeLog('sorting_inbound_add', `사입처${farmId ? '·농가' : ''} ${weight}kg 입고 등록${variety ? ' (' + variety + ')' : ''}${item ? ' [' + (item.code || item.name) + ']' : ''}`);
+      document.getElementById('inbound-weight').value = '';
+      document.getElementById('inbound-a1').value = '0';
+      document.getElementById('inbound-kpp').value = '0';
+      document.getElementById('inbound-note').value = '';
+      const vEl = document.getElementById('inbound-variety'); if(vEl) vEl.value = '';
       if(typeof ppVarLoad === 'function') ppVarInfo.at = 0;   // 생산 화면의 입고 품종 목록을 다음에 다시 읽음
-      loadSortingStock(kind);
-      loadSortingInboundTable(kind);
+      if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;   // 자재 재고(원물 입고 반영)는 다음에 열 때 다시 계산
+      loadSortingStock();
+      loadSortingInboundTable();
       toast('등록되었습니다');
     }catch(e){ toast('등록 실패: '+e.message); }
   }
 
-  async function loadSortingInboundTable(kind){
-    const cfg = SORTING_INBOUND_CONFIGS[kind];
-    const wrap = document.getElementById(`${cfg.prefix}-table-wrap`);
+  async function loadSortingInboundTable(){
+    const wrap = document.getElementById('inbound-table-wrap');
     wrap.innerHTML = '';
     try{
-      const rows = await sbQuery(cfg.table, `?order=work_date.desc,id.desc&limit=50`);
-      const originRows = await sbQuery(cfg.originTable, '');
+      const rows = await sbQuery('sorting_inbound', `?order=work_date.desc,id.desc&limit=50`);
+      const vendorRows = await sbQuery('sorting_vendors', '');
+      const farmRows = await sbQuery('sorting_farms', '');
       const userMap = await getSortingUserDisplayNameMap();
-      const originMap = Object.fromEntries(originRows.map(o=>[o.id, o.name]));
+      const vendorMap = Object.fromEntries(vendorRows.map(o=>[o.id, o.name]));
+      const farmMap = Object.fromEntries(farmRows.map(o=>[o.id, o.name]));
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>날짜</th><th>${cfg.originLabel}</th><th>품종</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
-      const vdl = document.getElementById(`${cfg.prefix}-variety-list`);
+      table.innerHTML = `<thead><tr><th>날짜</th><th>사입처</th><th>농가</th><th>원물(코드)</th><th>품종</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      const vdl = document.getElementById('inbound-variety-list');
       if(vdl) vdl.innerHTML = [...new Set(rows.map(r => r.variety).filter(Boolean))].map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
       const tbody = document.createElement('tbody');
       rows.forEach(r=>{
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originMap[r[cfg.originField]]||'')}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        const itemText = r.item_name ? (r.item_code ? r.item_code + ' · ' : '') + r.item_name : '';
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(vendorMap[r.vendor_id]||'')}</td><td>${escapeHtml(r.farm_id ? (farmMap[r.farm_id]||'') : '')}</td><td>${escapeHtml(itemText)}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
         delBtn.addEventListener('click', async ()=>{
           if(!confirm('삭제하시겠습니까?')) return;
           try{
-            await sbDelete2(cfg.table, `id=eq.${r.id}`);
-            await writeLog(`sorting_${kind}_delete`, `${cfg.originLabel} ${r.weight_kg}kg 입고 삭제`);
-            loadSortingStock(kind);
-            loadSortingInboundTable(kind);
+            await sbDelete2('sorting_inbound', `id=eq.${r.id}`);
+            await writeLog('sorting_inbound_delete', `${r.weight_kg}kg 입고 삭제`);
+            if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;
+            loadSortingStock();
+            loadSortingInboundTable();
           }catch(e){ toast('삭제 실패: '+e.message); }
         });
         tr.lastElementChild.appendChild(delBtn);
@@ -10952,7 +10952,6 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
 
     document.getElementById('output-calc-btn').addEventListener('click', calcOutputAllocation);
     document.getElementById('output-add-btn').addEventListener('click', submitSortingOutputAll);
-    document.getElementById('output-origin-type-select').addEventListener('change', resetOutputAllocationUI);
     initSortingShareUI();
 
     await loadOutputPostStock();
@@ -10990,9 +10989,10 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
 
   // 여러 농가(또는 사입처)에 걸쳐 오늘 처리할 총량을 선입선출로 자동 배분
   async function computeFifoAllocationPlan(originType, totalNeeded){
-    const originTable = originType === 'farm' ? 'sorting_farms' : 'sorting_vendors';
-    const sourceTable = originType === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
-    const originField = originType === 'farm' ? 'farm_id' : 'vendor_id';
+    originType = 'vendor';   // 원물입고 통합 후에는 사입처 기준으로만 선입선출 배분
+    const originTable = 'sorting_vendors';
+    const sourceTable = 'sorting_inbound';
+    const originField = 'vendor_id';
     const origins = await sbQuery(originTable, '?is_active=eq.true&order=name.asc');
 
     const ledgers = {};
@@ -11038,7 +11038,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   }
 
   async function calcOutputAllocation(){
-    const originType = document.getElementById('output-origin-type-select').value;
+    const originType = 'vendor';
     const total = Number(document.getElementById('output-total-qty').value || 0);
     const summary = document.getElementById('output-alloc-summary');
     if(!total){ toast('오늘 총 처리량을 입력해주세요'); return; }
@@ -11270,15 +11270,15 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   }
 
   async function generateShareImage(){
-    const originType = document.getElementById('share-origin-type-select').value;
+    const originType = 'vendor';
     const date = document.getElementById('share-date').value;
     const bizName = document.getElementById('share-business-name').value.trim() || '자담';
     const productName = document.getElementById('share-product-name').value.trim() || '대추방울토마토';
     if(!date){ toast('날짜를 선택해주세요'); return; }
 
-    const originTable = originType === 'farm' ? 'sorting_farms' : 'sorting_vendors';
-    const sourceTable = originType === 'farm' ? 'sorting_inbound' : 'sorting_purchases';
-    const originField = originType === 'farm' ? 'farm_id' : 'vendor_id';
+    const originTable = 'sorting_vendors';
+    const sourceTable = 'sorting_inbound';
+    const originField = 'vendor_id';
 
     try{
       const origins = await sbQuery(originTable, '');
@@ -11354,7 +11354,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         <table style="border-collapse:collapse; font-size:13px;">
           <thead>
             <tr>
-              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">농가</th>
+              <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">사입처</th>
               <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;white-space:nowrap;">미선별(A1,KPP무게포함)(kg)</th>
               <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">A1</th>
               <th rowspan="2" style="border:1px solid #333;padding:6px 10px;background:#d9e6d9;">KPP</th>
@@ -11414,10 +11414,10 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const dateInput = document.getElementById('shipment-date');
     if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
 
-    try{
-      const dests = await sbQuery('sorting_destinations', '?is_active=eq.true&order=name.asc');
-      document.getElementById('shipment-destination-select').innerHTML = dests.map(d=>`<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
-    }catch(e){ document.getElementById('shipment-destination-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+    await shipmentLoadDestinations();
+    ['mousedown', 'focus'].forEach(ev => document.getElementById('shipment-destination-input').addEventListener(ev, shipmentFillDestList));
+    document.getElementById('shipment-destination-input').addEventListener('input', shipmentShowDestHint);
+    document.getElementById('shipment-destination-input').addEventListener('change', shipmentShowDestHint);
 
     try{
       const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
@@ -11437,6 +11437,93 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
 
     loadSellableGradeStock('shipment-stock-wrap');
     loadSortingShipmentTable();
+  }
+
+  // ── 출고 거래처: 이카운트 거래처 관리 목록(이름·코드)에서 검색 → 정산용 거래처(sorting_destinations)에 자동 연결 ──
+  let shipmentDests = [];
+  const SORTING_DEST_SQL = 'ALTER TABLE sorting_destinations ADD COLUMN IF NOT EXISTS ecount_code text;';
+  async function shipmentLoadDestinations(){
+    try{ shipmentDests = await sbQuery('sorting_destinations', '?is_active=eq.true&order=name.asc'); }
+    catch(e){ shipmentDests = []; }
+    shipmentFillDestList();
+  }
+  function shipmentDestEntries(){
+    const norm = x => String(x || '').replace(/\s+/g, '').toLowerCase();
+    const byCode = new Map(), byName = new Map(), used = new Set(), seen = new Set(), out = [];
+    shipmentDests.forEach(d => { if(d.ecount_code) byCode.set(String(d.ecount_code).trim(), d); if(!byName.has(norm(d.name))) byName.set(norm(d.name), d); });
+    (typeof companies !== 'undefined' ? companies : []).forEach(c => {
+      if(!c || !c.name) return;
+      const code = String(c.code || '').trim();
+      const d = (code && byCode.get(code)) || byName.get(norm(c.name)) || null;
+      if(d) used.add(d.id);
+      let label = c.name + (code ? ` [${code}]` : '');
+      if(seen.has(label)) label += c.category ? ` · ${c.category}` : '';
+      if(seen.has(label)) return;
+      seen.add(label);
+      out.push({ label, name: c.name, code, dest: d, company: c });
+    });
+    shipmentDests.forEach(d => {
+      if(used.has(d.id)) return;
+      const code = d.ecount_code ? String(d.ecount_code).trim() : '';
+      let label = d.name + (code ? ` [${code}]` : '') + ' (정산 거래처)';
+      if(seen.has(label)) return;
+      seen.add(label);
+      out.push({ label, name: d.name, code, dest: d, company: null });
+    });
+    return out;
+  }
+  function shipmentFillDestList(){
+    const dl = document.getElementById('shipment-destination-list');
+    if(!dl) return;
+    dl.innerHTML = shipmentDestEntries().map(e => `<option value="${escapeHtml(e.label)}"></option>`).join('');
+  }
+  function shipmentFindDestEntry(text){
+    const t = String(text || '').trim();
+    if(!t) return null;
+    const entries = shipmentDestEntries();
+    const norm = x => String(x || '').replace(/\s+/g, '').toLowerCase();
+    let hit = entries.find(e => e.label === t);
+    if(hit) return hit;
+    const byName = entries.filter(e => norm(e.name) === norm(t));
+    if(byName.length === 1) return byName[0];
+    const byCode = entries.filter(e => e.code && e.code === t);
+    if(byCode.length === 1) return byCode[0];
+    return null;
+  }
+  function shipmentShowDestHint(){
+    const hint = document.getElementById('shipment-dest-hint'), v = document.getElementById('shipment-destination-input').value;
+    if(!hint) return;
+    hint.style.color = '';
+    if(!v.trim()){ hint.textContent = ''; return; }
+    const e = shipmentFindDestEntry(v);
+    if(!e){ hint.textContent = '목록에서 거래처를 골라주세요 (이름이나 코드로 검색, 이카운트 거래처 관리에 등록된 업체)'; hint.style.color = 'var(--danger,#c0392b)'; return; }
+    hint.textContent = e.dest ? `✓ ${e.name}${e.code ? ' [' + e.code + ']' : ''} · 정산 거래처 연결됨 (수수료율 ${Number(e.dest.auction_fee_pct || 0)}%)` : `✓ ${e.name}${e.code ? ' [' + e.code + ']' : ''} · 처음 출고하는 거래처 — 등록하면 정산용 거래처(수수료율 0%)로 자동 연결됩니다`;
+  }
+  // 고른 거래처의 정산용 거래처 id 찾기 (없으면 만들고, 있는데 코드가 비어 있으면 코드 채움)
+  async function shipmentResolveDestId(entry){
+    if(entry.dest){
+      const d = entry.dest;
+      if(entry.code && !d.ecount_code && ('ecount_code' in d)){
+        try{ await fetch(`${SB_URL}/rest/v1/sorting_destinations?id=eq.${d.id}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify({ ecount_code: entry.code }) }); }catch(e){ /* 코드 채우기는 실패해도 출고 등록은 진행 */ }
+      }
+      return d.id;
+    }
+    const c = entry.company || {};
+    const data = { name: entry.name, category: c.category || '', region: c.region || '', is_active: true, auction_fee_pct: 0 };
+    if(entry.code) data.ecount_code = entry.code;
+    let rows;
+    try{ rows = await sbInsert('sorting_destinations', data); }
+    catch(e){
+      if(entry.code && /ecount_code/i.test(e.message || '')){
+        alert('거래처 테이블에 이카운트 코드(ecount_code) 컬럼이 아직 없습니다.\n이번에는 코드 없이 정산용 거래처로 등록합니다. 코드도 같이 저장하려면 Supabase SQL Editor에서 아래를 실행해주세요.\n\n' + SORTING_DEST_SQL);
+        delete data.ecount_code; rows = await sbInsert('sorting_destinations', data);
+      } else throw e;
+    }
+    const id = rows && rows[0] ? rows[0].id : null;
+    await shipmentLoadDestinations();
+    try{ await writeLog('sorting_master_add', `거래처 자동 등록(출고): ${entry.name}${entry.code ? ' [' + entry.code + ']' : ''}`); }catch(e){ /* 기록 실패는 무시 */ }
+    toast(`「${entry.name}」을(를) 정산용 거래처로 등록했습니다 (수수료율 0% — 마스터관리에서 입력)`);
+    return id;
   }
 
   // SKU 한 박스의 kg: 품목 약칭의 중량(예: 투맛토(스테비아) 500g)은 1팩 중량 × 박스입수, 없으면 품목명의 [2kg]은 박스 중량 그대로
@@ -11488,17 +11575,23 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
 ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   async function submitSortingShipment(){
-    const destId = document.getElementById('shipment-destination-select').value;
+    const destText = document.getElementById('shipment-destination-input').value;
     const gradeId = document.getElementById('shipment-grade-select').value;
     const pkgId = document.getElementById('shipment-packaging-select').value;
     const qty = Number(document.getElementById('shipment-qty').value || 0);
     const box = document.getElementById('shipment-box').value;
     const date = document.getElementById('shipment-date').value;
     const note = document.getElementById('shipment-note').value.trim();
-    if(!destId){ toast('거래처를 선택해주세요'); return; }
+    if(!destText.trim()){ toast('거래처를 검색해서 선택해주세요'); return; }
+    const destEntry = shipmentFindDestEntry(destText);
+    if(!destEntry){ toast('목록에서 거래처를 골라주세요 (이카운트 거래처 이름·코드로 검색)'); return; }
     if(!gradeId){ toast('등급을 선택해주세요'); return; }
     if(!qty){ toast('수량을 입력해주세요'); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
+    let destId;
+    try{ destId = await shipmentResolveDestId(destEntry); }
+    catch(e){ toast('거래처 등록 실패: ' + e.message); return; }
+    if(!destId){ toast('거래처를 등록하지 못했습니다'); return; }
     const data = { ship_date: date, destination_id: Number(destId), grade_id: Number(gradeId), qty_kg: qty, note, created_by: window.currentUser?.id };
     if(box) data.box_count = Number(box);
     const sku = shipmentSelectedSku();
@@ -11520,6 +11613,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       document.getElementById('shipment-packaging-select').value = '';
       document.getElementById('shipment-calc-hint').textContent = '';
       document.getElementById('shipment-note').value = '';
+      document.getElementById('shipment-destination-input').value = '';
+      document.getElementById('shipment-dest-hint').textContent = '';
       loadSellableGradeStock('shipment-stock-wrap');
       loadSortingShipmentTable();
       toast('출고가 등록되었습니다');
@@ -11552,7 +11647,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         const net = hasPrice ? revenue - fee : null;
         const packagingText = r.sku_name ? `${r.sku_name} × ${r.box_count||'?'}박스` : (r.packaging_unit_id ? `${packagingMap[r.packaging_unit_id]||''} × ${r.box_count||'?'}` : (r.box_count ? `${r.box_count}박스` : ''));
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}${dest.ecount_code ? ` <span class="sub" style="margin:0;">[${escapeHtml(dest.ecount_code)}]</span>` : ''}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
         const priceBtn = document.createElement('button');
@@ -11768,18 +11863,19 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   // 기기유형 × 사업자별 현재보유, 기기유형별 거래처미회수/농가보유(미회수) 계산
   async function computeEquipmentAggregates(){
-    const [types, businesses, logs, inboundRows, purchaseRows] = await Promise.all([
+    const [types, businesses, logs, inboundRows] = await Promise.all([
       sbQuery('sorting_equipment_types', '?is_active=eq.true&order=id.asc'),
       sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc'),
       sbQuery('sorting_equipment_log', ''),
-      sbQuery('sorting_inbound', '?select=a1_count,kpp_count'),
-      sbQuery('sorting_purchases', '?select=a1_count,kpp_count')
+      sbQuery('sorting_inbound', '?select=a1_count,kpp_count,farm_id')
     ]);
 
-    const sumInbound = { A1:0, KPP:0 };
-    inboundRows.forEach(r=>{ sumInbound.A1 += Number(r.a1_count||0); sumInbound.KPP += Number(r.kpp_count||0); });
-    const sumPurchase = { A1:0, KPP:0 };
-    purchaseRows.forEach(r=>{ sumPurchase.A1 += Number(r.a1_count||0); sumPurchase.KPP += Number(r.kpp_count||0); });
+    // 농가를 고른 입고는 '농가 회수', 사입처만 있는 입고는 '사입처 회수'로 나눠 집계
+    const sumInbound = { A1:0, KPP:0 }, sumPurchase = { A1:0, KPP:0 };
+    inboundRows.forEach(r=>{
+      const t = r.farm_id ? sumInbound : sumPurchase;
+      t.A1 += Number(r.a1_count||0); t.KPP += Number(r.kpp_count||0);
+    });
 
     // 농가/사입 입고는 거의 항상 자담이 받는 구조로 단순화 확인됨 → 자동회수는 자담 사업자에 귀속
     const jadamBiz = businesses.find(b=> b.name === '자담');
@@ -15014,7 +15110,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{
       const from = sampleAddDays(dk, -PP_VARIETY_DAYS);
       const q = `?work_date=gte.${from}&select=work_date,variety,weight_kg&order=work_date.desc&limit=300`;
-      const [a, b] = await Promise.all([sbQuery('sorting_inbound', q), sbQuery('sorting_purchases', q)]);
+      const a = await sbQuery('sorting_inbound', q), b = [];
       const map = new Map();
       [...(a || []), ...(b || [])].forEach(r => {
         const v = String(r.variety || '').trim(); if(!v) return;
@@ -15035,11 +15131,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const dk = currentDateKey;
     box.innerHTML = '';
     const lead = document.createElement('div'); lead.className = 'sub'; lead.style.cssText = 'margin:6px 0 2px;';
-    lead.textContent = '입고된 품종에서 선택 (원물입고·사입 화면에 입력한 최근 ' + PP_VARIETY_DAYS + '일 품종 — 누르면 위 칸에 넣고 빼요)';
+    lead.textContent = '입고된 품종에서 선택 (원물입고 화면에 입력한 최근 ' + PP_VARIETY_DAYS + '일 품종 — 누르면 위 칸에 넣고 빼요)';
     box.appendChild(lead);
     if(ppVarInfo.date !== dk && !ppVarInfo.err){ const s = document.createElement('div'); s.className = 'sub'; s.textContent = '불러오는 중…'; box.appendChild(s); return; }
     if(ppVarInfo.err){ const s = document.createElement('div'); s.className = 'sub'; s.style.color = 'var(--danger,#c0392b)'; s.textContent = '입고 품종을 불러오지 못했습니다 — 원물입고 화면의 품종 칸이 아직 준비되지 않았다면 그 화면의 안내 SQL을 먼저 실행해주세요.'; box.appendChild(s); return; }
-    if(!ppVarInfo.list.length){ const s = document.createElement('div'); s.className = 'sub'; s.textContent = '최근 입고 중 품종이 입력된 건이 없습니다. 원물선별 → 원물입고(또는 사입)에서 품종을 입력하면 여기서 고를 수 있습니다.'; box.appendChild(s); return; }
+    if(!ppVarInfo.list.length){ const s = document.createElement('div'); s.className = 'sub'; s.textContent = '최근 입고 중 품종이 입력된 건이 없습니다. 원물선별 → 원물입고에서 품종을 입력하면 여기서 고를 수 있습니다.'; box.appendChild(s); return; }
     const lines = ta.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
     const wrap = document.createElement('div'); wrap.className = 'pp-chips';
     ppVarInfo.list.forEach(v => {
@@ -15851,21 +15947,17 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // ── 저장·불러오기 ──
   const matGet = async k => { const r = await window.storage.get(k, true); return r ? r.value : null; };
   async function matLoadRaw(){
+    // 원물선별 입고에서 고른 원물(코드, 코드가 없으면 품목명)별 kg을 같은 코드의 자재에 더함
     MAT.rawIn = {}; MAT.rawErr = '';
-    const linked = MAT.master.items.filter(i => i.link && i.from && !i.off);
-    for(const it of linked){
-      let sum = 0;
-      try{
-        for(const tbl of ['sorting_inbound', 'sorting_purchases']){
-          for(let off = 0; off <= 50000; off += 1000){
-            const rows = await sbQuery(tbl, `?work_date=gte.${it.from}&select=weight_kg&order=work_date&limit=1000&offset=${off}`);
-            (rows || []).forEach(r => { sum += Number(r.weight_kg) || 0; });
-            if(!rows || rows.length < 1000) break;
-          }
-        }
-        MAT.rawIn[it.id] = Math.round(sum * 100) / 100;
-      }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다: ' + ((e && e.message) || e); MAT.rawIn[it.id] = 0; }
-    }
+    try{
+      const sums = {};
+      for(let off = 0; off <= 100000; off += 1000){
+        const rows = await sbQuery('sorting_inbound', `?item_name=not.is.null&select=item_code,item_name,weight_kg&order=id&limit=1000&offset=${off}`);
+        (rows || []).forEach(r => { const k = String(r.item_code || r.item_name || '').trim(); if(k) sums[k] = (sums[k] || 0) + (Number(r.weight_kg) || 0); });
+        if(!rows || rows.length < 1000) break;
+      }
+      MAT.master.items.forEach(it => { const k = String(it.code || it.name || '').trim(); if(sums[k]) MAT.rawIn[it.id] = Math.round(sums[k] * 100) / 100; });
+    }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다(입고 통합 SQL을 아직 실행하지 않았다면 실행해주세요): ' + ((e && e.message) || e); }
   }
   async function matLoad(force){
     if(MAT.loading || (MAT.loaded && !force)) return;
@@ -15926,7 +16018,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     matRender();
   }
   async function matSaveMaster(){
-    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, link: !!r.link, from: r.link ? String(r.from || '') : '', vat: !!r.vat, off: !!r.off }));
+    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, vat: !!r.vat, off: !!r.off }));
     const vendors = MAT.vdraft.map(v => ({ name: String(v.name || '').trim(), code: String(v.code || '').trim() })).filter(v => v.name || v.code);
     { const vn = new Set(); for(const v of vendors){ if(!v.name){ matMsg('거래처명이 비어 있는 매입 거래처가 있습니다', true); return; } if(vn.has(v.name)){ matMsg(`매입 거래처 「${v.name}」이(가) 두 번 들어 있습니다`, true); return; } vn.add(v.name); } }
     const names = new Set();
@@ -15935,9 +16027,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(names.has(r.name)){ matMsg(`「${r.name}」이(가) 두 번 들어 있습니다`, true); return; }
       names.add(r.name);
       if(!r.unit){ matMsg(`「${r.name}」의 단위를 입력하세요 (예: 개, 장, kg, g, 박스)`, true); return; }
-      if(r.link && !/^\d{4}-\d{2}-\d{2}$/.test(r.from)){ matMsg(`「${r.name}」의 원물선별 입고 연동 시작일을 입력하세요`, true); return; }
     }
-    if(rows.filter(r => r.link).length > 1){ matMsg('원물선별 입고 연동은 자재 한 가지에만 켤 수 있습니다', true); return; }
     // 지워진 자재가 구성·수불에 쓰이고 있으면 막음 (대신 '사용 안 함')
     const keepIds = new Set(rows.map(r => r.id));
     for(const old of MAT.master.items){
@@ -15991,7 +16081,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       else {
         t.innerHTML = `<table class="mat-t"><thead><tr><th>자재</th><th>구분</th><th>현재고</th><th>안전재고</th><th>상태</th><th>최근 입고일</th><th>재고 실사 (실제 수량 입력)</th></tr></thead><tbody>${items.map(i => {
           const cur = sm[i.id] || 0, low = isLow(i), rawn = MAT.rawIn[i.id];
-          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${i.link ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn || 0)}${escapeHtml(i.unit)} 포함 (${escapeHtml(i.from)}~)</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
+          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
       const pt = matEl('mat-s-prod');
@@ -16247,13 +16337,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       <td><input type="text" class="mat-m-vendor" value="${escapeHtml(r.vendor || '')}" placeholder="기본 거래처" style="width:110px;"></td>
       <td><input type="text" class="mat-m-price" inputmode="decimal" value="${r.price ? escapeHtml(String(r.price)) : ''}" placeholder="단가" style="width:70px;"></td>
       <td><input type="text" class="mat-m-safety" inputmode="decimal" value="${r.safety ? escapeHtml(String(r.safety)) : ''}" placeholder="안전재고" style="width:70px;"></td>
-      <td style="white-space:nowrap;"><label><input type="checkbox" class="mat-m-link"${r.link ? ' checked' : ''}> 연동</label> <input type="date" class="mat-m-from" value="${escapeHtml(r.from || '')}" style="${r.link ? '' : 'display:none;'}" title="이 날짜 이후의 원물입고·사입 kg을 재고에 더함"></td>
       <td><label><input type="checkbox" class="mat-m-vat"${r.vat ? ' checked' : ''}> 10%</label></td>
       <td><label><input type="checkbox" class="mat-m-off"${r.off ? ' checked' : ''}> 안 씀</label></td>
       <td><button type="button" class="btn-danger small-btn mat-m-del" title="삭제">✕</button></td></tr>`;
     body.innerHTML = `<div id="mat-mdirty" class="mat-dirty" style="display:${MAT.mdirty ? 'flex' : 'none'}; align-items:center; gap:10px; flex-wrap:wrap;">저장하지 않은 변경이 있습니다.</div>
-      <div class="sub" style="margin:0 0 6px;">트레이·스티커·방울토마토 원물·습지·외박스·향료 같은 원자재와, 중간 단계의 반제품을 등록합니다. <b>단위</b>는 재고를 세는 단위(개·장·kg …)이고 정전개 소요량도 이 단위로 입력합니다. <b>원물선별 입고 연동</b>은 원물(방울토마토) 한 가지에만 켜며, 시작일 이후의 원물입고·사입 kg이 재고에 자동으로 더해집니다(연동을 켠 뒤 시작일 이전 재고는 재고 실사로 입력).</div>
-      <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th>원물선별 입고 연동</th><th title="구매입력 엑셀에서 부가세 10%를 따로 넣고 거래유형을 「적용」으로 씀">부가세 별도</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
+      <div class="sub" style="margin:0 0 6px;">트레이·스티커·방울토마토 원물·습지·외박스·향료 같은 원자재와, 중간 단계의 반제품을 등록합니다. <b>단위</b>는 재고를 세는 단위(개·장·kg …)이고 정전개 소요량도 이 단위로 입력합니다. <b>이카운트 품목코드</b>는 원물선별 → 원물입고의 원물 드롭다운에 그대로 나오고, 같은 코드로 입고된 원물 kg이 재고에 자동 반영됩니다(코드를 비워 두면 품목명으로 맞춥니다).</div>
+      <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th title="구매입력 엑셀에서 부가세 10%를 따로 넣고 거래유형을 「적용」으로 씀">부가세 별도</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
       ${MAT.mdraft.length ? '' : '<div class="sub">아직 등록된 자재가 없습니다. [+ 자재 추가]를 눌러 시작하세요.</div>'}
       <h3 style="margin:16px 0 4px;">매입 거래처 (이카운트 거래처코드)</h3>
       <div class="sub" style="margin:0 0 6px;">트레이·스티커·원물 등을 사오는 업체입니다. 입고 기록의 거래처명과 같은 이름으로 등록하면 구매입력 엑셀에 거래처코드가 들어갑니다.</div>
@@ -16290,7 +16379,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     vtb.addEventListener('input', ev => { const tr = ev.target.closest('tr'), v = MAT.vdraft[Number(tr.dataset.i)]; if(!v) return; if(ev.target.classList.contains('mat-v-name')) v.name = ev.target.value; else if(ev.target.classList.contains('mat-v-code')) v.code = ev.target.value; else return; dirty(); });
     vtb.addEventListener('click', ev => { const d = ev.target.closest('.mat-v-del'); if(!d) return; MAT.vdraft.splice(Number(d.closest('tr').dataset.i), 1); dirty(); matRender(); });
     matEl('mat-v-add').addEventListener('click', () => { MAT.vdraft.push({ name: '', code: '' }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-v-name'); if(ins.length) ins[ins.length - 1].focus(); });
-    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, link: false, from: '', vat: false, off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
+    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, vat: false, off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
     matEl('mat-m-save').addEventListener('click', () => matSaveMaster());
   }
 
