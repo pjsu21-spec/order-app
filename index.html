@@ -14511,7 +14511,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(g.c1 !== g.c2) return;
       const col = g.master;
       const items = byCol[col] || [];
-      if(items.length !== 1 || !(usedCols && usedCols.has(col)) || (regroupedCols && regroupedCols[col])) return; // 머리글 묶음을 지정한 열은 그 묶음 이름을 따름
+      // 다른 묶음으로 지정한 열은 그 묶음 이름을 따름. 자기 자신의 묶음을 그대로 골라 둔 경우(예: AJ열 → AJ 묶음)는 옮긴 것이 아니므로 용량을 맞춤
+      if(items.length !== 1 || !(usedCols && usedCols.has(col)) || (regroupedCols && regroupedCols[col] && regroupedCols[col] !== col)) return;
       const w = poItemWeight(items[0]);
       const m = /(\d+(?:\.\d+)?)\s*(g)\b/i.exec(poText(ctx, col + Y.groupRow));
       if(!w || !m || Number(m[1]) === w) return;
