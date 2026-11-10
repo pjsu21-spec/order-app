@@ -1504,6 +1504,7 @@
       <div id="shipment-table-wrap" style="overflow-x:auto;"></div>
     </div>
     <div id="sorting-section-equipment" style="display:none;">
+      <div id="equipment-edit-banner" style="display:none; margin:0 0 8px; padding:8px 12px; border:1px solid var(--accent); background:#fff4d6; border-radius:8px; font-size:13px; align-items:center; gap:10px; flex-wrap:wrap;"></div>
       <div class="row" style="margin-top:0; flex-wrap:wrap;">
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="equipment-date">
@@ -1525,10 +1526,6 @@
         <div id="equipment-business-wrap">
           <label style="font-size:13px;display:block;">사업자 (기기를 소유한 회사) :</label>
           <select id="equipment-business-select" style="min-width:120px;"></select>
-          <span class="sorting-master-only" style="display:none;">
-            <input type="text" id="equipment-new-business" placeholder="새 회사명 (예: 다름달음)" style="width:150px;">
-            <button type="button" class="btn-ghost small-btn" id="equipment-new-business-btn" title="우리 회사나 다른 회사를 사업자로 추가합니다 (마스터관리 → 사업자에도 같이 들어갑니다)">+ 사업자 추가</button>
-          </span>
         </div>
         <div id="equipment-to-business-wrap" style="display:none;">
           <label style="font-size:13px;display:block;">받는 사업자 :</label>
@@ -1543,11 +1540,20 @@
           <select id="equipment-farm-select" style="min-width:100px;"></select>
         </div>
       </div>
-      <details class="help"><summary>ⓘ 사업자</summary><div class="sub" style="margin-top:4px;">사업자는 물류기기를 소유한 회사입니다. 자담 외에 <b>우리 회사나 다른 회사</b>를 [+ 사업자 추가]로 등록하면 그 회사 자산으로 이력을 기록하고, 아래 현재 보유 현황이 회사별로 따로 집계됩니다. 이관은 이동유형 <b>내부이관</b>(보내는 사업자 → 받는 사업자)으로 기록하세요. 농가·사입 입고로 자동 회수되는 기기는 계속 <b>자담</b>에 잡힙니다. 사업자 추가는 마스터관리 권한이 있는 계정만 보입니다.</div></details>
-      <div class="row">
-        <input type="text" id="equipment-note" placeholder="메모" style="flex:1; min-width:150px;">
+      <div class="row" style="flex-wrap:wrap;">
+        <input type="text" id="equipment-note" placeholder="메모" style="flex:0 1 380px; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="equipment-add-btn">+ 물류기기 이력 등록</button>
+        <button type="button" class="btn-ghost small-btn" id="equipment-edit-cancel-btn" style="display:none;">수정 취소</button>
       </div>
+      <details class="help"><summary>ⓘ 사업자</summary><div class="sub" style="margin-top:4px;">사업자는 물류기기를 소유한 회사입니다. 자담 외에 <b>우리 회사나 다른 회사</b>를 아래 <b>새 사업자(회사) 추가</b>에서 등록하면 그 회사 자산으로 이력을 기록하고, 현재 보유 현황이 회사별로 따로 집계됩니다. 이관은 이동유형 <b>내부이관</b>(보내는 사업자 → 받는 사업자)으로 기록하세요. 농가·사입 입고로 자동 회수되는 기기는 계속 <b>자담</b>에 잡힙니다. 잘못 입력한 이력은 최근 이동 이력의 <b>수정</b>으로 고칠 수 있습니다.</div></details>
+      <details class="sorting-master-only" id="equipment-new-business-wrap" style="display:none; margin:6px 0 0;">
+        <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">새 사업자(회사) 추가</summary>
+        <div class="row" style="margin-top:6px;">
+          <input type="text" id="equipment-new-business" placeholder="새 회사명 (예: 다름달음)" style="width:200px;">
+          <button type="button" class="btn-ghost small-btn" id="equipment-new-business-btn" title="우리 회사나 다른 회사를 사업자로 추가합니다 (마스터관리 → 사업자에도 같이 들어갑니다)">+ 사업자 추가</button>
+          <span class="sub" style="margin:0;">추가하면 위 사업자 목록에 들어갑니다 (마스터관리 권한이 있는 계정에만 보임)</span>
+        </div>
+      </details>
       <h3 style="margin-top:16px;">현재 보유 현황 (사업자별)</h3>
       <div id="equipment-holdings-wrap" style="overflow-x:auto;"></div>
       <h3 style="margin-top:16px;">거래처 미회수 / 농가 보유(미회수)</h3>
@@ -11628,6 +11634,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.getElementById('equipment-movement-select').addEventListener('change', updateEquipmentContextFields);
     updateEquipmentContextFields();
     document.getElementById('equipment-add-btn').addEventListener('click', submitSortingEquipmentLog);
+    document.getElementById('equipment-edit-cancel-btn').addEventListener('click', cancelEquipmentEdit);
     document.getElementById('equipment-new-business-btn').addEventListener('click', addEquipmentBusiness);
     document.getElementById('equipment-new-business').addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); addEquipmentBusiness(); } });
 
@@ -11666,6 +11673,47 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }catch(e){ toast('추가 실패: ' + e.message); }
   }
 
+  // ── 물류기기 이력 수정: [수정]을 누르면 위 입력칸에 내용이 채워지고, [수정 저장]으로 같은 이력을 고침 ──
+  let equipmentEditId = null;
+  function equipmentEnsureOption(sel, value, label){
+    if(value == null || value === '') return;
+    if(![...sel.options].some(o => o.value === String(value))){
+      const o = document.createElement('option'); o.value = String(value); o.textContent = (label || '#' + value) + ' (사용 안 함)'; sel.appendChild(o);
+    }
+    sel.value = String(value);
+  }
+  function startEquipmentEdit(r, names){
+    equipmentEditId = r.id;
+    const $ = id => document.getElementById(id);
+    $('equipment-date').value = r.work_date || '';
+    equipmentEnsureOption($('equipment-type-select'), r.equipment_type_id, names.type);
+    $('equipment-movement-select').value = r.movement_type;
+    $('equipment-qty').value = r.qty;
+    equipmentEnsureOption($('equipment-business-select'), r.business_id, names.biz);
+    if(r.to_business_id != null) equipmentEnsureOption($('equipment-to-business-select'), r.to_business_id, names.toBiz);
+    if(r.destination_id != null) equipmentEnsureOption($('equipment-destination-select'), r.destination_id, names.dest);
+    if(r.farm_id != null) equipmentEnsureOption($('equipment-farm-select'), r.farm_id, names.farm);
+    $('equipment-note').value = r.note || '';
+    updateEquipmentContextFields();
+    const b = $('equipment-edit-banner');
+    b.style.display = 'flex';
+    b.innerHTML = '';
+    const t = document.createElement('span');
+    t.innerHTML = `✏️ <b>이력 수정 중</b> — ${escapeHtml(r.work_date)} · ${escapeHtml(names.type || '')} · ${escapeHtml(r.movement_type)} ${escapeHtml(String(r.qty))}건. 아래 내용을 고치고 <b>[수정 저장]</b>을 누르세요.`;
+    b.appendChild(t);
+    $('equipment-add-btn').textContent = '수정 저장';
+    $('equipment-edit-cancel-btn').style.display = '';
+    $('equipment-date').scrollIntoView({ block: 'center' });
+  }
+  function cancelEquipmentEdit(){
+    equipmentEditId = null;
+    const $ = id => document.getElementById(id);
+    $('equipment-edit-banner').style.display = 'none';
+    $('equipment-add-btn').textContent = '+ 물류기기 이력 등록';
+    $('equipment-edit-cancel-btn').style.display = 'none';
+    $('equipment-qty').value = ''; $('equipment-note').value = '';
+  }
+
   async function submitSortingEquipmentLog(){
     const date = document.getElementById('equipment-date').value;
     const typeId = document.getElementById('equipment-type-select').value;
@@ -11692,6 +11740,21 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(mv === '출고반출' || mv === '거래처회수') data.destination_id = Number(destId);
     if(mv === '농가발송') data.farm_id = Number(farmId);
 
+    if(equipmentEditId != null){
+      // 수정: 이동유형이 바뀌면 필요 없어진 거래처·농가·받는 사업자는 비움
+      const fields = Object.assign({ to_business_id: null, destination_id: null, farm_id: null }, data);
+      delete fields.created_by;
+      try{
+        const res = await fetch(`${SB_URL}/rest/v1/sorting_equipment_log?id=eq.${equipmentEditId}`, { method: 'PATCH', headers: Object.assign({}, sbHeaders, { 'Prefer': 'return=representation' }), body: JSON.stringify(fields) });
+        if(!res.ok){ const t = await res.text().catch(() => ''); throw new Error(`${res.status} ${t.slice(0, 100)}`); }
+        await writeLog('sorting_equipment_log_edit', `${mv} ${qty}건 수정`);
+        cancelEquipmentEdit();
+        loadEquipmentSummary();
+        loadSortingEquipmentTable();
+        toast('이력이 수정되었습니다');
+      }catch(e){ toast('수정 실패: ' + e.message); }
+      return;
+    }
     try{
       await sbInsert('sorting_equipment_log', data);
       await writeLog('sorting_equipment_log_add', `${mv} ${qty}건 등록`);
@@ -11816,13 +11879,20 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         else if(r.farm_id) detail = farmMap[r.farm_id]||'';
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(typeMap[r.equipment_type_id]||'')}</td><td>${escapeHtml(r.movement_type)}</td><td>${r.qty}</td><td>${escapeHtml(bizMap[r.business_id]||'')}</td><td>${escapeHtml(detail)}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-ghost small-btn';
+        editBtn.textContent = '수정';
+        editBtn.addEventListener('click', ()=> startEquipmentEdit(r, { type: typeMap[r.equipment_type_id], biz: bizMap[r.business_id], toBiz: bizMap[r.to_business_id], dest: destMap[r.destination_id], farm: farmMap[r.farm_id] }));
+        tr.lastElementChild.appendChild(editBtn);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
+        delBtn.style.marginLeft = '6px';
         delBtn.textContent = '삭제';
         delBtn.addEventListener('click', async ()=>{
           if(!confirm('삭제하시겠습니까?')) return;
           try{
             await sbDelete2('sorting_equipment_log', `id=eq.${r.id}`);
+            if(equipmentEditId === r.id) cancelEquipmentEdit();
             await writeLog('sorting_equipment_log_delete', `${r.movement_type} 삭제`);
             loadEquipmentSummary();
             loadSortingEquipmentTable();
