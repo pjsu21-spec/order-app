@@ -1119,6 +1119,18 @@
     <datalist id="sp-drivers"></datalist>
     <datalist id="sp-loads"></datalist>
   </div>
+  <div class="card" id="mat-ded-card">
+    <details id="mat-ded-fold">
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">📦 자재 출고 차감 (정전개 소요량 기준)</summary>
+      <div style="margin-top:10px;">
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">
+          날짜를 고르고 <b>[출고분 불러오기]</b>를 누르면 그날 출고 팩 수와 자재별 차감 수량을 계산해 보여 줍니다. 확인한 뒤 <b>[자재 차감 반영]</b>을 누르면 자재 재고에서 빠집니다. 출고 팩 수에는 발주, 출고일을 따로 지정한 주문(쿠팡 등), 생산본부 샘플이 들어가고(현황판 합계와 같은 기준), <b>정전개를 등록한 제품만</b> 차감됩니다.<br>
+          같은 날짜를 다시 반영하면 기록이 덮어써져서 <b>중복 차감되지 않습니다</b>(발주가 바뀌었으면 다시 불러와서 반영). [반영 되돌리기]는 그 날짜의 자동 차감을 모두 취소하고 재고를 복구합니다. 자재·정전개 등록과 입고는 <b>이카운트·기준정보 → 자재·재고 관리</b>에서 합니다.</div></details>
+        <div class="row" style="margin:6px 0;"><button type="button" class="btn-ghost small-btn" id="mat-d-reload">↻ 새로고침</button><span class="sub" id="mat-d-msg" style="margin:0;"></span></div>
+        <div id="mat-d-wrap"></div>
+      </div>
+    </details>
+  </div>
   </div><!-- /panel-plan -->
 
   <!-- ───────────── 패널: 송장 / 명세서 ───────────── -->
@@ -1687,7 +1699,7 @@
           <b>역전개</b>: 자재를 고르면 그 자재가 쓰이는 제품(반제품 경유 포함)과 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.<br>
           <b>재고</b>는 입고·로스·사용·조정 기록의 합계입니다. 신규 자재가 들어오면 <b>입고·수불</b>에서 구매 입력(입고)을 하고, 실제 재고와 다르면 <b>재고 현황</b>에서 실사 수량을 넣어 맞춥니다. 파손·손망실은 <b>로스</b>로 기록합니다.<br>
           원물(방울토마토)은 자재 마스터에서 <b>원물선별 입고 연동</b>을 켜면, 시작일 이후 원물선별에 입력한 원물입고·사입 kg이 자동으로 재고에 더해집니다(이중 입력 없음).<br>
-          <b>출고 차감</b>: 날짜를 고르고 [출고분 불러오기] → [자재 차감 반영]을 누르면, 그날 출고 팩 수(발주·출고일 지정·샘플)에 정전개 소요량을 곱해 자재 재고에서 차감합니다. 같은 날짜를 다시 반영하면 덮어쓰므로 중복 차감되지 않습니다. 정전개를 등록한 제품만 차감되고, 제품마다 정전개 탭에서 차감을 끌 수 있습니다.<br>
+          <b>출고 차감</b>은 <b>생산/물류 탭의 「자재 출고 차감」 카드</b>에서 합니다(생산/물류 담당자가 쓰는 기능). 정전개를 등록한 제품만 차감되고, 제품마다 정전개 탭에서 차감을 끌 수 있습니다.<br>
           <b>구매입력 엑셀</b>: <b>입고·수불</b> 탭 아래에서 입고(구매) 기록을 이카운트 구매입력 양식으로 내려받습니다.</div></details>
         <div class="row" style="margin:6px 0;">
           <div class="mat-tabs" id="mat-tabs">
@@ -1695,7 +1707,6 @@
             <button type="button" data-mt="bom">정전개 (제품→자재)</button>
             <button type="button" data-mt="rev">역전개 (자재→제품)</button>
             <button type="button" data-mt="led">입고·수불</button>
-            <button type="button" data-mt="ded">출고 차감</button>
             <button type="button" data-mt="master">자재 마스터</button>
           </div>
           <button type="button" class="btn-ghost small-btn" id="mat-reload">↻ 새로고침</button>
@@ -2031,7 +2042,7 @@ window.sectionLevel = function(sec){
       const m = /[?&]key=eq\.([^&]+)/.exec(url);
       if (m) key = decodeURIComponent(m[1]);
       else if (init && typeof init.body === 'string') { const b = JSON.parse(init.body); key = String((Array.isArray(b) ? b[0] : b).key || ''); }
-      if (/^(ship-plan-|prod-plan-|prod-seq-routine)/.test(key)) return 'plan';
+      if (/^(ship-plan-|prod-plan-|prod-seq-routine|mat-auto-)/.test(key)) return 'plan';
       if (/^(statement-|shipdoc-)/.test(key)) return 'invoice';
     } catch (e) { /* 구분 못 하면 발주자동화로 */ }
     return null;
@@ -15596,7 +15607,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   // 제품(SKU) 1팩을 만들 때 쓰는 자재를 정전개로 등록하고, 자재를 고르면 쓰이는 제품을 역전개로 확인한다.
   // 재고 = 수불 기록(입고·로스·사용·조정)의 합계. 원물은 원물선별 입고·사입 kg을 자동으로 더할 수 있다.
   // 저장(kv_store, 공유): mat-master(자재 목록) · mat-bom(제품/반제품별 구성) · mat-led-YYYY-MM(수불 기록, 월별)
-  const MAT_K_MASTER = 'mat-master', MAT_K_BOM = 'mat-bom', MAT_K_LED = 'mat-led-';
+  const MAT_K_MASTER = 'mat-master', MAT_K_BOM = 'mat-bom', MAT_K_LED = 'mat-led-', MAT_K_AUTO = 'mat-auto-';   // 자동 차감(출고)은 생산/물류 권한으로 저장하려고 키를 따로 씀
   const MAT_KIND = { raw: '원자재', semi: '반제품' };
   const MAT_TYPES = { in: '입고(구매)', loss: '로스(파손·손망실)', use: '사용(수기)', adj: '재고조정' };
   const MAT = { loaded: false, loading: false, err: '', master: { items: [], vendors: [] }, mdraft: [], vdraft: [], skip: {}, ec: { warehouse: '00019', tt21: '21', tt22: '22' }, ecMgr: '', dedDate: '', ded: null, xFrom: '', xTo: '', xNew: true, bom: {}, led: [], rawIn: {}, rawErr: '', tab: 'stock', bomDirty: false, mdirty: false, plan: {}, calc: null, openP: new Set(), stockQ: '', stockLow: false, stockOff: false, revMat: '', ledMat: '', ledDays: 30, ledVoid: false };
@@ -15709,16 +15720,17 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     if(MAT.loading || (MAT.loaded && !force)) return;
     MAT.loading = true; MAT.err = ''; matMsg('불러오는 중…');
     try{
-      const [m, b, ks, es, ep] = await Promise.all([matGet(MAT_K_MASTER), matGet(MAT_K_BOM), window.storage.list(MAT_K_LED, true), matGet('mat-ecount-settings'), window.storage.get('mat-ecount-personal')]);
+      const [m, b, ks, ka, es, ep] = await Promise.all([matGet(MAT_K_MASTER), matGet(MAT_K_BOM), window.storage.list(MAT_K_LED, true), window.storage.list(MAT_K_AUTO, true), matGet('mat-ecount-settings'), window.storage.get('mat-ecount-personal')]);
       MAT.master = matJp(m, { items: [] }); if(!Array.isArray(MAT.master.items)) MAT.master.items = [];
       if(!Array.isArray(MAT.master.vendors)) MAT.master.vendors = [];
       const bd = matJp(b, { boms: {} }); MAT.bom = (bd && bd.boms) || {}; MAT.skip = (bd && bd.skip) || {};
       const e1 = matJp(es, {}); MAT.ec = { warehouse: e1.warehouse || '00019', tt21: e1.tt21 != null ? e1.tt21 : '21', tt22: e1.tt22 != null ? e1.tt22 : '22' };
       MAT.ecMgr = (matJp(ep && ep.value, {}) || {}).manager || '';
-      const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED)).sort();
+      const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED)).sort().concat(((ka && ka.keys) || []).filter(k => k.startsWith(MAT_K_AUTO)).sort());
       const docs = await Promise.all(keys.map(matGet));
-      MAT.led = [];
-      docs.forEach(v => { const a = matJp(v, []); if(Array.isArray(a)) MAT.led.push(...a); });
+      const lm = new Map();   // 같은 id가 두 곳에 있으면 자동 차감 쪽(나중)이 우선
+      docs.forEach(v => { const a = matJp(v, []); if(Array.isArray(a)) a.forEach(e => lm.set(e.id, e)); });
+      MAT.led = [...lm.values()];
       MAT.mdraft = JSON.parse(JSON.stringify(MAT.master.items)); MAT.vdraft = JSON.parse(JSON.stringify(MAT.master.vendors)); MAT.mdirty = false; MAT.bomDirty = false; MAT.ded = null;
       await matLoadRaw();
       MAT.loaded = true; matMsg('');
@@ -15727,11 +15739,12 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     }
     MAT.loading = false;
     matRender();
+    matRenderDedCard();
   }
   // 수불 기록 추가·수정(같은 id는 덮어씀): 저장 직전에 서버의 월별 기록을 다시 읽어 합쳐서, 동시에 입력해도 서로 지우지 않게 함
   async function matLedAdd(entries){
     const byMonth = {};
-    entries.forEach(e => { const k = MAT_K_LED + String(e.d).slice(0, 7); (byMonth[k] = byMonth[k] || []).push(e); });
+    entries.forEach(e => { const k = (e.auto ? MAT_K_AUTO : MAT_K_LED) + String(e.d).slice(0, 7); (byMonth[k] = byMonth[k] || []).push(e); });
     for(const [k, arr] of Object.entries(byMonth)){
       const cur = matJp(await matGet(k), []);
       const map = new Map((Array.isArray(cur) ? cur : []).map(x => [x.id, x]));
@@ -15797,7 +15810,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     document.querySelectorAll('#mat-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mt === MAT.tab));
     if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '아래 탭을 누르면 불러옵니다.'}</div>`; return; }
     if(MAT.rawErr) matMsg(MAT.rawErr, true);
-    ({ stock: matRenderStock, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, ded: matRenderDed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
+    ({ stock: matRenderStock, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
   }
   const matOpt = (list, sel, ph) => (ph ? `<option value="">${escapeHtml(ph)}</option>` : '') + list.map(i => `<option value="${escapeHtml(i.id)}"${i.id === sel ? ' selected' : ''}>${escapeHtml(i.name)}${i.unit ? ' (' + escapeHtml(i.unit) + ')' : ''}</option>`).join('');
 
@@ -16198,8 +16211,16 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     try{ if(typeof poBoardReload === 'function') await poBoardReload(); return ''; }
     catch(e){ return '최신 발주값을 불러오지 못해 이 화면에 있는 값으로 계산했습니다'; }
   }
+  function dMsg(t, bad){ const e = matEl('mat-d-msg'); if(e){ e.textContent = t || ''; e.style.color = bad ? 'var(--danger,#c0392b)' : ''; } }
+  function matRenderDedCard(){   // 생산/물류 탭의 자재 출고 차감 카드
+    const fold = matEl('mat-ded-fold'), body = matEl('mat-d-wrap');
+    if(!fold || !fold.open || !body) return;
+    if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '불러오는 중…'}</div>`; return; }
+    matRenderDed();
+  }
   function matRenderDed(){
-    const body = matEl('mat-body');
+    const body = matEl('mat-d-wrap');
+    if(!body) return;
     if(!MAT.dedDate) MAT.dedDate = currentDateKey || getTodayKey();
     body.innerHTML = `<div class="sub" style="margin:0 0 6px;">날짜를 고르고 <b>[출고분 불러오기]</b>를 누르면 그날 출고 팩 수와 자재별 차감 수량을 계산해 보여 줍니다. 확인한 뒤 <b>[자재 차감 반영]</b>을 누르면 재고에서 빠집니다. 출고 팩 수에는 발주, 출고일을 따로 지정한 주문, 생산본부 샘플이 들어가고(현황판 합계와 같은 기준), 정전개를 등록한 제품만 차감됩니다.</div>
       <div class="row" style="margin:0 0 8px; align-items:flex-end;"><label style="font-size:12.5px;">납품 일자<br><input type="date" id="mat-d-date" value="${escapeHtml(MAT.dedDate)}"></label><button type="button" class="btn-primary small-btn" id="mat-d-load">출고분 불러오기</button></div>
@@ -16224,15 +16245,15 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       out.innerHTML = h;
       const ap = matEl('mat-d-apply');
       if(ap) ap.addEventListener('click', async () => {
-        ap.disabled = true; matMsg('반영 중…');
+        ap.disabled = true; dMsg('반영 중…');
         try{
           const w = await matRefreshOrders();
           const fresh = await matComputeDeduct(c.dk);
           const todo2 = fresh.changed.concat(fresh.stale);
           if(todo2.length) await matLedAdd(todo2);
           MAT.ded = await matComputeDeduct(c.dk);
-          matMsg(`${c.dk} 출고분 자재 차감을 반영했습니다 (${fresh.entries.length}종)${w ? ' · ' + w : ''}`, !!w); toast('자재 차감 반영됨');
-        }catch(e){ matMsg('반영 실패: ' + ((e && e.message) || e), true); ap.disabled = false; return; }
+          dMsg(`${c.dk} 출고분 자재 차감을 반영했습니다 (${fresh.entries.length}종)${w ? ' · ' + w : ''}`, !!w); toast('자재 차감 반영됨');
+        }catch(e){ dMsg('반영 실패: ' + ((e && e.message) || e), true); ap.disabled = false; return; }
         show();
       });
       const un = matEl('mat-d-undo');
@@ -16241,22 +16262,22 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
           const old = MAT.led.filter(e => e.auto && String(e.id).startsWith('auto-' + c.dk + '-') && !e.void);
           await matLedAdd(old.map(e => Object.assign({}, e, { void: true, voidBy: matUser(), voidAt: Date.now() })));
           MAT.ded = await matComputeDeduct(c.dk);
-          matMsg(`${c.dk} 자동 차감을 되돌렸습니다 (재고 복구)`); toast('자동 차감 되돌림');
-        }catch(e){ matMsg('되돌리기 실패: ' + ((e && e.message) || e), true); return; }
+          dMsg(`${c.dk} 자동 차감을 되돌렸습니다 (재고 복구)`); toast('자동 차감 되돌림');
+        }catch(e){ dMsg('되돌리기 실패: ' + ((e && e.message) || e), true); return; }
         show();
       });
     };
     matEl('mat-d-date').addEventListener('change', e => { MAT.dedDate = e.target.value; MAT.ded = null; show(); });
     matEl('mat-d-load').addEventListener('click', async () => {
       const dk = matEl('mat-d-date').value;
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)){ matMsg('납품 일자를 선택하세요', true); return; }
-      matMsg('출고분 계산 중…');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)){ dMsg('납품 일자를 선택하세요', true); return; }
+      dMsg('출고분 계산 중…');
       try{
         const w = await matRefreshOrders();
         MAT.dedDate = dk; MAT.ded = await matComputeDeduct(dk);
         if(w) MAT.ded.warns.unshift(w);
-        matMsg('');
-      }catch(e){ matMsg('계산 실패: ' + ((e && e.message) || e), true); return; }
+        dMsg('');
+      }catch(e){ dMsg('계산 실패: ' + ((e && e.message) || e), true); return; }
       show();
     });
     show();
@@ -16268,6 +16289,8 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     fold.addEventListener('toggle', () => { if(fold.open) matLoad(false); });
     document.querySelectorAll('#mat-tabs button').forEach(b => b.addEventListener('click', () => { MAT.tab = b.dataset.mt; matMsg(''); if(!MAT.loaded) matLoad(false); matRender(); }));
     matEl('mat-reload').addEventListener('click', () => matLoad(true));
+    const df = matEl('mat-ded-fold');
+    if(df){ df.addEventListener('toggle', () => { if(df.open){ if(!MAT.loaded) matLoad(false); matRenderDedCard(); } }); matEl('mat-d-reload').addEventListener('click', () => { MAT.ded = null; matLoad(true); }); }
     window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster, matBuildPurchaseSheet, matComputeDeduct, matExplodeGross, matShipPacks };
   })();
 
