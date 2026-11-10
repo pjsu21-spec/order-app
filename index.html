@@ -1687,13 +1687,15 @@
           <b>역전개</b>: 자재를 고르면 그 자재가 쓰이는 제품(반제품 경유 포함)과 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.<br>
           <b>재고</b>는 입고·로스·사용·조정 기록의 합계입니다. 신규 자재가 들어오면 <b>입고·수불</b>에서 구매 입력(입고)을 하고, 실제 재고와 다르면 <b>재고 현황</b>에서 실사 수량을 넣어 맞춥니다. 파손·손망실은 <b>로스</b>로 기록합니다.<br>
           원물(방울토마토)은 자재 마스터에서 <b>원물선별 입고 연동</b>을 켜면, 시작일 이후 원물선별에 입력한 원물입고·사입 kg이 자동으로 재고에 더해집니다(이중 입력 없음).<br>
-          ※ 출고 수량에 따른 자동 차감과 이카운트 구매입력 엑셀 다운로드는 다음 단계에서 추가됩니다.</div></details>
+          <b>출고 차감</b>: 날짜를 고르고 [출고분 불러오기] → [자재 차감 반영]을 누르면, 그날 출고 팩 수(발주·출고일 지정·샘플)에 정전개 소요량을 곱해 자재 재고에서 차감합니다. 같은 날짜를 다시 반영하면 덮어쓰므로 중복 차감되지 않습니다. 정전개를 등록한 제품만 차감되고, 제품마다 정전개 탭에서 차감을 끌 수 있습니다.<br>
+          <b>구매입력 엑셀</b>: <b>입고·수불</b> 탭 아래에서 입고(구매) 기록을 이카운트 구매입력 양식으로 내려받습니다.</div></details>
         <div class="row" style="margin:6px 0;">
           <div class="mat-tabs" id="mat-tabs">
             <button type="button" data-mt="stock" class="on">재고 현황</button>
             <button type="button" data-mt="bom">정전개 (제품→자재)</button>
             <button type="button" data-mt="rev">역전개 (자재→제품)</button>
             <button type="button" data-mt="led">입고·수불</button>
+            <button type="button" data-mt="ded">출고 차감</button>
             <button type="button" data-mt="master">자재 마스터</button>
           </div>
           <button type="button" class="btn-ghost small-btn" id="mat-reload">↻ 새로고침</button>
@@ -15597,7 +15599,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   const MAT_K_MASTER = 'mat-master', MAT_K_BOM = 'mat-bom', MAT_K_LED = 'mat-led-';
   const MAT_KIND = { raw: '원자재', semi: '반제품' };
   const MAT_TYPES = { in: '입고(구매)', loss: '로스(파손·손망실)', use: '사용(수기)', adj: '재고조정' };
-  const MAT = { loaded: false, loading: false, err: '', master: { items: [] }, mdraft: [], bom: {}, led: [], rawIn: {}, rawErr: '', tab: 'stock', bomDirty: false, mdirty: false, plan: {}, calc: null, openP: new Set(), stockQ: '', stockLow: false, stockOff: false, revMat: '', ledMat: '', ledDays: 30, ledVoid: false };
+  const MAT = { loaded: false, loading: false, err: '', master: { items: [], vendors: [] }, mdraft: [], vdraft: [], skip: {}, ec: { warehouse: '00019', tt21: '21', tt22: '22' }, ecMgr: '', dedDate: '', ded: null, xFrom: '', xTo: '', xNew: true, bom: {}, led: [], rawIn: {}, rawErr: '', tab: 'stock', bomDirty: false, mdirty: false, plan: {}, calc: null, openP: new Set(), stockQ: '', stockLow: false, stockOff: false, revMat: '', ledMat: '', ledDays: 30, ledVoid: false };
   const matEl = id => document.getElementById(id);
   const matJp = (v, d) => { try{ return v ? JSON.parse(v) : d; }catch(e){ return d; } };
   const matN = n => (Math.round((Number(n) || 0) * 10000) / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
@@ -15707,14 +15709,17 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     if(MAT.loading || (MAT.loaded && !force)) return;
     MAT.loading = true; MAT.err = ''; matMsg('불러오는 중…');
     try{
-      const [m, b, ks] = await Promise.all([matGet(MAT_K_MASTER), matGet(MAT_K_BOM), window.storage.list(MAT_K_LED, true)]);
+      const [m, b, ks, es, ep] = await Promise.all([matGet(MAT_K_MASTER), matGet(MAT_K_BOM), window.storage.list(MAT_K_LED, true), matGet('mat-ecount-settings'), window.storage.get('mat-ecount-personal')]);
       MAT.master = matJp(m, { items: [] }); if(!Array.isArray(MAT.master.items)) MAT.master.items = [];
-      const bd = matJp(b, { boms: {} }); MAT.bom = (bd && bd.boms) || {};
+      if(!Array.isArray(MAT.master.vendors)) MAT.master.vendors = [];
+      const bd = matJp(b, { boms: {} }); MAT.bom = (bd && bd.boms) || {}; MAT.skip = (bd && bd.skip) || {};
+      const e1 = matJp(es, {}); MAT.ec = { warehouse: e1.warehouse || '00019', tt21: e1.tt21 != null ? e1.tt21 : '21', tt22: e1.tt22 != null ? e1.tt22 : '22' };
+      MAT.ecMgr = (matJp(ep && ep.value, {}) || {}).manager || '';
       const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED)).sort();
       const docs = await Promise.all(keys.map(matGet));
       MAT.led = [];
       docs.forEach(v => { const a = matJp(v, []); if(Array.isArray(a)) MAT.led.push(...a); });
-      MAT.mdraft = JSON.parse(JSON.stringify(MAT.master.items)); MAT.mdirty = false; MAT.bomDirty = false;
+      MAT.mdraft = JSON.parse(JSON.stringify(MAT.master.items)); MAT.vdraft = JSON.parse(JSON.stringify(MAT.master.vendors)); MAT.mdirty = false; MAT.bomDirty = false; MAT.ded = null;
       await matLoadRaw();
       MAT.loaded = true; matMsg('');
     }catch(e){
@@ -15751,13 +15756,15 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       if(keep.length) out[pid] = keep;
     }
     try{
-      await window.storage.set(MAT_K_BOM, JSON.stringify({ boms: out }), true);
+      await window.storage.set(MAT_K_BOM, JSON.stringify({ boms: out, skip: Object.fromEntries(Object.entries(MAT.skip).filter(([, v]) => v)) }), true);
       MAT.bom = out; MAT.bomDirty = false; matMsg('정전개 구성을 저장했습니다'); toast('정전개 구성 저장됨');
     }catch(e){ matMsg('저장 실패: ' + ((e && e.message) || e), true); return; }
     matRender();
   }
   async function matSaveMaster(){
-    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, link: !!r.link, from: r.link ? String(r.from || '') : '', off: !!r.off }));
+    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, link: !!r.link, from: r.link ? String(r.from || '') : '', vat: !!r.vat, off: !!r.off }));
+    const vendors = MAT.vdraft.map(v => ({ name: String(v.name || '').trim(), code: String(v.code || '').trim() })).filter(v => v.name || v.code);
+    { const vn = new Set(); for(const v of vendors){ if(!v.name){ matMsg('거래처명이 비어 있는 매입 거래처가 있습니다', true); return; } if(vn.has(v.name)){ matMsg(`매입 거래처 「${v.name}」이(가) 두 번 들어 있습니다`, true); return; } vn.add(v.name); } }
     const names = new Set();
     for(const r of rows){
       if(!r.name){ matMsg('이름이 비어 있는 자재가 있습니다', true); return; }
@@ -15776,8 +15783,8 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       if(inBom || inLed){ matMsg(`「${old.name}」은(는) 정전개나 수불 기록에 쓰이고 있어 지울 수 없습니다. 지우는 대신 '사용 안 함'을 체크하세요`, true); return; }
     }
     try{
-      await window.storage.set(MAT_K_MASTER, JSON.stringify({ items: rows }), true);
-      MAT.master = { items: rows }; MAT.mdraft = JSON.parse(JSON.stringify(rows)); MAT.mdirty = false;
+      await window.storage.set(MAT_K_MASTER, JSON.stringify({ items: rows, vendors }), true);
+      MAT.master = { items: rows, vendors }; MAT.mdraft = JSON.parse(JSON.stringify(rows)); MAT.vdraft = JSON.parse(JSON.stringify(vendors)); MAT.mdirty = false;
       await matLoadRaw();
       matMsg('자재 마스터를 저장했습니다'); toast('자재 마스터 저장됨');
     }catch(e){ matMsg('저장 실패: ' + ((e && e.message) || e), true); return; }
@@ -15790,7 +15797,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     document.querySelectorAll('#mat-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mt === MAT.tab));
     if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '아래 탭을 누르면 불러옵니다.'}</div>`; return; }
     if(MAT.rawErr) matMsg(MAT.rawErr, true);
-    ({ stock: matRenderStock, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
+    ({ stock: matRenderStock, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, ded: matRenderDed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
   }
   const matOpt = (list, sel, ph) => (ph ? `<option value="">${escapeHtml(ph)}</option>` : '') + list.map(i => `<option value="${escapeHtml(i.id)}"${i.id === sel ? ' selected' : ''}>${escapeHtml(i.name)}${i.unit ? ' (' + escapeHtml(i.unit) + ')' : ''}</option>`).join('');
 
@@ -15874,6 +15881,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         const ls = MAT.bom[p.id] || [], pr = matPossible(p.id, sm);
         return `<details class="mat-bomd" data-p="${escapeHtml(p.id)}"${MAT.openP.has(p.id) ? ' open' : ''}><summary>${escapeHtml(p.name)} <span class="sub" style="margin:0 0 0 6px;">구성 ${ls.filter(l => l.m).length}개${pr ? ` · 지금 ${matN(pr.packs)}${p.semi ? '' : '팩'} 생산 가능` : ''}</span></summary>
           ${p.box ? `<div class="sub" style="margin:4px 0;">박스 입수 ${p.box}팩 → 외박스는 1/${p.box} 로 입력</div>` : ''}
+          ${p.semi ? '' : `<label style="font-size:12.5px; display:block; margin:4px 0;"><input type="checkbox" class="mat-b-skip" data-p="${escapeHtml(p.id)}"${MAT.skip[p.id] ? '' : ' checked'}> 출고 시 자재 자동 차감 사용 <span class="sub" style="margin:0;">(끄면 이 제품은 출고 차감에서 빠집니다)</span></label>`}
           <table class="mat-t" style="margin:6px 0;"><thead><tr><th>자재</th><th>${p.semi ? '1단위당' : '1팩당'} 소요량</th><th>로스</th><th></th></tr></thead><tbody>${ls.map((l, i) => lineHtml(p.id, l, i)).join('')}</tbody></table>
           <button type="button" class="btn-ghost small-btn mat-b-add" data-p="${escapeHtml(p.id)}">+ 자재 추가</button></details>`;
       }).join('')}</div></div>`;
@@ -15881,6 +15889,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     const dirty = () => { MAT.bomDirty = true; const d = matEl('mat-dirty'); if(d) d.style.display = 'flex'; };
     body.querySelectorAll('.mat-bomd').forEach(d => d.addEventListener('toggle', () => { if(d.open) MAT.openP.add(d.dataset.p); else MAT.openP.delete(d.dataset.p); }));
     wrap.addEventListener('change', ev => {
+      if(ev.target.classList.contains('mat-b-skip')){ if(ev.target.checked) delete MAT.skip[ev.target.dataset.p]; else MAT.skip[ev.target.dataset.p] = true; dirty(); return; }
       const tr = ev.target.closest('tr[data-p]'); if(!tr) return;
       const pid = tr.dataset.p, l = (MAT.bom[pid] || [])[Number(tr.dataset.i)]; if(!l) return;
       if(ev.target.classList.contains('mat-b-m')){
@@ -15952,7 +15961,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
   function matRenderLed(){
     const body = matEl('mat-body'), items = matItems(false);
     if(!items.length){ body.innerHTML = '<div class="sub">먼저 <b>자재 마스터</b> 탭에서 자재를 등록하세요.</div>'; return; }
-    const vendors = [...new Set(MAT.led.map(e => e.vendor).filter(Boolean).concat(items.map(i => i.vendor).filter(Boolean)))];
+    const vendors = [...new Set(MAT.master.vendors.map(v => v.name).concat(MAT.led.map(e => e.vendor).filter(Boolean), items.map(i => i.vendor).filter(Boolean)))].filter(Boolean);
     body.innerHTML = `<h3 style="margin:2px 0 6px;">수불 기록 입력</h3>
       <div class="row" style="margin:0 0 6px; align-items:flex-end;">
         <label style="font-size:12.5px;">날짜<br><input type="date" id="mat-l-date" value="${getTodayKey()}"></label>
@@ -15971,7 +15980,19 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
         <select id="mat-lf-days"><option value="30">최근 30일</option><option value="90">최근 90일</option><option value="365">최근 1년</option><option value="0">전체</option></select>
         <label style="font-size:12.5px;"><input type="checkbox" id="mat-lf-void"${MAT.ledVoid ? ' checked' : ''}> 취소된 기록 보기</label>
       </div>
-      <div id="mat-l-list" style="overflow-x:auto;"></div>`;
+      <div id="mat-l-list" style="overflow-x:auto;"></div>
+      <h3 style="margin:20px 0 6px;">이카운트 구매입력 엑셀 다운로드</h3>
+      <div class="sub" style="margin:0 0 6px;">입고(구매) 기록을 이카운트 구매입력 양식(21열)으로 내려받습니다. 품목코드는 자재 마스터, 거래처코드는 마스터의 <b>매입 거래처</b>에서 가져옵니다(코드가 없으면 거래처명만 넣고 이카운트가 이름으로 찾습니다). 거래유형은 부가세 별도 자재면 「적용」, 아니면 「미적용」 값이 들어갑니다.</div>
+      <div class="row" style="margin:0 0 6px; align-items:flex-end;">
+        <label style="font-size:12.5px;">입고 기간<br><input type="date" id="mat-x-from"> ~ <input type="date" id="mat-x-to"></label>
+        <label style="font-size:12.5px;">입고창고<br><input type="text" id="mat-x-wh" style="width:90px;" placeholder="예: 00019"></label>
+        <label style="font-size:12.5px;">거래유형 (부가세 적용)<br><input type="text" id="mat-x-t21" style="width:70px;" placeholder="21"></label>
+        <label style="font-size:12.5px;">거래유형 (미적용)<br><input type="text" id="mat-x-t22" style="width:70px;" placeholder="22"></label>
+        <label style="font-size:12.5px;">담당자 코드<br><input type="text" id="mat-x-mgr" style="width:110px;" placeholder="본인 코드"></label>
+        <label style="font-size:12.5px;"><input type="checkbox" id="mat-x-new"> 이미 내려받은 입고 기록 제외</label>
+        <button type="button" class="btn-primary small-btn" id="mat-x-btn">구매입력 엑셀 다운로드</button>
+      </div>
+      <div class="sub" id="mat-x-info" style="margin:0;">입고창고·거래유형은 모두 같이 쓰도록 저장되고(기본 입고창고 00019 = 안성공장(생산)), 담당자 코드는 내 브라우저에만 저장됩니다.</div>`;
     matEl('mat-lf-days').value = String(MAT.ledDays);
     const sign = t => (t === 'in' ? 1 : (t === 'adj' ? 0 : -1));
     const typeUI = () => { const t = matEl('mat-l-type').value; document.querySelectorAll('.mat-l-in').forEach(e => { e.style.display = t === 'in' ? '' : 'none'; }); };
@@ -16004,7 +16025,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       const rows = MAT.led.filter(e => (MAT.ledVoid || !e.void) && (!MAT.ledMat || e.m === MAT.ledMat) && (!from || e.d >= from)).sort((a, b) => b.d.localeCompare(a.d) || (b.ts || 0) - (a.ts || 0));
       const box = matEl('mat-l-list');
       if(!rows.length){ box.innerHTML = '<div class="sub">조건에 맞는 기록이 없습니다.</div>'; return; }
-      box.innerHTML = `<table class="mat-t"><thead><tr><th>날짜</th><th>자재</th><th>구분</th><th>수량</th><th>단가</th><th>거래처</th><th>비고</th><th>기록자</th><th></th></tr></thead><tbody>${rows.slice(0, 300).map(e => `<tr data-id="${escapeHtml(e.id)}"${e.void ? ' style="opacity:.5; text-decoration:line-through;"' : ''}><td>${escapeHtml(e.d)}</td><td>${escapeHtml(matLabel(e.m))}</td><td>${escapeHtml(MAT_TYPES[e.t] || e.t)}</td><td class="n${e.q < 0 ? ' mat-low' : ''}">${e.q > 0 ? '+' : ''}${matN(e.q)} ${escapeHtml(matUnitOf(e.m))}</td><td class="n">${e.price ? matN(e.price) : ''}</td><td>${escapeHtml(e.vendor || '')}</td><td>${escapeHtml(e.note || '')}</td><td>${escapeHtml(e.by || '')}</td><td>${e.void ? '취소됨' : '<button type="button" class="btn-danger small-btn mat-l-void">취소</button>'}</td></tr>`).join('')}</tbody></table>${rows.length > 300 ? `<div class="sub">최근 300건만 표시됩니다 (전체 ${rows.length}건)</div>` : ''}`;
+      box.innerHTML = `<table class="mat-t"><thead><tr><th>날짜</th><th>자재</th><th>구분</th><th>수량</th><th>단가</th><th>거래처</th><th>비고</th><th>기록자</th><th></th></tr></thead><tbody>${rows.slice(0, 300).map(e => `<tr data-id="${escapeHtml(e.id)}"${e.void ? ' style="opacity:.5; text-decoration:line-through;"' : ''}><td>${escapeHtml(e.d)}</td><td>${escapeHtml(matLabel(e.m))}</td><td>${escapeHtml(e.auto ? '출고 차감(자동)' : (MAT_TYPES[e.t] || e.t))}${e.xl ? ' <span class="sub" style="margin:0;" title="구매입력 엑셀로 내려받음">· 엑셀 ✓</span>' : ''}</td><td class="n${e.q < 0 ? ' mat-low' : ''}">${e.q > 0 ? '+' : ''}${matN(e.q)} ${escapeHtml(matUnitOf(e.m))}</td><td class="n">${e.price ? matN(e.price) : ''}</td><td>${escapeHtml(e.vendor || '')}</td><td${e.det ? ` title="${escapeHtml(e.det.map(x => x.p + ' ' + matN(x.q)).join(', '))}"` : ''}>${escapeHtml(e.note || '')}</td><td>${escapeHtml(e.by || '')}</td><td>${e.void ? '취소됨' : (e.auto ? '' : '<button type="button" class="btn-danger small-btn mat-l-void">취소</button>')}</td></tr>`).join('')}</tbody></table>${rows.length > 300 ? `<div class="sub">최근 300건만 표시됩니다 (전체 ${rows.length}건)</div>` : ''}`;
       box.querySelectorAll('.mat-l-void').forEach(btn => armConfirmButton(btn, async () => {
         const id = btn.closest('tr').dataset.id, cur = MAT.led.find(x => x.id === id); if(!cur) return;
         try{ await matLedAdd([Object.assign({}, cur, { void: true, voidBy: matUser(), voidAt: Date.now() })]); matMsg('기록을 취소했습니다 (재고에서 빠집니다)'); }
@@ -16013,6 +16034,40 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       }));
     };
     fillList();
+    // 구매입력 엑셀
+    { const t0 = getTodayKey(); if(!MAT.xTo) MAT.xTo = t0; if(!MAT.xFrom) MAT.xFrom = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      matEl('mat-x-from').value = MAT.xFrom; matEl('mat-x-to').value = MAT.xTo; matEl('mat-x-wh').value = MAT.ec.warehouse; matEl('mat-x-t21').value = MAT.ec.tt21; matEl('mat-x-t22').value = MAT.ec.tt22; matEl('mat-x-mgr').value = MAT.ecMgr; matEl('mat-x-new').checked = MAT.xNew;
+      const targets = () => MAT.led.filter(e => !e.void && e.t === 'in' && e.d >= matEl('mat-x-from').value && e.d <= matEl('mat-x-to').value && (!matEl('mat-x-new').checked || !e.xl));
+      const info = () => { const n = targets().length; matEl('mat-x-btn').textContent = `구매입력 엑셀 다운로드 (${n}건)`; };
+      info();
+      ['mat-x-from', 'mat-x-to', 'mat-x-new'].forEach(id => matEl(id).addEventListener('change', () => { MAT.xFrom = matEl('mat-x-from').value; MAT.xTo = matEl('mat-x-to').value; MAT.xNew = matEl('mat-x-new').checked; info(); }));
+      const saveSet = async () => {
+        MAT.ec = { warehouse: matEl('mat-x-wh').value.trim(), tt21: matEl('mat-x-t21').value.trim(), tt22: matEl('mat-x-t22').value.trim() };
+        try{ await window.storage.set('mat-ecount-settings', JSON.stringify(MAT.ec), true); }catch(e){ console.error(e); }
+      };
+      ['mat-x-wh', 'mat-x-t21', 'mat-x-t22'].forEach(id => matEl(id).addEventListener('change', saveSet));
+      matEl('mat-x-mgr').addEventListener('change', async () => { MAT.ecMgr = matEl('mat-x-mgr').value.trim(); try{ await window.storage.set('mat-ecount-personal', JSON.stringify({ manager: MAT.ecMgr })); }catch(e){ console.error(e); } });
+      matEl('mat-x-btn').addEventListener('click', async () => {
+        const wh = matEl('mat-x-wh').value.trim();
+        if(!wh){ matMsg('입고창고를 입력하세요 (예: 00019)', true); return; }
+        const from = matEl('mat-x-from').value, to = matEl('mat-x-to').value;
+        if(!from || !to || from > to){ matMsg('입고 기간을 확인하세요', true); return; }
+        await saveSet(); MAT.ecMgr = matEl('mat-x-mgr').value.trim();
+        const rows = targets();
+        if(!rows.length){ matMsg('내려받을 입고 기록이 없습니다', true); return; }
+        const r = matBuildPurchaseSheet(rows, { warehouse: wh, tt21: MAT.ec.tt21, tt22: MAT.ec.tt22, manager: MAT.ecMgr });
+        const ws = XLSX.utils.aoa_to_sheet([r.header, ...r.data]);
+        ws['!cols'] = r.header.map(h => ({ wch: ['일자', '순번', '거래유형', '통화', '환율'].includes(h) ? 9 : (['품목명', '거래처명'].includes(h) ? 20 : 12) }));
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '구매입력');
+        XLSX.writeFile(wb, `이카운트_구매입력_${from.replace(/-/g, '')}-${to.replace(/-/g, '')}.xlsx`);
+        let warn = '';
+        if(r.noCode.length) warn += ` · 품목코드가 없는 자재 ${r.noCode.length}종(이름으로 인식): ${r.noCode.join(', ')}`;
+        if(!MAT.ecMgr) warn += ' · 담당자 코드가 비어 있습니다';
+        try{ await matLedAdd(rows.map(e => Object.assign({}, e, { xl: Date.now() }))); }catch(err){ matMsg('엑셀은 내려받았지만 내려받음 표시를 저장하지 못했습니다: ' + ((err && err.message) || err), true); return; }
+        matMsg(`구매입력 엑셀 ${r.data.length}행을 내려받았습니다${warn}`, !!warn); toast('구매입력 엑셀 다운로드 완료');
+        matRender();
+      });
+    }
     matEl('mat-lf-mat').addEventListener('change', e => { MAT.ledMat = e.target.value; fillList(); });
     matEl('mat-lf-days').addEventListener('change', e => { MAT.ledDays = Number(e.target.value); fillList(); });
     matEl('mat-lf-void').addEventListener('change', e => { MAT.ledVoid = e.target.checked; fillList(); });
@@ -16029,13 +16084,18 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       <td><input type="text" class="mat-m-price" inputmode="decimal" value="${r.price ? escapeHtml(String(r.price)) : ''}" placeholder="단가" style="width:70px;"></td>
       <td><input type="text" class="mat-m-safety" inputmode="decimal" value="${r.safety ? escapeHtml(String(r.safety)) : ''}" placeholder="안전재고" style="width:70px;"></td>
       <td style="white-space:nowrap;"><label><input type="checkbox" class="mat-m-link"${r.link ? ' checked' : ''}> 연동</label> <input type="date" class="mat-m-from" value="${escapeHtml(r.from || '')}" style="${r.link ? '' : 'display:none;'}" title="이 날짜 이후의 원물입고·사입 kg을 재고에 더함"></td>
+      <td><label><input type="checkbox" class="mat-m-vat"${r.vat ? ' checked' : ''}> 10%</label></td>
       <td><label><input type="checkbox" class="mat-m-off"${r.off ? ' checked' : ''}> 안 씀</label></td>
       <td><button type="button" class="btn-danger small-btn mat-m-del" title="삭제">✕</button></td></tr>`;
     body.innerHTML = `<div id="mat-mdirty" class="mat-dirty" style="display:${MAT.mdirty ? 'flex' : 'none'}; align-items:center; gap:10px; flex-wrap:wrap;">저장하지 않은 변경이 있습니다.</div>
       <div class="sub" style="margin:0 0 6px;">트레이·스티커·방울토마토 원물·습지·외박스·향료 같은 원자재와, 중간 단계의 반제품을 등록합니다. <b>단위</b>는 재고를 세는 단위(개·장·kg …)이고 정전개 소요량도 이 단위로 입력합니다. <b>원물선별 입고 연동</b>은 원물(방울토마토) 한 가지에만 켜며, 시작일 이후의 원물입고·사입 kg이 재고에 자동으로 더해집니다(연동을 켠 뒤 시작일 이전 재고는 재고 실사로 입력).</div>
-      <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th>원물선별 입고 연동</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th>원물선별 입고 연동</th><th title="구매입력 엑셀에서 부가세 10%를 따로 넣고 거래유형을 「적용」으로 씀">부가세 별도</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
       ${MAT.mdraft.length ? '' : '<div class="sub">아직 등록된 자재가 없습니다. [+ 자재 추가]를 눌러 시작하세요.</div>'}
-      <div class="row" style="margin-top:8px;"><button type="button" class="btn-ghost small-btn" id="mat-m-add">+ 자재 추가</button><button type="button" class="btn-primary small-btn" id="mat-m-save">자재 마스터 저장</button></div>`;
+      <h3 style="margin:16px 0 4px;">매입 거래처 (이카운트 거래처코드)</h3>
+      <div class="sub" style="margin:0 0 6px;">트레이·스티커·원물 등을 사오는 업체입니다. 입고 기록의 거래처명과 같은 이름으로 등록하면 구매입력 엑셀에 거래처코드가 들어갑니다.</div>
+      <table class="mat-t"><thead><tr><th>거래처명</th><th>이카운트 거래처코드</th><th></th></tr></thead><tbody id="mat-v-tb">${MAT.vdraft.map((v, i) => `<tr data-i="${i}"><td><input type="text" class="mat-v-name" value="${escapeHtml(v.name || '')}" style="width:200px;"></td><td><input type="text" class="mat-v-code" value="${escapeHtml(v.code || '')}" style="width:120px;"></td><td><button type="button" class="btn-danger small-btn mat-v-del">✕</button></td></tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:8px;"><button type="button" class="btn-ghost small-btn" id="mat-v-add">+ 매입 거래처 추가</button></div>
+      <div class="row" style="margin-top:12px;"><button type="button" class="btn-ghost small-btn" id="mat-m-add">+ 자재 추가</button><button type="button" class="btn-primary small-btn" id="mat-m-save">자재 마스터 저장</button></div>`;
     const dirty = () => { MAT.mdirty = true; matEl('mat-mdirty').style.display = 'flex'; };
     const tb = matEl('mat-m-tb');
     tb.addEventListener('input', ev => {
@@ -16051,6 +16111,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       const c = ev.target.classList;
       if(c.contains('mat-m-kind')) r.kind = ev.target.value;
       else if(c.contains('mat-m-off')) r.off = ev.target.checked;
+      else if(c.contains('mat-m-vat')) r.vat = ev.target.checked;
       else if(c.contains('mat-m-link')){
         if(ev.target.checked){ MAT.mdraft.forEach(x => { x.link = false; }); r.link = true; if(!r.from) r.from = getTodayKey(); } else r.link = false;   // 연동은 한 가지에만
         dirty(); matRender(); return;
@@ -16061,8 +16122,144 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
       const del = ev.target.closest('.mat-m-del'); if(!del) return;
       MAT.mdraft.splice(Number(del.closest('tr').dataset.i), 1); dirty(); matRender();
     });
-    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, link: false, from: '', off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
+    const vtb = matEl('mat-v-tb');
+    vtb.addEventListener('input', ev => { const tr = ev.target.closest('tr'), v = MAT.vdraft[Number(tr.dataset.i)]; if(!v) return; if(ev.target.classList.contains('mat-v-name')) v.name = ev.target.value; else if(ev.target.classList.contains('mat-v-code')) v.code = ev.target.value; else return; dirty(); });
+    vtb.addEventListener('click', ev => { const d = ev.target.closest('.mat-v-del'); if(!d) return; MAT.vdraft.splice(Number(d.closest('tr').dataset.i), 1); dirty(); matRender(); });
+    matEl('mat-v-add').addEventListener('click', () => { MAT.vdraft.push({ name: '', code: '' }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-v-name'); if(ins.length) ins[ins.length - 1].focus(); });
+    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, link: false, from: '', vat: false, off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
     matEl('mat-m-save').addEventListener('click', () => matSaveMaster());
+  }
+
+  // 구매입력 엑셀 행 만들기 (이카운트 구매입력 양식 21열: 일자 순번 거래처코드 거래처명 담당자 입고창고 거래유형 통화 환율 프로젝트 부서 품목코드 품목명 규격명 수량 단가 외화금액 공급가액 부가세 적요 시리얼/로트)
+  function matBuildPurchaseSheet(rows, o){
+    const header = ['일자', '순번', '거래처코드', '거래처명', '담당자', '입고창고', '거래유형', '통화', '환율', '프로젝트', '부서', '품목코드', '품목명', '규격명', '수량', '단가', '외화금액', '공급가액', '부가세', '적요', '시리얼/로트'];
+    const sorted = rows.slice().sort((a, b) => a.d.localeCompare(b.d) || String(a.vendor || '').localeCompare(String(b.vendor || ''), 'ko') || (a.ts || 0) - (b.ts || 0));
+    const seqOf = new Map(); let seq = 0; const noCode = new Set();
+    const data = sorted.map(e => {
+      const it = matById(e.m) || { name: matLabel(e.m), code: '' }, vd = MAT.master.vendors.find(v => v.name === e.vendor);
+      const key = e.d + '|' + (e.vendor || '');
+      if(!seqOf.has(key)) seqOf.set(key, ++seq);
+      if(!it.code) noCode.add(it.name);
+      const qty = Math.abs(Number(e.q) || 0), price = Number(e.price) > 0 ? Number(e.price) : 0;
+      const supply = price > 0 ? Math.round(qty * price) : '', vatOn = !!it.vat;
+      return [e.d.replace(/-/g, ''), seqOf.get(key), (vd && vd.code) || '', e.vendor || '', o.manager || '', o.warehouse, (vatOn ? o.tt21 : o.tt22) || '', '', '', '', '', it.code || '', it.name, '', qty, price || '', '', supply, (vatOn && supply !== '') ? Math.round(supply * 0.1) : '', String(e.note || '').slice(0, 200), ''];
+    });
+    return { header, data, noCode: [...noCode] };
+  }
+
+  // ── 출고 차감: 날짜별 출고 팩 수 × 정전개 소요량 → 자재 '사용(자동)' 기록 (같은 날짜는 id가 같아서 다시 반영하면 덮어씀) ──
+  // 반제품은 하위 자재까지 풀어서 차감하고 반제품 재고는 건드리지 않음.
+  function matExplodeGross(plan){
+    const need = {}, by = {}, warn = [];
+    const walk = (root, pid, qty, depth) => {
+      if(depth > 6){ if(!warn.length) warn.push('구성이 너무 깊거나 서로 순환합니다'); return; }
+      matGoodLines(pid).forEach(l => {
+        const n = qty * Number(l.q) * matLossMul(l), it = matById(l.m);
+        if(it && it.kind === 'semi' && matGoodLines(l.m).length){ walk(root, l.m, n, depth + 1); return; }
+        need[l.m] = (need[l.m] || 0) + n;
+        (by[root] = by[root] || {})[l.m] = (by[root][l.m] || 0) + n;
+      });
+    };
+    Object.entries(plan).forEach(([pid, q]) => { if(Number(q) > 0) walk(pid, pid, Number(q), 0); });
+    return { need, by, warn };
+  }
+  async function matShipPacks(dk){
+    const warns = [];
+    let samples = [];
+    if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = (await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' })) || []; }catch(e){ warns.push('샘플 신청을 불러오지 못해 샘플 출고가 빠졌습니다'); } }
+    const colMap = {}; dict.forEach(d => { colMap[d.id] = d.id; });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersByDate[dk] || {}, stockPacks: {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+    const qc = addQcSampleEntry(built, colMap);
+    const boxes = {};
+    built.entries.forEach(e => Object.entries(e.colQty).forEach(([c, q]) => { boxes[c] = (boxes[c] || 0) + q; }));
+    (built.dispatchRows || []).forEach(g => Object.entries(g.colQty).forEach(([c, q]) => { boxes[c] = (boxes[c] || 0) + q; }));
+    const packs = {};
+    dict.forEach(d => { const b = boxes[d.id]; if(b > 0){ const u = Number(d.boxUnitCount) || 0; packs[d.id] = Math.round((u > 0 ? b * u : b) * 100) / 100; } });
+    if(qc && qc.length) warns.push(`품질 확인용 샘플(${qc.length}개 품목)도 출고에 포함했습니다`);
+    return { packs, warns };
+  }
+  async function matComputeDeduct(dk){
+    const { packs, warns } = await matShipPacks(dk);
+    const rowsP = matProducts().filter(p => packs[p.id] > 0).map(p => ({ id: p.id, name: p.name, packs: packs[p.id], state: MAT.skip[p.id] ? 'skip' : (matGoodLines(p.id).length ? 'ok' : 'nobom') }));
+    const plan = {}; rowsP.filter(r => r.state === 'ok').forEach(r => { plan[r.id] = r.packs; });
+    const ex = matExplodeGross(plan), entries = [];
+    Object.entries(ex.need).forEach(([m, n]) => {
+      const q = Math.round(n * 10000) / 10000; if(!(q > 0)) return;
+      const det = Object.entries(ex.by).filter(([, o]) => o[m] > 0).map(([pid, o]) => ({ p: matParentName(pid), q: Math.round(o[m] * 10000) / 10000 }));
+      entries.push({ id: 'auto-' + dk + '-' + m, d: dk, m, t: 'use', q: -q, auto: 1, note: `출고 자동 차감 (${dk} 출고분)`, det, by: matUser(), ts: Date.now() });
+    });
+    const newIds = new Set(entries.map(e => e.id));
+    const old = MAT.led.filter(e => e.auto && String(e.id).startsWith('auto-' + dk + '-') && !e.void), oldMap = new Map(old.map(e => [e.id, e]));
+    const stale = old.filter(e => !newIds.has(e.id)).map(e => Object.assign({}, e, { void: true, voidBy: matUser(), voidAt: Date.now() }));
+    const changed = entries.filter(e => !oldMap.has(e.id) || Math.abs(oldMap.get(e.id).q - e.q) > 1e-9);
+    return { dk, rowsP, entries, stale, changed, oldMap, warns: warns.concat(ex.warn) };
+  }
+  async function matRefreshOrders(){
+    try{ if(typeof poBoardReload === 'function') await poBoardReload(); return ''; }
+    catch(e){ return '최신 발주값을 불러오지 못해 이 화면에 있는 값으로 계산했습니다'; }
+  }
+  function matRenderDed(){
+    const body = matEl('mat-body');
+    if(!MAT.dedDate) MAT.dedDate = currentDateKey || getTodayKey();
+    body.innerHTML = `<div class="sub" style="margin:0 0 6px;">날짜를 고르고 <b>[출고분 불러오기]</b>를 누르면 그날 출고 팩 수와 자재별 차감 수량을 계산해 보여 줍니다. 확인한 뒤 <b>[자재 차감 반영]</b>을 누르면 재고에서 빠집니다. 출고 팩 수에는 발주, 출고일을 따로 지정한 주문, 생산본부 샘플이 들어가고(현황판 합계와 같은 기준), 정전개를 등록한 제품만 차감됩니다.</div>
+      <div class="row" style="margin:0 0 8px; align-items:flex-end;"><label style="font-size:12.5px;">납품 일자<br><input type="date" id="mat-d-date" value="${escapeHtml(MAT.dedDate)}"></label><button type="button" class="btn-primary small-btn" id="mat-d-load">출고분 불러오기</button></div>
+      <div id="mat-d-out"></div>`;
+    const out = matEl('mat-d-out');
+    const show = () => {
+      const c = MAT.ded;
+      if(!c || c.dk !== matEl('mat-d-date').value){ out.innerHTML = ''; return; }
+      const sm = matStockMap(), fmt = matN;
+      const stateTxt = { ok: '차감 대상', skip: '<span class="mat-low">차감 끔</span>', nobom: '<span class="mat-low">정전개 없음 (차감 안 됨)</span>' };
+      let h = '';
+      if(c.warns.length) h += c.warns.map(w => `<div class="sub" style="color:var(--danger,#c0392b); margin:0 0 4px;">⚠ ${escapeHtml(w)}</div>`).join('');
+      if(!c.rowsP.length){ out.innerHTML = h + '<div class="sub">이 날짜에는 출고 수량이 없습니다.</div>'; return; }
+      h += `<h3 style="margin:8px 0 4px;">제품별 출고 팩 수</h3><table class="mat-t"><thead><tr><th>제품</th><th>출고 팩</th><th>상태</th></tr></thead><tbody>${c.rowsP.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="n">${fmt(r.packs)} 팩</td><td>${stateTxt[r.state]}</td></tr>`).join('')}</tbody></table>`;
+      const ids = [...new Set(c.entries.map(e => e.m).concat([...c.oldMap.values()].map(e => e.m)))].sort((a, b) => matLabel(a).localeCompare(matLabel(b), 'ko'));
+      const newQ = m => { const e = c.entries.find(x => x.m === m); return e ? -e.q : 0; }, oldQ = m => { const e = [...c.oldMap.values()].find(x => x.m === m); return e ? -e.q : 0; };
+      h += `<h3 style="margin:14px 0 4px;">자재별 차감</h3>`;
+      if(!ids.length) h += '<div class="sub">차감할 자재가 없습니다 (정전개가 등록된 제품의 출고가 없음).</div>';
+      else h += `<table class="mat-t"><thead><tr><th>자재</th><th>이번 계산 차감량</th><th>이미 반영된 차감</th><th>변경</th><th>현재고</th><th>반영 후 재고</th></tr></thead><tbody>${ids.map(m => { const n = newQ(m), o = oldQ(m), d = Math.round((n - o) * 10000) / 10000, cur = sm[m] || 0, after = Math.round((cur - d) * 10000) / 10000, u = escapeHtml(matUnitOf(m)); return `<tr><td>${escapeHtml(matLabel(m))}</td><td class="n">${fmt(n)} ${u}</td><td class="n">${o ? fmt(o) + ' ' + u : '-'}</td><td class="n${d ? '' : ' mat-ok'}">${d ? (d > 0 ? '+' : '') + fmt(d) : '변경 없음'}</td><td class="n">${fmt(cur)} ${u}</td><td class="n${after < 0 ? ' mat-low' : ''}">${fmt(after)} ${u}${after < 0 ? ' ⚠' : ''}</td></tr>`; }).join('')}</tbody></table>`;
+      const todo = c.changed.length + c.stale.length;
+      h += `<div class="row" style="margin-top:10px;"><button type="button" class="btn-primary small-btn" id="mat-d-apply"${todo ? '' : ' disabled'}>${todo ? '자재 차감 반영' : '이미 반영됨 (변경 없음)'}</button><button type="button" class="btn-danger small-btn" id="mat-d-undo"${c.oldMap.size ? '' : ' disabled'}>반영 되돌리기</button></div>`;
+      out.innerHTML = h;
+      const ap = matEl('mat-d-apply');
+      if(ap) ap.addEventListener('click', async () => {
+        ap.disabled = true; matMsg('반영 중…');
+        try{
+          const w = await matRefreshOrders();
+          const fresh = await matComputeDeduct(c.dk);
+          const todo2 = fresh.changed.concat(fresh.stale);
+          if(todo2.length) await matLedAdd(todo2);
+          MAT.ded = await matComputeDeduct(c.dk);
+          matMsg(`${c.dk} 출고분 자재 차감을 반영했습니다 (${fresh.entries.length}종)${w ? ' · ' + w : ''}`, !!w); toast('자재 차감 반영됨');
+        }catch(e){ matMsg('반영 실패: ' + ((e && e.message) || e), true); ap.disabled = false; return; }
+        show();
+      });
+      const un = matEl('mat-d-undo');
+      if(un) armConfirmButton(un, async () => {
+        try{
+          const old = MAT.led.filter(e => e.auto && String(e.id).startsWith('auto-' + c.dk + '-') && !e.void);
+          await matLedAdd(old.map(e => Object.assign({}, e, { void: true, voidBy: matUser(), voidAt: Date.now() })));
+          MAT.ded = await matComputeDeduct(c.dk);
+          matMsg(`${c.dk} 자동 차감을 되돌렸습니다 (재고 복구)`); toast('자동 차감 되돌림');
+        }catch(e){ matMsg('되돌리기 실패: ' + ((e && e.message) || e), true); return; }
+        show();
+      });
+    };
+    matEl('mat-d-date').addEventListener('change', e => { MAT.dedDate = e.target.value; MAT.ded = null; show(); });
+    matEl('mat-d-load').addEventListener('click', async () => {
+      const dk = matEl('mat-d-date').value;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(dk)){ matMsg('납품 일자를 선택하세요', true); return; }
+      matMsg('출고분 계산 중…');
+      try{
+        const w = await matRefreshOrders();
+        MAT.dedDate = dk; MAT.ded = await matComputeDeduct(dk);
+        if(w) MAT.ded.warns.unshift(w);
+        matMsg('');
+      }catch(e){ matMsg('계산 실패: ' + ((e && e.message) || e), true); return; }
+      show();
+    });
+    show();
   }
 
   // 탭·열기·새로고침 연결
@@ -16071,7 +16268,7 @@ ALTER TABLE sorting_purchases ADD COLUMN IF NOT EXISTS variety text;`;
     fold.addEventListener('toggle', () => { if(fold.open) matLoad(false); });
     document.querySelectorAll('#mat-tabs button').forEach(b => b.addEventListener('click', () => { MAT.tab = b.dataset.mt; matMsg(''); if(!MAT.loaded) matLoad(false); matRender(); }));
     matEl('mat-reload').addEventListener('click', () => matLoad(true));
-    window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster };
+    window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster, matBuildPurchaseSheet, matComputeDeduct, matExplodeGross, matShipPacks };
   })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
