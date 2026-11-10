@@ -2560,11 +2560,11 @@ window.sectionLevel = function(sec){
   const REST = SB_URL + '/rest/v1/';
   const origFetch = window.fetch.bind(window);
   let lastNotice = 0;
-  function notice(){
+  function notice(kind){
     const now = Date.now();
     if (now - lastNotice < 4000) return;
     lastNotice = now;
-    window.showToast('👁 읽기 전용 권한입니다 — 저장되지 않았습니다', { ms: 2600 });
+    window.showToast(kind === 'none' ? '🔒 이 자료를 저장할 권한이 없습니다 — 저장되지 않았습니다' : '👁 읽기 전용 권한입니다 — 저장되지 않았습니다', { ms: 2600 });
   }
   function programFor(table){
     if (table === 'sessions' || table === 'activity_log' || table === 'users' || table === 'rpc') return null; // 로그인·로그·관리자 기능 (rpc = 로그인/사용자 관리 DB 함수)
@@ -2584,29 +2584,64 @@ window.sectionLevel = function(sec){
     } catch (e) { /* 구분 못 하면 발주자동화로 */ }
     return null;
   }
-  // 읽기 전용이라 막아야 하는 쓰기 요청인지
+  // 막아야 하는 쓰기 요청인지: 'read'(읽기 전용) / 'none'(그 자료에 권한 없음) / false(보냄). 서버 권한 규칙(보안 1단계 SQL)과 같은 기준
   function writeBlocked(url, init, method){
     if (method === 'GET' || method === 'HEAD' || !url.startsWith(REST)) return false;
     const table = url.slice(REST.length).split(/[?\/]/)[0];
     const prog = programFor(table);
     let lvl = prog ? window.accessLevel(prog) : null;
     if (table === 'kv_store') { const sec = kvSection(url, init); if (sec) lvl = window.sectionLevel(sec); }   // 생산/물류·송장/명세서 저장값은 그 세부 권한을 따름
-    return !!prog && lvl === 'read';
+    if (!prog) return false;
+    return lvl === 'read' ? 'read' : (lvl === 'none' ? 'none' : false);
   }
   window.__writeBlocked = writeBlocked;   // (점검용)
-  window.fetch = function(input, init){
+  // ── 로그인 토큰 전송: 서버가 누가 보낸 요청인지 확인할 수 있게 모든 자료 요청에 로그인 토큰을 실어 보냄 (보안 1단계) ──
+  const appToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
+  function withToken(init, tok){
+    const o = Object.assign({}, init || {});
+    if (typeof Headers !== 'undefined' && o.headers instanceof Headers) { const h = new Headers(o.headers); h.set('x-app-token', tok); o.headers = h; }
+    else o.headers = Object.assign({}, o.headers || {}, { 'x-app-token': tok });
+    return o;
+  }
+  // 서버가 '로그인 필요'(401)로 거절하면 로그인이 아직 유효한지 확인하고, 만료됐으면 로그인 화면으로 보냄
+  let expChecking = false, expCheckedAt = 0;
+  async function sessionCheck(tok){
+    const now = Date.now();
+    if (expChecking || now - expCheckedAt < 15000) return;
+    expChecking = true; expCheckedAt = now;
     try {
-      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const me = await apiMe(tok);
+      if (!me && window.currentUser && window.currentUser.token === tok) {
+        localStorage.removeItem('auth_token');
+        window.currentUser = null;
+        showLoginScreen();
+        const el = document.getElementById('login-error');
+        if (el) { el.textContent = '로그인이 만료되었습니다. 다시 로그인해 주세요'; el.style.display = 'block'; }
+      }
+    } catch (e) { /* 확인 실패(통신 오류 등)면 그대로 둠 */ }
+    finally { expChecking = false; }
+  }
+  window.fetch = function(input, init){
+    let tok = '', url = '';
+    try {
+      url = typeof input === 'string' ? input : (input && input.url) || '';
       const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-      if (writeBlocked(url, init, method)) {
-        notice();
+      const blocked = writeBlocked(url, init, method);
+      if (blocked) {
+        notice(blocked);
         return Promise.resolve(new Response(
-          JSON.stringify({ message: '읽기 전용 권한입니다 (저장되지 않음)' }),
+          JSON.stringify({ message: blocked === 'none' ? '권한이 없습니다 (저장되지 않음)' : '읽기 전용 권한입니다 (저장되지 않음)' }),
           { status: 403, headers: { 'Content-Type': 'application/json', 'X-Readonly-Guard': '1' } }
         ));
       }
+      if (typeof input === 'string' && url.startsWith(REST) && !url.startsWith(REST + 'rpc/')) {
+        tok = appToken();
+        if (tok) init = withToken(init, tok);
+      }
     } catch (e) { /* 가드 오류 시 원래 요청 그대로 진행 */ }
-    return origFetch(input, init);
+    const p = origFetch(input, init);
+    if (tok) p.then(res => { if (res && res.status === 401) sessionCheck(tok); }, () => {});
+    return p;
   };
 })();
 
@@ -2768,7 +2803,7 @@ async function sbRpc(name, args) {
 }
 const sessionToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
 function buildCurrentUser(user, token) {
-  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', must_change_password: user.must_change_password === true, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files };
+  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', must_change_password: user.must_change_password === true, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files, perm_plan: user.perm_plan, perm_invoice: user.perm_invoice };   // perm_plan·perm_invoice: 생산/물류·송장/명세서 세부 권한 (없으면 발주자동화 권한을 따름)
 }
 // 로그인 → { token, user } (실패 시 예외)
 async function apiLogin(username, hash) {
@@ -3665,7 +3700,7 @@ function mnShow(id, keepScroll) {
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
     if(!deliveryFeeItems.find(d=>d.size==='소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'소', name:'택배비(소)', code:'', price:'' });
-    if(!window.__loadFailed.size && ensureCarryOver(currentDateKey)) savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월 (불러오기 실패 시에는 하지 않음)
+    if(!window.__loadFailed.size && ensureCarryOver(currentDateKey) && window.accessLevel('order') === 'full') savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월 (불러오기 실패 시에는 하지 않음)
 
     renderDict();
     renderCategoryEditor();
@@ -3833,8 +3868,10 @@ function mnShow(id, keepScroll) {
       if(!auto) toast('⚠ 일부 데이터를 불러오지 못한 상태라 정리하지 않았습니다 — 새로고침 후 다시 해 주세요');
       return;
     }
+    // 자동 정리는 발주 자료를 저장할 수 있는 사용자의 화면에서만 (읽기 전용·권한 없는 사용자는 저장이 막히므로 시도하지 않음)
+    if(auto && window.accessLevel('order') !== 'full') return;
     const cutoff = getRetentionCutoffKey();
-    spCleanup(cutoff);
+    if(window.sectionLevel('plan') === 'full') spCleanup(cutoff);
     const allDateKeys = new Set([
       ...Object.keys(ordersByDate),
       ...Object.keys(thirdPartyLineItems),
