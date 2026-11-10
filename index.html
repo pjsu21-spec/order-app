@@ -17,7 +17,14 @@
     --warn:#a8322a;
     --warn-soft:#fbeae5;
     --muted:#8c8280;
+    --fg:#2a2426;       /* 본문 글자색 (= --ink) */
+    --bg:#fbf8f6;       /* 화면 바탕 (= --paper) */
+    --card:#fff;
+    --hover:#f6f0ec;    /* 강조 줄·접이식 상자 바탕 */
+    --danger:#c0392b;
   }
+  html, body{ background:var(--paper); }
+  body{ color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
   /* 검색 가능한 업체 선택 */
   .ss-wrap{ position:relative; display:inline-block; vertical-align:middle; }
   .ss-input{ width:100%; box-sizing:border-box; padding-right:26px !important; cursor:pointer;
@@ -57,7 +64,7 @@
   .home-tile .nm{ font-size:16px; font-weight:800; letter-spacing:-0.02em; }
   .home-tile .ds{ font-size:12px; font-weight:400; color:var(--muted); line-height:1.4; }
   .home-tile .ext{ font-size:11px; color:var(--muted); }
-  #program-bar{ align-items:center; gap:12px; padding:2px 0 12px; }
+  #program-bar{ align-items:center; gap:12px; padding:8px 0; margin-bottom:6px; position:sticky; top:0; z-index:40; background:var(--paper); }
   #program-home-btn{ background:#fff; border:1px solid var(--accent); color:var(--accent); font-weight:700; padding:7px 14px; border-radius:10px; cursor:pointer; font-size:13px; font-family:inherit; }
   #program-title{ font-size:15px; font-weight:700; }
   @media (max-width: 640px){
@@ -67,7 +74,7 @@
     .home-tile .nm{ font-size:15px; }
   }
   /* 상단 사용자 바 */
-  .topbar{ background:var(--accent); color:#fff; padding:8px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px; gap:8px; }
+  .topbar{ background:var(--accent); color:#fff; padding:8px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px; gap:8px; border-radius:10px; margin-bottom:6px; }
   .topbar-title{ font-weight:700; white-space:nowrap; }
   .topbar-user{ display:flex; align-items:center; gap:10px; }
   #user-badge{ opacity:.92; white-space:nowrap; }
@@ -92,7 +99,7 @@
     background:var(--paper);
     padding:24px;
     border-radius:12px;
-    max-width:1150px;
+    max-width:1440px;
     margin:0 auto;
   }
   #app h1{
@@ -161,6 +168,8 @@
   }
   button:hover{ opacity:.85; }
   button:active{ transform:translateY(1px); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  button:focus-visible, a:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .btn-primary{ background:var(--accent); color:#fff; }
   .btn-ghost{ background:var(--accent-soft); color:var(--accent); }
   .btn-danger{ background:var(--warn-soft); color:var(--warn); }
@@ -186,6 +195,11 @@
   .tag.warn{ background:var(--warn-soft); color:var(--warn); }
   select{ font-size:12.5px; padding:4px 6px; border-radius:6px; border:1px solid var(--line); font-family:inherit; }
   input[type=text]{ font-size:12.5px; padding:5px 8px; border-radius:6px; border:1px solid var(--line); font-family:inherit; }
+  /* 숫자·날짜·검색·비밀번호 칸도 글자 칸과 같은 모양으로 (표 안 숫자 칸 등 따로 지정된 곳은 그 규칙이 우선) */
+  input[type=number], input[type=date], input[type=datetime-local], input[type=time], input[type=month], input[type=search], input[type=password], input[type=tel], input[type=email], input:not([type]){
+    font-size:12.5px; padding:4px 8px; border-radius:6px; border:1px solid var(--line); font-family:inherit; background:#fff; color:var(--ink);
+  }
+  select{ background:#fff; color:var(--ink); }
   .raw-line{ color:var(--muted); font-size:11.5px; flex-basis:100%; }
   .dict-row{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
   .dict-row input[type=text]{ flex:1; }
@@ -308,10 +322,17 @@
   details summary{ cursor:pointer; font-size:13px; font-weight:600; color:var(--accent); }
   .toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
-    background:var(--ink); color:#fff; padding:8px 16px; border-radius:8px;
-    font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:999;
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px;
+    font-size:13.5px; line-height:1.45; text-align:center; word-break:keep-all; max-width:min(92vw, 560px); box-sizing:border-box;
+    box-shadow:0 6px 20px rgba(42,36,38,.25);
+    opacity:0; transition:opacity .3s; pointer-events:none; z-index:999;
   }
   .toast.show{ opacity:1; }
+  .toast.err{ background:#a8322a; }
+  /* 서버에서 데이터를 못 불러왔을 때 화면 위에 계속 떠 있는 안내 띠 */
+  #load-fail-banner{ display:none; position:sticky; top:0; z-index:998; background:#a8322a; color:#fff; font-size:13.5px; font-weight:600; padding:10px 16px; text-align:center; line-height:1.5;
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+  #load-fail-banner button{ margin-left:10px; background:#fff; color:#a8322a; padding:4px 12px; font-size:12.5px; }
   /* 읽기 전용 권한: 안내 띠 표시 + 삭제류 버튼 숨김 (실제 저장 차단은 스크립트의 쓰기 가드가 담당) */
   #app.ro-order #panel-order::before, #app.ro-order #panel-agg::before, #app.ro-order #panel-sales::before, #app.ro-order #panel-settings::before,
   #app.ro-plan #panel-plan::before, #app.ro-invoice #panel-ship::before,
@@ -421,6 +442,7 @@
   @media (max-width: 640px){ #stm-card .stm-row .acts{ margin-left:0; } }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .sorting-tabstrip, .sample-tabstrip, .cost-tabstrip, .admin-tabstrip{ padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--line); }   /* 탭 줄과 아래 입력 칸 사이 구분 */
   /* 메인 네비게이션 탭 */
   .main-nav{ display:flex; gap:0; border-bottom:2px solid var(--line); margin:0 0 16px; padding:0; overflow-x:auto; }
   .main-nav-btn{
@@ -458,7 +480,7 @@
     #panel-sorting .row{ flex-direction:column; align-items:stretch; gap:8px; }
     #panel-sorting .row.sorting-tabstrip{ flex-direction:row; }
     #panel-sorting input:not([type="checkbox"]),
-    #panel-sorting select{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; }
+    #panel-sorting select{ width:100% !important; box-sizing:border-box; font-size:16px; padding:10px 12px; flex:0 0 auto !important; }   /* 세로로 쌓일 때 flex-basis(380px 등)가 높이로 먹히지 않게 */
     #panel-sorting input[type="checkbox"]{ width:auto !important; transform:scale(1.3); margin:4px 0; }
     #panel-sorting .form-submit-btn{ width:100%; padding:12px; font-size:15px; }
     #panel-sorting .tab-btn{ padding:10px 14px; font-size:13px; }
@@ -637,6 +659,7 @@
 </style>
 </head>
 <body style="margin:0;">
+<div id="load-fail-banner" role="alert">⚠ 서버에서 일부 데이터를 불러오지 못했습니다. 기존 데이터 보호를 위해 해당 항목은 저장되지 않습니다 — 인터넷 연결을 확인하고 새로고침해 주세요.<button type="button" onclick="location.reload()">새로고침</button></div>
 
 <!-- 로그인 화면 -->
 <div id="login-screen" style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg);">
@@ -1294,7 +1317,6 @@
         </div>
       </div>
     </details>
-  </div><!-- /panel-sales admin section -->
 
   </div><!-- /card -->
   </div><!-- /panel-sales (monthly) -->
@@ -1536,7 +1558,7 @@
       <h3 style="margin-top:16px;">최근 이동 이력</h3>
       <div id="equipment-table-wrap" style="overflow-x:auto;"></div>
     </div>
-    <div id="sorting-section-master" class="sorting-master-only" style="display:none;">
+    <div id="sorting-section-master" style="display:none;">
       <div class="row" style="margin-top:0; align-items:center;">
         <label style="font-size:13px;font-weight:700;">항목 선택 :</label>
         <select id="sorting-master-entity-select"></select>
@@ -1887,7 +1909,7 @@
 
   <div class="card" id="admin-panel">
     <h2>🛠 관리자 패널</h2>
-    <div class="row" style="margin-top:0; flex-wrap:wrap;">
+    <div class="row admin-tabstrip" style="margin-top:0; flex-wrap:wrap;">
       <button class="tab-btn active" id="admin-tab-log">활동 로그</button>
       <button class="tab-btn" id="admin-tab-users">사용자 관리</button>
       <button class="tab-btn" id="admin-tab-perms">권한 관리</button>
@@ -1956,7 +1978,7 @@
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1975,6 +1997,25 @@ const sbHeaders = {
   'Content-Type': 'application/json',
   'Prefer': 'resolution=merge-duplicates'
 };
+
+// ── 화면 아래 알림(토스트): 글 길이에 맞춰 표시 시간을 정하고, 실패·오류 알림은 빨간색으로 더 오래 보여 줍니다 ──
+(function(){
+  let timer = null;
+  window.showToast = function(msg, opt){
+    const t = document.getElementById('toast');
+    if (!t) return;
+    const s = String(msg == null ? '' : msg);
+    const isErr = (opt && opt.error != null) ? !!opt.error : /실패|오류|⚠/.test(s);
+    let ms = Math.min(7000, Math.max(2200, 1200 + s.length * 70));
+    if (isErr) ms = Math.max(ms, 4000);
+    if (opt && opt.ms) ms = opt.ms;
+    t.textContent = s;
+    t.classList.toggle('err', isErr);
+    t.classList.add('show');
+    if (timer) clearTimeout(timer);   // 앞선 알림의 타이머가 새 알림을 일찍 지우지 않도록
+    timer = setTimeout(() => { t.classList.remove('show'); timer = null; }, ms);
+  };
+})();
 
 // ── 프로그램별 권한 단계: 'none'(차단) / 'read'(읽기만) / 'full'(전체) ──
 //    prog: 'order'(발주자동화·이카운트) | 'sorting'(원물선별) | 'files'(공유폴더·상세페이지). 관리자는 읽기 전용이 적용되지 않습니다.
@@ -2010,11 +2051,7 @@ window.sectionLevel = function(sec){
     const now = Date.now();
     if (now - lastNotice < 4000) return;
     lastNotice = now;
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = '👁 읽기 전용 권한입니다 — 저장되지 않았습니다';
-    t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'), 2600);
+    window.showToast('👁 읽기 전용 권한입니다 — 저장되지 않았습니다', { ms: 2600 });
   }
   function programFor(table){
     if (table === 'sessions' || table === 'activity_log' || table === 'users' || table === 'rpc') return null; // 로그인·로그·관리자 기능 (rpc = 로그인/사용자 관리 DB 함수)
@@ -2052,7 +2089,7 @@ window.sectionLevel = function(sec){
         notice();
         return Promise.resolve(new Response(
           JSON.stringify({ message: '읽기 전용 권한입니다 (저장되지 않음)' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
+          { status: 403, headers: { 'Content-Type': 'application/json', 'X-Readonly-Guard': '1' } }
         ));
       }
     } catch (e) { /* 가드 오류 시 원래 요청 그대로 진행 */ }
@@ -2063,6 +2100,37 @@ window.sectionLevel = function(sec){
 // ── 현재 로그인 세션 ──
 window.currentUser = null; // { id, username, display_name, role, token }
 
+// ── 데이터 보호 ──
+//  · 서버에서 읽지 못한 공용 저장값(kv_store)은 덮어쓰지 않습니다.
+//    (읽기 실패 → 빈 값으로 시작 → 그 상태로 저장하면 서버의 기존 내용이 지워지는 사고를 막음)
+//  · 읽기는 일시적인 통신 오류에 대비해 두 번까지 다시 시도하고, 저장이 실패하면 화면에 알립니다.
+window.__loadFailed = new Set();   // 읽기에 실패한 공용 키 (다시 읽기에 성공하면 빠짐)
+function kvFailBanner() { const b = document.getElementById('load-fail-banner'); if (b) b.style.display = window.__loadFailed.size ? 'block' : 'none'; }
+function kvMarkFail(key) { window.__loadFailed.add(key); kvFailBanner(); }
+function kvMarkOk(key) { if (window.__loadFailed.delete(key)) kvFailBanner(); }
+let kvSaveFailAt = 0;
+function kvSaveFailNotice(msg) {
+  const now = Date.now();
+  if (now - kvSaveFailAt < 4000) return;
+  kvSaveFailAt = now;
+  window.showToast(msg || '⚠ 저장 실패 — 인터넷 연결을 확인하고 다시 시도해 주세요', { error: true, ms: 6000 });
+}
+async function kvFetchRead(url) {
+  let lastErr;
+  for (let i = 0; i < 3; i++) {
+    if (i) await new Promise(r => setTimeout(r, i === 1 ? 400 : 1200));
+    try {
+      const res = await fetch(url, { headers: sbHeaders });
+      if (res.ok) return res;
+      lastErr = new Error(`storage read failed: ${res.status}`);
+      if (res.status < 500 && res.status !== 408 && res.status !== 429) break;   // 권한·요청 오류는 다시 시도해도 같음
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+const kvPre = { at: 0, map: new Map() };   // 시작할 때 한 번에 받아 둔 값 (한 번 꺼내 쓰면 버림, 1분 지나면 무시)
+const KV_PRE_FAIL = {};
+
 // ── kv_store 어댑터 ──
 window.storage = {
   async get(key, shared = false) {
@@ -2070,18 +2138,59 @@ window.storage = {
       const val = localStorage.getItem('sb_local_' + key);
       return val !== null ? { key, value: val } : null;
     }
-    const res = await fetch(`${SB_URL}/rest/v1/kv_store?key=eq.${encodeURIComponent(key)}&limit=1`, { headers: sbHeaders });
-    if (!res.ok) throw new Error(`storage.get failed: ${res.status}`);
-    const rows = await res.json();
+    if (kvPre.map.has(key)) {
+      const v = kvPre.map.get(key);
+      kvPre.map.delete(key);
+      if (Date.now() - kvPre.at < 60000) {
+        if (v === KV_PRE_FAIL) { kvMarkFail(key); throw new Error('storage.get failed: 서버 연결 실패'); }
+        kvMarkOk(key);
+        return v === undefined ? null : { key, value: v };
+      }
+    }
+    let rows;
+    try {
+      const res = await kvFetchRead(`${SB_URL}/rest/v1/kv_store?key=eq.${encodeURIComponent(key)}&limit=1`);
+      rows = await res.json();
+    } catch (e) { kvMarkFail(key); throw e; }
+    kvMarkOk(key);
     return rows.length ? { key, value: rows[0].value } : null;
+  },
+  // 여러 공용 키를 한 번의 요청으로 미리 받아 둠 → 이어지는 get() 이 서버에 다시 가지 않음 (시작 속도 개선).
+  // 실패하면 false. soft 가 아니면 해당 키들을 '읽기 실패'로 표시해 이후 get() 이 바로 실패하도록 함(덮어쓰기 방지).
+  async prefetch(keys, soft = false) {
+    kvPre.map.clear();
+    try {
+      const list = keys.map(k => '"' + k + '"').join(',');
+      const res = await kvFetchRead(`${SB_URL}/rest/v1/kv_store?key=in.(${encodeURIComponent(list)})&select=key,value`);
+      const rows = await res.json();
+      const got = new Map(rows.map(r => [r.key, r.value]));
+      keys.forEach(k => kvPre.map.set(k, got.has(k) ? got.get(k) : undefined));
+      kvPre.at = Date.now();
+      return true;
+    } catch (e) {
+      if (!soft) { keys.forEach(k => kvPre.map.set(k, KV_PRE_FAIL)); kvPre.at = Date.now(); }
+      return false;
+    }
   },
   async set(key, value, shared = false) {
     if (!shared) { localStorage.setItem('sb_local_' + key, value); return { key, value }; }
-    const res = await fetch(`${SB_URL}/rest/v1/kv_store`, {
-      method: 'POST', headers: sbHeaders,
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
-    });
-    if (!res.ok) throw new Error(`storage.set failed: ${res.status}`);
+    if (window.__loadFailed.has(key)) {
+      kvFailBanner();
+      kvSaveFailNotice('⚠ 저장하지 않았습니다 — 이 항목을 서버에서 불러오지 못한 상태입니다. 새로고침 후 다시 해 주세요');
+      throw new Error(`storage.set blocked (load failed): ${key}`);
+    }
+    kvPre.map.delete(key);   // 미리 받아 둔 값이 남아 있었다면 이제 옛 값이므로 버림
+    let res;
+    try {
+      res = await fetch(`${SB_URL}/rest/v1/kv_store`, {
+        method: 'POST', headers: sbHeaders,
+        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+      });
+    } catch (e) { kvSaveFailNotice(); throw e; }
+    if (!res.ok) {
+      if (!res.headers.get('X-Readonly-Guard')) kvSaveFailNotice(`⚠ 저장 실패 (${res.status}) — 잠시 후 다시 시도해 주세요`);   // 읽기 전용 차단은 자체 안내가 따로 뜸
+      throw new Error(`storage.set failed: ${res.status}`);
+    }
     return { key, value };
   },
   async delete(key, shared = false) {
@@ -2122,7 +2231,8 @@ async function sbInsert(table, data) {
   return result; // array of inserted rows
 }
 async function sbDelete2(table, filter) {
-  await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: sbHeaders });
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: sbHeaders });
+  if (!res.ok) throw new Error(res.headers.get('X-Readonly-Guard') ? '읽기 전용 권한입니다' : `삭제 요청 실패 (${res.status})`);   // 실패했는데 '삭제됨'으로 보이지 않도록
 }
 
 async function hashPassword(pw) {
@@ -2177,7 +2287,7 @@ async function apiMe(token) {
 async function apiLogout(token) {
   try { await sbRpc('app_logout', { p_token: token }); return; }
   catch (e) { if (!e.rpcMissing) throw e; }
-  await sbDelete2('sessions', `token=eq.${encodeURIComponent(token)}`);
+  try { await sbDelete2('sessions', `token=eq.${encodeURIComponent(token)}`); } catch (e) { /* 서버 세션 삭제 실패해도 로그아웃은 진행 */ }
 }
 // 내 비밀번호 변경 (실패 시 예외)
 async function apiChangeOwnPassword(oldHash, newHash) {
@@ -2324,8 +2434,7 @@ async function submitPasswordChange(){
     pwForced = false;
     if (window.currentUser) window.currentUser.must_change_password = false;
     closePasswordDialog();
-    const t = document.getElementById('toast');
-    if (t) { t.textContent = '비밀번호를 변경했습니다'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+    window.showToast('비밀번호를 변경했습니다');
   } catch (e) { fail(e.message); }
   finally { btn.disabled = false; btn.textContent = '변경'; }
 }
@@ -2470,12 +2579,7 @@ async function loadHomeOrder() {
   } catch (e) { homeOrder = null; }
   renderHome();
 }
-function homeToast(msg) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
-}
+function homeToast(msg) { window.showToast(msg); }
 function homeStartEdit() { if (!isHomeMaster(window.currentUser)) return; homeEditing = true; homeDraft = homeSortTiles(HOME_TILES, homeOrder).map(t => t.key); renderHome(); }
 function homeCancelEdit() { homeEditing = false; renderHome(); }
 function homeResetDraft() { homeDraft = HOME_DEFAULT_ORDER.slice(); renderHome(); }
@@ -2697,12 +2801,7 @@ function goHome() {
   let uploadedSheetData = null;
   let uploadedTrackingData = null;
 
-  function toast(msg){
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'), 1800);
-  }
+  function toast(msg){ window.showToast(msg); }   // 표시 시간·오류 색은 showToast 가 글 내용에 맞춰 정함
 
   // window.confirm()/alert() are blocked (silently no-op) inside this sandboxed artifact frame,
   // so delete actions use a "click again to confirm" pattern on the button itself instead.
@@ -2843,7 +2942,17 @@ function goHome() {
     return uploadedOriginalFiles[currentDateKey];
   }
 
-  async function loadState(){
+  // loadState 가 읽는 공용 저장값 — 한 번의 요청으로 미리 받아 둠 (예전에는 하나씩 25번 요청)
+  const LOAD_STATE_KEYS = ['dictionary', 'companies', 'delivery-date', 'orders-by-date', 'thirdparty-lineitems', 'raw-materials', 'previous-stock',
+    'raw-material-usage', 'company-categories', 'retention-months', 'internal-order-counters', 'uploaded-original-files', 'sender-info',
+    'production-template-b64', 'sku-group-map', 'sku-column-map', 'tracking-col-mappings', 'ecount-settings', 'sales-by-date', 'delivery-fee-items',
+    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date'];
+  // soft=true (화면에서 '새로고침'을 누른 경우): 서버 연결에 실패하면 예외를 던지고 화면의 현재 내용을 그대로 둠
+  async function loadState(soft){
+    if(window.storage.prefetch){
+      const ok = await window.storage.prefetch(LOAD_STATE_KEYS, !!soft);
+      if(!ok && soft) throw new Error('서버에서 데이터를 불러오지 못했습니다');
+    }
     try{
       const d = await window.storage.get('dictionary', true);
       dict = d ? JSON.parse(d.value) : DEFAULT_DICT;
@@ -2960,8 +3069,6 @@ function goHome() {
       trackingColMappings = tcm ? JSON.parse(tcm.value) : {};
     }catch(e){ trackingColMappings = {}; }
 
-    cleanupOldData(true); // silent auto-cleanup of anything past the retention window
-
     try{
       const ec = await window.storage.get('ecount-settings', true);
       if(ec){
@@ -3013,12 +3120,15 @@ function goHome() {
       const v = spl ? JSON.parse(spl.value) : {};
       splitByDate = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     }catch(e){ splitByDate = {}; }
+    // 보관 기간이 지난 날짜 자동 정리 — 반드시 날짜별 자료를 전부 불러온 뒤에 실행
+    // (예전에는 배차·발주 나누기 자료를 불러오기 전에 실행돼, 정리가 일어나는 날 그 두 자료가 빈 값으로 저장되는 문제가 있었음)
+    cleanupOldData(true);
     // Ensure defaults exist (극소, 소)
     if(!deliveryFeeItems.find(d=>d.size==='극소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
     if(!deliveryFeeItems.find(d=>d.size==='소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'소', name:'택배비(소)', code:'', price:'' });
-    if(ensureCarryOver(currentDateKey)) savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월
+    if(!window.__loadFailed.size && ensureCarryOver(currentDateKey)) savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월 (불러오기 실패 시에는 하지 않음)
 
     renderDict();
     renderCategoryEditor();
@@ -3058,9 +3168,10 @@ function goHome() {
     btn.disabled = true; btn.textContent = '불러오는 중…';
     try{
       // 서버에 먼저 연결해 보고, 실패하면 화면의 현재 내용을 그대로 둠 (불러오기 실패로 빈 화면이 되는 것을 막음)
-      await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'dispatch-by-date'].map(k => window.storage.get(k, true)));
+      // — 한 번에 받아 오는 기능(prefetch)이 있으면 loadState(true) 가 그 확인을 겸함
+      if(!window.storage.prefetch) await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'dispatch-by-date'].map(k => window.storage.get(k, true)));
       aggSample.at = 0;
-      await loadState();
+      await loadState(true);
       toast('최신 내용을 불러왔습니다');
     }catch(e){
       toast('새로고침 실패 — 인터넷 연결을 확인해주세요 (화면은 그대로 유지됩니다)');
@@ -3180,6 +3291,11 @@ function goHome() {
   // Removes any date-keyed data older than the retention window. `auto` runs silently
   // unless something was actually removed; a manual run always reports the result.
   function cleanupOldData(auto){
+    // 서버에서 못 불러온 항목이 있으면 정리하지 않음 (보관 기간·날짜 목록이 불완전한 상태에서 지우면 되돌릴 수 없음)
+    if(window.__loadFailed && window.__loadFailed.size){
+      if(!auto) toast('⚠ 일부 데이터를 불러오지 못한 상태라 정리하지 않았습니다 — 새로고침 후 다시 해 주세요');
+      return;
+    }
     const cutoff = getRetentionCutoffKey();
     spCleanup(cutoff);
     const allDateKeys = new Set([
@@ -3199,24 +3315,21 @@ function goHome() {
       return;
     }
 
-    toRemove.forEach(k=>{
-      delete ordersByDate[k];
-      delete thirdPartyLineItems[k];
-      delete previousStock[k];
-      delete internalOrderCounters[k];
-      delete uploadedOriginalFiles[k];
-      delete rawMaterialUsage[k];
-      delete dispatchByDate[k];
-      delete splitByDate[k];
+    // 지울 날짜가 실제로 들어 있는 자료만 고쳐서 저장 (건드리지 않은 자료까지 통째로 다시 저장하지 않음)
+    [
+      [ordersByDate, saveOrdersByDate],
+      [thirdPartyLineItems, saveLineItems],
+      [previousStock, savePreviousStock],
+      [internalOrderCounters, saveInternalOrderCounters],
+      [uploadedOriginalFiles, saveOriginalFiles],
+      [rawMaterialUsage, saveRawMaterialUsage],
+      [dispatchByDate, saveDispatchByDate],
+      [splitByDate, saveSplitByDate]
+    ].forEach(([doc, save]) => {
+      let hit = false;
+      toRemove.forEach(k => { if(k in doc){ delete doc[k]; hit = true; } });
+      if(hit) save();
     });
-    saveOrdersByDate();
-    saveLineItems();
-    savePreviousStock();
-    saveInternalOrderCounters();
-    saveOriginalFiles();
-    saveRawMaterialUsage();
-    saveDispatchByDate();
-    saveSplitByDate();
     renderSavedDatesBar();
 
     const msg = `${cutoff} 이전 날짜 ${toRemove.length}일치 데이터를 정리했습니다`;
