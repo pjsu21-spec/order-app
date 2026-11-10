@@ -605,6 +605,10 @@
   .sample-xl .sub-line{ font-size:11px; color:var(--muted); margin-top:1px; }
   .sample-xl .pm-tag{ display:inline-block; font-size:12px; font-weight:700; color:#2f6fb2; background:#e6f0fb; padding:1px 8px; border-radius:100px; white-space:nowrap; }
   .sample-xl td.acts{ min-width:96px; }
+  .sample-xl td.pd{ white-space:nowrap; }
+  .sample-pd-quick{ font-size:12px; padding:2px 4px; width:126px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .sample-pd-quick-note{ font-size:11px; color:#8a4b00; font-weight:700; margin-top:2px; }
+  .sample-pdrow{ font-size:13px; color:var(--muted); margin-top:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .sample-xl .pm-tag.pm-lab{ color:#2f7d4f; background:#e3f3e9; }
   .sample-xl .pm-tag.pm-etc{ color:#7a5a1f; background:#f7eedb; }
   .sample-xl td.items .it, .sample-xl .pm-line{ height:20px; line-height:20px; }
@@ -2405,6 +2409,7 @@
 <ul>
   <li><b>신청 내역</b>: 출고일 범위, 상태(미확인·확인됨·취소됨), 생산 방식, 검색어로 걸러 봅니다.</li>
   <li><b>샘플 취합</b>: 기간을 정해 품목별 합계를 봅니다(취소 제외 전체 / 확인된 건만).</li>
+  <li><b>발주서 반영일</b>: 신청 내역의 날짜 칸에서 그 신청을 <b>어느 날짜의 발주취합(샘플 행)·집계에 넣을지</b> 바로 고칩니다. 기본은 출고일 당일이고, 출고일보다 늦을 수 없으며 출고일 7일 전까지 고를 수 있습니다. 취합 담당자는 모든 신청, 신청자는 확인 전 본인 신청만 바꿀 수 있습니다.</li>
 </ul>
 <div class="mn-note"><b>규칙</b>확인되기 전에는 신청자가 직접 수정·취소할 수 있고, <b>확인된 뒤에는 취합 담당자만</b> 바꿀 수 있습니다. 확인된 샘플은 발주취합 파일의 샘플 줄에 반영됩니다.</div>
 </section>
@@ -10464,6 +10469,58 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(sampleCanDelete(r)) a.push({ label: '완전 삭제', short: '삭제', cls: 'btn-danger', fn: () => sampleDelete(r) });
     return a;
   }
+  // ── 발주서 반영일 (= 생산일): 신청 건을 어느 날짜의 발주취합(샘플 행)·집계에 넣을지. 목록에서 바로 지정 ──
+  //  품목마다 저장되는 production_date 를 그 신청의 모든 품목에 한 번에 적용 (출고일과 같으면 저장하지 않음 = 출고일 당일)
+  function sampleReqProdDays(r){ return [...new Set((r.items || []).map(i => sampleItemProdDay(r, i)))].sort(); }
+  const sampleFmtDay = k => { const [y, m, d] = k.split('-').map(Number); return `${m}/${d}(${sampleWD[new Date(y, m - 1, d).getDay()]})`; };
+  async function sampleSetProdDay(r, day){
+    const shipDay = sampleDayKey(r.ship_at);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(day || '')){ toast('발주서 반영일을 선택해주세요'); return false; }
+    if(day > shipDay){ toast('발주서 반영일은 출고일보다 늦을 수 없습니다'); return false; }
+    if(day < sampleAddDays(shipDay, -SAMPLE_PROD_DAYS_BACK)){ toast(`발주서 반영일은 출고일 ${SAMPLE_PROD_DAYS_BACK}일 전까지만 지정할 수 있습니다`); return false; }
+    const items = (r.items || []).map(i => { const o = Object.assign({}, i); if(day === shipDay) delete o.production_date; else o.production_date = day; return o; });
+    let done = false;
+    try{
+      // 신청자는 확인 전(신청 상태)일 때만, 주문 취합은 취소된 건만 아니면 가능 — 서버 조건으로 한 번 더 확인
+      const out = await samplePatch(r.id, { items }, sampleCan('collect') ? '&status=neq.취소' : '&status=eq.신청');
+      if(!out.length) toast('이미 확인되었거나 취소된 신청이라 바꿀 수 없습니다');
+      else {
+        done = true;
+        await writeLog('sample_prod_day', `샘플 발주서 반영일 변경: ${r.requester_name} ${sampleFmtShip(r.ship_at)} → ${day}`);
+        toast(`발주서 반영일을 ${sampleFmtDay(day)}로 바꿨습니다 — 그날 발주취합(샘플 행)과 집계에 들어갑니다`);
+      }
+    }catch(e){ toast(e.message); }
+    await sampleLoad(); sampleRenderList();
+    return done;
+  }
+  // 목록의 발주서 반영일 칸: 바꿀 수 있는 사람에게는 날짜 입력, 아니면 글자로
+  function sampleProdDayControl(r){
+    const box = document.createElement('div');
+    const shipDay = sampleDayKey(r.ship_at), days = sampleReqProdDays(r);
+    const mixed = days.length > 1, cur = days.length === 1 ? days[0] : '';
+    if(!days.length) return box;
+    if(sampleCanEditRow(r)){
+      const inp = document.createElement('input');
+      inp.type = 'date'; inp.className = 'sample-pd-quick'; inp.value = cur;
+      inp.min = sampleAddDays(shipDay, -SAMPLE_PROD_DAYS_BACK); inp.max = shipDay;
+      inp.title = '이 신청을 어느 날짜의 발주취합(샘플 행)·집계에 넣을지 정합니다. 모든 품목에 적용됩니다 (출고일보다 늦을 수 없고, 출고일 ' + SAMPLE_PROD_DAYS_BACK + '일 전까지). 발주취합에는 생산본부 생산 품목만 들어갑니다';
+      inp.addEventListener('change', async () => {
+        if(!inp.value || inp.value === cur){ inp.value = cur; return; }
+        inp.disabled = true;
+        const done = await sampleSetProdDay(r, inp.value);   // 저장하면 목록을 다시 그림
+        if(!done){ inp.value = cur; inp.disabled = false; }   // 날짜가 범위 밖이면 원래 값으로
+      });
+      box.appendChild(inp);
+    } else {
+      const t = document.createElement('div');
+      t.textContent = mixed ? '' : sampleFmtDay(cur);
+      box.appendChild(t);
+    }
+    const n = cur ? sampleDayDiff(shipDay, cur) : 0;
+    const note = mixed ? '품목별로 다름 (' + days.map(sampleFmtDay).join(', ') + ')' : n === 1 ? '출고 전일' : n > 1 ? `출고 ${n}일 전` : '';
+    if(note){ const nd = document.createElement('div'); nd.className = 'sample-pd-quick-note'; nd.textContent = note; box.appendChild(nd); }
+    return box;
+  }
   function sampleAppendButtons(container, r, short){
     sampleActions(r).forEach(x => {
       const b = document.createElement('button'); b.type = 'button'; b.className = x.cls + ' small-btn'; b.textContent = short ? x.short : x.label;
@@ -10474,13 +10531,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 신청 내역 표(PC) 정렬: 머리글을 누르면 그 열 기준으로 정렬 (다시 누르면 반대 방향)
   let sampleSort = { key: null, dir: 1 };
   const SAMPLE_COLS = [
-    { key: 'ship', label: '출고일시' }, { key: 'method', label: '출고 방식' }, { key: 'who', label: '신청자' },
+    { key: 'ship', label: '출고일시' }, { key: 'pd', label: '발주서 반영일' }, { key: 'method', label: '출고 방식' }, { key: 'who', label: '신청자' },
     { key: 'dept', label: '요청 부서' }, { key: 'pm', label: '생산 방식' }, { key: null, label: '샘플 품목 (팩 · 박스)' },
     { key: null, label: '비고' }, { key: 'status', label: '상태' }, { key: 'confirmer', label: '확인자' }, { key: null, label: '처리' }
   ];
   function sampleSortVal(r, key){
     switch(key){
       case 'ship': return r.ship_at;
+      case 'pd': return sampleReqProdDays(r)[0] || '';
       case 'method': return r.ship_method || '';
       case 'who': return r.requester_name || '';
       case 'dept': return r.requester_dept || '';
@@ -10562,6 +10620,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const pill = r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : r.status === '취소' ? '<span class="sample-pill off">취소됨</span>' : '<span class="sample-pill wait">미확인</span>';
       tr.innerHTML = `
         <td class="when">${escapeHtml(sampleFmtShip(r.ship_at))}</td>
+        <td class="pd"></td>
         <td class="nw">${escapeHtml(r.ship_method || '')}</td>
         <td class="nw" title="신청 ${escapeHtml(sampleFmtAt(r.created_at))}"><b>${escapeHtml(r.requester_name || '')}</b>${proxy ? `<div class="sub-line">${escapeHtml(r.created_by_name || '')} 대리</div>` : ''}</td>
         <td class="dept">${escapeHtml(r.requester_dept || '')}</td>
@@ -10571,6 +10630,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         <td class="status">${pill}</td>
         <td class="nw confirmer">${r.status === '확인' ? `<b>${escapeHtml(r.confirmed_by_name || '')}</b><div class="sub-line">${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}</td>
         <td class="acts"></td>`;
+      if(r.status !== '취소') tr.querySelector('td.pd').appendChild(sampleProdDayControl(r));
       sampleAppendButtons(tr.querySelector('.acts'), r, true);
       tbody.appendChild(tr);
     });
@@ -10595,10 +10655,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         <div class="sample-card-head"><div class="when">${escapeHtml(sampleFmtShip(r.ship_at))}<span class="meth">${escapeHtml(r.ship_method || '')}</span></div>${pill}</div>
         <div class="sample-who">신청자 <b>${escapeHtml(r.requester_name || '')}</b>${proxy ? ` <small>(${escapeHtml(r.created_by_name || '')} 대리 신청)</small>` : ''} · 신청 ${escapeHtml(sampleFmtAt(r.created_at))}</div>
         ${(r.requester_dept || r.production_method) ? `<div class="sample-prod">${r.requester_dept ? `<span>요청 부서 <b>${escapeHtml(r.requester_dept)}</b></span>` : ''}${r.production_method ? `<span class="pm">${escapeHtml(r.production_method)}</span>` : ''}</div>` : ''}
+        <div class="sample-pdrow"></div>
         <ul class="sample-items-list">${itemsHtml}</ul>
         ${r.note ? `<div class="sample-note">${escapeHtml(r.note).replace(/\n/g, '<br>')}</div>` : ''}
         ${r.status === '확인' ? `<div class="sample-confirmed">✅ 확인: ${escapeHtml(r.confirmed_by_name || '')} · ${escapeHtml(r.confirmed_at ? sampleFmtAt(r.confirmed_at) : '')}</div>` : ''}
         <div class="sample-btns"></div>`;
+      const pdr = card.querySelector('.sample-pdrow');
+      if(r.status === '취소') pdr.remove();
+      else { const lb = document.createElement('span'); lb.textContent = '발주서 반영일'; pdr.append(lb, sampleProdDayControl(r)); }
       const btns = card.querySelector('.sample-btns');
       sampleAppendButtons(btns, r, false);
       if(!btns.children.length) btns.remove();
