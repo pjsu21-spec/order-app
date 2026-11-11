@@ -14281,7 +14281,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // 서식의 쿠팡 블록(업체명·구분(창고)·출고일 칸이 있는 표)에 출고일별 수량을 채움.
   // dRows[i] = { company, warehouse, shipDate, colQty: { 열: 박스수 }, items: [...] }
   function poFillDispatch(ctx, scan, dRows, usedCols, warn, stockUseCol){
-    const res = { placed: [], unplaced: [] };
+    const res = { placed: [], unplaced: [], rowOf: new Map() };   // rowOf: 출고 건(dRows 항목) → 들어간 행 번호 (현황판에서 그 행의 납품담당·비고 등을 읽음)
     let headerEnd = 0;
     for(let r = scan.endRow + 1; r <= Math.min(ctx.maxRow, scan.endRow + 25); r++){
       if(poNorm(poText(ctx, 'F' + r)) === '출고일') headerEnd = r;
@@ -14307,6 +14307,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const row = rows.find(r => !taken.has(r.row) && alias(r.company) === ck && r.wh === wk) || rows.find(r => !taken.has(r.row) && r.wh === wk);
       if(!row){ res.unplaced.push(g); return; }
       taken.add(row.row);
+      res.rowOf.set(g, row.row);
       const [y, m, d] = String(g.shipDate).split('-').map(Number);
       poSetNum(ctx, 'F' + row.row, Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000), true);
       Object.entries(g.colQty).forEach(([col, q]) => {
@@ -16739,6 +16740,43 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }catch(e){ return ''; }
   }
 
+  // 서식 칸의 글자 수식을 계산 (현황판용). "글자" & TEXT(칸±숫자, "m월 d일") & 칸 & 숫자식 을 지원. 못 하면 null
+  function poEvalFormulaText(ctx, f){
+    f = String(f || '').replace(/^=/, '');
+    if(!f || !f.includes('"')) return null;
+    const split = (str, sep) => { const out = []; let cur = '', q = false, depth = 0; for(const ch of str){ if(ch === '"') q = !q; if(!q){ if(ch === '(') depth++; if(ch === ')') depth--; if(ch === sep && depth === 0){ out.push(cur); cur = ''; continue; } } cur += ch; } out.push(cur); return out; };
+    const num = expr => {
+      const e2 = String(expr).replace(/\$?([A-Z]{1,3})\$?(\d+)/g, (m, c, r) => { const v = Number(poRawText(ctx, c + r)); return isFinite(v) ? '(' + v + ')' : '0'; });
+      if(!/^[0-9+\-*\/().\s]+$/.test(e2)) throw new Error('unsupported');
+      return Function('return (' + e2 + ')')();
+    };
+    const WD = ['일', '월', '화', '수', '목', '금', '토'];
+    const fmtText = (n, fmt) => {
+      if(/[ymda]/i.test(fmt.replace(/"[^"]*"/g, ''))){
+        const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+        const Y = dt.getUTCFullYear(), M = dt.getUTCMonth() + 1, D = dt.getUTCDate(), W = WD[dt.getUTCDay()];
+        return fmt.replace(/"([^"]*)"|yyyy|yy|mm|m|dd|d|aaaa|aaa/gi, (t, lit) => {
+          if(lit !== undefined) return lit;
+          switch(t.toLowerCase()){ case 'yyyy': return String(Y); case 'yy': return String(Y).slice(2); case 'mm': return String(M).padStart(2, '0'); case 'm': return String(M);
+            case 'dd': return String(D).padStart(2, '0'); case 'd': return String(D); case 'aaaa': return W + '요일'; case 'aaa': return W; }
+          return t;
+        });
+      }
+      const dec = (/0\.(0+)/.exec(fmt) || [, ''])[1].length;
+      const v = Number(n.toFixed(dec));
+      return /#,##0|,/.test(fmt) ? v.toLocaleString('ko-KR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : v.toFixed(dec);
+    };
+    try{
+      return split(f, '&').map(p => {
+        p = p.trim();
+        if(/^"(?:[^"]|"")*"$/.test(p)) return p.slice(1, -1).replace(/""/g, '"');
+        const tm = /^TEXT\(([\s\S]*)\)$/i.exec(p);
+        if(tm){ const a = split(tm[1], ','); if(a.length !== 2) throw new Error('args'); const fmt = a[1].trim(); if(!/^"(?:[^"]|"")*"$/.test(fmt)) throw new Error('fmt'); return fmtText(num(a[0]), fmt.slice(1, -1).replace(/""/g, '"')); }
+        if(/^\$?[A-Z]{1,3}\$?\d+$/.test(p)) return poText(ctx, p.replace(/\$/g, ''));
+        const v = num(p); return String(Math.round(v * 100) / 100);
+      }).join('');
+    }catch(e){ return null; }
+  }
   async function poBoardCollect(dateKey){
     if(!productionTemplateB64) throw new Error('발주취합 서식이 등록되지 않았습니다. 서식을 먼저 등록해주세요');
     const ctx = await poLoadTemplate(productionTemplateB64);
@@ -16791,7 +16829,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const shown = r => { const el = ctx.rows.get(r); return !(el && el.getAttribute('hidden') === '1'); };
     const clean = t => { t = String(t || '').trim(); return t.startsWith('#') ? '' : t; };
     const pc = poPanelCols(ctx);
-    const pt = (col, r) => col ? clean(poText(ctx, col + r)) : '';        // 화면에 보이는 값 (위아래로 합쳐진 칸은 대표 칸 값)
+    const pt = (col, r) => { if(!col) return ''; const ev = poEvalFormulaText(ctx, poFormulaText(ctx, col + r)); return clean(ev != null ? ev : poText(ctx, col + r)); };   // 화면에 보이는 값 (위아래로 합쳐진 칸은 대표 칸 값, 글자 수식은 계산값)
     const pr = (col, r) => col ? clean(poRawText(ctx, col + r)) : '';     // 칸 자신의 값 (배차정보 시트의 집계가 보는 값)
     const changedRows = (res.rep && res.rep.changedRows) || new Set();
     const mkRow = r => {
@@ -16816,7 +16854,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(rest.length) blocks.push({ rows: rest.map(mkRow), sub: null });
     blocks.forEach(b => { b.sub = sum(b.rows); });
     // 출고일을 따로 지정한 주문(쿠팡 등)
-    const dispatch = (built.dispatchRows || []).map((d, i) => ({ key: 'd' + i, name: d.company, warehouse: d.warehouse || '', ship: d.shipDate || '', qty: Object.fromEntries(cols.map(c => [c.L, Math.round(((d.colQty || {})[c.L] || 0) * 100) / 100])) }));
+    const dRowOf = (res.rep.dispatch && res.rep.dispatch.rowOf) || new Map();
+    const dispatch = (built.dispatchRows || []).map((d, i) => { const row = dRowOf.get(d); return { key: 'd' + i, name: d.company, warehouse: d.warehouse || '', ship: d.shipDate || '', qty: Object.fromEntries(cols.map(c => [c.L, Math.round(((d.colQty || {})[c.L] || 0) * 100) / 100])),
+      p: row ? { driver: pt(pc.driver, row), load: pt(pc.load, row), stock: pt(pc.stock, row), note: pt(pc.note, row) } : {} }; });   // 서식의 그 행에 적힌 납품담당·적재방식·재고사용·비고 (소비기한 수식 등)
     const main = sum([].concat(...blocks.map(b => b.rows)));
     const disp = sum(dispatch);
     const total = Object.fromEntries(cols.map(c => [c.L, Math.round((main[c.L] + disp[c.L]) * 100) / 100]));
@@ -16983,7 +17023,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(m.dispatch.length){
       html += `<tr class="pb-sec"><td colspan="${fixed + m.cols.length + P}">출고일 지정 주문 (쿠팡 등)</td></tr>`;
       m.dispatch.forEach(d => {
-        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L], '', d.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${pBlank}</tr>`;
+        const dp = d.p || {};
+        const dCells = P ? `<td class="pb-p">${e(dp.driver || '')}</td><td class="pb-p">${e(dp.load || '')}</td><td class="pb-p pb-pstock">${e(dp.stock || '')}</td><td class="pb-p pb-pnote">${e(dp.note || '')}</td>` : '';
+        html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L], '', d.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${dCells}</tr>`;
       });
       html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n"${m.disp[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(m.disp[c.L])}</td>`).join('')}${pBlank}</tr>`;
     }
