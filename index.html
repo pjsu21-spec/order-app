@@ -16451,17 +16451,28 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }
     return out;
   }
-  // 품목별 재고 현황: 전일/이틀 전 재고(박스)와 재고사용으로 쓴 양, 남은 양
+  // 샘플 신청 중 이 날 출고하면서 앞서 생산해 둔 것(재고 사용, 생산본부 생산)의 품목별 팩 수 — 집계표와 같은 자료(aggSample)를 씀
+  function spSampleStockUse(dk){
+    const out = {};
+    (aggSample.date === dk ? aggSample.rows : []).forEach(r => (r.items || []).forEach(i => {
+      const q = Number(i.packs) || 0;
+      if(i.fromStock && q > 0) out[i.skuId] = (out[i.skuId] || 0) + q;
+    }));
+    return out;
+  }
+  // 품목별 재고 현황: 전일/이틀 전 재고(박스)와 재고사용으로 쓴 양(+ 재고 사용 샘플은 전일 재고에서), 남은 양
   function spStockState(dk){
     const st = previousStock[dk] || {}, p1 = st.product || {}, p2 = st.product2 || {};
+    const smp = spSampleStockUse(dk);
     const used = {};
     Object.values((shipPlanCache[dk] || {}).rows || {}).forEach(r => Object.entries(r.stock || {}).forEach(([id, q]) => {
       const u = used[id] = used[id] || { d1: 0, d2: 0 };
       u.d1 += Number(q.d1) || 0; u.d2 += Number(q.d2) || 0;
     }));
-    return dict.filter(d => Number(p1[d.id]) > 0 || Number(p2[d.id]) > 0 || used[d.id]).map(d => {
+    return dict.filter(d => Number(p1[d.id]) > 0 || Number(p2[d.id]) > 0 || used[d.id] || smp[d.id]).map(d => {
       const u = used[d.id] || { d1: 0, d2: 0 };
-      return { d, unit: spUnitLabel(d), a1: spBox(d, Number(p1[d.id]) || 0), a2: spBox(d, Number(p2[d.id]) || 0), u1: spRound(u.d1), u2: spRound(u.d2) };
+      const s1 = spBox(d, smp[d.id] || 0);   // 재고 사용 샘플 (전일 재고에서 나감)
+      return { d, unit: spUnitLabel(d), a1: spBox(d, Number(p1[d.id]) || 0), a2: spBox(d, Number(p2[d.id]) || 0), u1: spRound(u.d1 + s1), u2: spRound(u.d2), s1 };
     });
   }
   function spFillOptionLists(){
@@ -16480,15 +16491,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     strip.innerHTML = state.length
       ? state.map(s => {
           const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2), bad = l1 < 0 || l2 < 0;
-          const part = (lbl, a, u, l) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${u} → 남음 ${l})` : ''}` : '';
-          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(s.d))}</b>${part('전일', s.a1, s.u1, l1)}${part('이틀전', s.a2, s.u2, l2)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
+          const part = (lbl, a, u, l, smp) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${smp ? `${spRound(u - smp)} + 샘플 ${smp}` : u} → 남음 ${l})` : ''}` : '';
+          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(s.d))}</b>${part('전일', s.a1, s.u1, l1, s.s1)}${part('이틀전', s.a2, s.u2, l2, 0)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
         }).join('')
       : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다. <b>발주 입력 → 전일 재고 / 원물사용량 입력</b>에서 먼저 입력하면 여기서 재고사용을 배정할 수 있습니다.</span>';
     const byId = new Map(state.map(s => [s.d.id, s]));
     document.querySelectorAll('#ship-plan-body .sp-avail').forEach(el => {
       const s = byId.get(el.dataset.id); if(!s){ el.textContent = ''; return; }
       const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2);
-      el.innerHTML = `전일 남음 <b class="${l1 < 0 ? 'sp-neg' : ''}">${l1}</b> / ${s.a1}${s.unit}` + (s.a2 > 0 || s.u2 ? ` · 이틀전 남음 <b class="${l2 < 0 ? 'sp-neg' : ''}">${l2}</b> / ${s.a2}${s.unit}` : '');
+      el.innerHTML = `전일 남음 <b class="${l1 < 0 ? 'sp-neg' : ''}">${l1}</b> / ${s.a1}${s.unit}` + (s.s1 ? `<span class="sub" style="margin:0 0 0 4px;">(재고 사용 샘플 ${s.s1} 뺌)</span>` : '') + (s.a2 > 0 || s.u2 ? ` · 이틀전 남음 <b class="${l2 < 0 ? 'sp-neg' : ''}">${l2}</b> / ${s.a2}${s.unit}` : '');
     });
     const doc = shipPlanCache[dk] || { rows: {} };
     document.querySelectorAll('#ship-plan-body tr[data-company]').forEach(tr => {
@@ -16501,6 +16512,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   function renderShipPlan(){
     try{ renderProdPlan(); }catch(e){ console.error(e); }   // 같은 탭의 생산 순서·생산 순서 지시 요청
+    try{ aggSampleEnsure(); }catch(e){ /* 재고 사용 샘플 반영은 부가 기능 */ }
     const body = document.getElementById('ship-plan-body');
     if(!body) return;
     const dk = currentDateKey;
