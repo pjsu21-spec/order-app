@@ -16511,7 +16511,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.querySelectorAll('#ship-plan-body .sp-avail').forEach(el => {
       const s = byId.get(el.dataset.id); if(!s){ el.textContent = ''; return; }
       const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2);
-      el.innerHTML = `전일 남음 <b class="${l1 < 0 ? 'sp-neg' : ''}">${l1}</b> / ${s.a1}${s.unit}` + (s.s1 ? `<span class="sub" style="margin:0 0 0 4px;">(재고 사용 샘플 ${s.s1} 뺌)</span>` : '') + (s.a2 > 0 || s.u2 ? ` · 이틀전 남음 <b class="${l2 < 0 ? 'sp-neg' : ''}">${l2}</b> / ${s.a2}${s.unit}` : '');
+      el.innerHTML = `전일 남음 <b class="${l1 < 0 ? 'sp-neg' : ''}">${l1}</b> / ${s.a1}${s.unit}` + (s.a2 > 0 || s.u2 ? ` · 이틀전 남음 <b class="${l2 < 0 ? 'sp-neg' : ''}">${l2}</b> / ${s.a2}${s.unit}` : '');
     });
     const doc = shipPlanCache[dk] || { rows: {} };
     document.querySelectorAll('#ship-plan-body tr[data-company]').forEach(tr => {
