@@ -16054,7 +16054,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   const spUnitLabel = d => spUnit(d) > 0 ? '박스' : '팩';
   const spHM = t => { const x = new Date(t); return `${pad2(x.getHours())}:${pad2(x.getMinutes())}`; };
 
-  // 재고사용 글에 쓰는 품목 이름: 투맛토(스테비아) → 스테비아, 투맛토(망고향) → 망고, 150g 같은 다른 용량은 용량을 붙임
+  // 발주취합 파일의 재고사용 칸에 쓰는 짧은 품목 이름 (화면에는 SKU 품목명을 씀): 투맛토(스테비아) → 스테비아, 투맛토(망고향) → 망고, 150g 같은 다른 용량은 용량을 붙임
   function spStockLabel(d){
     const m = String(d.name || '').match(/\(([^)]+)\)/) || String(d.shortName || '').match(/\(([^)]+)\)/);
     let base = m ? m[1].replace(/향$/, '').trim() : String(d.shortName || d.name || '').trim();
@@ -16067,7 +16067,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
   function spSummary(r){
     if(!r || !r.stock) return '';
-    return dict.filter(d => r.stock[d.id]).map(d => { const q = r.stock[d.id]; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); return t > 0 ? `${spStockLabel(d)} ${t}` : ''; }).filter(Boolean).join(' / ');
+    return dict.filter(d => r.stock[d.id]).map(d => { const q = r.stock[d.id]; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); return t > 0 ? `${d.name} ${t}` : ''; }).filter(Boolean).join(' / ');   // 화면 표시는 SKU 품목명 (파일의 재고사용 칸은 spPlanForFill 에서 짧은 이름)
   }
 
   // 불러오기: 해당 날짜의 입력값(+ 기사·적재방식 목록)을 서버에서 읽음
@@ -16504,7 +16504,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       ? state.map(s => {
           const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2), bad = l1 < 0 || l2 < 0;
           const part = (lbl, a, u, l, smp) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${smp ? `${spRound(u - smp)} + 샘플 ${smp}` : u} → 남음 ${l})` : ''}` : '';
-          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(s.d))}</b>${part('전일', s.a1, s.u1, l1, s.s1)}${part('이틀전', s.a2, s.u2, l2, 0)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
+          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(s.d.name)}</b>${part('전일', s.a1, s.u1, l1, s.s1)}${part('이틀전', s.a2, s.u2, l2, 0)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
         }).join('')
       : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다. 위쪽 <b>전일 재고 / 원물사용량 입력</b>에서 먼저 입력하면 여기서 재고사용을 배정할 수 있습니다.</span>';
     const byId = new Map(state.map(s => [s.d.id, s]));
@@ -16613,7 +16613,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           const q = (r.stock || {})[d.id] || {};
           const gr = document.createElement('tr');
           const ordQ = spBox(d, Number((unitItems || {})[d.id]) || 0);
-          gr.innerHTML = `<td>${escapeHtml(spStockLabel(d))}<span class="sub" style="margin:0 0 0 4px;">(${escapeHtml(spUnitLabel(d))})</span></td><td class="sp-ord" data-id="${escapeHtml(d.id)}"></td><td></td><td></td><td class="sp-avail" data-id="${escapeHtml(d.id)}"></td>`;
+          gr.innerHTML = `<td style="text-align:left;">${escapeHtml(d.name)}<span class="sub" style="margin:0 0 0 4px;">(${escapeHtml(spUnitLabel(d))})</span></td><td class="sp-ord" data-id="${escapeHtml(d.id)}"></td><td></td><td></td><td class="sp-avail" data-id="${escapeHtml(d.id)}"></td>`;
           const ordTd = gr.children[1];
           // 발주 수량과, 재고 사용이 발주보다 많으면 경고
           const paintOrd = () => {
