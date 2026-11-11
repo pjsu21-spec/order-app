@@ -1732,12 +1732,14 @@
       <input type="search" id="price-search-input" class="view-ctl" placeholder="업체명·코드 검색" title="업체명 또는 거래처 코드(일부만 입력해도 됨)로 찾습니다" style="min-width:160px; flex:0 1 200px;">
       <select id="price-cat-filter" class="view-ctl" title="발주 구분으로 걸러 보기 (직거래·SP·도매 …)"></select>
       <select id="price-region-filter" class="view-ctl" title="지역으로 걸러 보기"></select>
+      <select id="price-status-filter" class="view-ctl" title="단가가 비어 있는 업체만 모아 보기"></select>
       <select id="price-sort" class="view-ctl" title="정렬 기준"></select>
       <button class="btn-ghost small-btn view-ctl" id="price-view-reset" title="검색·필터·정렬 초기화">초기화</button>
       <label style="font-size:12.5px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="price-keep-existing" class="view-ctl"> 이미 입력된 단가는 유지 (빈 칸만 채움)</label>
       <span id="price-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
     </div>
-    <div class="sub" style="margin:0 0 6px;">※ 위에서 <b>구분(직거래·SP·도매 …)·지역</b>을 고르면 그 업체만 표시됩니다. 표 맨 윗줄 <b>"⬇ 표시된 N곳 한꺼번에"</b> 칸에 단가를 입력하고 Enter → 안내 줄의 <b>[적용]</b>을 누르면 표시된 업체 전체에 들어갑니다.</div>
+    <div class="sub" style="margin:0 0 6px;">※ 위에서 <b>구분(직거래·SP·도매 …)·지역·단가 상태</b>를 고르면 그 업체만 표시됩니다. 표 맨 윗줄 <b>"⬇ 표시된 N곳 한꺼번에"</b> 칸에 단가를 입력하고 Enter → 안내 줄의 <b>[적용]</b>을 누르면 표시된 업체 전체에 들어갑니다.<br>※ 공통 검색어가 없는 업체들은 업체명 왼쪽 <b>☑</b>로 골라 두면(검색어를 바꿔 가며 여러 번 골라도 유지) 윗줄이 <b>"⬇ 체크한 N곳 한꺼번에"</b>로 바뀌어 체크한 업체에만 들어갑니다.</div>
+    <div id="price-sel-bar" style="display:none; margin:0 0 8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:var(--accent-soft);"></div>
     <div id="price-undo-bar" style="display:none; margin:0 0 8px; padding:6px 12px; border:1px dashed var(--line); border-radius:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted);"></div>
     <div id="price-bulk-banner" style="display:none; margin:0 0 8px; padding:8px 12px; border:1px solid var(--accent); background:#fff4d6; border-radius:8px; font-size:13px; align-items:center; gap:10px; flex-wrap:wrap;"></div>
     <div id="price-map-editor" style="overflow-x:auto;"></div>
@@ -2289,6 +2291,8 @@
   <li>정렬은 등록순, 거래처명순, 구분순, 지역순, 시장명순, 코드순 중에서 고릅니다.</li>
   <li>표 맨 윗줄 <b>"표시된 N곳 한꺼번에"</b> 칸에 단가를 넣고 Enter → 위쪽 안내의 <span class="mn-b">적용</span>을 누르면 표시된 업체 전체에 들어갑니다. <b>이미 입력된 단가는 유지</b>를 체크하면 빈 칸만 채웁니다. 실수했다면 안내 줄의 되돌리기를 쓰세요.</li>
   <li>단가그룹이 있는 품목은 <b>그룹 단가</b>를 넣으면 그룹 안 모든 품목에 같은 단가가 들어가고, 개별 조정도 됩니다.</li>
+  <li><b>단가 상태</b>에서 "단가 전혀 없는 업체", "단가 빈 칸: 그룹", "단가 없음: 품목"을 고르면 아직 단가를 안 넣은 업체만 모아 볼 수 있습니다. 넣고 나면 그 업체는 목록에서 빠집니다.</li>
+  <li>공통 검색어가 없는 업체들은 업체명 왼쪽 <b>☑</b>로 골라 둡니다. 검색어를 바꿔 가며 여러 번 골라도 체크는 유지되고, 맨 윗줄이 <b>"체크한 N곳 한꺼번에"</b>로 바뀌어 체크한 업체에만 들어갑니다. <span class="mn-b">체크한 업체만 보기</span>·<span class="mn-b">체크 모두 해제</span>는 안내 줄에 있습니다.</li>
 </ul>
 
 <h2>자재 · 재고 관리</h2>
@@ -5565,24 +5569,51 @@ function mnShow(id, keepScroll) {
 
   // ── 거래처별 품목 단가 설정 표: 검색·필터·정렬 + 보이는 업체 일괄 입력 ──
   let priceBulk = null;   // 일괄 입력 대기 중: { ids, label, value, companies, summary, input }
+  const priceSel = new Set();   // 체크한 업체 (pcKey). 검색·필터를 바꿔도 유지 → 공통 검색어가 없는 업체들을 모아 한꺼번에 입력
+  // 단가 그룹 { 그룹명: [품목] } (SKU 관리의 단가그룹)
+  function priceGroupsOf(){ const g = {}; dict.forEach(d => { if(d.priceGroup){ (g[d.priceGroup] = g[d.priceGroup] || []).push(d); } }); return g; }
+  // 단가 상태 필터: '' 전체 / 'none' 단가가 하나도 없음 / 'g:그룹' 그 그룹에 빈 칸 있음 / 'i:품목id' 그 품목 단가 없음 / 'checked' 체크한 업체만
+  function priceStatusMatch(c, st){
+    if(!st) return true;
+    const pm = c.priceMap || {}, empty = id => pm[id] == null || pm[id] === '';
+    if(st === 'none') return dict.every(d => empty(d.id));
+    if(st === 'checked') return priceSel.has(pcKey(c));
+    if(st.startsWith('g:')){ const items = priceGroupsOf()[st.slice(2)] || []; return items.some(d => empty(d.id)); }
+    if(st.startsWith('i:')) return empty(st.slice(2));
+    return true;
+  }
+  function priceStatusLabel(st){
+    if(st === 'none') return '단가 전혀 없음';
+    if(st === 'checked') return '체크한 업체만';
+    if(st.startsWith('g:')) return `"${st.slice(2)}" 단가 빈 칸 있음`;
+    if(st.startsWith('i:')){ const d = dict.find(x => x.id === st.slice(2)); return `"${d ? d.name : '?'}" 단가 없음`; }
+    return '';
+  }
+  // 체크한 업체 목록 (지금 표에 안 보여도 포함)
+  function priceSelCompanies(){ return companies.filter(c => c.category && priceSel.has(pcKey(c))); }
   function refreshPriceViewOptions(){
     viewFillSelect(document.getElementById('price-cat-filter'), [['', '발주 구분 전체'], ...companyCategoryOptions().map(c => [c, c])]);
     viewFillSelect(document.getElementById('price-region-filter'), [['', '지역 전체'], ['수도권', '수도권'], ['지방', '지방'], [VIEW_NONE, '(지역 미지정)']]);
+    viewFillSelect(document.getElementById('price-status-filter'), [['', '단가 상태 전체'], ['none', '단가 전혀 없는 업체'],
+      ...Object.keys(priceGroupsOf()).map(g => ['g:' + g, `단가 빈 칸: 📦 ${g} (그룹)`]),
+      ...dict.filter(d => !d.priceGroup).map(d => ['i:' + d.id, `단가 없음: ${d.name}`]),
+      ['checked', `☑ 체크한 업체만 (${priceSelCompanies().length}곳)`]]);
     viewFillSelect(document.getElementById('price-sort'), COMPANY_SORT_OPTS.filter(o => ['', 'name', 'cat', 'region', 'market', 'code'].includes(o[0])));
   }
   function priceViewState(){
-    return { raw: viewVal('price-search-input'), q: viewKey(viewVal('price-search-input')), cat: viewVal('price-cat-filter'), region: viewVal('price-region-filter'), flag: '', sort: viewVal('price-sort') };
+    return { raw: viewVal('price-search-input'), q: viewKey(viewVal('price-search-input')), cat: viewVal('price-cat-filter'), region: viewVal('price-region-filter'), status: viewVal('price-status-filter'), flag: '', sort: viewVal('price-sort') };
   }
   function priceViewSummary(){
     const v = priceViewState(), p = [];
     if(v.raw.trim()) p.push(`검색 "${v.raw.trim()}"`);
     if(v.cat) p.push(`구분 ${v.cat}`);
     if(v.region) p.push(`지역 ${v.region === VIEW_NONE ? '미지정' : v.region}`);
+    if(v.status) p.push(priceStatusLabel(v.status));
     return p.length ? p.join(' · ') : '조건 없음(전체)';
   }
   function priceShownCompanies(){
     const v = priceViewState();
-    const list = companies.filter(c => c.category && companyMatchesView(c, v));
+    const list = companies.filter(c => c.category && companyMatchesView(c, v) && priceStatusMatch(c, v.status));
     const sorter = COMPANY_SORTS[v.sort];
     return sorter ? viewSorted(list, sorter) : list;
   }
@@ -5727,13 +5758,34 @@ function mnShow(id, keepScroll) {
     priceBulk = null;
     renderPriceMapEditor();
   }
+  function renderPriceSelBar(){
+    const bar = document.getElementById('price-sel-bar');
+    if(!bar) return;
+    bar.innerHTML = '';
+    const sel = priceSelCompanies();
+    if(!sel.length){ bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    const msg = document.createElement('span');
+    const names = sel.slice(0, 8).map(c => escapeHtml(companyDisplayName(c))).join(', ') + (sel.length > 8 ? ` 외 ${sel.length - 8}곳` : '');
+    msg.innerHTML = `☑ <b>체크한 ${sel.length}곳</b>: ${names} — 표 맨 윗줄에 입력하면 <b>이 업체들에만</b> 들어갑니다`;
+    const view = document.createElement('button');
+    view.type = 'button'; view.className = 'btn-ghost small-btn'; view.id = 'price-sel-view'; view.textContent = '체크한 업체만 보기';
+    view.addEventListener('click', ()=>{ document.getElementById('price-status-filter').value = 'checked'; onPriceViewChange(); });
+    const clr = document.createElement('button');
+    clr.type = 'button'; clr.className = 'btn-ghost small-btn'; clr.id = 'price-sel-clear'; clr.textContent = '체크 모두 해제';
+    clr.addEventListener('click', ()=>{ priceSel.clear(); if(viewVal('price-status-filter') === 'checked') document.getElementById('price-status-filter').value = ''; onPriceViewChange(); });
+    bar.append(msg, view, clr);
+  }
 
   function renderPriceMapEditor(){
     const wrap = document.getElementById('price-map-editor');
     if(!wrap) return;
+    // 지워졌거나 구분이 바뀐 업체는 체크 목록에서 뺌
+    { const keys = new Set(companies.filter(c => c.category).map(pcKey)); [...priceSel].forEach(k => { if(!keys.has(k)) priceSel.delete(k); }); }
     refreshPriceViewOptions();
     renderPriceBulkBanner();
     renderPriceUndoBar();
+    renderPriceSelBar();
     const registeredCompanies = companies.filter(c=> c.category && c.category !== '');
     const countEl = document.getElementById('price-view-result');
     if(registeredCompanies.length === 0 || dict.length === 0){
@@ -5777,7 +5829,7 @@ function mnShow(id, keepScroll) {
 
     // 헤더 1행: 그룹 단위로 병합 + 개별 품목
     const groupHeaderRow = document.createElement('tr');
-    groupHeaderRow.innerHTML = '<th class="name-cell" rowspan="2">업체명</th><th rowspan="2" title="이카운트 거래처 코드">코드</th>';
+    groupHeaderRow.innerHTML = '<th rowspan="2" class="price-sel-th"></th><th class="name-cell" rowspan="2">업체명</th><th rowspan="2" title="이카운트 거래처 코드">코드</th>';
 
     // 그룹이 있으면 그룹 헤더 표시
     if(hasGroups){
@@ -5830,7 +5882,7 @@ function mnShow(id, keepScroll) {
       });
     } else {
       // 그룹 없으면 단순 헤더 (업체명 칸 포함)
-      subHeaderRow.innerHTML = '<th class="name-cell">업체명</th><th title="이카운트 거래처 코드">코드</th>';
+      subHeaderRow.innerHTML = '<th class="price-sel-th"></th><th class="name-cell">업체명</th><th title="이카운트 거래처 코드">코드</th>';
       dict.forEach(d=>{
         const th = document.createElement('th');
         th.style.fontSize = '10px';
@@ -5840,6 +5892,18 @@ function mnShow(id, keepScroll) {
     }
     thead.appendChild(subHeaderRow);
     table.appendChild(thead);
+    // 체크 머리글: 지금 보이는 업체 전체 체크/해제
+    {
+      const th = thead.querySelector('.price-sel-th');
+      const all = document.createElement('input');
+      all.type = 'checkbox'; all.id = 'price-sel-all'; all.title = '지금 표에 보이는 업체 전체 체크/해제';
+      all.checked = shown.length > 0 && shown.every(c => priceSel.has(pcKey(c)));
+      all.addEventListener('change', ()=>{ shown.forEach(c => { if(all.checked) priceSel.add(pcKey(c)); else priceSel.delete(pcKey(c)); }); priceBulk = null; renderPriceMapEditor(); });
+      th.style.cssText = 'width:26px;text-align:center;';
+      th.appendChild(all);
+    }
+    const selList = priceSelCompanies();   // 체크한 업체가 있으면 윗줄 일괄 입력은 체크한 업체에만
+    const bulkTargets = selList.length ? selList : shown;
 
     // 업체 한 칸(품목 단가) 입력란
     const itemCell = (company, d, width)=>{
@@ -5868,12 +5932,12 @@ function mnShow(id, keepScroll) {
       inp.type = 'number'; inp.min = '0'; inp.step = '1';
       inp.style.cssText = `width:${width}px;border:1px dashed var(--accent);border-radius:4px;padding:3px 4px;font-size:12px;`;
       inp.placeholder = ph;
-      inp.title = `지금 표에 보이는 ${shown.length}곳의 "${label}" 단가를 한꺼번에 입력합니다 (입력 후 Enter → 위쪽 안내에서 [적용])`;
+      inp.title = selList.length ? `체크한 ${selList.length}곳의 "${label}" 단가를 한꺼번에 입력합니다 (입력 후 Enter → 위쪽 안내에서 [적용])` : `지금 표에 보이는 ${shown.length}곳의 "${label}" 단가를 한꺼번에 입력합니다 (입력 후 Enter → 위쪽 안내에서 [적용])`;
       inp.addEventListener('change', (e)=>{
         const v = parseFloat(e.target.value);
         if(priceBulk && priceBulk.input && priceBulk.input !== e.target) priceBulk.input.value = '';
         if(isNaN(v) || v < 0){ priceBulk = null; renderPriceBulkBanner(); return; }
-        priceBulk = { ids, label, value: v, companies: shown.slice(), summary: priceViewSummary(), input: e.target };
+        priceBulk = { ids, label, value: v, companies: bulkTargets.slice(), summary: selList.length ? `체크한 ${selList.length}곳` : priceViewSummary(), input: e.target };
         renderPriceBulkBanner();
       });
       td.appendChild(inp);
@@ -5881,11 +5945,13 @@ function mnShow(id, keepScroll) {
     };
     const tbody = document.createElement('tbody');
     const bulkTr = document.createElement('tr');
+    bulkTr.id = 'price-bulk-row';
+    { const bs = document.createElement('td'); bs.style.background = '#fff4d6'; bulkTr.appendChild(bs); }
     const bulkName = document.createElement('td');
     bulkName.className = 'name-cell';
     bulkName.style.cssText = 'background:#fff4d6;font-size:11.5px;font-weight:700;color:var(--accent);';
-    bulkName.textContent = `⬇ 표시된 ${shown.length}곳 한꺼번에`;
-    bulkName.title = '위쪽 조건(구분·지역·검색)에 맞아 지금 표에 보이는 업체 전체에 단가를 한꺼번에 넣습니다';
+    bulkName.textContent = selList.length ? `⬇ 체크한 ${selList.length}곳 한꺼번에` : `⬇ 표시된 ${shown.length}곳 한꺼번에`;
+    bulkName.title = selList.length ? '업체명 왼쪽에서 체크한 업체에만 단가를 한꺼번에 넣습니다 (지금 표에 안 보이는 체크한 업체도 포함)' : '위쪽 조건(구분·지역·단가 상태·검색)에 맞아 지금 표에 보이는 업체 전체에 단가를 한꺼번에 넣습니다';
     bulkTr.appendChild(bulkName);
     { const bc = document.createElement('td'); bc.style.background = '#fff4d6'; bulkTr.appendChild(bc); }
     if(hasGroups){
@@ -5902,6 +5968,15 @@ function mnShow(id, keepScroll) {
     shown.forEach(company=>{
       if(!company.priceMap) company.priceMap = {};
       const tr = document.createElement('tr');
+      const selTd = document.createElement('td');
+      selTd.style.textAlign = 'center';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'price-sel-cb'; cb.checked = priceSel.has(pcKey(company));
+      cb.title = '체크해 두면 표 맨 윗줄 일괄 입력이 체크한 업체에만 들어갑니다 (검색을 바꿔도 체크는 유지)';
+      cb.addEventListener('change', ()=>{ if(cb.checked) priceSel.add(pcKey(company)); else priceSel.delete(pcKey(company)); priceBulk = null; renderPriceMapEditor(); });
+      selTd.appendChild(cb);
+      tr.appendChild(selTd);
+      if(priceSel.has(pcKey(company))) tr.style.background = 'var(--accent-soft)';
       const nameTd = document.createElement('td');
       nameTd.className = 'name-cell';
       nameTd.textContent = companyDisplayName(company);
@@ -7594,9 +7669,9 @@ function mnShow(id, keepScroll) {
   ['dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort'].forEach(id => document.getElementById(id).addEventListener('change', applyDictView));
   document.getElementById('dict-view-reset').addEventListener('click', ()=>{ viewResetControls(['dict-search-input', 'dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort']); applyDictView(); });
   document.getElementById('price-search-input').addEventListener('input', onPriceViewChange);
-  ['price-cat-filter', 'price-region-filter', 'price-sort'].forEach(id => document.getElementById(id).addEventListener('change', onPriceViewChange));
+  ['price-cat-filter', 'price-region-filter', 'price-status-filter', 'price-sort'].forEach(id => document.getElementById(id).addEventListener('change', onPriceViewChange));
   document.getElementById('price-keep-existing').addEventListener('change', renderPriceBulkBanner);
-  document.getElementById('price-view-reset').addEventListener('click', ()=>{ viewResetControls(['price-search-input', 'price-cat-filter', 'price-region-filter', 'price-sort']); onPriceViewChange(); });
+  document.getElementById('price-view-reset').addEventListener('click', ()=>{ viewResetControls(['price-search-input', 'price-cat-filter', 'price-region-filter', 'price-status-filter', 'price-sort']); onPriceViewChange(); });
 
   document.getElementById('add-category-btn').addEventListener('click', ()=>{
     const input = document.getElementById('new-category-input');
