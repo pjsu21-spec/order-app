@@ -247,6 +247,8 @@
   .sp-chip.bad{ background:var(--warn-soft); border-color:var(--warn); color:var(--warn); }
   .sp-neg{ color:var(--warn); }
   #ship-plan-table td{ vertical-align:middle; }
+  .sp-grid td.sp-ord{ font-variant-numeric:tabular-nums; }
+  .sp-grid .sp-ord-over{ font-size:11px; font-weight:700; color:var(--danger,#c0392b); margin-top:2px; white-space:nowrap; }
   .pp-fold > summary{ cursor:pointer; font-size:16px; font-weight:700; color:var(--fg); padding:2px 0 8px; }
   .pp-fold:not([open]) > summary{ padding-bottom:2px; }
   .pp-fold .pp-sumhint{ font-size:12px; font-weight:400; color:var(--muted); }
@@ -16436,14 +16438,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         // 출고 건을 나눈 업체는 건마다 한 줄 (추가 건의 키는 '업체명#id')
         splitUnits(dk, n, orders[n]).forEach(u => {
           const total = spRound(dict.reduce((s, d) => s + spBox(d, Number(u.items[d.id]) || 0), 0));
-          if(total > 0) out.push({ name: u.key, display: u.isBase ? n : splitUnitName(n, u.label), company: n, meta, total, split: u.split, isBase: u.isBase });
+          if(total > 0) out.push({ name: u.key, display: u.isBase ? n : splitUnitName(n, u.label), company: n, meta, total, split: u.split, isBase: u.isBase, items: u.items });
         });
       });
     // 3PL 택배 업체는 파일에서 한 줄로 합쳐지므로 입력도 한 줄(합산)로 받음
     const tplNames = Object.keys(orders).filter(n => n !== '_meta' && !disp.has(n) && (companies.find(c => c.name === n) || {}).isThirdParty);
     if(tplNames.length){
-      const total = spRound(dict.reduce((sum, d) => sum + spBox(d, tplNames.reduce((x, n) => x + (Number((orders[n] || {})[d.id]) || 0), 0)), 0));
-      if(total > 0) out.push({ name: '__3pl__', display: '3PL 택배 (합산 · ' + tplNames.length + '개 업체)', company: '__3pl__', meta: null, total, split: false, isBase: true });
+      const items = {};
+      dict.forEach(d => { const q = tplNames.reduce((x, n) => x + (Number((orders[n] || {})[d.id]) || 0), 0); if(q > 0) items[d.id] = q; });
+      const total = spRound(dict.reduce((sum, d) => sum + spBox(d, items[d.id] || 0), 0));
+      if(total > 0) out.push({ name: '__3pl__', display: '3PL 택배 (합산 · ' + tplNames.length + '개 업체)', company: '__3pl__', meta: null, total, split: false, isBase: true, items });
     }
     return out;
   }
@@ -16527,7 +16531,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     table.id = 'ship-plan-table';
     table.innerHTML = '<thead><tr><th class="name-cell">업체명</th><th>납품담당</th><th>적재방식</th><th>재고사용</th><th>출고일</th><th>비고</th><th>마지막 입력</th></tr></thead>';
     const tbody = document.createElement('tbody');
-    list.forEach(({ name, meta, total, display, split, isBase }) => {
+    list.forEach(({ name, meta, total, display, split, isBase, items: unitItems }) => {
       const r = doc.rows[name] || {};
       const tr = document.createElement('tr');
       tr.dataset.company = name;
@@ -16572,20 +16576,31 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       sr.className = 'sp-stock-row' + (openKeys.has(name) ? ' open' : ''); sr.dataset.for = name;
       const sd = document.createElement('td');
       sd.colSpan = 7;
-      const items = spStockState(dk).map(s => s.d).filter(d => true);
+      const items = spStockState(dk).map(s => s.d).filter(d => true)
+        .map((d, i) => ({ d, i, o: (Number((unitItems || {})[d.id]) || 0) > 0 ? 0 : 1 })).sort((a, b) => a.o - b.o || a.i - b.i).map(x => x.d);   // 이 업체가 발주한 품목을 위로
       if(!items.length){
         sd.innerHTML = '<div class="sub" style="margin:0;">입력된 재고가 없습니다. <b>발주 입력 → 전일 재고 / 원물사용량 입력</b>에서 전일·이틀 전 재고를 먼저 입력해주세요.</div>';
       } else {
         const g = document.createElement('table');
         g.className = 'sp-grid';
-        g.innerHTML = '<thead><tr><th>품목</th><th>전일 재고 사용</th><th>이틀 전 재고 사용</th><th>남은 재고</th></tr></thead>';
+        g.innerHTML = '<thead><tr><th>품목</th><th title="이 업체(출고 건)의 품목별 발주 수량 (샘플 동봉 포함)">발주 수량</th><th>전일 재고 사용</th><th>이틀 전 재고 사용</th><th>남은 재고</th></tr></thead>';
         const gb = document.createElement('tbody');
         items.forEach(d => {
           const q = (r.stock || {})[d.id] || {};
           const gr = document.createElement('tr');
-          gr.innerHTML = `<td>${escapeHtml(spStockLabel(d))}<span class="sub" style="margin:0 0 0 4px;">(${escapeHtml(spUnitLabel(d))})</span></td><td></td><td></td><td class="sp-avail" data-id="${escapeHtml(d.id)}"></td>`;
+          const ordQ = spBox(d, Number((unitItems || {})[d.id]) || 0);
+          gr.innerHTML = `<td>${escapeHtml(spStockLabel(d))}<span class="sub" style="margin:0 0 0 4px;">(${escapeHtml(spUnitLabel(d))})</span></td><td class="sp-ord" data-id="${escapeHtml(d.id)}"></td><td></td><td></td><td class="sp-avail" data-id="${escapeHtml(d.id)}"></td>`;
+          const ordTd = gr.children[1];
+          // 발주 수량과, 재고 사용이 발주보다 많으면 경고
+          const paintOrd = () => {
+            const ins = gr.querySelectorAll('input');
+            const used = spRound([...ins].reduce((x, i) => x + (parseFloat(i.value) || 0), 0));
+            ordTd.innerHTML = ordQ > 0 ? `<b>${ordQ}</b>` : '<span class="sub" style="margin:0;">-</span>';
+            if(used > ordQ){ ordTd.innerHTML += `<div class="sp-ord-over">⚠ 재고 사용 ${used}이 발주보다 많음</div>`; }
+          };
           const mk = (cell, field) => {
             const inp = document.createElement('input');
+            inp.addEventListener('input', () => paintOrd());
             inp.type = 'number'; inp.min = '0'; inp.step = 'any'; inp.style.width = '80px'; inp.placeholder = '0';
             inp.value = q[field] > 0 ? q[field] : '';
             inp.addEventListener('change', () => {
@@ -16600,7 +16615,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
             });
             gr.children[cell].appendChild(inp);
           };
-          mk(1, 'd1'); mk(2, 'd2');
+          mk(2, 'd1'); mk(3, 'd2');
+          paintOrd();
           gb.appendChild(gr);
         });
         g.appendChild(gb);
