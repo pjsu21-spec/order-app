@@ -2146,6 +2146,7 @@
   <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
   <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다.</li>
   <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산/물류 탭의 배차·적재 화면과 발주취합 파일·생산 현황판의 비고 칸에 함께 표시됩니다.</li>
+  <li><b>샘플 신청 줄의 비고</b>: 집계표의 "샘플" 줄을 눌러 펼치면 신청 건마다 비고 칸이 있습니다(오늘 생산분과 재고 사용분은 따로). 적은 내용은 그 날짜 발주취합 파일과 생산 현황판의 샘플 행 비고 칸에 들어갑니다.</li>
   <li><b>🎁 샘플</b>: 발주와 함께 보내는 샘플 수량을 넣거나 고칩니다. 수량 칸 아래에 <b>+샘플</b>로 따로 표시되고 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않고, 생산·적재 수량(합계 줄)과 송품장에는 들어갑니다.</li>
 </ul>
 
@@ -4307,6 +4308,9 @@ function mnShow(id, keepScroll) {
   //  - 출고일을 따로 지정하는 업체(쿠팡 등)와 3PL 업체는 대상이 아님.
   let orderExtras = {};   // { 'YYYY-MM-DD': { 업체명: { note: '', sample: { 품목id: 팩 } } } }
   function extrasGet(dateKey, company){ return (orderExtras[dateKey] || {})[company] || null; }
+  // 샘플 신청 비고 키: 신청 건마다, 오늘 생산분(0)과 재고 사용분(1)을 따로
+  const sampleNoteKey = (id, fromStock) => '#s:' + id + ':' + (fromStock ? 1 : 0);
+  function sampleAggNote(dateKey, id, fromStock){ const e = extrasGet(dateKey, sampleNoteKey(id, fromStock)); return e ? String(e.note || '').trim() : ''; }
   function extrasEnsure(dateKey, company){
     if(!orderExtras[dateKey]) orderExtras[dateKey] = {};
     if(!orderExtras[dateKey][company]) orderExtras[dateKey][company] = { note: '', sample: {} };
@@ -6701,7 +6705,8 @@ function mnShow(id, keepScroll) {
       smName.className = 'name-cell';
       smName.style.cssText = 'cursor:pointer;font-weight:700;';
       const stockN = sampleRows.filter(r => (r.items || []).some(i => i.fromStock)).length;
-      smName.textContent = `${aggSample.open ? '▾' : '▸'} 샘플 (${sampleRows.length}건${stockN ? `, 재고 사용 ${stockN}건 포함` : ''})`;
+      const smNoteN = sampleRows.flatMap(r => [false, true].filter(fs => (r.items || []).some(i => !!i.fromStock === fs) && sampleAggNote(currentDateKey, r.id, fs))).length;
+      smName.textContent = `${aggSample.open ? '▾' : '▸'} 샘플 (${sampleRows.length}건${stockN ? `, 재고 사용 ${stockN}건 포함` : ''}${smNoteN ? ` · 비고 ${smNoteN}건` : ''})`;
       smName.title = '샘플 신청 중 생산본부 생산으로 지정된 품목 (발주취합 파일의 샘플 행과 같은 기준). 오늘 생산분과, 오늘 출고하면서 전일 생산분(재고)을 쓰는 샘플이 모두 포함되어 아래 합계·생산 필요수량에 들어갑니다. 눌러서 신청자별로 펼치기/접기';
       smName.addEventListener('click', ()=>{ aggSample.open = !aggSample.open; renderAggTable(); });
       smTr.appendChild(smName);
@@ -6730,6 +6735,21 @@ function mnShow(id, keepScroll) {
           const nm = document.createElement('td');
           nm.className = 'name-cell';
           nm.textContent = '└ ' + ((r.requester_name || '').trim() || '(신청자 미상)') + (r.requester_dept ? ` (${r.requester_dept})` : '') + (r.purpose ? ' · ' + r.purpose : '') + (fs ? ' · 재고 사용' : '');
+          {
+            // 이 날짜 이 샘플(신청 건·생산분/재고 사용분)의 비고 — 발주취합 파일과 현황판의 샘플 행 비고 칸에 들어감
+            const nb = document.createElement('div'); nb.className = 'agg-note-box';
+            const ni = document.createElement('input');
+            ni.type = 'text'; ni.className = 'agg-note-input agg-sample-note'; ni.placeholder = '비고'; ni.maxLength = 200;
+            ni.value = sampleAggNote(currentDateKey, r.id, fs);
+            ni.title = '이 샘플의 출고·생산 특이 사항 — 발주취합 파일과 생산 현황판의 샘플 행 비고 칸에 함께 표시됩니다 (이 날짜에만 적용)';
+            ni.addEventListener('change', ()=>{
+              const k = sampleNoteKey(r.id, fs);
+              extrasEnsure(currentDateKey, k).note = ni.value.trim();
+              extrasTidy(currentDateKey, k);
+              saveOrderExtras();
+            });
+            nb.appendChild(ni); nm.appendChild(nb);
+          }
           tr.appendChild(nm);
           tr.appendChild(document.createElement('td'));
           const tt = document.createElement('td'); tt.className = 'totals-col'; tr.appendChild(tt);
@@ -10865,6 +10885,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const rows = await sampleRowsForProdDay(dateKey, false, true);
     return rows.map(r => ({
       id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', status: r.status || '', purpose: samplePurposeOf(r),
+      aggNote: { 0: sampleAggNote(dateKey, r.id, false), 1: sampleAggNote(dateKey, r.id, true) },   // 집계표에서 적은 샘플 비고 (오늘 생산분 / 재고 사용분)
       items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0, fromStock: !!i._fromStock })).filter(i => i.skuId && i.packs > 0)
     })).filter(r => r.items.length);
   };
@@ -14114,6 +14135,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const peKey = isTplRow ? '__3pl__' : (list.length === 1 ? (list[0].planKey || list[0].name) : '');
       let pe = input.plan && peKey ? input.plan[peKey] : null;
       if(list.some(e => e.stockAll)){ pe = Object.assign({}, pe || {}); if(!pe.stockText) pe.stockText = '전량재고'; }   // 오늘 출고하면서 전일 생산분을 쓰는 샘플
+      { const sn = [...new Set(list.flatMap(e => e.notes || []))]; if(sn.length){ pe = Object.assign({}, pe || {}); pe.note = [pe.note, ...sn].filter(Boolean).join(' / '); } }   // 집계표에서 적은 샘플 비고
       if(list.some(e => e.changed)) rep.changedRows.add(row);
       if(pe && (pe.driver || pe.load || pe.stockText || pe.note)){
         const sk = poApplyPlan(ctx, pc, row, pe);
@@ -14826,6 +14848,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         const key = `${who}|${dept}|${purpose}|${fs ? 1 : 0}`;
         let e = sampleMap.get(key);
         if(!e){ const nm = `${who}${purpose ? ' ' + purpose : ''}${/샘플$/.test(purpose) ? '' : ' 샘플'}${fs ? ' (재고 사용)' : ''}`; e = { name: nm, category: '샘플', region: /영업/.test(dept) ? '영업용' : '본사', corp: '', isThirdParty: false, colQty: {}, stockAll: fs, src: {}, srcKey: nm }; sampleMap.set(key, e); }
+        const sn = ((r.aggNote || {})[fs ? 1 : 0] || '').trim();
+        if(sn){ if(!e.notes) e.notes = []; if(!e.notes.includes(sn)) e.notes.push(sn); }   // 집계표에서 적은 샘플 비고
         const d = dict.find(x => x.id === i.skuId);
         const q = Number(i.packs) || 0;
         if(!d || q <= 0) return;
