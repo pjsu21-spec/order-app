@@ -64,6 +64,10 @@
   .home-tile .nm{ font-size:16px; font-weight:800; letter-spacing:-0.02em; }
   .home-tile .ds{ font-size:12px; font-weight:400; color:var(--muted); line-height:1.4; }
   .home-tile .ext{ font-size:11px; color:var(--muted); }
+  .home-tile{ position:relative; }
+  .home-tile.has-alert{ border-color:var(--danger,#c0392b); }
+  .home-tile .home-alert{ font-size:12px; font-weight:700; color:var(--danger,#c0392b); line-height:1.4; }
+  .home-tile .home-badge{ position:absolute; top:10px; right:10px; min-width:22px; height:22px; padding:0 7px; border-radius:11px; background:var(--danger,#c0392b); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; }
   #program-bar{ align-items:center; gap:12px; padding:8px 0; margin-bottom:6px; position:sticky; top:0; z-index:40; background:var(--paper); }
   #program-home-btn{ background:#fff; border:1px solid var(--accent); color:var(--accent); font-weight:700; padding:7px 14px; border-radius:10px; cursor:pointer; font-size:13px; font-family:inherit; }
   #program-title{ font-size:15px; font-weight:700; }
@@ -2416,6 +2420,7 @@
   <li><b>샘플 취합</b>: 기간을 정해 품목별 합계를 봅니다(취소 제외 전체 / 확인된 건만).</li>
   <li><b>발주서 반영일</b>: 신청 내역의 날짜 칸에서 그 신청을 <b>어느 날짜의 발주취합(샘플 행)·집계에 넣을지</b> 바로 고칩니다. 기본은 출고일 당일이고, 출고일보다 늦을 수 없으며 출고일 7일 전까지 고를 수 있습니다. 취합 담당자는 모든 신청, 신청자는 확인 전 본인 신청만 바꿀 수 있습니다.</li>
 </ul>
+<div class="mn-tip"><b>팁</b>관리자와 주문 취합 권한이 있는 사람은 홈 화면의 <b>샘플 신청</b> 타일에 미확인 건수가 빨간 숫자로 뜹니다. 타일을 누르면 신청 내역의 미확인 건만 바로 열립니다.</div>
 <div class="mn-note"><b>규칙</b>확인되기 전에는 신청자가 직접 수정·취소할 수 있고, <b>확인된 뒤에는 취합 담당자만</b> 바꿀 수 있습니다. 확인된 샘플은 발주취합 파일의 샘플 줄에 반영됩니다.</div>
 </section>
 
@@ -3174,6 +3179,32 @@ async function homeSaveEdit() {
   } catch (e) { homeToast('저장 실패: ' + e.message); }
   renderHome();
 }
+// ── 홈: 샘플 신청 미확인 알림 — 관리자·주문 취합 권한에게만, 샘플 신청 타일에 건수 표시 ──
+let homeSamplePending = { n: 0, past: 0, at: 0, loading: false };
+function homeSampleCan(u) { return !!u && (u.role === 'admin' || u.access_sample === 'collect'); }
+// 미확인(상태 '신청') 신청 목록으로 건수를 정하고, 바뀌었으면 홈을 다시 그림
+function homeSampleSet(pendingRows) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const n = pendingRows.length, past = pendingRows.filter(r => new Date(r.ship_at) < today).length;
+  const changed = n !== homeSamplePending.n || past !== homeSamplePending.past;
+  homeSamplePending = { n, past, at: Date.now(), loading: false };
+  if (changed) renderHome();
+}
+async function homeSampleRefresh(force) {
+  const u = window.currentUser;
+  if (!homeSampleCan(u)) { homeSamplePending.n = 0; homeSamplePending.past = 0; return; }
+  if (homeSamplePending.loading || (!force && Date.now() - homeSamplePending.at < 20000)) return;
+  homeSamplePending.loading = true;
+  try {
+    const rows = await sbQuery('sample_requests', '?status=eq.' + encodeURIComponent('신청') + '&select=id,ship_at&limit=500');
+    homeSampleSet(Array.isArray(rows) ? rows : []);
+  } catch (e) { homeSamplePending.loading = false; homeSamplePending.at = Date.now(); /* 알림은 부가 기능 — 실패해도 조용히 */ }
+}
+// 홈 화면을 보고 있는 동안 3분마다 다시 확인
+setInterval(() => {
+  const app = document.getElementById('app');
+  if (window.currentUser && app && app.style.display !== 'none' && !app.classList.contains('in-program') && !document.hidden) homeSampleRefresh(true);
+}, 180000);
 function renderHome() {
   const u = window.currentUser;
   const grid = document.getElementById('home-grid');
@@ -3206,9 +3237,12 @@ function renderHome() {
     visible.push({ t, btn });
   });
   const sorted = homeSortTiles(visible.map(v => v.t), homeEditing ? homeDraft : homeOrder);
+  homeSampleRefresh(false);   // 미확인 샘플 건수 확인 (20초 안에 확인했으면 건너뜀, 바뀌면 다시 그림)
   sorted.forEach((t, n) => {
     const btn = (visible.find(v => v.t === t) || {}).btn;
-    const body = `<span class="ic">${t.icon}</span><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}`;
+    const sampleAlert = t.key === 'sample' && !homeEditing && homeSampleCan(u) && homeSamplePending.n > 0;
+    const alertHtml = sampleAlert ? `<span class="home-badge" title="미확인 샘플 신청">${homeSamplePending.n}</span><span class="home-alert">※ 샘플 신청 미확인 건이 ${homeSamplePending.n}건 있습니다${homeSamplePending.past ? ` (출고일 지난 ${homeSamplePending.past}건 포함)` : ''}</span>` : '';
+    const body = `<span class="ic">${t.icon}</span><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}${alertHtml}`;
     if (homeEditing) {
       // 편집 모드: 클릭 이동 없이 ◀ ▶ 로 순서만 바꾼다
       const el = document.createElement('div');
@@ -3225,9 +3259,10 @@ function renderHome() {
       return;
     }
     const el = document.createElement(t.href ? 'a' : 'button');
-    el.className = 'home-tile';
+    el.className = 'home-tile' + (sampleAlert ? ' has-alert' : '');
+    if (sampleAlert) el.dataset.key = 'sample';
     if (t.href) { el.href = t.href; if (!t.self) { el.target = '_blank'; el.rel = 'noopener'; } }
-    else { el.type = 'button'; el.addEventListener('click', () => btn.click()); }
+    else { el.type = 'button'; el.addEventListener('click', () => { if (sampleAlert) window.__samplePendingOpen = true; btn.click(); }); }   // 알림이 있으면 신청 내역(미확인)으로 바로 엶
     el.innerHTML = body;
     grid.appendChild(el);
   });
@@ -3236,6 +3271,7 @@ function escapeHtmlSimple(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'
 function goHome() {
   const app = document.getElementById('app');
   if (app) app.classList.remove('in-program');
+  homeSampleRefresh(false);
   window.scrollTo(0, 0);
 }
 // ── 사용설명서 (권한과 무관하게 누구나 열람) ── 위쪽 탭으로 역할별 설명을 바꿔 봄. 마지막으로 본 탭은 이 브라우저에 기억
@@ -10217,6 +10253,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         sampleUsers = (await apiUsersBasic()).filter(x => x.is_active !== false);
       }
     }catch(e){ sampleLoadErr = e.message; sampleRows = []; console.error(e); }
+    if(!sampleLoadErr && typeof homeSampleSet === 'function' && homeSampleCan(window.currentUser)) homeSampleSet(sampleRows.filter(r => r.status === '신청'));
     sampleUpdateMsg();
   }
   function sampleUpdateMsg(){
@@ -10275,7 +10312,12 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sampleFillRequesterSelect(); // 직원 목록을 불러온 뒤에 드롭박스를 채운다
     sampleFillDeptList();
     if(!sampleEditId && !sEl('sample-dept').value) sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value || sampleMe().id);
-    sampleShow(sampleCan('request') ? 'form' : 'list');
+    if(window.__samplePendingOpen && sampleCan('collect')){
+      // 홈의 미확인 알림을 눌러 들어온 경우: 신청 내역에서 미확인 건만 (출고일 지난 건 포함)
+      sEl('sample-f-status').value = 'pending'; sEl('sample-f-range').value = 'all';
+      sampleShow('list');
+    } else sampleShow(sampleCan('request') ? 'form' : 'list');
+    window.__samplePendingOpen = false;
   }
 
   // ── 신청 폼 ──
