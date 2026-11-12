@@ -2324,7 +2324,7 @@
   <li><b>전체 집계</b>: 업체 × 품목 수량(팩)과 합계. 잘못 들어간 줄은 체크해서 <b>선택 항목 삭제</b>합니다.</li>
   <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
   <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다.</li>
-  <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산/물류 탭의 배차·적재 화면과 발주취합 파일·생산 현황판의 비고 칸에 함께 표시됩니다.</li>
+  <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산 / 물류 탭 배차·적재의 <b>비고와 같은 칸</b>이라 어느 쪽에서 고쳐도 똑같이 바뀌고, 발주취합 파일·생산 현황판 비고 칸에 나옵니다. 고치려면 생산 / 물류 전체 권한이 필요합니다. 출고일 지정 업체(쿠팡 등)와 3PL 업체에는 비고 칸이 없습니다.</li>
   <li><b>샘플 신청 줄의 비고</b>: 집계표의 "샘플" 줄을 눌러 펼치면 신청 건마다 비고 칸이 있습니다(오늘 생산분과 재고 사용분은 따로). 적은 내용은 그 날짜 발주취합 파일과 생산 현황판의 샘플 행 비고 칸에 들어갑니다.</li>
   <li><b>🎁 샘플</b>: 발주와 함께 보내는 샘플 수량을 넣거나 고칩니다. 수량 칸 아래에 <b>+샘플</b>로 따로 표시되고 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않고, 생산·적재 수량(합계 줄)과 송품장에는 들어갑니다.</li>
 </ul>
@@ -2425,7 +2425,7 @@
 <tr><td>적재방식</td><td>일회용*2, KPP*3처럼 <b>*숫자</b>를 붙이면 파렛트 수량이 그만큼 계산됩니다. 까대기는 까대기 수량으로 계산됩니다.</td></tr>
 <tr><td>재고사용</td><td>박스 단위. 전일·이틀 전 재고를 쓰는 양입니다. 입력표에 <b>그 업체의 품목별 발주 수량</b>(샘플 동봉 포함)이 함께 나와 비교하며 적을 수 있습니다. 위쪽 남은 재고는 재고 사용 샘플(오늘 나가는, 앞서 만든 샘플)만큼 빼고 보여 줍니다. 품목명은 SKU 품목명 기준입니다.</td></tr>
 <tr><td>출고일</td><td>당일 / 명일. 명일을 고르면 비고에 "명일 출고"가 자동으로 적히고 현황판에 표시됩니다.</td></tr>
-<tr><td>비고</td><td>자유 메모. 집계 / 출고 탭에서 적은 업체 비고와 같은 칸입니다.</td></tr>
+<tr><td>비고</td><td>출고 특이 사항. 집계 / 출고 탭의 업체 비고와 <b>같은 값</b>입니다(한쪽에서 고치면 다른 쪽도 바뀜). 파일·현황판에는 "명일 출고 / 샘플 동봉 문구 / 비고" 순서로 한 칸에 나옵니다. 추가 발주로 나눈 줄은 그 줄만의 비고를 따로 적습니다.</td></tr>
 </table></div>
 <p>3PL 업체는 파일에서 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 여기서 입력하지 않습니다. 기사·적재방식 목록은 <b>기사 · 적재방식 목록 편집</b>에서 고칠 수 있고 모든 직원에게 같은 목록이 보입니다.</p>
 
@@ -5017,10 +5017,33 @@ function mnShow(id, keepScroll) {
     Object.keys(s).forEach(id => { if(!dict.some(d => d.id === id)) parts.push('(삭제된 품목) ' + s[id] + '팩'); });
     return parts.length ? '샘플 ' + parts.join(', ') + ' 포함' : '';
   }
-  // 화면·출력용 비고 = 샘플 자동 문구 + 직접 적은 비고
+  // 업체 비고(하나): 배차·적재 입력('ship-plan-날짜')의 그 업체 줄 note. 예전에 집계표에서 따로 적은 비고가 남아 있으면 합쳐 보여 줌
+  function unitNote(dateKey, company){
+    const r = (((typeof shipPlanCache !== 'undefined' && shipPlanCache[dateKey]) || {}).rows || {})[company] || {};
+    const pn = String(r.note || '').trim(), e = extrasGet(dateKey, company), en = e ? String(e.note || '').trim() : '';
+    if(!en) return pn; if(!pn) return en;
+    if(pn.includes(en)) return pn; if(en.includes(pn)) return en;
+    return en + ' / ' + pn;
+  }
+  const noteCanEdit = () => window.sectionLevel('plan') === 'full';   // 비고는 배차·적재 자료라 생산/물류 전체 권한 기준
+  // 업체 비고 저장 (집계 / 출고 · 배차·적재 어느 쪽에서 고쳐도 같은 값). 예전 집계표 비고는 지움(발주 권한이 있을 때)
+  function unitNoteSet(dateKey, company, v){
+    v = String(v || '').trim();
+    return spCommit(dateKey, company, row => { if(v) row.note = v; else delete row.note; }).then(ok => {
+      if(!ok) return;
+      const e = extrasGet(dateKey, company);
+      if(e && e.note && window.accessLevel('order') === 'full'){ delete e.note; extrasTidy(dateKey, company); saveOrderExtras(); }
+      try{ renderShipPlan(); }catch(err){ console.error(err); }
+      unitNoteSync();
+    });
+  }
+  // 집계표의 비고 칸을 최신 값으로 (입력 중인 칸은 그대로)
+  function unitNoteSync(){
+    document.querySelectorAll('input.agg-note-input[data-co]').forEach(inp => { if(document.activeElement !== inp) inp.value = unitNote(currentDateKey, inp.dataset.co); });
+  }
+  // 화면·출력용 비고 = 샘플 자동 문구 + 업체 비고
   function orderNoteText(dateKey, company){
-    const e = extrasGet(dateKey, company);
-    return [sampleNoteText(dateKey, company), e ? String(e.note || '').trim() : ''].filter(Boolean).join(' / ');
+    return [sampleNoteText(dateKey, company), unitNote(dateKey, company)].filter(Boolean).join(' / ');
   }
   // 실물 기준 수량 = 발주 + 샘플 동봉 (생산·적재·재고·자재 차감용). 샘플이 없으면 발주 자료 그대로 돌려줌. 돌려준 값은 읽기 전용으로만 쓸 것.
   function ordersPhys(dateKey){
@@ -7255,17 +7278,16 @@ function mnShow(id, keepScroll) {
         if(st){ const sd = document.createElement('div'); sd.className = 'agg-sample-tag'; sd.textContent = '🎁 ' + st; nameTd.appendChild(sd); }
         const nb = document.createElement('div');
         nb.className = 'agg-note-box';
-        const ni = document.createElement('input');
-        ni.type = 'text'; ni.className = 'agg-note-input'; ni.placeholder = '비고'; ni.maxLength = 200;
-        ni.value = (extrasGet(currentDateKey, company) || {}).note || '';
-        ni.title = '이 업체 출고 특이 사항 — 배차·적재 화면과 발주취합 파일·현황판의 비고 칸에 함께 표시됩니다';
-        ni.addEventListener('change', ()=>{
-          extrasEnsure(currentDateKey, company).note = ni.value.trim();
-          extrasTidy(currentDateKey, company);
-          saveOrderExtras();
-          try{ renderShipPlan(); }catch(e){ console.error(e); }
-        });
-        nb.appendChild(ni);
+        if(sampleAllowed(company)){
+          const ni = document.createElement('input');
+          ni.type = 'text'; ni.className = 'agg-note-input'; ni.placeholder = '비고'; ni.maxLength = 200;
+          ni.dataset.co = company;
+          ni.value = unitNote(currentDateKey, company);
+          ni.title = '이 업체 출고 특이 사항 — 생산 / 물류 탭 배차·적재의 비고와 같은 칸입니다. 발주취합 파일·현황판 비고 칸에 나옵니다';
+          if(!noteCanEdit()){ ni.readOnly = true; ni.title = '생산 / 물류 권한이 읽기만이라 고칠 수 없습니다'; }
+          ni.addEventListener('change', ()=>{ unitNoteSet(currentDateKey, company, ni.value); });
+          nb.appendChild(ni);
+        }
         if(sampleAllowed(company)){
           const sb = document.createElement('button');
           sb.type = 'button'; sb.className = 'btn-ghost small-btn agg-sample-btn';
@@ -17040,7 +17062,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       }catch(e){
         if(!shipPlanCache[dk]) shipPlanCache[dk] = { rows: {}, error: true };
       }finally{ delete spLoading[dk]; }
-      if(dk === currentDateKey) renderShipPlan();
+      if(dk === currentDateKey){ renderShipPlan(); unitNoteSync(); }
     })();
     return spLoading[dk];
   }
@@ -17748,7 +17770,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const tdName = document.createElement('td');
       tdName.className = 'name-cell';
       tdName.innerHTML = `${escapeHtml(display || name)}<div class="sub" style="margin:0;font-size:10.5px;">${escapeHtml([split ? (isBase ? '첫 발주' : '추가 발주') : '', meta && meta.category, meta && meta.region, total + '박스'].filter(Boolean).join(' · '))}</div>`;
-      { const ont = isBase && name !== '__3pl__' ? orderNoteText(dk, name) : ''; if(ont){ const nd = document.createElement('div'); nd.style.cssText = 'font-size:11px;color:var(--accent);font-weight:700;white-space:normal;max-width:240px;'; nd.textContent = '📝 ' + ont; nd.title = '집계 / 출고 탭에서 적은 비고·샘플 동봉 (발주취합 파일과 현황판의 비고 칸에 함께 들어갑니다)'; tdName.appendChild(nd); } }
+      { const ont = isBase && name !== '__3pl__' ? sampleNoteText(dk, name) : ''; if(ont){ const nd = document.createElement('div'); nd.style.cssText = 'font-size:11px;color:var(--accent);font-weight:700;white-space:normal;max-width:240px;'; nd.textContent = '📝 ' + ont; nd.title = '집계 / 출고 탭에서 적은 비고·샘플 동봉 (발주취합 파일과 현황판의 비고 칸에 함께 들어갑니다)'; tdName.appendChild(nd); } }
       tr.appendChild(tdName);
 
       const mkInput = (list, val, ph, w, field) => {
@@ -17777,7 +17799,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       sel.style.color = r.next ? 'var(--accent)' : '';
       tdNext.appendChild(sel); tr.appendChild(tdNext);
 
-      tr.appendChild(mkInput('', r.note, '예: 직접 픽업', '170px', 'note'));
+      if(isBase && name !== '__3pl__' && sampleAllowed(name)){
+        // 첫 발주 줄의 비고 = 집계 / 출고의 업체 비고 (같은 값)
+        const td = mkInput('', unitNote(dk, name), '예: 직접 픽업', '170px', 'note'), inp = td.querySelector('input');
+        const fresh = inp.cloneNode(true); fresh.value = inp.value; inp.replaceWith(fresh);   // 기본 저장 대신 업체 비고 저장
+        fresh.addEventListener('change', () => unitNoteSet(dk, name, fresh.value));
+        tr.appendChild(td);
+      } else tr.appendChild(mkInput('', r.note, '예: 직접 픽업', '170px', 'note'));
       tr.appendChild(stamp);
       tbody.appendChild(tr);
 
@@ -17856,15 +17884,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     Object.entries((doc && doc.rows) || {}).forEach(([name, r]) => {
       const parts = [];
       dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
-      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('\n'), note: [r.next ? '명일 출고' : '', String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
+      // 첫 발주 줄: 명일 출고 / 샘플 동봉 문구 / 업체 비고(집계 / 출고와 같은 값)
+      const base = !!(ordersByDate[dk] || {})[name] && sampleAllowed(name);
+      out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('\n'), note: [r.next ? '명일 출고' : '', base ? orderNoteText(dk, name) : String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
     });
-    // 집계표에서 적은 업체별 비고와 샘플 동봉 문구를 그 업체(첫 발주) 줄의 비고 앞에 붙임
+    // 배차 입력이 없는 업체도 샘플 동봉 문구·예전 집계표 비고가 있으면 넣음
     Object.keys(orderExtras[dk] || {}).forEach(company => {
-      if(!(ordersByDate[dk] || {})[company] || !sampleAllowed(company)) return;
+      if(out[company] || !(ordersByDate[dk] || {})[company] || !sampleAllowed(company)) return;
       const t = orderNoteText(dk, company);
-      if(!t) return;
-      const cur = out[company] || { driver: '', load: '', stockText: '', note: '', next: false };
-      out[company] = Object.assign({}, cur, { note: [cur.next ? '명일 출고' : '', t, cur.next ? String(cur.note || '').replace(/^명일 출고( \/ )?/, '') : cur.note].filter(Boolean).join(' / ') });
+      if(t) out[company] = { driver: '', load: '', stockText: '', note: t, next: false };
     });
     return out;
   }
