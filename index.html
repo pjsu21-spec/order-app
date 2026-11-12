@@ -3616,12 +3616,60 @@ function mnShow(id, keepScroll) {
   const CARRY_LOOKBACK_DAYS = 10, CARRY_MAX_CHAIN = 12;
   const carryRound = v => Math.round((Number(v) || 0) * 100) / 100;
   const carryIsKey = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
+  // 샘플 신청(생산본부 생산 품목)을 날짜별로 모아 둠 — 자동 이월 계산용 (서버에서 읽어 둔 값, 없으면 샘플 없이 계산)
+  //  byDay[날짜] = { prod: 그날 생산하는 샘플, ship: 그날 출고하는 샘플, use: 그날 출고하는데 앞서 생산해 둔(재고 사용) 샘플 } — 모두 { 품목id: 팩 }
+  let carrySmp = { at: 0, center: '', byDay: {}, loading: false };
+  const carrySmpOf = (day, kind) => ((carrySmp.byDay[day] || {})[kind]) || {};
+  async function carrySmpLoad(){
+    const center = currentDateKey;
+    if(carrySmp.loading || !carryIsKey(center) || typeof sbQuery !== 'function') return false;
+    carrySmp.loading = true;
+    try{
+      const from = new Date(sampleAddDays(center, -45) + 'T00:00:00'), to = new Date(sampleAddDays(center, 9) + 'T00:00:00');
+      const rows = await sbQuery('sample_requests', `?ship_at=gte.${encodeURIComponent(from.toISOString())}&ship_at=lt.${encodeURIComponent(to.toISOString())}&status=neq.${encodeURIComponent('취소')}&select=ship_at,status,production_method,items&limit=2000`);
+      const byDay = {};
+      const add = (day, kind, id, p) => { const d = byDay[day] = byDay[day] || { prod: {}, ship: {}, use: {} }; d[kind][id] = carryRound((d[kind][id] || 0) + p); };
+      (rows || []).forEach(r => {
+        if(r.status === '취소') return;
+        const sd = sampleDayKey(r.ship_at);
+        (r.items || []).forEach(i => {
+          if(sampleItemPm(r, i) !== '생산본부 생산') return;
+          const p = Number(i.packs) || 0; if(!p || !i.skuId) return;
+          const pd = sampleItemProdDay(r, i);
+          add(pd, 'prod', i.skuId, p); add(sd, 'ship', i.skuId, p);
+          if(pd < sd) add(sd, 'use', i.skuId, p);
+        });
+      });
+      const changed = JSON.stringify(byDay) !== JSON.stringify(carrySmp.byDay);
+      carrySmp = { at: Date.now(), center, byDay, loading: false };
+      return changed;
+    }catch(e){ carrySmp.loading = false; console.error(e); return false; }
+  }
+  // 샘플을 다시 읽어 자동 이월을 다시 계산하고, 바뀌었으면 저장·다시 그림
+  async function carrySmpRefresh(){
+    const changed = await carrySmpLoad();
+    if(!changed) return;
+    if(!window.__loadFailed.size && ensureCarryOver(currentDateKey) && canSaveStock()) savePreviousStock();
+    try{ renderAggTable(); renderProductStockEditor(); }catch(e){ console.error(e); }
+  }
+  // 그날 나간 수량: 발주(샘플 동봉 포함) + 그날 출고한 샘플 신청
   function carryShipped(dateKey){
     const out = {};
     Object.entries(ordersPhys(dateKey) || {}).forEach(([c, items]) => {
       if(c === '_meta') return;
       Object.entries(items || {}).forEach(([id, q]) => { if(id !== '_meta') out[id] = (out[id] || 0) + (Number(q) || 0); });
     });
+    Object.entries(carrySmpOf(dateKey, 'ship')).forEach(([id, q]) => { out[id] = (out[id] || 0) + q; });
+    return out;
+  }
+  // 그날 필요한 수량(집계표 합계와 같은 기준): 발주(샘플 동봉 포함) + 그날 생산하는 샘플 + 그날 나가는 재고 사용 샘플
+  function carryNeed(dateKey){
+    const out = {};
+    Object.entries(ordersPhys(dateKey) || {}).forEach(([c, items]) => {
+      if(c === '_meta') return;
+      Object.entries(items || {}).forEach(([id, q]) => { if(id !== '_meta') out[id] = (out[id] || 0) + (Number(q) || 0); });
+    });
+    ['prod', 'use'].forEach(k => Object.entries(carrySmpOf(dateKey, k)).forEach(([id, q]) => { out[id] = (out[id] || 0) + q; }));
     return out;
   }
   function carryHasData(k){
@@ -3652,11 +3700,12 @@ function mnShow(id, keepScroll) {
   function carryFrom(dateKey, depth){
     const pk = carryPrevKey(dateKey);
     if(!pk) return {};
-    const stock = carryEffective(pk, (depth || 0) + 1), made = (previousStock[pk] || {}).made || {}, ship = carryShipped(pk);
+    const stock = carryEffective(pk, (depth || 0) + 1), made = (previousStock[pk] || {}).made || {}, ship = carryShipped(pk), need = carryNeed(pk);
     const out = {};
-    new Set([...Object.keys(stock), ...Object.keys(ship), ...Object.keys(made)]).forEach(id => {
+    new Set([...Object.keys(stock), ...Object.keys(ship), ...Object.keys(made), ...Object.keys(need)]).forEach(id => {
       const s = stock[id] || 0, sh = ship[id] || 0;
-      const m = (made[id] != null && made[id] !== '') ? (Number(made[id]) || 0) : Math.max(0, sh - s);
+      // 생산량을 안 적었으면 생산 필요수량(그날 필요 − 전일 재고)만큼 만든 것으로 봄 — 다음 날 나갈 샘플을 그날 만든 것도 포함
+      const m = (made[id] != null && made[id] !== '') ? (Number(made[id]) || 0) : Math.max(0, (need[id] || 0) - s);
       const v = carryRound(s + m - sh);
       if(v > 0) out[id] = v;
     });
@@ -3894,6 +3943,7 @@ function mnShow(id, keepScroll) {
       deliveryFeeItems.push({ id: cryptoId(), size:'극소', name:'택배비(극소)', code:'', price:'' });
     if(!deliveryFeeItems.find(d=>d.size==='소'))
       deliveryFeeItems.push({ id: cryptoId(), size:'소', name:'택배비(소)', code:'', price:'' });
+    carrySmpRefresh();   // 샘플 신청을 읽어 자동 이월에 반영 (끝나면 다시 계산)
     if(!window.__loadFailed.size && ensureCarryOver(currentDateKey) && canSaveStock()) savePreviousStock();   // 비어 있는 전일 재고는 직전 영업일 기준으로 자동 이월 (불러오기 실패 시에는 하지 않음)
 
     renderDict();
@@ -4132,6 +4182,7 @@ function mnShow(id, keepScroll) {
     saveDeliveryDate();
     currentDateKey = computeCurrentDateKey();
     if(ensureCarryOver(currentDateKey) && canSaveStock()) savePreviousStock();
+    carrySmpRefresh();
     renderAggTable();
     renderThirdPartyAggTable();
     renderThirdPartyLineItems();
@@ -5880,7 +5931,7 @@ function mnShow(id, keepScroll) {
       return;
     }
     const stock = currentPreviousStock();
-    const shipped = carryShipped(currentDateKey);   // 오늘 발주 합계(팩): 생산 필요수량 안내에 사용
+    const shipped = carryNeed(currentDateKey);   // 오늘 필요한 수량(팩, 샘플 포함): 생산 필요수량 안내에 사용
     const hint = document.createElement('div');
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
     hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
@@ -10938,6 +10989,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       }
     }catch(e){ sampleLoadErr = e.message; sampleRows = []; console.error(e); }
     if(!sampleLoadErr && typeof homeSampleSet === 'function' && homeSampleCan(window.currentUser)) homeSampleSet(sampleRows.filter(r => r.status === '신청'));
+    if(!sampleLoadErr) carrySmpRefresh();
     sampleUpdateMsg();
   }
   function sampleUpdateMsg(){
