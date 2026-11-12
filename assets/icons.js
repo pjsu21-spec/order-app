@@ -67,6 +67,7 @@
     film: "<rect x='3' y='9' width='18' height='12' rx='2' fill='#2B2F3A'/><path d='M3 5.6l17-3 .7 3.8-17 3z' fill='url(#r)'/><path d='M7 4.9l2 3.2M11.5 4.1l2 3.2M16 3.3l2 3.2' stroke='#fff' stroke-width='1.3'/><path d='M10 12.5v5l4.5-2.5z' fill='#fff'/>",
     music: "<path d='M9 18V5.5l11-2.5v12.5' fill='none' stroke='" + RS + "' stroke-width='2.2' stroke-linejoin='round'/><circle cx='6.5' cy='18' r='3' fill='url(#r)'/><circle cx='17.5' cy='15.5' r='3' fill='url(#r)'/>",
     pdf: TAG('#D7192B', 'PDF'), ppt: TAG('#F08A24', 'PPT'), zip: TAG('#7D879C', 'ZIP'),
+    cart: "<path d='M1.8 3.5h3l2.4 11.2a1.8 1.8 0 0 0 1.8 1.4h8.8a1.8 1.8 0 0 0 1.7-1.3L21.6 7H6' fill='none' stroke='#D7192B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><path d='M6.4 7h15.2l-2.1 7.4a1.2 1.2 0 0 1-1.1.9H8.6z' fill='url(#r)'/><circle cx='9.5' cy='20' r='1.8' fill='#2B2F3A'/><circle cx='17.5' cy='20' r='1.8' fill='#2B2F3A'/><path d='M10 10.2h7.5' stroke='#fff' stroke-width='1.4' stroke-linecap='round' opacity='.8'/>",
     doc: DOC + "<path d='M7.5 11h9M7.5 14h9M7.5 17h6' stroke='#C9CED8' stroke-width='1.4' stroke-linecap='round'/>"
   };
   var MAP = {
@@ -75,7 +76,7 @@
     '🩺': 'check', '🗓': 'cal', '📅': 'cal', '📝': 'memo', '✏': 'pencil', '✍': 'pencil', '🔑': 'key', '🔒': 'lock', '◀': 'left', '▶': 'right',
     '↗': 'ne', '↔': 'lr', '↕': 'ud', '⤵': 'take', '📊': 'chart', '📈': 'chartUp', '🚚': 'truck', '📥': 'inbox', '📤': 'outbox', '📨': 'mail',
     '⚙': 'gear', '⏱': 'timer', '🧹': 'broom', '🗑': 'trash', '🏭': 'factory', '☎': 'phone', '🔗': 'link', '🎬': 'film', '🎵': 'music',
-    '📕': 'pdf', '📙': 'ppt', '🗜': 'zip', '📄': 'doc'
+    '📕': 'pdf', '📙': 'ppt', '🗜': 'zip', '📄': 'doc', '🛒': 'cart', '🛍': 'cart'
   };
   // 스타일
   var css = '.dd-ico{display:inline-block;width:1.28em;height:1.28em;vertical-align:-0.26em;background:center/contain no-repeat;overflow:hidden;text-indent:200%;white-space:nowrap;line-height:1;font-style:normal;flex:0 0 auto;}' +
