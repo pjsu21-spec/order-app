@@ -562,6 +562,45 @@
   #app.no-sorting-access #sorting-main-card{ display:none !important; }
   #app.no-sorting-access #no-sorting-access-msg{ display:block; }
   /* 사용설명서 — 권한과 무관하게 누구나 열람. 앱 공통 스타일과 섞이지 않게 #panel-manual 안에서만 적용 */
+  /* 생산 / 물류: 오늘 · 주간 계획 전환 */
+  .wp-switch{ display:flex; gap:4px; margin:0 0 10px; border-bottom:1px solid var(--line); }
+  .wp-switch button{ background:none; border:none; border-bottom:3px solid transparent; border-radius:0; padding:8px 14px; font-size:14.5px; font-weight:600; color:var(--muted); margin-bottom:-1px; }
+  .wp-switch button.on{ color:var(--accent); border-bottom-color:var(--accent); }
+  #week-plan-card{ display:none; }
+  #panel-plan.wp-week > .card{ display:none; }
+  #panel-plan.wp-week > #week-plan-card{ display:block; }
+  .wp-sec{ margin:6px 0 16px; }
+  .wp-sec h3{ margin:4px 0 6px; font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .wp-sec .wp-stamp{ font-size:11.5px; font-weight:400; color:var(--muted); }
+  .wp-tbl{ border-collapse:collapse; font-size:12.5px; }
+  .wp-tbl th, .wp-tbl td{ border:1px solid var(--line); padding:3px 5px; white-space:nowrap; text-align:center; }
+  .wp-tbl th{ background:var(--hover); }
+  .wp-tbl td.wp-name{ text-align:left; font-weight:600; }
+  .wp-tbl th.wp-off, .wp-tbl td.wp-off{ background:#eceae6; color:#a8a29e; }
+  .wp-tbl input[type=number]{ width:64px; font-size:12.5px; padding:3px 4px; text-align:right; border:1px solid var(--line); border-radius:4px; }
+  .wp-tbl input[type=number]::placeholder{ color:#b8b2ac; }
+  .wp-tbl td.wp-tot{ font-weight:700; background:#faf7f2; }
+  .wp-tbl tr.wp-raw td{ background:#f3f7ee; font-size:12px; }
+  .wp-tbl tr.wp-raw td.wp-name{ color:#3f6212; }
+  .wp-tbl .wp-dlabel{ display:block; font-size:10.5px; font-weight:400; color:var(--muted); }
+  .wp-tbl label.wp-offl{ display:inline-flex; align-items:center; gap:2px; font-size:10.5px; font-weight:400; color:var(--muted); cursor:pointer; }
+  .wp-add{ display:flex; gap:6px; align-items:center; margin-top:6px; }
+  .wp-add select{ max-width:280px; }
+  .wp-note{ font-size:11.5px; color:#b45309; margin-top:4px; }
+  /* 현황판식 정리 */
+  #wp-board{ margin-top:14px; }
+  .wpb{ background:#111827; color:#f9fafb; border-radius:12px; padding:14px 16px; overflow-x:auto; }
+  .wpb h4{ margin:0 0 10px; font-size:18px; color:#fde68a; }
+  .wpb table{ border-collapse:collapse; width:100%; min-width:720px; font-size:17px; }
+  .wpb th, .wpb td{ border:1px solid #374151; padding:6px 8px; text-align:center; }
+  .wpb th{ background:#1f2937; color:#e5e7eb; font-size:15px; }
+  .wpb td.n{ text-align:left; font-weight:700; color:#fff; }
+  .wpb td .p{ font-size:20px; font-weight:800; color:#fff; }
+  .wpb td .s{ display:block; font-size:12px; color:#9ca3af; }
+  .wpb .off{ background:#374151; color:#9ca3af; }
+  .wpb tr.tot td{ background:#1e3a8a; font-weight:800; }
+  .wpb tr.raw td{ background:#14532d; }
+  .wpb .lg{ font-size:12px; color:#9ca3af; margin-top:8px; }
   #panel-manual .mn-wrap{ max-width:860px; margin:0 auto; font-size:15px; line-height:1.75; padding-bottom:40px; }
   #panel-manual .mn-intro{ margin:6px 0 0; color:var(--muted); }
   #panel-manual .mn-tabs{ position:sticky; top:var(--mn-top, 50px); z-index:30; background:var(--paper); border-bottom:1px solid var(--line); display:flex; gap:4px; overflow-x:auto; padding:8px 0 0; margin:6px 0 20px; }
@@ -1198,6 +1237,29 @@
 
   <!-- ───────────── 패널: 생산 / 물류 ───────────── -->
   <div id="panel-plan" class="order-sub-panel">
+  <div class="wp-switch" id="wp-switch" role="tablist" aria-label="생산 / 물류 보기">
+    <button type="button" data-wp="today" class="on">📋 오늘</button>
+    <button type="button" data-wp="week">🗓 주간 계획</button>
+  </div>
+  <div class="card" id="week-plan-card">
+    <h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">주간 계획 <span class="badge" id="wp-range"></span></h2>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
+      <b>주간 영업계획</b>은 영업이 이번 주 품목별·요일별 판매 예정 수량을, <b>주간 생산계획</b>은 생산이 그에 맞춘 생산 수량을 적는 표입니다. 품목은 SKU 관리 기준이며 <b>추가한 품목만</b> 표에 나옵니다.
+      요일 머리글의 <b>휴무</b>를 체크하면 그날 칸이 잠기고 합계에서 빠집니다(기본 휴무: 토요일). <b>원물 예상 투입량</b>은 단가 확인(원가) 화면의 SKU 구성에 적힌 "원물 사용량(kg/박스)"으로 계산합니다.
+      칸을 고치면 바로 저장되며, 아래에 현황판처럼 정리해서 보여 줍니다. 영업계획은 발주자동화 권한, 생산계획은 생산/물류 권한이 있어야 고칠 수 있습니다.
+    </div></details>
+    <div class="row" style="margin:0 0 8px;align-items:center;">
+      <button type="button" class="btn-ghost small-btn" id="wp-prev">◀ 이전 주</button>
+      <button type="button" class="btn-ghost small-btn" id="wp-this">이번 주</button>
+      <button type="button" class="btn-ghost small-btn" id="wp-next">다음 주 ▶</button>
+      <button type="button" class="btn-ghost small-btn" id="wp-reload" title="다른 직원이 입력한 최신 내용을 다시 불러옵니다">🔄 새로고침</button>
+      <button type="button" class="btn-primary small-btn" id="wp-excel">엑셀 내려받기</button>
+      <span class="sub" id="wp-msg" style="margin:0;"></span>
+    </div>
+    <div class="wp-sec" id="wp-sec-sales"></div>
+    <div class="wp-sec" id="wp-sec-prod"></div>
+    <div id="wp-board"></div>
+  </div>
   <div class="card" id="stock-card">
     <details id="stock-fold">
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">전일 재고 / 원물사용량 입력 <span class="badge">원물 · 제품 별도 관리</span></summary>
@@ -2311,6 +2373,16 @@
 <section class="mn-pane" id="mn-p-plan">
 <h2>생산 / 물류 탭</h2>
 <p class="mn-lead">발주취합 → <b>생산 / 물류</b> 탭입니다. 여기서 입력한 내용은 <b>생산 현황판</b>과 발주취합 파일에 그대로 나옵니다. <b>칸을 고칠 때마다 바로 저장</b>되니 저장 버튼은 없습니다.</p>
+
+<h3>주간 계획 (영업계획 · 생산계획)</h3>
+<p>탭 맨 위 <span class="mn-b">🗓 주간 계획</span>을 누르면 한 주(월~일) 표가 나옵니다. <b>주간 영업계획</b>은 영업(발주자동화 권한)이, <b>주간 생산계획</b>은 생산(생산/물류 권한)이 적습니다.</p>
+<ul>
+  <li>품목은 SKU 관리 기준으로 <span class="mn-b">+ 품목 추가</span>한 것만 나옵니다. 수량은 박스(박스입수가 없으면 팩) 단위이고, 고치면 바로 저장됩니다.</li>
+  <li>요일 머리글의 <b>휴무</b>를 체크하면 그날이 잠기고 합계에서 빠집니다(기본 휴무: 토요일).</li>
+  <li>생산계획 칸의 회색 숫자는 같은 날 영업계획 수량입니다. <span class="mn-b">⤵ 영업계획 그대로 가져오기</span>로 한 번에 옮긴 뒤 고칠 수 있습니다.</li>
+  <li><b>원물 예상 투입량(kg)</b>은 단가 확인 화면 SKU 구성의 원물 사용량(kg/박스)으로 계산합니다.</li>
+  <li>표 아래에 현황판처럼 크게 정리해 보여 주고(큰 숫자 = 생산, 작은 글자 = 영업), <span class="mn-b">엑셀 내려받기</span>로 영업·생산 2장짜리 엑셀을 받습니다. 이전 주·다음 주로 옮겨 볼 수 있습니다.</li>
+</ul>
 
 <h3>전일 재고 / 원물사용량 입력</h3>
 <p>생산 / 물류 탭 맨 위의 접힌 칸입니다. 전일 재고를 넣어 두면 <b>집계 / 출고</b> 탭의 집계표에서 오늘 만들어야 할 수량을, 아래 배차·적재·재고사용에서 업체별 재고 사용과 남은 재고를 바로 볼 수 있습니다. 비워 두면 직전 영업일 기준으로 자동 계산됩니다. 저장하려면 <b>생산 / 물류 전체 권한</b>이 필요합니다.</p>
@@ -17314,6 +17386,223 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       btn.classList.toggle('sp-has', !!t);
     });
   }
+
+  // ══════════ 주간 계획 (영업계획 · 생산계획) ══════════
+  //  저장: 영업 = kv 'sales-plan-week-<그 주 월요일>' (발주자동화 권한), 생산 = kv 'prod-plan-week-<월요일>' (생산/물류 권한)
+  //  자료 = { items:[품목id…], qty:{ 품목id:{ 0~6(월~일): 박스(박스입수 없으면 팩) } }, off:[월~일 휴무 7칸], by, at }
+  const WP_DOW = ['월', '화', '수', '목', '금', '토', '일'];
+  const WP_KINDS = [{ k: 'sales', title: '주간 영업계획', key: 'sales-plan-week-', can: () => window.accessLevel('order') === 'full' }, { k: 'prod', title: '주간 생산계획', key: 'prod-plan-week-', can: () => window.sectionLevel('plan') === 'full' }];
+  let wpMonday = '', wpData = { sales: null, prod: null }, wpCost = null, wpLoaded = '', wpTimers = {};
+  const wpEmpty = () => ({ items: [], qty: {}, off: [false, false, false, false, false, true, false] });
+  function wpMondayOf(k){ const d = parseDateKey(k) || new Date(); const off = (d.getDay() + 6) % 7; const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - off); return `${m.getFullYear()}-${pad2(m.getMonth() + 1)}-${pad2(m.getDate())}`; }
+  const wpDay = i => sampleAddDays(wpMonday, i);
+  const wpUnit = d => (Number(d && d.boxUnitCount) || 0) > 0 ? '박스' : '팩';
+  const wpR = v => Math.round((Number(v) || 0) * 100) / 100;
+  function wpNorm(v){ const o = Object.assign(wpEmpty(), v || {}); if(!Array.isArray(o.off) || o.off.length !== 7) o.off = wpEmpty().off; o.items = (o.items || []).filter(id => dict.some(d => d.id === id)); return o; }
+  async function wpLoad(force){
+    if(!wpMonday) wpMonday = wpMondayOf(currentDateKey);
+    if(!force && wpLoaded === wpMonday) return;
+    const mk = wpMonday;
+    for(const K of WP_KINDS){
+      try{ const r = await window.storage.get(K.key + mk, true); wpData[K.k] = wpNorm(r ? JSON.parse(r.value) : null); }
+      catch(e){ wpData[K.k] = wpNorm(null); wpData[K.k]._err = true; }
+    }
+    if(!wpCost){ try{ const c = await window.storage.get('cost-config', true); wpCost = c ? JSON.parse(c.value) : {}; }catch(e){ wpCost = {}; } }
+    wpLoaded = mk;
+  }
+  function wpSave(kind){
+    const K = WP_KINDS.find(x => x.k === kind), d = wpData[kind];
+    if(!K || !d || !K.can()) return;
+    d.by = getStaffName(); d.at = new Date().toISOString();
+    clearTimeout(wpTimers[kind]);
+    const mk = wpMonday, payload = JSON.stringify({ items: d.items, qty: d.qty, off: d.off, by: d.by, at: d.at });
+    wpTimers[kind] = setTimeout(async () => {
+      try{ await window.storage.set(K.key + mk, payload, true); const st = document.querySelector(`#wp-sec-${kind} .wp-stamp`); if(st) st.textContent = wpStamp(d); }
+      catch(e){ console.error(e); toast(K.title + '을 저장하지 못했습니다'); }
+    }, 600);
+  }
+  const wpStamp = d => d && d.at ? `저장됨 ${new Date(d.at).getMonth() + 1}/${new Date(d.at).getDate()} ${spHM(d.at)}${d.by ? ' · ' + d.by : ''}` : '아직 입력 없음';
+  // 원물 예상 투입량(kg): 박스 수 × 원가 화면 SKU 구성의 원물 사용량(kg/박스) → 원물 종류별 · 요일별
+  function wpRaw(d){
+    const out = {}, miss = [];
+    const skus = (wpCost && wpCost.skus) || {}, raws = (wpCost && wpCost.rawMaterials) || [];
+    d.items.forEach(id => {
+      const item = dict.find(x => x.id === id); if(!item) return;
+      const cfg = skus[id], kg = cfg ? Number(cfg.rawKgPerBox) || 0 : 0;
+      const any = [0, 1, 2, 3, 4, 5, 6].some(i => !d.off[i] && Number((d.qty[id] || {})[i]) > 0);
+      if(!cfg || !cfg.rawId || kg <= 0){ if(any) miss.push(item.shortName || item.name); return; }
+      const rn = (raws.find(r => r.id === cfg.rawId) || {}).name || '원물';
+      const unitBox = (Number(item.boxUnitCount) || 0) > 0;
+      for(let i = 0; i < 7; i++){
+        if(d.off[i]) continue;
+        const q = Number((d.qty[id] || {})[i]) || 0; if(!q) continue;
+        const boxes = unitBox ? q : q / (Number(item.boxUnitCount) || 1);
+        (out[rn] = out[rn] || [0, 0, 0, 0, 0, 0, 0])[i] += boxes * kg;
+      }
+    });
+    return { byRaw: out, miss };
+  }
+  function wpRenderSec(kind){
+    const K = WP_KINDS.find(x => x.k === kind), d = wpData[kind];
+    const wrap = document.getElementById('wp-sec-' + kind);
+    if(!wrap || !d) return;
+    const can = K.can();
+    const ref = kind === 'prod' ? wpData.sales : null;   // 생산계획 칸의 회색 글자 = 같은 날 영업계획 수량
+    wrap.innerHTML = '';
+    const h = document.createElement('h3');
+    h.innerHTML = `${K.title} <span class="wp-stamp">${escapeHtml(wpStamp(d))}</span>${can ? '' : ' <span class="wp-stamp">(보기만)</span>'}`;
+    if(kind === 'prod' && can){
+      const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'btn-ghost small-btn'; cp.id = 'wp-copy-sales'; cp.textContent = '⤵ 영업계획 그대로 가져오기';
+      cp.title = '영업계획의 품목·수량·휴무를 생산계획에 복사합니다 (생산계획에 이미 적은 칸은 덮어씀)';
+      cp.addEventListener('click', () => { if(d.items.length && !confirm('생산계획을 영업계획 내용으로 바꿀까요? (지금 생산계획에 적은 수량은 바뀝니다)')) return; d.items = wpData.sales.items.slice(); d.qty = JSON.parse(JSON.stringify(wpData.sales.qty)); d.off = wpData.sales.off.slice(); wpSave('prod'); wpRender(); });
+      h.appendChild(cp);
+    }
+    wrap.appendChild(h);
+    if(d._err){ const w = document.createElement('div'); w.className = 'wp-note'; w.textContent = '⚠ 저장된 내용을 불러오지 못했습니다. 새로고침 후 다시 해 주세요 (지금은 저장되지 않습니다)'; wrap.appendChild(w); }
+    const t = document.createElement('table'); t.className = 'wp-tbl';
+    let hh = '<thead><tr><th>품목</th>';
+    for(let i = 0; i < 7; i++){
+      const day = wpDay(i);
+      hh += `<th class="${d.off[i] ? 'wp-off' : ''}">${WP_DOW[i]}<span class="wp-dlabel">${Number(day.slice(5, 7))}/${Number(day.slice(8))}</span><label class="wp-offl"><input type="checkbox" class="wp-off-cb" data-i="${i}" ${d.off[i] ? 'checked' : ''} ${can && !d._err ? '' : 'disabled'}>휴무</label></th>`;
+    }
+    hh += '<th>합계</th><th></th></tr></thead>';
+    t.innerHTML = hh;
+    const tb = document.createElement('tbody');
+    d.items.forEach(id => {
+      const item = dict.find(x => x.id === id); if(!item) return;
+      const tr = document.createElement('tr'); tr.dataset.item = id;
+      const nm = document.createElement('td'); nm.className = 'wp-name'; nm.innerHTML = `${escapeHtml(item.name)} <span class="wp-dlabel" style="display:inline;">(${wpUnit(item)})</span>`; tr.appendChild(nm);
+      let tot = 0;
+      for(let i = 0; i < 7; i++){
+        const td = document.createElement('td'); if(d.off[i]) td.className = 'wp-off';
+        const v = (d.qty[id] || {})[i];
+        if(!d.off[i] && Number(v) > 0) tot += Number(v);
+        const inp = document.createElement('input'); inp.type = 'number'; inp.min = '0'; inp.step = 'any'; inp.className = 'wp-in'; inp.dataset.i = i;
+        inp.value = v != null && v !== '' ? v : '';
+        const rv = ref && ((ref.qty[id] || {})[i]); if(ref && Number(rv) > 0 && !ref.off[i]) { inp.placeholder = String(rv); inp.title = `영업계획 ${rv}${wpUnit(item)}`; }
+        inp.disabled = !can || d.off[i] || !!d._err;
+        inp.addEventListener('change', () => {
+          const n = parseFloat(inp.value); const q = d.qty[id] = d.qty[id] || {};
+          if(isNaN(n) || inp.value.trim() === '' || n <= 0) delete q[i]; else q[i] = wpR(n);
+          wpSave(kind); wpRenderTotals(kind); wpRenderBoard();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      }
+      const tt = document.createElement('td'); tt.className = 'wp-tot'; tt.textContent = wpR(tot) || ''; tr.appendChild(tt);
+      const dt = document.createElement('td');
+      if(can && !d._err){ const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '빼기'; del.title = '이 품목을 표에서 뺍니다';
+        del.addEventListener('click', () => { d.items = d.items.filter(x => x !== id); delete d.qty[id]; wpSave(kind); wpRender(); }); dt.appendChild(del); }
+      tr.appendChild(dt);
+      tb.appendChild(tr);
+    });
+    // 원물 예상 투입량
+    const raw = wpRaw(d);
+    Object.entries(raw.byRaw).forEach(([rn, arr]) => {
+      const tr = document.createElement('tr'); tr.className = 'wp-raw';
+      tr.innerHTML = `<td class="wp-name">원물 ${escapeHtml(rn)} (kg)</td>` + arr.map((v, i) => `<td class="${d.off[i] ? 'wp-off' : ''}">${v ? wpR(v).toLocaleString() : ''}</td>`).join('') + `<td class="wp-tot">${wpR(arr.reduce((a, b) => a + b, 0)).toLocaleString()}</td><td></td>`;
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    const tw = document.createElement('div'); tw.style.overflowX = 'auto'; tw.appendChild(t); wrap.appendChild(tw);
+    if(!d.items.length){ const e = document.createElement('div'); e.className = 'sub'; e.style.margin = '4px 0 0'; e.textContent = can ? '아래에서 품목을 골라 추가하세요.' : '아직 입력된 품목이 없습니다.'; wrap.appendChild(e); }
+    if(raw.miss.length){ const n = document.createElement('div'); n.className = 'wp-note'; n.textContent = `원물 사용량(kg/박스)이 없어 원물 투입량에서 빠진 품목: ${raw.miss.join(', ')} — 단가 확인 화면의 SKU 구성에서 원물·사용량을 넣으면 계산됩니다`; wrap.appendChild(n); }
+    if(can && !d._err){
+      const add = document.createElement('div'); add.className = 'wp-add';
+      const sel = document.createElement('select'); sel.className = 'wp-add-sel';
+      sel.innerHTML = '<option value="">(품목 선택 — SKU 관리 기준)</option>' + dict.filter(x => !d.items.includes(x.id)).map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('');
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost small-btn wp-add-btn'; b.textContent = '+ 품목 추가';
+      b.addEventListener('click', () => { if(!sel.value){ toast('품목을 골라 주세요'); return; } d.items.push(sel.value); wpSave(kind); wpRender(); });
+      add.append(sel, b); wrap.appendChild(add);
+    }
+    wrap.querySelectorAll('.wp-off-cb').forEach(cb => cb.addEventListener('change', () => { d.off[Number(cb.dataset.i)] = cb.checked; wpSave(kind); wpRender(); }));
+  }
+  // 합계 칸만 다시 계산 (입력 중 표를 다시 그리지 않음)
+  function wpRenderTotals(kind){
+    const d = wpData[kind], wrap = document.getElementById('wp-sec-' + kind); if(!d || !wrap) return;
+    wrap.querySelectorAll('tbody tr[data-item]').forEach(tr => { const id = tr.dataset.item; let tot = 0; for(let i = 0; i < 7; i++) if(!d.off[i]) tot += Number((d.qty[id] || {})[i]) || 0; tr.querySelector('.wp-tot').textContent = wpR(tot) || ''; });
+    const raw = wpRaw(d);
+    const rows = [...wrap.querySelectorAll('tbody tr.wp-raw')];
+    const names = Object.keys(raw.byRaw);
+    if(rows.length !== names.length){ wpRenderSec(kind); return; }
+    rows.forEach((tr, k) => { const arr = raw.byRaw[names[k]]; arr.forEach((v, i) => { tr.children[i + 1].textContent = v ? wpR(v).toLocaleString() : ''; }); tr.children[8].textContent = wpR(arr.reduce((a, b) => a + b, 0)).toLocaleString(); });
+  }
+  // 현황판식 정리: 품목 × 요일, 칸마다 생산 수량(크게) + 영업 수량(작게), 휴무 회색, 합계·원물 kg
+  function wpRenderBoard(){
+    const el = document.getElementById('wp-board'); if(!el) return;
+    const S = wpData.sales || wpEmpty(), P = wpData.prod || wpEmpty();
+    const ids = [...new Set([...P.items, ...S.items])].filter(id => dict.some(x => x.id === id));
+    if(!ids.length){ el.innerHTML = ''; return; }
+    const off = i => P.items.length ? P.off[i] : S.off[i];
+    const q = (d, id, i) => d.off[i] ? 0 : Number((d.qty[id] || {})[i]) || 0;
+    let h = `<div class="wpb" id="wp-board-inner"><h4>🗓 ${Number(wpMonday.slice(5, 7))}/${Number(wpMonday.slice(8))} 주간 계획 — 생산 (영업)</h4><table><thead><tr><th>품목</th>`;
+    for(let i = 0; i < 7; i++){ const day = wpDay(i); h += `<th class="${off(i) ? 'off' : ''}">${WP_DOW[i]} ${Number(day.slice(5, 7))}/${Number(day.slice(8))}${off(i) ? '<br>휴무' : ''}</th>`; }
+    h += '<th>합계</th></tr></thead><tbody>';
+    const tp = [0, 0, 0, 0, 0, 0, 0], ts = [0, 0, 0, 0, 0, 0, 0];
+    ids.forEach(id => {
+      const item = dict.find(x => x.id === id);
+      let rp = 0, rs = 0;
+      h += `<tr><td class="n">${escapeHtml(item.name)}</td>`;
+      for(let i = 0; i < 7; i++){
+        const p = q(P, id, i), sv = q(S, id, i);
+        rp += p; rs += sv; tp[i] += p; ts[i] += sv;
+        h += `<td class="${off(i) ? 'off' : ''}">${p ? `<span class="p">${wpR(p)}</span>` : ''}${sv ? `<span class="s">영업 ${wpR(sv)}</span>` : ''}</td>`;
+      }
+      h += `<td>${rp ? `<span class="p">${wpR(rp)}</span>` : ''}${rs ? `<span class="s">영업 ${wpR(rs)}</span>` : ''}</td></tr>`;
+    });
+    h += '<tr class="tot"><td class="n">합계</td>' + tp.map((v, i) => `<td class="${off(i) ? 'off' : ''}">${v ? wpR(v) : ''}${ts[i] ? `<span class="s">영업 ${wpR(ts[i])}</span>` : ''}</td>`).join('') + `<td>${wpR(tp.reduce((a, b) => a + b, 0)) || ''}<span class="s">영업 ${wpR(ts.reduce((a, b) => a + b, 0))}</span></td></tr>`;
+    const raw = wpRaw(P.items.length ? P : S);
+    Object.entries(raw.byRaw).forEach(([rn, arr]) => { h += `<tr class="raw"><td class="n">원물 ${escapeHtml(rn)} (kg)</td>` + arr.map((v, i) => `<td class="${off(i) ? 'off' : ''}">${v ? wpR(v).toLocaleString() : ''}</td>`).join('') + `<td>${wpR(arr.reduce((a, b) => a + b, 0)).toLocaleString()}</td></tr>`; });
+    h += `</tbody></table><div class="lg">큰 숫자 = 생산계획, 작은 글자 = 영업계획 (박스, 박스입수 없는 품목은 팩) · 원물 kg은 ${P.items.length ? '생산' : '영업'}계획 기준 · 휴무는 회색</div></div>`;
+    el.innerHTML = h;
+  }
+  function wpRender(){
+    const r = document.getElementById('wp-range');
+    if(r) r.textContent = wpMonday ? `${Number(wpMonday.slice(5, 7))}/${Number(wpMonday.slice(8))}(월) ~ ${Number(wpDay(6).slice(5, 7))}/${Number(wpDay(6).slice(8))}(일)` : '';
+    WP_KINDS.forEach(K => wpRenderSec(K.k));
+    wpRenderBoard();
+  }
+  async function wpOpen(force){
+    if(!wpMonday) wpMonday = wpMondayOf(currentDateKey);
+    const msg = document.getElementById('wp-msg'); if(msg) msg.textContent = '불러오는 중…';
+    await wpLoad(force);
+    if(msg) msg.textContent = '';
+    wpRender();
+  }
+  function wpGo(monday){ Object.keys(wpTimers).forEach(k => clearTimeout(wpTimers[k])); wpMonday = monday; wpLoaded = ''; wpOpen(true); }
+  function wpExcel(){
+    const wb = XLSX.utils.book_new();
+    WP_KINDS.forEach(K => {
+      const d = wpData[K.k] || wpEmpty();
+      const head = ['품목', '단위', ...WP_DOW.map((w, i) => `${w} ${Number(wpDay(i).slice(5, 7))}/${Number(wpDay(i).slice(8))}${d.off[i] ? ' (휴무)' : ''}`), '합계'];
+      const rows = d.items.map(id => { const item = dict.find(x => x.id === id); if(!item) return null; const vals = WP_DOW.map((w, i) => d.off[i] ? '휴무' : (Number((d.qty[id] || {})[i]) || '')); return [item.name, wpUnit(item), ...vals, wpR(vals.reduce((a, v) => a + (Number(v) || 0), 0))]; }).filter(Boolean);
+      const raw = wpRaw(d);
+      const rawRows = Object.entries(raw.byRaw).map(([rn, arr]) => [`원물 ${rn}`, 'kg', ...arr.map((v, i) => d.off[i] ? '휴무' : (v ? wpR(v) : '')), wpR(arr.reduce((a, b) => a + b, 0))]);
+      const aoa = [[`${K.title} ${wpMonday} ~ ${wpDay(6)}`], head, ...rows, ...(rawRows.length ? [[], ['원물 예상 투입량'], ...rawRows] : [])];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{ wch: 26 }, { wch: 6 }, ...WP_DOW.map(() => ({ wch: 11 })), { wch: 9 }];
+      XLSX.utils.book_append_sheet(wb, ws, K.title.replace('주간 ', ''));
+    });
+    XLSX.writeFile(wb, `주간계획_${wpMonday.replace(/-/g, '')}.xlsx`);
+  }
+  (function wireWeekPlan(){
+    const panel = document.getElementById('panel-plan'), sw = document.getElementById('wp-switch');
+    if(!panel || !sw) return;
+    const setMode = mode => {
+      panel.classList.toggle('wp-week', mode === 'week');
+      sw.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.wp === mode));
+      try{ localStorage.setItem('wp-mode', mode); }catch(e){}
+      if(mode === 'week') wpOpen(false);
+    };
+    sw.addEventListener('click', e => { const b = e.target.closest('button[data-wp]'); if(b) setMode(b.dataset.wp); });
+    document.getElementById('wp-prev').addEventListener('click', () => wpGo(sampleAddDays(wpMonday || wpMondayOf(currentDateKey), -7)));
+    document.getElementById('wp-next').addEventListener('click', () => wpGo(sampleAddDays(wpMonday || wpMondayOf(currentDateKey), 7)));
+    document.getElementById('wp-this').addEventListener('click', () => wpGo(wpMondayOf(currentDateKey)));
+    document.getElementById('wp-reload').addEventListener('click', () => { wpLoaded = ''; wpOpen(true).then(() => toast('최신 내용을 불러왔습니다')); });
+    document.getElementById('wp-excel').addEventListener('click', wpExcel);
+    let saved = 'today'; try{ saved = localStorage.getItem('wp-mode') || 'today'; }catch(e){}
+    if(saved === 'week') setTimeout(() => setMode('week'), 0);
+    window.__wp = { setMode };
+  })();
 
   function renderShipPlan(){
     try{ renderProdPlan(); }catch(e){ console.error(e); }   // 같은 탭의 생산 순서·생산 순서 지시 요청
