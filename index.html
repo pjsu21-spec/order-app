@@ -91,11 +91,87 @@
   details.help > .sub{ margin-top:6px; }
   @media (max-width: 640px){
     .topbar{ flex-wrap:wrap; padding:6px 12px; row-gap:4px; }
-    .topbar-title{ flex:1 1 100%; font-size:14px; }
-    .topbar-user{ flex:1 1 100%; justify-content:space-between; gap:6px; }
+    .topbar-brand{ flex:1 1 100%; }
+    .topbar-user{ flex:1 1 100%; justify-content:flex-end; gap:6px; }
     .topbar-user button{ padding:3px 9px; font-size:11px; }
-    #user-badge{ margin-right:auto; font-size:12px; overflow:hidden; text-overflow:ellipsis; }
+    #user-badge{ font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .hide-mobile{ display:none; }
+  }
+  /* ── 브랜드 디자인 (빨간 머리글 · 로고 · 3D 아이콘 타일) ── */
+  html, body{ background:#fdf3ec; }
+  body{ background:linear-gradient(180deg, #fcefe4 0, #fef6f1 520px) #fef6f1; }
+  .topbar{ position:relative; background:linear-gradient(100deg, #c50f2c 0%, #e01f2e 55%, #ec3437 100%); padding:14px 22px; border-radius:22px; box-shadow:0 10px 26px rgba(197,15,44,.22); gap:14px; margin-bottom:10px; }
+  .topbar-brand{ display:flex; align-items:center; gap:16px; min-width:0; position:relative; z-index:1; }
+  .topbar-logo{ height:54px; width:auto; display:block; flex:0 0 auto; }
+  .topbar-sep{ width:1px; align-self:stretch; min-height:34px; background:rgba(255,255,255,.5); flex:0 0 auto; }
+  .topbar-tt{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .topbar-title{ font-size:18px; font-weight:700; letter-spacing:-0.01em; }
+  #user-badge{ font-size:13.5px; opacity:.92; }
+  .topbar-user{ position:relative; z-index:1; }
+  .topbar-user button{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.38); padding:8px 18px; border-radius:999px; font-size:13px; font-weight:600; }
+  .topbar-user button:hover{ background:rgba(255,255,255,.28); }
+  .topbar-fruit{ position:absolute; right:150px; bottom:100%; height:64px; width:auto; pointer-events:none; -webkit-mask-image:radial-gradient(ellipse 52% 115% at 50% 100%, #000 72%, transparent 100%); mask-image:radial-gradient(ellipse 52% 115% at 50% 100%, #000 72%, transparent 100%); }
+  #app.in-program .topbar-fruit{ display:none; }
+  #app.in-program .topbar{ padding:8px 16px; border-radius:14px; box-shadow:0 4px 14px rgba(197,15,44,.16); }
+  #app.in-program .topbar-logo{ height:30px; }
+  #app.in-program .topbar-title{ font-size:15px; }
+  #app.in-program #user-badge{ font-size:12px; }
+  #app.in-program .topbar-user button{ padding:5px 13px; font-size:12px; }
+  #app:not(.in-program){ background:transparent; max-width:1220px; padding-top:70px; }
+  #home-hello{ font-size:25px; color:#3a3134; margin:22px 6px 20px; font-weight:500; letter-spacing:-0.02em; }
+  #home-hello b{ color:#d0172f; font-weight:800; }
+  #home-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; }
+  .home-tile{ flex-direction:row; align-items:center; gap:16px; min-height:150px; padding:10px 20px 10px 12px; border:1px solid #f3dcd6; border-radius:22px; background:#fff; box-shadow:0 6px 18px rgba(200,40,60,.07); }
+  .home-tile:hover{ border-color:#f0b4b4; box-shadow:0 12px 28px rgba(200,40,60,.14); transform:translateY(-2px); }
+  .home-tile .ic{ flex:0 0 150px; width:150px; height:133px; display:flex; align-items:center; justify-content:center; font-size:56px; }
+  .home-tile .ic img{ width:150px; height:133px; object-fit:contain; display:block; -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 80%, transparent 100%); mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 80%, transparent 100%); }
+  .home-tile .tx{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:7px; }
+  .home-tile .nm{ font-size:27px; font-weight:800; color:#1f1a1c; letter-spacing:-0.03em; }
+  .home-tile .ds{ font-size:15px; color:#6b5f60; line-height:1.45; }
+  .home-tile .ext{ font-size:13px; color:#8c7f80; }
+  .home-tile .go{ flex:0 0 44px; width:44px; height:44px; border-radius:50%; background:#fde3e3; display:flex; align-items:center; justify-content:center; stroke:#d0172f; transition:background .15s; }
+  .home-tile:hover .go{ background:#fbcaca; }
+  .home-tile.editing{ flex-wrap:wrap; }
+  .home-tile.editing .go{ display:none; }
+  .home-tile .home-badge{ top:12px; right:14px; }
+  .home-deco{ position:relative; height:150px; margin:26px -24px -24px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 160' preserveAspectRatio='none'%3E%3Cpath d='M0 70 C 260 10 520 120 820 70 S 1100 20 1200 40 L1200 160 L0 160Z' fill='%23fde2dc'/%3E%3Cpath d='M0 110 C 300 60 640 150 900 100 S 1120 70 1200 85 L1200 160 L0 160Z' fill='%23f9c3bc' fill-opacity='.75'/%3E%3C/svg%3E") bottom / 100% 100% no-repeat; border-radius:0 0 12px 12px; overflow:hidden; }
+  .home-deco img{ position:absolute; right:34px; bottom:10px; height:104px; opacity:.13; }
+  #program-title{ display:inline-flex; align-items:center; gap:8px; }
+  #program-title img{ width:34px; height:30px; object-fit:contain; -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 75%, transparent 100%); mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 75%, transparent 100%); }
+  @media (max-width: 900px){
+    .home-tile{ min-height:120px; gap:10px; padding:8px 14px 8px 8px; }
+    .home-tile .ic{ flex-basis:112px; width:112px; height:100px; }
+    .home-tile .ic img{ width:112px; height:100px; }
+    .home-tile .nm{ font-size:21px; }
+    .home-tile .ds{ font-size:13.5px; }
+    .home-tile .go{ flex-basis:36px; width:36px; height:36px; }
+    .topbar-fruit{ right:110px; height:52px; }
+  }
+  @media (max-width: 700px){
+    #home-grid{ grid-template-columns:1fr; gap:10px; }
+    #home-hello{ font-size:19px; margin:12px 4px 12px; }
+    .home-tile{ min-height:96px; border-radius:18px; }
+    .home-tile .ic{ flex-basis:96px; width:96px; height:84px; }
+    .home-tile .ic img{ width:96px; height:84px; }
+    .home-tile .nm{ font-size:19px; }
+    .home-tile .ds{ font-size:13px; }
+    .topbar{ padding:10px 14px; border-radius:16px; }
+    .topbar-logo{ height:32px; }
+    .topbar-sep{ display:none; }
+    .topbar-title{ font-size:14px; }
+    .topbar-fruit{ right:12px; height:40px; }
+    #app:not(.in-program){ padding-top:46px; }
+    .home-deco{ height:110px; margin:18px -12px -12px; }
+    .home-deco img{ height:70px; right:16px; }
+  }
+  /* 로그인 화면: 홈페이지 대문 이미지 */
+  #login-screen{ background:#f6ebdd url('assets/hero.jpg') center 40% / cover no-repeat !important; justify-content:flex-end !important; padding:24px 7vw; box-sizing:border-box; }
+  #login-screen > div{ background:rgba(255,255,255,.93) !important; backdrop-filter:blur(6px); border:none !important; border-radius:22px !important; box-shadow:0 18px 50px rgba(120,40,30,.18) !important; }
+  .login-logo{ display:block; height:70px; width:auto; margin:0 auto 6px; }
+  @media (min-width: 761px) and (min-aspect-ratio: 16/10){ #login-screen{ background-size:auto 125% !important; background-position:100% 45% !important; padding-right:4vw; } }
+  @media (max-width: 760px){
+    #login-screen{ justify-content:center !important; align-items:flex-end !important; background-position:center top !important; background-size:auto 46vh !important; background-color:#f6ebdd !important; padding:0 0 6vh; }
+    #login-screen > div{ width:min(340px, 88vw) !important; padding:28px 26px !important; box-sizing:border-box; }
   }
   #app{
     font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
@@ -869,8 +945,8 @@
 <div id="login-screen" style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg);">
   <div style="background:#fff; border:1px solid var(--line); border-radius:16px; padding:36px 40px; width:340px; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     <div style="text-align:center; margin-bottom:24px;">
-      <div style="font-size:22px; font-weight:800; color:var(--ink);">다름달음</div>
-      <div style="font-size:13px; color:var(--muted); margin-top:4px;">통합 시스템</div>
+      <img class="login-logo" src="assets/logo-red.png" alt="다름달음">
+      <div style="font-size:14px; color:var(--muted); margin-top:4px; font-weight:600;">통합 오더 시스템</div>
     </div>
     <div style="margin-bottom:12px;">
       <label style="font-size:12px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px;">아이디</label>
@@ -888,9 +964,13 @@
 <div id="app" style="display:none;">
   <!-- 상단 사용자 정보 바 -->
   <div class="topbar">
-    <span class="topbar-title">다름달음 통합 오더 시스템</span>
+    <img class="topbar-fruit" src="assets/fruit-top.png" alt="">
+    <div class="topbar-brand">
+      <img class="topbar-logo" src="assets/logo-white.png" alt="다름달음">
+      <span class="topbar-sep"></span>
+      <div class="topbar-tt"><span class="topbar-title">다름달음 통합 오더 시스템</span><span id="user-badge"></span></div>
+    </div>
     <div class="topbar-user">
-      <span id="user-badge"></span>
       <button onclick="openPasswordDialog()">비밀번호<span class="hide-mobile"> 변경</span></button>
       <button onclick="logout()">로그아웃</button>
     </div>
@@ -914,6 +994,7 @@
     <div id="home-hello"></div>
     <div id="home-tools"></div>
     <div id="home-grid"></div>
+    <div class="home-deco" aria-hidden="true"><img src="assets/logo-red.png" alt=""></div>
   </div>
   <div id="program-bar">
     <button type="button" id="program-home-btn" onclick="goHome()">← 홈</button>
@@ -3498,16 +3579,16 @@ function applyUserUI() {
 //  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
 //  - 타일 순서: 마스터 계정(admin)만 '타일 순서 편집'으로 바꿀 수 있고, kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
 const HOME_TILES = [
-  { key: 'lunch', icon: '🍱', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20260825c' },
-  { key: 'sample', icon: '🧪', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
-  { key: 'order', icon: '📋', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
-  { key: 'sorting', icon: '🍅', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
-  { key: 'ecount', icon: '🧾', name: '이카운트·기준정보', desc: '품목·거래처 관리 · 이카운트 양식', nav: '#main-nav-btn-ecount' },
-  { key: 'cost', icon: '💰', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
-  { key: 'detail', icon: '🖼', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
-  { key: 'files', icon: '📁', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
-  { key: 'admin', icon: '🛠', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
-  { key: 'manual', icon: '📖', name: '사용설명서', desc: '화면별 사용 방법 · 자주 묻는 질문', nav: '#main-nav-btn-manual' },   // 권한과 무관하게 누구나
+  { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20260825c' },
+  { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
+  { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
+  { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
+  { key: 'ecount', icon: '🧾', img: 'assets/ic-ecount.png', name: '이카운트·기준정보', desc: '품목·거래처 관리 · 이카운트 양식', nav: '#main-nav-btn-ecount' },
+  { key: 'cost', icon: '💰', img: 'assets/ic-cost.png', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
+  { key: 'detail', icon: '🖼', img: 'assets/ic-detail.png', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
+  { key: 'files', icon: '📁', img: 'assets/ic-files.png', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
+  { key: 'admin', icon: '🛠', img: 'assets/ic-admin.png', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
+  { key: 'manual', icon: '📖', img: 'assets/ic-manual.png', name: '사용설명서', desc: '화면별 사용 방법 · 자주 묻는 질문', nav: '#main-nav-btn-manual' },   // 권한과 무관하게 누구나
 ];
 let homeOrder = null;       // 저장된 순서 (타일 key 배열)
 let homeEditing = false;    // 순서 편집 모드 (마스터 계정 admin 전용)
@@ -3610,7 +3691,7 @@ function renderHome() {
     const btn = (visible.find(v => v.t === t) || {}).btn;
     const sampleAlert = t.key === 'sample' && !homeEditing && homeSampleCan(u) && homeSamplePending.n > 0;
     const alertHtml = sampleAlert ? `<span class="home-badge" title="미확인 샘플 신청">${homeSamplePending.n}</span><span class="home-alert">※ 샘플 신청 미확인 건이 ${homeSamplePending.n}건 있습니다${homeSamplePending.past ? ` (출고일 지난 ${homeSamplePending.past}건 포함)` : ''}</span>` : '';
-    const body = `<span class="ic">${t.icon}</span><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}${alertHtml}`;
+    const body = `<span class="ic">${t.img ? `<img src="${t.img}" alt="">` : t.icon}</span><span class="tx"><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}${alertHtml}</span><span class="go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span>`;
     if (homeEditing) {
       // 편집 모드: 클릭 이동 없이 ◀ ▶ 로 순서만 바꾼다
       const el = document.createElement('div');
@@ -11155,7 +11236,9 @@ function mnShow(id, keepScroll) {
       btn.classList.add('active');
       // 홈 화면 → 프로그램 화면 전환 (상단 ‘← 홈’ 바에 현재 프로그램 이름 표시)
       document.getElementById('app').classList.add('in-program');
-      document.getElementById('program-title').textContent = btn.textContent.trim();
+      { const pt = document.getElementById('program-title'), tile = HOME_TILES.find(t => t.nav && t.img && btn.matches(t.nav));
+        if(tile){ pt.innerHTML = ''; const im = document.createElement('img'); im.src = tile.img; im.alt = ''; pt.appendChild(im); pt.appendChild(document.createTextNode(tile.name)); }
+        else pt.textContent = btn.textContent.trim(); }
       window.scrollTo(0, 0);
       const panelId = btn.dataset.panel;
       document.getElementById(panelId).classList.add('active');
