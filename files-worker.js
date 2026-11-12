@@ -9,7 +9,7 @@ const DEFAULT_SB_URL = 'https://rsgbqlrxtexknhsvkroc.supabase.co';
 const DEFAULT_SB_KEY = 'sb_publishable_Es6Y1pOe1friYzEnvT0iSw_gqQQvFvJ';
 
 // 허용할 웹페이지 주소 (GitHub Pages)
-const ALLOWED_ORIGINS = ['https://pjsu21-spec.github.io'];
+const ALLOWED_ORIGINS = ['https://pjsu21-spec.github.io', 'https://order.dareumdaleum.com'];
 
 // R2 무료 한도(10GB)를 넘지 않도록 9.5GB에서 업로드를 막습니다.
 // 유료로 늘리려면 이 숫자만 바꾸면 됩니다.
