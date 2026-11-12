@@ -589,18 +589,21 @@
   .wp-note{ font-size:11.5px; color:#b45309; margin-top:4px; }
   /* 현황판식 정리 */
   #wp-board{ margin-top:14px; }
-  .wpb{ background:#111827; color:#f9fafb; border-radius:12px; padding:14px 16px; overflow-x:auto; }
-  .wpb h4{ margin:0 0 10px; font-size:18px; color:#fde68a; }
-  .wpb table{ border-collapse:collapse; width:100%; min-width:720px; font-size:17px; }
-  .wpb th, .wpb td{ border:1px solid #374151; padding:6px 8px; text-align:center; }
-  .wpb th{ background:#1f2937; color:#e5e7eb; font-size:15px; }
-  .wpb td.n{ text-align:left; font-weight:700; color:#fff; }
-  .wpb td .p{ font-size:20px; font-weight:800; color:#fff; }
-  .wpb td .s{ display:block; font-size:12px; color:#9ca3af; }
-  .wpb .off{ background:#374151; color:#9ca3af; }
-  .wpb tr.tot td{ background:#1e3a8a; font-weight:800; }
-  .wpb tr.raw td{ background:#14532d; }
-  .wpb .lg{ font-size:12px; color:#9ca3af; margin-top:8px; }
+  .wpb{ background:#fff; color:#111; border:1px solid #b8c2d6; border-radius:12px; padding:14px 16px; overflow-x:auto; }
+  .wpb h4{ margin:0 0 10px; font-size:20px; font-weight:800; color:#1a2233; }
+  .wpb table{ border-collapse:collapse; width:100%; min-width:720px; font-size:17px; background:#fff; }
+  .wpb th, .wpb td{ border:1px solid #b8c2d6; padding:6px 10px; text-align:center; }
+  .wpb th{ background:#e9eef8; color:#1a2233; font-size:16px; font-weight:800; }
+  .wpb td.n{ text-align:left; font-weight:800; font-size:19px; color:#111; background:#fff; }
+  .wpb td.n .sw{ display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,.15); }
+  .wpb td .p{ font-size:24px; font-weight:800; color:#111; font-variant-numeric:tabular-nums; }
+  .wpb td .s{ display:block; font-size:13px; color:#4a5a78; font-weight:600; }
+  .wpb .off{ background:#dfe3ea !important; color:#8a94a8; }
+  .wpb tr.tot td{ background:#dfe7f5; font-weight:800; }
+  .wpb tr.tot td .p, .wpb tr.tot td{ font-size:22px; }
+  .wpb tr.tot td .s{ font-size:13px; }
+  .wpb tr.raw td{ background:#eaf0fb; color:#1a2233; font-weight:700; }
+  .wpb .lg{ font-size:12px; color:#4a5a78; margin-top:8px; }
   #panel-manual .mn-wrap{ max-width:860px; margin:0 auto; font-size:15px; line-height:1.75; padding-bottom:40px; }
   #panel-manual .mn-intro{ margin:6px 0 0; color:var(--muted); }
   #panel-manual .mn-tabs{ position:sticky; top:var(--mn-top, 50px); z-index:30; background:var(--paper); border-bottom:1px solid var(--line); display:flex; gap:4px; overflow-x:auto; padding:8px 0 0; margin:6px 0 20px; }
@@ -17526,8 +17529,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(rows.length !== names.length){ wpRenderSec(kind); return; }
     rows.forEach((tr, k) => { const arr = raw.byRaw[names[k]]; arr.forEach((v, i) => { tr.children[i + 1].textContent = v ? wpR(v).toLocaleString() : ''; }); tr.children[8].textContent = wpR(arr.reduce((a, b) => a + b, 0)).toLocaleString(); });
   }
+  // 품목 색: TV 생산 현황판과 같은 색 (발주취합 서식의 품목 열 색 · 범례 색). 못 읽으면 묶음별 고정 색
+  let wpColors = null, wpColorsBusy = false;
+  async function wpColorsLoad(){
+    if(wpColors || wpColorsBusy || !productionTemplateB64) return;
+    wpColorsBusy = true;
+    try{
+      const ctx = await poLoadTemplate(productionTemplateB64), Y = poLayout(ctx), groups = poTemplateGroups(ctx);
+      const cols = [];
+      dict.forEach(d => { const L = skuColumnMap[d.id]; if(!L || cols.some(c => c.L === L)) return; const n = poColNum(L); const g = groups.find(x => n >= x.c1 && n <= x.c2); cols.push({ L, header: poText(ctx, L + Y.hdrRow).replace(/\s*\n\s*/g, ' ').trim(), group: g ? g.label : '', gid: g ? g.c1 : -n }); });
+      const cm = await poBoardColors(ctx, cols);
+      const out = {};
+      dict.forEach(d => { const L = skuColumnMap[d.id]; const c = cols.find(x => x.L === L); if(!c) return; out[d.id] = '#' + (cm.cols[c.L] || pbHslToHex([((Math.abs(c.gid) * 47) % 360) / 360, .55, .88])); });
+      wpColors = out;
+    }catch(e){ wpColors = {}; console.error(e); }
+    wpColorsBusy = false;
+    wpRenderBoard();
+  }
+  const wpColorOf = id => (wpColors && wpColors[id]) || '#eef1f7';
   // 현황판식 정리: 품목 × 요일, 칸마다 생산 수량(크게) + 영업 수량(작게), 휴무 회색, 합계·원물 kg
   function wpRenderBoard(){
+    if(!wpColors) wpColorsLoad();
     const el = document.getElementById('wp-board'); if(!el) return;
     const S = wpData.sales || wpEmpty(), P = wpData.prod || wpEmpty();
     const ids = [...new Set([...P.items, ...S.items])].filter(id => dict.some(x => x.id === id));
@@ -17541,13 +17563,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     ids.forEach(id => {
       const item = dict.find(x => x.id === id);
       let rp = 0, rs = 0;
-      h += `<tr><td class="n">${escapeHtml(item.name)}</td>`;
+      const col = wpColorOf(id), deep = '#' + pbTint(col.slice(1), -0.1);
+      h += `<tr><td class="n"><span class="sw" style="background:${deep}"></span>${escapeHtml(item.name)}</td>`;
       for(let i = 0; i < 7; i++){
         const p = q(P, id, i), sv = q(S, id, i);
         rp += p; rs += sv; tp[i] += p; ts[i] += sv;
-        h += `<td class="${off(i) ? 'off' : ''}">${p ? `<span class="p">${wpR(p)}</span>` : ''}${sv ? `<span class="s">영업 ${wpR(sv)}</span>` : ''}</td>`;
+        // 수량이 있는 칸은 품목 색으로 칠함 (TV 현황판과 같은 방식)
+        h += `<td class="${off(i) ? 'off' : ''}"${!off(i) && (p || sv) ? ` style="background:${p ? col : '#f7f9fc'}"` : ''}>${p ? `<span class="p">${wpR(p)}</span>` : ''}${sv ? `<span class="s">영업 ${wpR(sv)}</span>` : ''}</td>`;
       }
-      h += `<td>${rp ? `<span class="p">${wpR(rp)}</span>` : ''}${rs ? `<span class="s">영업 ${wpR(rs)}</span>` : ''}</td></tr>`;
+      h += `<td style="background:${rp ? deep : '#f7f9fc'}">${rp ? `<span class="p">${wpR(rp)}</span>` : ''}${rs ? `<span class="s">영업 ${wpR(rs)}</span>` : ''}</td></tr>`;
     });
     h += '<tr class="tot"><td class="n">합계</td>' + tp.map((v, i) => `<td class="${off(i) ? 'off' : ''}">${v ? wpR(v) : ''}${ts[i] ? `<span class="s">영업 ${wpR(ts[i])}</span>` : ''}</td>`).join('') + `<td>${wpR(tp.reduce((a, b) => a + b, 0)) || ''}<span class="s">영업 ${wpR(ts.reduce((a, b) => a + b, 0))}</span></td></tr>`;
     const raw = wpRaw(P.items.length ? P : S);
