@@ -292,6 +292,40 @@
   #ship-plan-table td{ vertical-align:middle; }
   .sp-grid td.sp-ord{ font-variant-numeric:tabular-nums; }
   .sp-grid .sp-ord-over{ font-size:11px; font-weight:700; color:var(--danger,#c0392b); margin-top:2px; white-space:nowrap; }
+  .pr-tbl{ border-collapse:collapse; font-size:13px; margin:2px 0 4px; }
+  .pr-tbl th, .pr-tbl td{ border:1px solid var(--line); padding:3px 6px; text-align:center; white-space:nowrap; }
+  .pr-tbl th{ background:var(--hover); font-weight:700; }
+  .pr-tbl input, .pr-tbl select{ font-size:13px; padding:3px 5px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  #po-board .pb-actions{ flex-wrap:wrap; }
+  #po-board.rep .pb-head{ left:auto !important; right:8px; top:6px !important; width:auto !important; transform:none !important; background:transparent; padding:2px; }
+  #po-board.rep .pb-title, #po-board.rep .pb-date{ display:none; }
+  #po-board.rep .pb-body{ padding-top:38px; }
+  #po-board .pr-rep{ width:1040px; color:#111; font-size:17px; }
+  #po-board .pr-rep .pr-h{ display:inline-block; font-size:21px; font-weight:800; border:1px solid #7d879c; border-bottom:none; padding:2px 14px; background:#fff; }
+  #po-board .pr-rep table{ border-collapse:collapse; width:100%; margin:0 0 14px; table-layout:auto; }
+  #po-board .pr-rep th, #po-board .pr-rep td{ border:1px solid #7d879c; padding:5px 8px; text-align:center; line-height:1.3; }
+  #po-board .pr-rep .t1 th{ background:#dfe5f2; font-weight:700; }
+  #po-board .pr-rep .t1 td.g{ background:#dfe5f2; font-weight:700; }
+  #po-board .pr-rep .t1 td.nm{ font-weight:700; }
+  #po-board .pr-rep td.big{ font-size:21px; font-weight:800; }
+  #po-board .pr-rep .t1 td.pd{ background:#fdeccf; font-weight:800; font-size:19px; }
+  #po-board .pr-rep .t1 td.neg{ color:#c0392b; }
+  #po-board .pr-rep .t2 th{ background:#f5a623; color:#111; font-weight:800; }
+  #po-board .pr-rep .t2 td.raw{ font-size:20px; font-weight:700; }
+  #po-board .pr-rep .t2 td.nt{ text-align:right; }
+  #po-board .pr-rep .t2 tr.sum td{ font-weight:800; font-size:19px; }
+  #po-board .pr-rep .t3 td.bar{ background:#b8c6e6; font-weight:800; }
+  #po-board .pr-rep .t3 td.lb{ width:150px; font-weight:700; }
+  #po-board .pr-rep .pre{ white-space:pre-line; }
+  #po-board .pr-rep .bottom{ display:flex; gap:12px; align-items:stretch; }
+  #po-board .pr-rep .staff{ flex:1.5 1 0; border:1px solid #7d879c; display:flex; flex-direction:column; }
+  #po-board .pr-rep .staff > div{ padding:5px 10px; border-bottom:1px solid #7d879c; text-align:left; }
+  #po-board .pr-rep .staff .ft{ display:flex; gap:12px; align-items:center; flex:1 0 auto; }
+  #po-board .pr-rep .staff .ft .lb{ font-weight:700; min-width:60px; text-align:center; }
+  #po-board .pr-rep .staff .ft .pre{ flex:1; text-align:center; }
+  #po-board .pr-rep .staff .tot{ text-align:center; border-bottom:none; }
+  #po-board .pr-rep .std{ flex:1 1 0; background:#c9d6f0; border:1px solid #7d879c; padding:14px 16px; text-align:center; font-size:19px; line-height:1.6; display:flex; flex-direction:column; justify-content:center; }
+  #po-board .pr-rep .std .t{ font-size:27px; font-weight:700; margin-bottom:6px; }
   .pp-fold > summary{ cursor:pointer; font-size:16px; font-weight:700; color:var(--fg); padding:2px 0 8px; }
   .pp-fold:not([open]) > summary{ padding-bottom:2px; }
   .pp-fold .pp-sumhint{ font-size:12px; font-weight:400; color:var(--muted); }
@@ -1310,6 +1344,36 @@
     <h3 style="margin:14px 0 4px;">③ 오늘 생산 사용 품종 <span class="sub" style="font-weight:400;margin:0;">(오늘 생산에 쓰는 품종 — 줄바꿈으로 여러 개 적으면 현황판에 한 줄씩 표시)</span></h3>
     <textarea id="prod-variety" rows="2" placeholder="예) 스테비아: OO 품종&#10;망고: OO 품종" style="width:100%;max-width:560px;"></textarea>
     <div id="prod-variety-picks"></div>
+    </details>
+  </div>
+  <div class="card" id="prod-report-card">
+    <details id="prod-report-fold" class="pp-fold">
+    <summary><span class="pp-fold-t">📝 생산일보</span> <span class="badge" id="prod-report-date"></span> <span class="pp-sumhint" id="prod-report-sumhint"></span></summary>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
+      생산본부 생산일보입니다. 적은 내용은 <b>TV 생산 현황판</b>의 <b>[생산일보]</b> 화면에 그대로 나옵니다(현황판 오른쪽 위 '보기' 버튼으로 현황판 / 생산일보 / 번갈아 보기). 고칠 때마다 바로 저장됩니다.<br>
+      · <b>① 발주현황</b>은 자동입니다: 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 재고 − 출고(빨간 음수 = 더 만들어야 할 박스).<br>
+      · <b>② 생산지시</b>의 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg). 직접 적으면 그 값이 우선입니다. 비고(향료 사용량 등)는 자유 입력입니다.<br>
+      · 생산 순서에 적은 품목은 <b>⤵ 생산 순서에서 가져오기</b>로 한 번에 넣을 수 있고, 인원 배치는 <b>⤵ 전날 인원·비고 가져오기</b>로 이어 쓸 수 있습니다.
+    </div></details>
+    <div class="row" style="margin-top:0;align-items:center;">
+      <button type="button" class="btn-ghost small-btn" id="pr-board-btn" title="TV 생산 현황판을 생산일보 화면으로 엽니다">📺 생산일보 보기</button>
+      <button type="button" class="btn-ghost small-btn" id="pr-copy-prev" title="최근 생산일보의 인원 배치·일용직·총 인원·비고를 가져옵니다">⤵ 전날 인원·비고 가져오기</button>
+      <span id="pr-meta" style="font-size:12px;color:var(--muted);"></span>
+      <span id="pr-ro" class="sub" style="display:none;margin:0;">👁 생산 / 물류 권한이 읽기만이라 보기만 됩니다</span>
+    </div>
+    <h3 style="margin:8px 0 4px;">① 발주현황 <span class="sub" style="font-weight:400;margin:0;">(자동 — 전일 재고 · 오늘 발주 · 샘플 기준)</span></h3>
+    <div id="pr-order"></div>
+    <h3 style="margin:14px 0 4px;">② 생산지시</h3>
+    <div id="pr-inst"></div>
+    <div class="row" style="margin-top:4px;align-items:center;">
+      <button type="button" class="btn-ghost small-btn" id="pr-inst-add">+ 줄 추가</button>
+      <button type="button" class="btn-ghost small-btn" id="pr-inst-seq" title="① 생산 순서에 적은 품목을 순서대로 생산지시 줄로 넣습니다">⤵ 생산 순서에서 가져오기</button>
+      <label class="sub" style="margin:0;">1ct = <input id="pr-ctkg" type="number" min="0" step="0.1" style="width:64px;"> kg (ct 자동 계산용)</label>
+    </div>
+    <h3 style="margin:14px 0 4px;">③ 비고 · 인원</h3>
+    <div id="pr-etc"></div>
+    <h3 style="margin:14px 0 4px;">④ 기준 안내 <span class="sub" style="font-weight:400;margin:0;">(현황판 오른쪽 아래 상자 · 매일 같은 내용 · 첫 줄이 제목)</span></h3>
+    <textarea id="pr-std" rows="5" style="width:100%;max-width:420px;"></textarea>
     </details>
   </div>
   <div class="card" id="ship-plan-card">
@@ -2408,6 +2472,16 @@
   <li>휴대폰에서는 품목명 아래에 전일 재고·이틀 전 재고·오늘 생산량 세 칸이 나와 좁은 화면에서도 입력하기 쉽습니다.</li>
 </ul>
 
+<h3>생산일보</h3>
+<p>생산 순서 카드 아래 <b>📝 생산일보</b> 카드입니다. 적은 내용은 TV 생산 현황판의 <b>[생산일보]</b> 화면에 생산본부 생산일보 양식 그대로 나옵니다.</p>
+<ul>
+  <li><b>발주현황</b>은 자동입니다. 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 재고 − 출고(빨간 음수 = 더 만들어야 할 박스).</li>
+  <li><b>생산지시</b>: 차수·원물·품목·작업kg·ct·비고를 줄마다 적습니다. 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg(기본 12)). <span class="mn-b">⤵ 생산 순서에서 가져오기</span>로 생산 순서의 품목을 한 번에 넣을 수 있습니다.</li>
+  <li>비고, 일용직 충원, 인원 배치(가공실·원물·내포장실·외포장실, 구역 추가 가능), 총 인원, 하단 비고(소비기한·로트 등)를 적습니다. <span class="mn-b">⤵ 전날 인원·비고 가져오기</span>로 최근 생산일보의 인원 배치를 이어 씁니다.</li>
+  <li><b>기준 안내</b>(용액 투입량 기준 등)는 매일 같은 내용이라 한 번 적어 두면 계속 나옵니다.</li>
+  <li>고칠 때마다 바로 저장되며 생산 / 물류 전체 권한이 필요합니다.</li>
+</ul>
+
 <h3>생산 순서 · 지시 요청 · 사용 품종</h3>
 <p>맨 위 카드는 제목을 누르면 접고 펼 수 있습니다(접은 상태는 이 브라우저에 기억됩니다).</p>
 <ol>
@@ -2439,6 +2513,7 @@
   <li>업체 비고, 샘플 비고, 샘플 동봉 수량도 함께 표시됩니다.</li>
   <li>초안 공유본을 저장한 뒤 <b>수정·추가된 업체</b>는 업체명이 <b>노란색</b>입니다. 왼쪽 아래 안내에서 몇 곳인지 알려 줍니다.</li>
   <li><b>닫기</b>, <b>Esc</b>, 브라우저 <b>뒤로가기</b> 어느 것으로도 닫을 수 있습니다.</li>
+  <li>오른쪽 위 <span class="mn-b">보기</span> 버튼을 누를 때마다 <b>현황판 → 생산일보 → 번갈아(30초마다 전환)</b> 순서로 바뀝니다. 고른 보기는 그 PC에 기억됩니다.</li>
 </ul>
 
 <h2>자재 출고 차감</h2>
@@ -3596,7 +3671,7 @@ function mnShow(id, keepScroll) {
   <div class="pb-head" id="pb-head">
     <div class="pb-title">🏭 생산 발주 현황</div>
     <div class="pb-date" id="pb-date"></div>
-    <div class="pb-actions"><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
+    <div class="pb-actions"><button id="pb-view" title="현황판 / 생산일보 / 번갈아(30초) 보기를 바꿉니다">보기: 현황판</button><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
   </div>
   <div class="pb-bottom">
     <div class="pb-notes" id="pb-notes"></div>
@@ -4336,7 +4411,7 @@ function mnShow(id, keepScroll) {
   // 보관 기간이 지난 날짜의 배차·적재 입력값('ship-plan-날짜')을 서버에서 지움
   async function spCleanup(cutoff){
     try{
-      for(const pre of ['ship-plan-', 'prod-plan-']){
+      for(const pre of ['ship-plan-', 'prod-plan-', 'prod-plan-report-']){
         const r = await window.storage.list(pre, true);
         (r.keys || []).forEach(k => { const m = new RegExp('^' + pre + '(\\d{4}-\\d{2}-\\d{2})$').exec(k); if(m && m[1] < cutoff && m[1] !== currentDateKey) window.storage.delete(k, true).catch(() => {}); });
       }
@@ -17218,6 +17293,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     });
   }
   function renderProdPlan(force){
+    try{ prRender(); }catch(e){ console.error(e); }
     const seqEl = document.getElementById('prod-seq-body'), reqEl = document.getElementById('prod-req-body');
     if(!seqEl || !reqEl) return;
     ppRoutineLoad();   // 저장해 둔 시간대 루틴 (처음 한 번만 읽음)
@@ -18212,6 +18288,273 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   const pbFmt = v => { if(!v) return ''; const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); };
   let pbPrev = null, pbLast = null, pbErr = '';
+  // ══════════════════ 생산일보 (납품일별) ══════════════════
+  // 생산본부 생산일보. 발주현황(재고·금일출고·생산박스)은 전일 재고·오늘 발주·샘플로 자동 계산,
+  // 생산지시(차수·원물·품목·작업kg·ct·비고)·비고·일용직·인원 배치·하단 비고는 직접 입력. TV 생산 현황판의 [생산일보] 화면에 나옴.
+  // 저장: 'prod-plan-report-날짜' = { inst:[{ id, lbl, raw, item, kg, ct, note }], instNote, note, temp, staff:[{ id, label, names }], total, foot, ctKg }
+  //       'prod-plan-report-std' = { text }  (오른쪽 아래 기준 안내 상자 — 매일 같은 내용)
+  //  키가 'prod-plan-'로 시작해 생산/물류 권한으로 저장됨 (서버 권한 규칙과 같음)
+  const prCache = {}, prLoading = {};
+  let prStd = null, prQueue = Promise.resolve(), prCost = null, prCostAt = 0;   // prCost: 단가 확인 원가 설정(cost-config) — 원물·kg/박스
+  const PR_STAFF_DEFAULT = ['가공실', '원물', '내포장실', '외포장실'];
+  const PR_STD_DEFAULT = '용액 투입량 기준\n1CT -> 66L\n\n콩크 : 1 ~ 1.8톤 기준 1.5KG\n향 추가 : 1~1.8톤 기준 0.8KG';
+  const prId = () => Math.random().toString(36).slice(2, 9);
+  const prNorm = d => {
+    d = d && typeof d === 'object' ? d : {};
+    return {
+      inst: Array.isArray(d.inst) ? d.inst : [], instNote: String(d.instNote || ''), note: String(d.note || ''), temp: d.temp == null ? '' : String(d.temp),
+      staff: Array.isArray(d.staff) ? d.staff : PR_STAFF_DEFAULT.map((label, i) => ({ id: 'd' + i, label, names: '' })), total: d.total == null ? '' : String(d.total),
+      foot: String(d.foot || ''), ctKg: d.ctKg == null || d.ctKg === '' ? 12 : Number(d.ctKg) || 0,
+    };
+  };
+  const prCan = () => window.sectionLevel('plan') === 'full';
+  const prR = v => Math.round((Number(v) || 0) * 100) / 100;
+  async function prCostLoad(force){
+    if(prCost && !force && Date.now() - prCostAt < 600000) return;
+    try{ const c = await window.storage.get('cost-config', true); prCost = c ? JSON.parse(c.value) : {}; prCostAt = Date.now(); }catch(e){ if(!prCost) prCost = {}; }
+  }
+  async function prLoad(dk, force){
+    if(!dk) return;
+    if(prLoading[dk]) return prLoading[dk];
+    if(prCache[dk] && !force) return;
+    prLoading[dk] = (async () => {
+      try{
+        const r = await window.storage.get('prod-plan-report-' + dk, true);
+        let doc = null; if(r && r.value){ try{ doc = JSON.parse(r.value); }catch(e){ /* 빈 값 */ } }
+        prCache[dk] = prNorm(doc);
+        if(prStd == null || force){ const s = await window.storage.get('prod-plan-report-std', true); let t = null; if(s && s.value){ try{ t = JSON.parse(s.value).text; }catch(e){ /* 기본 */ } } prStd = t == null ? PR_STD_DEFAULT : String(t); }
+        await prCostLoad(force);
+      }catch(e){ if(!prCache[dk]) prCache[dk] = Object.assign(prNorm(null), { error: true }); }
+      finally{ delete prLoading[dk]; }
+      if(dk === currentDateKey) prRender();
+    })();
+    return prLoading[dk];
+  }
+  // 저장: 서버의 최신 값을 읽어 고친 부분만 바꿔 씀 (여러 사람이 같이 적어도 덮어쓰지 않게)
+  function prCommit(dk, mut, rerender){
+    const meta = document.getElementById('pr-meta');
+    if(meta){ meta.textContent = '저장 중…'; meta.style.color = 'var(--muted)'; }
+    if(prCache[dk]) mut(prCache[dk]);   // 화면 값은 바로 바꿈
+    const job = prQueue.then(async () => {
+      const k = 'prod-plan-report-' + dk;
+      const r = await window.storage.get(k, true);
+      let doc = null; if(r && r.value){ try{ doc = JSON.parse(r.value); }catch(e){ /* 새로 */ } }
+      doc = prNorm(doc); mut(doc);
+      doc.by = (window.currentUser && window.currentUser.display_name) || ''; doc.at = Date.now();
+      await window.storage.set(k, JSON.stringify(doc), true);
+      prCache[dk] = doc;
+    });
+    prQueue = job.catch(() => {});
+    return job.then(() => {
+      if(meta){ meta.textContent = `저장됨 ${spHM(Date.now())}`; meta.style.color = 'var(--accent)'; }
+      if(dk === currentDateKey){ if(rerender) prRender(); else prRenderSums(); }
+      return true;
+    }).catch(() => {
+      if(meta){ meta.textContent = '⚠ 저장 실패 — 인터넷 연결을 확인하고 다시 입력해주세요'; meta.style.color = 'var(--danger,#c0392b)'; }
+      toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요');
+      return false;
+    });
+  }
+  function prStdSave(text){
+    prStd = text;
+    window.storage.set('prod-plan-report-std', JSON.stringify({ text, by: (window.currentUser && window.currentUser.display_name) || '', at: Date.now() }), true)
+      .then(() => { const meta = document.getElementById('pr-meta'); if(meta){ meta.textContent = `저장됨 ${spHM(Date.now())}`; meta.style.color = 'var(--accent)'; } })
+      .catch(() => toast('기준 안내를 저장하지 못했습니다'));
+  }
+  // 발주현황: 품목별 재고(박스)·금일출고(박스·팩)·생산박스(= 재고 − 출고). 출고는 생산 필요수량과 같은 기준(발주·샘플 동봉 + 오늘 만드는 샘플 + 재고 사용 샘플)
+  function prOrderRows(dk){
+    const need = carryNeed(dk), st = carryEffective(dk, 0);
+    return dict.filter(d => (need[d.id] || 0) > 0 || (st[d.id] || 0) > 0).map(d => {
+      const n = Number(d.boxUnitCount) || 0, b = p => n > 0 ? prR(p / n) : prR(p);
+      const stock = b(st[d.id] || 0), out = b(need[d.id] || 0);
+      return { id: d.id, name: d.shortName || d.name, stock, out, outPack: prR(need[d.id] || 0), prod: prR(stock - out), unit: n > 0 ? '박스' : '팩' };
+    });
+  }
+  // 품목의 원물·자동 작업kg(생산 필요 박스 × 원물 kg/박스)·자동 ct(작업kg ÷ 1ct kg)
+  function prAuto(dk, id, ctKg){
+    const item = dict.find(d => d.id === id); if(!item) return { raw: '', kg: '', ct: '' };
+    const cfg = ((prCost && prCost.skus) || {})[id] || {}, raws = (prCost && prCost.rawMaterials) || [];
+    const raw = cfg.rawId ? ((raws.find(r => r.id === cfg.rawId) || {}).name || '') : '';
+    const need = Math.max(0, (carryNeed(dk)[id] || 0) - (carryEffective(dk, 0)[id] || 0));
+    const n = Number(item.boxUnitCount) || 0, boxes = n > 0 ? need / n : need, kpb = Number(cfg.rawKgPerBox) || 0;
+    const kg = kpb > 0 ? Math.round(boxes * kpb * 10) / 10 : '';
+    const ct = kg !== '' && ctKg > 0 ? Math.round(kg / ctKg) : '';
+    return { raw, kg, ct };
+  }
+  const prVal = (v, auto) => (v === '' || v == null) ? auto : Number(v);
+  function prInstView(dk, doc){
+    return doc.inst.map((r, i) => {
+      const a = prAuto(dk, r.item, doc.ctKg), item = dict.find(d => d.id === r.item);
+      const kg = prVal(r.kg, a.kg), ctAuto = (r.kg !== '' && r.kg != null && doc.ctKg > 0) ? Math.round(Number(r.kg) / doc.ctKg) : a.ct;
+      return { r, i, lbl: r.lbl || `${i + 1}차`, raw: r.raw || a.raw, name: item ? (item.shortName || item.name) : '', kg, ct: prVal(r.ct, ctAuto), a, ctAuto, note: r.note || '' };
+    });
+  }
+  function prSums(dk, doc){
+    const v = prInstView(dk, doc);
+    return { kg: prR(v.reduce((s, x) => s + (Number(x.kg) || 0), 0)), ct: prR(v.reduce((s, x) => s + (Number(x.ct) || 0), 0)) };
+  }
+  function prRenderSums(){
+    const doc = prCache[currentDateKey]; if(!doc) return;
+    const s = prSums(currentDateKey, doc);
+    const a = document.getElementById('pr-sum-kg'), b = document.getElementById('pr-sum-ct');
+    if(a) a.textContent = s.kg ? s.kg.toLocaleString() : ''; if(b) b.textContent = s.ct ? s.ct.toLocaleString() : '';
+    // 작업kg을 고치면 ct 자동값도 바뀜
+    prInstView(currentDateKey, doc).forEach(x => {
+      const tr = document.querySelector(`#pr-inst tr[data-id="${x.r.id}"]`); if(!tr) return;
+      const ci = tr.querySelector('input[data-f="ct"]'); if(ci) ci.placeholder = x.ctAuto === '' ? '' : String(x.ctAuto);
+    });
+  }
+  function prRenderOrder(){
+    const el = document.getElementById('pr-order'); if(!el || !currentDateKey) return;
+    const rows = prOrderRows(currentDateKey);
+    if(!rows.length){ el.innerHTML = '<div class="sub" style="margin:0;">오늘 발주·재고가 있는 품목이 없습니다</div>'; return; }
+    el.innerHTML = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>품목</th><th>재고(박스)</th><th>금일출고 박스</th><th>팩</th><th>생산박스(금일)</th></tr></thead><tbody>${rows.map(r => `<tr><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.stock}</td><td><b>${r.out}</b></td><td>${r.outPack}</td><td style="background:#fdf3dc;${r.prod < 0 ? 'color:#c0392b;' : ''}font-weight:700;">${r.prod}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function prRender(){
+    const card = document.getElementById('prod-report-card'); if(!card) return;
+    const dk = currentDateKey;
+    const badge = document.getElementById('prod-report-date'); if(badge) badge.textContent = dk ? `납품일 ${dk}` : '';
+    prRenderOrder();
+    const instEl = document.getElementById('pr-inst'), etcEl = document.getElementById('pr-etc');
+    if(!dk) return;
+    if(!prCache[dk]){ instEl.innerHTML = '<div class="sub" style="margin:0;">불러오는 중…</div>'; etcEl.innerHTML = ''; prLoad(dk); return; }
+    const doc = prCache[dk], can = prCan();
+    const hint = document.getElementById('prod-report-sumhint');
+    if(hint) hint.textContent = doc.inst.length ? `생산지시 ${doc.inst.length}줄` : '';
+    // ② 생산지시
+    const opts = dict.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.shortName || d.name)}</option>`).join('');
+    const view = prInstView(dk, doc);
+    let h = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th>작업kg</th><th>ct</th><th>비고</th><th></th></tr></thead><tbody>`;
+    view.forEach(x => {
+      h += `<tr data-id="${x.r.id}"><td><input data-f="lbl" value="${escapeHtml(x.r.lbl || '')}" placeholder="${x.i + 1}차" style="width:56px;"></td>
+        <td><input data-f="raw" value="${escapeHtml(x.r.raw || '')}" placeholder="${escapeHtml(x.a.raw || '원물')}" style="width:90px;"></td>
+        <td><select data-f="item" style="max-width:170px;"><option value="">품목 선택</option>${opts}</select></td>
+        <td><input data-f="kg" type="number" step="0.1" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : x.a.kg}" style="width:80px;"></td>
+        <td><input data-f="ct" type="number" step="1" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" style="width:60px;"></td>
+        <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
+        <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
+    });
+    const s = prSums(dk, doc);
+    h += `<tr><td colspan="3" style="text-align:center;font-weight:700;">합계</td><td id="pr-sum-kg" style="font-weight:700;">${s.kg ? s.kg.toLocaleString() : ''}</td><td id="pr-sum-ct" style="font-weight:700;">${s.ct ? s.ct.toLocaleString() : ''}</td><td colspan="2"><input id="pr-inst-note" value="${escapeHtml(doc.instNote)}" placeholder="합계 비고 (예: 가압 0.8bar)" style="width:220px;"></td></tr></tbody></table></div>`;
+    instEl.innerHTML = h;
+    view.forEach(x => { const sel = instEl.querySelector(`tr[data-id="${x.r.id}"] select`); if(sel) sel.value = x.r.item || ''; });
+    const ctk = document.getElementById('pr-ctkg'); if(ctk && document.activeElement !== ctk) ctk.value = doc.ctKg || '';
+    // ③ 비고 · 인원
+    let e = `<label class="sub" style="display:block;margin:0 0 2px;">비고 (현황판 가운데 '비고' 칸 · 예: 점심시간 12:30~13:30)</label><textarea id="pr-note" rows="2" style="width:100%;max-width:640px;">${escapeHtml(doc.note)}</textarea>
+      <div class="row" style="align-items:center;margin-top:6px;"><label>일용직 충원 <input id="pr-temp" type="number" min="0" value="${escapeHtml(doc.temp)}" style="width:70px;"> 명</label></div>
+      <label class="sub" style="display:block;margin:8px 0 2px;">인원 배치</label><div id="pr-staff">`;
+    doc.staff.forEach(st => { e += `<div class="row pr-staff-row" data-id="${st.id}" style="margin:2px 0;align-items:center;flex-wrap:nowrap;"><input data-f="label" value="${escapeHtml(st.label || '')}" placeholder="구역" style="width:90px;"> : <input data-f="names" value="${escapeHtml(st.names || '')}" placeholder="이름 (쉼표로 구분)" style="flex:1;min-width:120px;max-width:480px;"><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></div>`; });
+    e += `</div><div class="row" style="margin-top:4px;align-items:center;"><button type="button" class="btn-ghost small-btn" id="pr-staff-add">+ 구역 추가</button><label>총 <input id="pr-total" value="${escapeHtml(doc.total)}" placeholder="-" style="width:60px;"> 명</label></div>
+      <label class="sub" style="display:block;margin:8px 0 2px;">하단 비고 (예: 소비기한 2026.11.19 / 로트 A2E1)</label><textarea id="pr-foot" rows="2" style="width:100%;max-width:640px;">${escapeHtml(doc.foot)}</textarea>`;
+    etcEl.innerHTML = e;
+    const stdEl = document.getElementById('pr-std'); if(stdEl && document.activeElement !== stdEl) stdEl.value = prStd == null ? PR_STD_DEFAULT : prStd;
+    // 권한 없으면 잠금
+    card.querySelectorAll('#pr-inst input, #pr-inst select, #pr-inst button, #pr-etc input, #pr-etc textarea, #pr-etc button, #pr-std, #pr-ctkg, #pr-inst-add, #pr-inst-seq, #pr-copy-prev').forEach(x => { x.disabled = !can; });
+    const ro = document.getElementById('pr-ro'); if(ro) ro.style.display = can ? 'none' : '';
+  }
+  // 이벤트 (카드 안에서 위임)
+  (function wireProdReport(){
+    const card = document.getElementById('prod-report-card'); if(!card) return;
+    const dk = () => currentDateKey;
+    const rowOf = el => { const tr = el.closest('tr[data-id]'); return tr ? tr.dataset.id : ''; };
+    card.addEventListener('change', ev => {
+      const t = ev.target, d = dk(); if(!d || !prCache[d]) return;
+      if(t.closest('#pr-inst') && t.dataset.f){
+        const id = rowOf(t), f = t.dataset.f; let v = t.value.trim();
+        if(f === 'kg' || f === 'ct') v = v === '' ? '' : Number(v);
+        prCommit(d, doc => { const r = doc.inst.find(x => x.id === id); if(r) r[f] = v; }, f === 'item');
+        return;
+      }
+      if(t.closest('.pr-staff-row') && t.dataset.f){
+        const id = t.closest('.pr-staff-row').dataset.id, f = t.dataset.f, v = t.value.trim();
+        prCommit(d, doc => { const r = doc.staff.find(x => x.id === id); if(r) r[f] = v; else { const st = (prCache[d] || {}).staff || []; const src = st.find(x => x.id === id); if(src){ doc.staff = st.map(x => Object.assign({}, x)); const r2 = doc.staff.find(x => x.id === id); if(r2) r2[f] = v; } } });
+        return;
+      }
+      const map = { 'pr-inst-note': 'instNote', 'pr-note': 'note', 'pr-temp': 'temp', 'pr-total': 'total', 'pr-foot': 'foot' };
+      if(map[t.id]){ const v = t.value.trim(); prCommit(d, doc => { doc[map[t.id]] = v; }); return; }
+      if(t.id === 'pr-ctkg'){ const v = Number(t.value) || 0; prCommit(d, doc => { doc.ctKg = v; }, true); return; }
+      if(t.id === 'pr-std'){ prStdSave(t.value.replace(/\s+$/, '')); return; }
+    });
+    card.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if(!b) return;
+      const d = dk(); if(!d) return;
+      if(b.id === 'pr-board-btn'){ pbView = 'report'; try{ localStorage.setItem('pb-view', pbView); }catch(e){} poBoardOpen(); return; }
+      if(!prCache[d] || !prCan()) return;
+      if(b.dataset.act && b.closest('#pr-inst')){
+        const id = rowOf(b), act = b.dataset.act;
+        prCommit(d, doc => { const i = doc.inst.findIndex(x => x.id === id); if(i < 0) return; if(act === 'del') doc.inst.splice(i, 1); else { const j = act === 'up' ? i - 1 : i + 1; if(j >= 0 && j < doc.inst.length){ const t = doc.inst[i]; doc.inst[i] = doc.inst[j]; doc.inst[j] = t; } } }, true);
+        return;
+      }
+      if(b.dataset.act === 'del' && b.closest('.pr-staff-row')){
+        const id = b.closest('.pr-staff-row').dataset.id, cur = prCache[d].staff.map(x => Object.assign({}, x));
+        prCommit(d, doc => { doc.staff = (doc.staff.some(x => x.id === id) ? doc.staff : cur).filter(x => x.id !== id); }, true);
+        return;
+      }
+      if(b.id === 'pr-inst-add'){ prCommit(d, doc => { doc.inst.push({ id: prId(), lbl: '', raw: '', item: '', kg: '', ct: '', note: '' }); }, true); return; }
+      if(b.id === 'pr-staff-add'){ const cur = prCache[d].staff.map(x => Object.assign({}, x)); prCommit(d, doc => { if(!doc.staff.length && cur.length) doc.staff = cur; doc.staff.push({ id: prId(), label: '', names: '' }); }, true); return; }
+      if(b.id === 'pr-inst-seq'){
+        const seq = ppBoardData(d).seq.map(s => s.item);
+        const find = t => dict.find(x => x.name === t || x.shortName === t) || dict.find(x => t.includes(x.shortName || '\u0000') || (x.name && t.includes(x.name)));
+        const ids = seq.map(find).filter(Boolean).map(x => x.id);
+        if(!ids.length){ toast('생산 순서에 적힌 품목이 없습니다'); return; }
+        const has = new Set(prCache[d].inst.map(x => x.item));
+        const add = ids.filter(id => !has.has(id));
+        if(!add.length){ toast('생산 순서의 품목이 이미 모두 들어 있습니다'); return; }
+        prCommit(d, doc => { add.forEach(id => doc.inst.push({ id: prId(), lbl: '', raw: '', item: id, kg: '', ct: '', note: '' })); }, true);
+        toast(`생산 순서에서 ${add.length}개 품목을 가져왔습니다`);
+        return;
+      }
+      if(b.id === 'pr-copy-prev'){
+        (async () => {
+          let src = null, day = '';
+          for(let k = 1; k <= 7 && !src; k++){ day = sampleAddDays(d, -k); try{ const r = await window.storage.get('prod-plan-report-' + day, true); if(r && r.value){ const x = JSON.parse(r.value); if(x && (x.staff || x.note || x.temp)) src = prNorm(x); } }catch(e){ /* 다음 날짜 */ } }
+          if(!src){ toast('최근 7일 안에 적힌 생산일보가 없습니다'); return; }
+          if(!confirm(`${day} 생산일보의 인원 배치·일용직·총 인원·비고를 가져올까요? (지금 적힌 내용은 바뀝니다)`)) return;
+          prCommit(d, doc => { doc.staff = src.staff.map(x => Object.assign({}, x, { id: prId() })); doc.temp = src.temp; doc.total = src.total; doc.note = src.note; }, true);
+        })();
+      }
+    });
+    const fold = document.getElementById('prod-report-fold');
+    if(fold){ try{ if(localStorage.getItem('pr-fold') === '1') fold.open = true; }catch(e){} fold.addEventListener('toggle', () => { try{ localStorage.setItem('pr-fold', fold.open ? '1' : '0'); }catch(e){} if(fold.open) prRender(); }); }
+  })();
+  // TV 현황판 [생산일보] 화면
+  function prReportHtml(m){
+    const dk = currentDateKey, doc = prCache[dk] || prNorm(null), e = escapeHtml;
+    const colOf = id => { const L = skuColumnMap[id]; const i = (m && m.cols || []).findIndex(c => c.L === L); return { i: i < 0 ? 999 : i, c: i < 0 ? null : m.cols[i] }; };
+    const rows = prOrderRows(dk).map(r => { const k = colOf(r.id); return Object.assign(r, { ord: k.i, grp: k.c ? String(k.c.group || '').trim() : '', label: k.c && k.c.header ? String(k.c.header).trim() : r.name }); })
+      .sort((a, b) => a.ord - b.ord);
+    let t1 = `<table class="t1"><thead><tr><th rowspan="2" colspan="2">발주현황</th><th rowspan="2">재고<br>(박스)</th><th colspan="2">금일출고</th><th rowspan="2">생산박스<br>(금일)</th></tr><tr><th>박스</th><th>팩</th></tr></thead><tbody>`;
+    if(!rows.length) t1 += '<tr><td colspan="6" style="color:#8a94a8;">오늘 발주·재고가 있는 품목이 없습니다</td></tr>';
+    rows.forEach((r, i) => {
+      const first = i === 0 || rows[i - 1].grp !== r.grp;
+      const span = first ? rows.slice(i).findIndex((x, j) => j > 0 && x.grp !== r.grp) : 0;
+      const n = first ? (span < 0 ? rows.length - i : span) : 0;
+      t1 += `<tr>${first ? `<td class="g" rowspan="${n}">${e(r.grp || '')}</td>` : ''}<td class="nm">${e(r.label)}</td><td>${r.stock}</td><td class="big">${r.out}</td><td>${r.outPack}</td><td class="pd${r.prod < 0 ? ' neg' : ''}">${r.prod}</td></tr>`;
+    });
+    t1 += '</tbody></table>';
+    const v = prInstView(dk, doc).filter(x => x.r.item || x.r.raw || x.r.note || x.r.kg !== '' || x.r.lbl);
+    let t2 = `<table class="t2"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th>작업kg</th><th>ct</th><th>비고</th></tr></thead><tbody>`;
+    if(!v.length) t2 += '<tr><td colspan="6" style="color:#8a94a8;">생산/물류 탭 → 생산일보에서 생산지시를 적으면 여기에 나옵니다</td></tr>';
+    v.forEach((x, i) => {
+      const first = i === 0 || v[i - 1].raw !== x.raw;
+      let n = 0; if(first){ n = 1; while(v[i + n] && v[i + n].raw === x.raw) n++; }
+      t2 += `<tr><td>${e(x.lbl)}</td>${first ? `<td rowspan="${n}" class="raw">${e(x.raw)}</td>` : ''}<td>${e(x.name)}</td><td>${x.kg === '' ? '' : Number(x.kg).toLocaleString()}</td><td>${x.ct === '' ? '' : x.ct}</td><td class="nt">${e(x.note)}</td></tr>`;
+    });
+    const s = prSums(dk, doc);
+    t2 += `<tr class="sum"><td colspan="3">합계</td><td>${s.kg ? s.kg.toLocaleString() : ''}</td><td>${s.ct ? s.ct.toLocaleString() : ''}</td><td class="nt">${e(doc.instNote)}</td></tr></tbody></table>`;
+    const staff = doc.staff.filter(x => (x.label || '').trim() || (x.names || '').trim());
+    const std = String(prStd == null ? PR_STD_DEFAULT : prStd).split('\n');
+    const [y, mo, da] = dk.split('-');
+    return `<div class="pr-rep"><div class="pr-h">${e(`${y}-${mo}-${da}`)} 생산일보</div>${t1}${t2}
+      <table class="t3"><tr><td class="bar">비고</td></tr><tr><td class="pre">${e(doc.note) || '&nbsp;'}</td></tr></table>
+      <table class="t3"><tr><td class="lb">일용직 충원</td><td class="big">${doc.temp === '' ? '-' : e(doc.temp)} 명</td></tr></table>
+      <div class="bottom"><div class="staff">${staff.map(x => `<div>${e(x.label)} : ${e(x.names)}</div>`).join('')}
+        <div class="ft"><span class="lb">비고</span><span class="pre">${e(doc.foot) || '&nbsp;'}</span></div><div class="tot">총 : ${doc.total === '' ? '-' : e(doc.total)} 명</div></div>
+        <div class="std"><div class="t">${e(std[0] || '')}</div><div class="pre">${e(std.slice(1).join('\n'))}</div></div></div></div>`;
+  }
+  async function prLoadForBoard(dk){
+    await prLoad(dk, true);   // 원가 설정도 다시 읽음
+  }
   function poBoardHtml(m, prev){
     const e = escapeHtml;
     const chg = (key, L, v) => (prev && prev[key + '|' + L] !== undefined && prev[key + '|' + L] !== v) ? ' pb-chg' : '';
@@ -18340,24 +18683,53 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(dd){ const x = jp(dd, null); if(x){ document.getElementById('delivery-year').value = x.year || ''; document.getElementById('delivery-month').value = x.month || ''; document.getElementById('delivery-day').value = x.day || ''; } }
     currentDateKey = computeCurrentDateKey();
   }
+  // 보기 모드: 'board'(현황판) · 'report'(생산일보) · 'cycle'(30초마다 번갈아). 이 브라우저에 기억
+  let pbView = (() => { try{ return localStorage.getItem('pb-view') || 'board'; }catch(e){ return 'board'; } })();
+  let pbPhase = false, pbModel = null, pbCycleTimer = null;
+  const PB_VIEW_LABEL = { board: '보기: 현황판', report: '보기: 생산일보', cycle: '보기: 번갈아' };
+  const pbShowReport = () => pbView === 'report' || (pbView === 'cycle' && pbPhase);
+  function pbPaint(m){
+    const body = document.getElementById('pb-fit');
+    const vb = document.getElementById('pb-view'); if(vb) vb.textContent = PB_VIEW_LABEL[pbView] || PB_VIEW_LABEL.board;
+    const repOn = pbShowReport();
+    document.getElementById('po-board').classList.toggle('rep', repOn);
+    if(repOn){
+      body.innerHTML = prReportHtml(m);
+      document.getElementById('pb-notes').innerHTML = '';
+      return;
+    }
+    body.innerHTML = poBoardHtml(m, pbPrev);
+    const prev = {}; body.querySelectorAll('td[data-k]').forEach(td => { prev[td.dataset.k] = Number(td.dataset.v); });
+    pbPrev = prev;
+    const [y, mo, da] = currentDateKey.split('-').map(Number);
+    document.getElementById('pb-date').textContent = `${y}년 ${mo}월 ${da}일 (${PO_DAYS[new Date(y, mo - 1, da).getDay()]}) 납품`;
+    const nt = document.getElementById('pb-notes');
+    let legend = '';
+    if(m.draft){
+      const dt = new Date(m.draft.at), hm = isNaN(dt) ? '' : `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+      legend = `<div class="pb-legend"><span class="pb-ysamp">노란색</span> 초안 공유본(${hm}) 이후 수정·추가된 업체 ${m.draft.changed.length}곳${m.draft.removed.length ? `<div class="sub2">초안에는 있었으나 지금은 없는 업체: ${escapeHtml(m.draft.removed.join(', '))}</div>` : ''}</div>`;
+    }
+    nt.innerHTML = legend + m.notes.map(n => `<div>⚠ ${escapeHtml(n)}</div>`).join('');
+    if(!m.cols.length) body.innerHTML = '<div class="pb-empty">이 날짜에는 발주 데이터가 없습니다</div>';
+  }
+  function pbCycleStart(){
+    if(pbCycleTimer){ clearInterval(pbCycleTimer); pbCycleTimer = null; }
+    pbPhase = false;
+    if(pbView !== 'cycle') return;
+    pbCycleTimer = setInterval(() => {
+      if(document.getElementById('po-board').style.display === 'none'){ clearInterval(pbCycleTimer); pbCycleTimer = null; return; }
+      if(!pbModel) return;
+      pbPhase = !pbPhase; pbPaint(pbModel); poBoardFit(); poBoardFoot();
+    }, 30000);
+  }
   async function poBoardRefresh(reload){
     const body = document.getElementById('pb-fit');
     try{
       if(reload) await poBoardReload();
       const m = await poBoardCollect(currentDateKey);
-      body.innerHTML = poBoardHtml(m, pbPrev);
-      const prev = {}; body.querySelectorAll('td[data-k]').forEach(td => { prev[td.dataset.k] = Number(td.dataset.v); });
-      pbPrev = prev;
-      const [y, mo, da] = currentDateKey.split('-').map(Number);
-      document.getElementById('pb-date').textContent = `${y}년 ${mo}월 ${da}일 (${PO_DAYS[new Date(y, mo - 1, da).getDay()]}) 납품`;
-      const nt = document.getElementById('pb-notes');
-      let legend = '';
-      if(m.draft){
-        const dt = new Date(m.draft.at), hm = isNaN(dt) ? '' : `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
-        legend = `<div class="pb-legend"><span class="pb-ysamp">노란색</span> 초안 공유본(${hm}) 이후 수정·추가된 업체 ${m.draft.changed.length}곳${m.draft.removed.length ? `<div class="sub2">초안에는 있었으나 지금은 없는 업체: ${escapeHtml(m.draft.removed.join(', '))}</div>` : ''}</div>`;
-      }
-      nt.innerHTML = legend + m.notes.map(n => `<div>⚠ ${escapeHtml(n)}</div>`).join('');
-      if(!m.cols.length) body.innerHTML = '<div class="pb-empty">이 날짜에는 발주 데이터가 없습니다</div>';
+      await prLoadForBoard(currentDateKey);
+      pbModel = m;
+      pbPaint(m);
       pbErr = ''; pbLast = new Date();
     }catch(e){
       pbErr = '새로고침 실패 — 이전 화면을 유지합니다 (' + (e.message || e) + ')';
@@ -18385,12 +18757,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.body.style.overflow = 'hidden';
     poBoardRefresh(false);
     poBoardAutoStart();
+    pbCycleStart();
     // 현황판은 같은 페이지 위에 뜨는 화면이라, 뒤로가기를 누르면 현황판이 아니라 이전 페이지(상세페이지 등)로 나가 버림 → 열 때 기록을 한 칸 만들어 두고, 뒤로가기는 현황판 닫기로 처리
     if(!pbPushed){ try{ history.pushState({ pbBoard: 1 }, ''); pbPushed = true; }catch(e){ /* 기록을 못 만들어도 현황판은 정상 동작 */ } }
   }
   let pbPushed = false;
   function poBoardClose(fromPop){
     poBoardAutoStop();
+    if(pbCycleTimer){ clearInterval(pbCycleTimer); pbCycleTimer = null; }
     document.getElementById('po-board').style.display = 'none';
     document.body.style.overflow = '';
     if(pbPushed){ pbPushed = false; if(fromPop !== true){ try{ history.back(); }catch(e){ /* 무시 */ } } }   // 버튼·Esc로 닫으면 만들어 둔 기록도 되돌림
@@ -18401,6 +18775,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   document.getElementById('po-board-btn').addEventListener('click', () => poBoardOpen());
   { const b2 = document.getElementById('po-board-btn-plan'); if(b2) b2.addEventListener('click', () => poBoardOpen()); }
   document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(true));
+  document.getElementById('pb-view').addEventListener('click', () => {
+    pbView = pbView === 'board' ? 'report' : pbView === 'report' ? 'cycle' : 'board';
+    try{ localStorage.setItem('pb-view', pbView); }catch(e){}
+    pbCycleStart();
+    if(pbModel){ pbPaint(pbModel); poBoardFit(); poBoardFoot(); }
+  });
   document.getElementById('pb-close').addEventListener('click', () => poBoardClose());
 
   // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
