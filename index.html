@@ -374,6 +374,20 @@
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
   /* 전일 재고·원물 입력(생산 / 물류 탭): 생산 / 물류 권한이 전체가 아니면 잠금 */
   .stock-ro-note{ display:none; margin:0 0 8px; color:var(--danger,#c0392b); }
+  /* 제품 재고 입력: 칸마다 묶음. 휴대폰에서는 품목명을 한 줄 전체로, 아래에 전일·이틀 전·오늘 생산량 3칸을 나란히(칸 이름 표시) */
+  #product-stock-editor .ps-f{ display:flex; align-items:center; gap:4px; }
+  #product-stock-editor .ps-l{ display:none; }
+  @media (max-width: 640px){
+    #product-stock-editor .ps-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px 8px; align-items:start; padding:10px 0; border-bottom:1px solid var(--line); }
+    #product-stock-editor .ps-name{ grid-column:1 / 3; grid-row:1; font-size:14px !important; font-weight:700; line-height:1.35; align-self:center; word-break:keep-all; }
+    #product-stock-editor .ps-clear{ grid-column:3; grid-row:1; justify-self:end; align-self:center; }
+    #product-stock-editor .ps-f{ flex-direction:column; align-items:stretch; gap:2px; min-width:0; }
+    #product-stock-editor .ps-l{ display:block; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #product-stock-editor .ps-f input{ width:100% !important; box-sizing:border-box; font-size:15px; padding:6px 8px; }
+    #product-stock-editor .ps-f .ps-conv{ min-width:0 !important; font-size:11px !important; line-height:1.3; }
+    #product-stock-editor .ps-f > span:not(.ps-l):not(.ps-conv){ align-self:flex-start; }
+    #product-stock-editor .ps-row > .ps-f:nth-child(2) input::placeholder, #product-stock-editor .ps-row > .ps-f:nth-child(3) input::placeholder{ color:transparent; }   /* 칸 이름이 위에 있으니 안내 글자는 숨김 (오늘 생산량의 "필요 N"은 보임) */
+  }
   #app.stock-ro #stock-card .stock-ro-note{ display:block; }
   #app.stock-ro #stock-card input, #app.stock-ro #stock-card select, #app.stock-ro #stock-card button{ pointer-events:none; opacity:.55; }
   /* 발주자동화 세부 권한: 생산/물류·송장/명세서만 받은 직원은 그 두 탭만 보임 */
@@ -5463,9 +5477,10 @@ function mnShow(id, keepScroll) {
     dict.forEach(item=>{
       const id = item.id;
       const row = document.createElement('div');
-      row.className = 'dict-row';
+      row.className = 'dict-row ps-row';
 
       const nameSpan = document.createElement('div');
+      nameSpan.className = 'ps-name';
       nameSpan.style.flex = '1';
       nameSpan.style.fontSize = '13px';
       nameSpan.textContent = item.name;
@@ -5481,6 +5496,7 @@ function mnShow(id, keepScroll) {
         span.style.fontSize = '11.5px';
         span.style.color = 'var(--accent)';
         span.style.minWidth = '90px';
+        span.className = 'ps-conv';
         const upd = (val)=>{
           const breakdown = formatBoxBreakdown(val, item.boxUnitCount);
           span.textContent = breakdown ? `= ${breakdown}` : (item.boxUnitCount ? '' : '(박스입수 미설정)');
@@ -5520,16 +5536,14 @@ function mnShow(id, keepScroll) {
       s2.input.value = stock.product2[id] ?? ''; s2.upd(stock.product2[id] ?? 0);
       s3.input.value = stock.made[id] ?? ''; s3.upd(stock.made[id] ?? 0);
       refresh();
-      row.appendChild(s1.input);
-      row.appendChild(tag);
-      row.appendChild(s1.span);
-      row.appendChild(s2.input);
-      row.appendChild(s2.span);
-      row.appendChild(s3.input);
-      row.appendChild(s3.span);
+      // 칸마다 묶음(휴대폰에서는 이름 아래에 3칸으로 나란히, 칸 이름 표시)
+      const field = (label, parts) => { const f = document.createElement('div'); f.className = 'ps-f'; const l = document.createElement('span'); l.className = 'ps-l'; l.textContent = label; f.append(l, ...parts); return f; };
+      row.appendChild(field('전일 재고(개)', [s1.input, tag, s1.span]));
+      row.appendChild(field('이틀 전 재고(개)', [s2.input, s2.span]));
+      row.appendChild(field('오늘 생산량(개)', [s3.input, s3.span]));
 
       const clearBtn = document.createElement('button');
-      clearBtn.className = 'btn-ghost small-btn';
+      clearBtn.className = 'btn-ghost small-btn ps-clear';
       clearBtn.textContent = '지우기';
       clearBtn.title = '이 품목의 전일·이틀 전 재고와 생산량 입력을 지웁니다. 전일 재고는 자동 계산값으로 돌아갑니다 (품목 자체는 삭제되지 않습니다)';
       clearBtn.addEventListener('click', ()=>{
