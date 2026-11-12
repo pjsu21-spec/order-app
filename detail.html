@@ -80,6 +80,8 @@
   .tag{ display:inline-block; font-size:10.5px; padding:1px 6px; border-radius:9px; margin-right:4px; font-weight:700; }
   .tag.new{ background:var(--accent-soft); color:var(--accent); }
   .tag.up{ background:#efece4; color:var(--muted); }
+  .tag.rep{ background:#fff1d6; color:#9a5b00; }
+  .notice.warn{ background:var(--warn-soft); border-color:#f0c3b8; }
   .im .act{ display:flex; gap:3px; flex:none; }
   .im .act button{ padding:5px 8px; font-size:13px; }
   .imgs-bar{ display:flex; gap:8px; align-items:center; margin-top:10px; font-size:12.5px; color:var(--muted); }
@@ -207,6 +209,7 @@
             <span style="font-size:12.5px;">JPG · PNG · WEBP · GIF / 여러 장 한꺼번에 가능 · 파일 이름 순서대로 들어갑니다</span>
           </div>
           <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display:none;">
+          <input type="file" id="rep-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;">
           <div class="imgs" id="imgs"></div>
           <div class="imgs-bar" id="imgs-bar" style="display:none;">
             <span id="imgs-summary"></span><span class="sp"></span>
@@ -255,6 +258,7 @@
               <button id="del-btn" class="btn-danger" style="margin-left:auto;">삭제</button>
             </div>
             <p class="hint" style="margin:10px 0 0;">스마트스토어·쿠팡·11번가·토스쇼핑의 상세설명 <b>HTML</b> 입력칸에 그대로 붙여넣으세요. HTML이 안 되는 몰에는 zip 안의 이미지를 순서대로 올리면 됩니다.</p>
+            <p class="hint" id="slot-hint" style="margin:8px 0 0;display:none;">🔗 <b>고정 주소 HTML</b>입니다. 이미지 칸마다 주소가 정해져 있어서, 왼쪽에서 이미지를 <b>교체</b>하고 저장하면 이 HTML을 붙여넣은 <b>모든 마켓에 몇 분 안에</b> 바뀝니다(다시 붙여넣지 않아도 됨). 단, <b>이미지 장수가 바뀌면</b> 다시 붙여넣어야 늘어난 이미지가 보이고, 줄어든 칸은 빈칸이 됩니다. 예전에 복사해 둔 HTML(파일 주소)은 교체가 반영되지 않으니 한 번만 이 HTML로 다시 붙여넣으세요.</p>
           </div>
         </div>
 
@@ -305,6 +309,9 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('sho
 function fmtSize(n){ n=Number(n||0); if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(0)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
 function fmtDate(s){ const d=new Date(s); return isNaN(d)?'':d.toLocaleString('ko-KR',{year:'2-digit',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
 function pubUrl(id, file){ return IMG_BASE ? `${IMG_BASE}/p/${id}/${file}` : `${WORKER_URL}/i/p/${id}/${file}`; }
+// 고정 주소: 상세페이지의 n번째 이미지 칸. 이미지를 교체해도 주소가 그대로라 이미 붙여넣은 마켓에도 반영됨 (서버가 slots 기능을 지원할 때만)
+let serverSlots = false;
+function slotUrl(id, n){ return `${WORKER_URL}/s/${id}/${n}.jpg`; }
 function canEdit(){ return me && !me.readOnly; }
 
 function confirmBox(title, msg, okText = '확인', danger = false){
@@ -383,6 +390,7 @@ $('logout-btn').onclick = async () => {
 async function loadList(){
   const data = await api('/api/products');
   products = data.items; me = data.me;
+  serverSlots = Array.isArray(data.features) && data.features.includes('slots');
   $('user-badge').textContent = `${me.display_name}${me.isAdmin?' (관리자)':me.readOnly?' (읽기 전용)':''}`;
   $('new-btn').style.display = canEdit() ? '' : 'none';
   renderList();
@@ -462,11 +470,11 @@ function renderItems(){
     const name = it.kind==='up' ? it.file : it.file.name;
     const sub = it.kind==='up'
       ? `<span class="tag up">올라감</span>${it.w}×${it.h}px · ${fmtSize(it.size)}`
-      : `<span class="tag new">새 이미지</span>${it.w ? it.w+'×'+it.h+'px · ' : ''}${fmtSize(it.file.size)}`;
+      : `<span class="tag ${it.replace ? 'rep' : 'new'}">${it.replace ? i+1 + '번 칸 교체' : '새 이미지'}</span>${it.w ? it.w+'×'+it.h+'px · ' : ''}${fmtSize(it.file.size)}`;
     return `<div class="im ${it.kind==='new'?'new':''}">
       <span class="no">${i+1}</span><img src="${esc(src)}" alt="" loading="lazy">
       <div class="info"><div class="n">${esc(name)}</div><div class="s">${sub}</div></div>
-      ${ro ? '' : `<div class="act"><button data-a="up" data-i="${i}" ${i===0?'disabled':''} title="위로">↑</button><button data-a="down" data-i="${i}" ${i===items.length-1?'disabled':''} title="아래로">↓</button><button data-a="rm" data-i="${i}" class="btn-danger" title="빼기">✕</button></div>`}
+      ${ro ? '' : `<div class="act"><button data-a="up" data-i="${i}" ${i===0?'disabled':''} title="위로">↑</button><button data-a="down" data-i="${i}" ${i===items.length-1?'disabled':''} title="아래로">↓</button>${it.kind==='up' ? `<button data-a="rep" data-i="${i}" title="이 칸의 이미지를 다른 이미지로 바꿉니다 (칸 순서·장수는 그대로, 고정 주소 HTML이면 마켓에도 반영)">교체</button>` : ''}<button data-a="rm" data-i="${i}" class="btn-danger" title="빼기">✕</button></div>`}
     </div>`;
   }).join('');
   $('imgs').querySelectorAll('button[data-a]').forEach(b => b.onclick = () => {
@@ -474,6 +482,7 @@ function renderItems(){
     if (a==='up' && i>0) [items[i-1], items[i]] = [items[i], items[i-1]];
     if (a==='down' && i<items.length-1) [items[i+1], items[i]] = [items[i], items[i+1]];
     if (a==='rm'){ const [r] = items.splice(i,1); if (r.kind==='new') URL.revokeObjectURL(r.thumb); }
+    if (a==='rep'){ repIndex = i; $('rep-input').click(); return; }
     renderItems(); renderResult();
   });
   const nNew = items.filter(it=>it.kind==='new').length;
@@ -497,6 +506,19 @@ async function addFiles(fileList){
   }
   renderItems(); renderResult();
 }
+// 교체: 고른 칸의 올라간 이미지를 새 이미지로 바꿔 둠 (저장할 때 올라감). 칸 순서는 그대로
+let repIndex = -1;
+$('rep-input').onchange = e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if (!f || repIndex < 0 || !items[repIndex]) return;
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(f.type)){ toast('JPG · PNG · WEBP · GIF 이미지만 넣을 수 있습니다'); return; }
+  const it = { kind:'new', file:f, key:'k'+(++keySeq), thumb:URL.createObjectURL(f), w:0, h:0, replace:true, was: items[repIndex] };
+  items[repIndex] = it;
+  createImageBitmap(f).then(bm => { it.w = bm.width; it.h = bm.height; bm.close(); renderItems(); }).catch(() => {});
+  repIndex = -1;
+  renderItems(); renderResult();
+  toast('교체할 이미지를 넣었습니다. 저장하면 반영됩니다');
+};
 $('drop').onclick = () => $('file-input').click();
 $('file-input').onchange = e => { addFiles(e.target.files); e.target.value=''; };
 ['dragenter','dragover'].forEach(t => $('drop').addEventListener(t, e => { e.preventDefault(); $('drop').classList.add('over'); }));
@@ -693,8 +715,12 @@ $('save-btn').onclick = async () => {
       thResult.push(up); t.pieces = [up]; URL.revokeObjectURL(t.url); t.kind = 'done'; ti++;
     }
     setProgress('저장 중…', 98);
+    const prevCount = cur.isNew ? 0 : ((cur.images || []).length);
     const data = await api(`/api/products/${cur.id}`, { method:'PUT', body: JSON.stringify({ title, width, text:$('text').value, images: result, thumbs: thResult }) });
     cur = { ...data.product, isNew:false };
+    // 이미지 장수가 바뀌면 고정 주소 HTML을 다시 붙여넣어야 함 (이번 화면에서 계속 안내)
+    const pc = typeof data.prevCount === 'number' ? data.prevCount : prevCount;
+    cur._countChange = (pc > 0 && pc !== cur.images.length) ? { from: pc, to: cur.images.length } : null;
     const thumbsSaved = !thResult.length || (Array.isArray(cur.thumbs) && cur.thumbs.length === thResult.length);
     thumbs = (thumbsSaved ? cur.thumbs : thResult).map(im => ({ kind:'up', ...im }));
     items = cur.images.map(im => ({ kind:'up', ...im }));
@@ -720,7 +746,7 @@ $('save-btn').onclick = async () => {
 function buildHtml(p){
   const w = p.width || 860;
   const imgs = p.images.map((im, i) =>
-    `<img src="${pubUrl(p.id, im.file)}" alt="${esc(p.title)} 상세 ${i+1}" style="display:block;width:100%;max-width:${w}px;height:auto;margin:0 auto;border:0;">`
+    `<img src="${serverSlots ? slotUrl(p.id, i + 1) : pubUrl(p.id, im.file)}" alt="${esc(p.title)} 상세 ${i+1}" style="display:block;width:100%;max-width:${w}px;height:auto;margin:0 auto;border:0;">`
   ).join('\n');
   let html = `<div style="max-width:${w}px;margin:0 auto;font-size:0;line-height:0;">\n${imgs}\n</div>`;
   const text = String(p.text || '').trim();
@@ -742,8 +768,18 @@ function renderResult(){
     $('result-body').style.display='none';
   } else {
     $('result-body').style.display='';
+    note.classList.remove('warn');
+    const cc = cur._countChange;
     if (dirty){ note.style.display=''; note.innerHTML = '⚠ 저장하지 않은 변경사항이 있습니다. 아래 HTML은 <b>마지막 저장본</b>입니다. 저장한 뒤 다시 복사하세요.'; }
+    else if (cc && serverSlots){
+      note.style.display=''; note.classList.add('warn');
+      note.innerHTML = cc.to > cc.from
+        ? `⚠ 이미지가 <b>${cc.from}장 → ${cc.to}장</b>으로 늘었습니다. 이미 붙여넣은 마켓에는 앞의 ${cc.from}장만 보이니, 아래 HTML을 <b>다시 복사해서 붙여넣으세요.</b>`
+        : `⚠ 이미지가 <b>${cc.from}장 → ${cc.to}장</b>으로 줄었습니다. 이미 붙여넣은 마켓에는 뒤의 ${cc.from - cc.to}칸이 빈칸으로 남으니, 아래 HTML을 <b>다시 복사해서 붙여넣는 것</b>을 권장합니다.`;
+    }
+    else if (!serverSlots){ note.style.display=''; note.innerHTML = 'ℹ 이미지 서버가 아직 예전 버전이라 <b>파일 주소 HTML</b>이 나옵니다. 서버(Worker)를 최신 detail-worker.js로 바꾸면 고정 주소 HTML이 나옵니다.'; }
     else note.style.display='none';
+    $('slot-hint').style.display = serverSlots ? '' : 'none';
     $('html-out').value = buildHtml(cur);
   }
   $('save-hint').textContent = dirty ? '저장하지 않은 변경사항이 있습니다' : (hasSaved ? '저장된 상태입니다' : '');

@@ -1,7 +1,9 @@
 // ══════════════════════════════════════════════════════════════════
 // 다름달음 상세페이지 이미지 서버 (Cloudflare Worker)
 //
-//  - GET  /i/p/<상품ID>/<파일>      : 공개 이미지 (마켓 상세페이지가 불러가는 주소)
+//  - GET  /s/<상품ID>/<번호>.jpg   : 고정 주소 이미지 (마켓 HTML에 넣는 주소). 번호 = 상세페이지의 n번째 이미지.
+//                                     이미지를 교체해도 주소가 그대로라, 이미 붙여넣은 모든 마켓에 몇 분 안에 반영됩니다.
+//  - GET  /i/p/<상품ID>/<파일>      : 파일별 공개 이미지 (예전 HTML·편집 화면 미리보기용, 파일 이름이 업로드마다 다름)
 //  - GET  /api/me                   : 로그인 확인
 //  - GET  /api/products             : 상세페이지 목록
 //  - GET  /api/products/<ID>        : 상세페이지 1개 정보
@@ -24,12 +26,16 @@ const MAX_TOTAL_BYTES = 9 * 1024 * 1024 * 1024;     // 버킷 전체 9GB에서 �
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{2,60}$/;
+const SLOT_MAX = 300;                 // 고정 주소 자리 수 최대 (이미지 최대 장수와 같음)
+const SLOT_CACHE_SEC = 300;           // 고정 주소 캐시 시간(초): 교체 후 마켓에 반영되기까지 최대 이만큼 걸림
+// 자리에 이미지가 없을 때(장수가 줄어든 경우) 보내는 1×1 투명 GIF — 마켓 화면에 깨진 그림이 보이지 않게
+const BLANK_GIF = Uint8Array.from(atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), c => c.charCodeAt(0));
 const FILE_RE = /^[a-z0-9][a-z0-9._-]{0,80}\.(jpg|jpeg|png|webp|gif)$/;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, If-None-Match',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -106,6 +112,46 @@ async function serveImage(request, key, ctx, env) {
   return res;
 }
 
+// ── 고정 주소 이미지: 상세페이지의 n번째 이미지를 그때그때 찾아서 보냄 ──
+//  ETag = 실제 파일 이름(업로드마다 다름) → 브라우저가 가진 것과 같으면 304로 끝냄 (이미지를 다시 읽지 않음)
+//  캐시는 짧게(SLOT_CACHE_SEC). 저장할 때 이 서버 쪽 캐시는 지우지만, 다른 지역 서버·브라우저 캐시는 이 시간이 지나야 바뀜
+const slotCacheUrl = (origin, id, n) => `${origin}/s/${id}/${n}.jpg`;
+async function serveSlot(request, id, n, ctx, env, origin) {
+  const cache = caches.default;
+  const cacheKey = new Request(slotCacheUrl(origin, id, n), { method: 'GET' });
+  let res = await cache.match(cacheKey);
+  if (!res) {
+    const mo = await env.BUCKET.get(`m/${id}.json`);
+    if (!mo) return new Response('Not found', { status: 404, headers: CORS });
+    const manifest = await mo.json().catch(() => ({}));
+    const im = (manifest.images || [])[n - 1];
+    const headers = new Headers(CORS);
+    headers.set('Cache-Control', `public, max-age=${SLOT_CACHE_SEC}`);
+    if (!im) {
+      headers.set('Content-Type', 'image/gif');
+      headers.set('ETag', '"blank"');
+      res = new Response(BLANK_GIF, { headers });
+    } else {
+      const obj = await env.BUCKET.get(`p/${id}/${im.file}`);
+      if (!obj) return new Response('Not found', { status: 404, headers: CORS });
+      obj.writeHttpMetadata(headers);
+      if (!headers.get('Content-Type')) headers.set('Content-Type', 'image/jpeg');
+      headers.set('Cache-Control', `public, max-age=${SLOT_CACHE_SEC}`);   // 업로드 때 붙인 1년 캐시 헤더를 짧게 덮어씀
+      headers.set('ETag', `"${im.file}"`);
+      res = new Response(obj.body, { headers });
+    }
+    if (request.method === 'GET') ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  }
+  const inm = request.headers.get('If-None-Match');
+  if (inm && inm === res.headers.get('ETag')) return new Response(null, { status: 304, headers: { ...CORS, ETag: inm, 'Cache-Control': res.headers.get('Cache-Control') } });
+  return res;
+}
+// 저장·삭제 때 이 지역 서버의 고정 주소 캐시를 지움 (n = 1 ~ count)
+async function purgeSlots(origin, id, count) {
+  const n = Math.min(SLOT_MAX, Math.max(0, count));
+  await Promise.all(Array.from({ length: n }, (_, i) => caches.default.delete(new Request(slotCacheUrl(origin, id, i + 1))).catch(() => {})));
+}
+
 // ── 목록 / 정보 ──
 async function listProducts(env) {
   const out = [];
@@ -140,7 +186,7 @@ async function totalUsage(env) {
   return total;
 }
 
-async function saveManifest(env, id, body, user) {
+async function saveManifest(env, id, body, user, origin) {
   const title = String(body.title || '').trim().slice(0, 100);
   if (!title) return err('상품명을 입력해주세요');
   const images = Array.isArray(body.images) ? body.images : [];
@@ -167,6 +213,7 @@ async function saveManifest(env, id, body, user) {
   const now = new Date().toISOString();
   const prev = await env.BUCKET.get(`m/${id}.json`);
   const prevData = prev ? await prev.json().catch(() => ({})) : {};
+  const prevCount = Array.isArray(prevData.images) ? prevData.images.length : 0;
   const manifest = {
     id,
     title,
@@ -189,7 +236,8 @@ async function saveManifest(env, id, body, user) {
       updated_by: encodeURIComponent(user.display_name),
     },
   });
-  return json({ ok: true, product: manifest });
+  await purgeSlots(origin, id, Math.max(prevCount, clean.length));   // 바뀐 이미지가 고정 주소에 바로 보이도록 (이 지역 캐시)
+  return json({ ok: true, product: manifest, prevCount });
 }
 
 async function deleteProduct(env, id, origin) {
@@ -203,6 +251,7 @@ async function deleteProduct(env, id, origin) {
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
   await env.BUCKET.delete(`m/${id}.json`);
+  await purgeSlots(origin, id, SLOT_MAX);
   return json({ ok: true });
 }
 
@@ -218,6 +267,14 @@ export default {
     try {
       if (path === '/' && method === 'GET') return json({ ok: true, service: '다름달음 상세페이지 이미지 서버' });
 
+      // 고정 주소 이미지 (마켓 HTML)
+      if (path.startsWith('/s/') && (method === 'GET' || method === 'HEAD')) {
+        const sm = path.match(/^\/s\/([^/]+)\/(\d{1,3})(?:\.(?:jpg|jpeg|png|webp|gif))?$/);
+        const n = sm ? Number(sm[2]) : 0;
+        if (!sm || !ID_RE.test(sm[1]) || n < 1 || n > SLOT_MAX) return new Response('Not found', { status: 404, headers: CORS });
+        return serveSlot(request, sm[1], n, ctx, env, url.origin);
+      }
+
       // 공개 이미지
       if (path.startsWith('/i/') && (method === 'GET' || method === 'HEAD')) {
         const key = path.slice(3);
@@ -232,10 +289,11 @@ export default {
       if (!user) return err('로그인이 필요합니다', 401);
       if (!user.has) return err('상세페이지 도구 사용 권한이 없습니다. 관리자에게 공유폴더 권한을 요청하세요.', 403);
 
-      if (path === '/api/me') return json({ me: user });
+      // features: 이 서버가 지원하는 기능 (화면이 서버 버전을 알아보는 용도 — slots = 고정 주소 이미지)
+      if (path === '/api/me') return json({ me: user, features: ['slots'] });
 
       if (path === '/api/products' && method === 'GET') {
-        return json({ items: await listProducts(env), me: user });
+        return json({ items: await listProducts(env), me: user, features: ['slots'] });
       }
 
       let m = path.match(/^\/api\/products\/([^/]+)$/);
@@ -248,7 +306,7 @@ export default {
           return json({ product: await obj.json() });
         }
         if (user.readOnly) return err('읽기 전용 권한이라 수정할 수 없습니다', 403);
-        if (method === 'PUT') return saveManifest(env, id, await request.json(), user);
+        if (method === 'PUT') return saveManifest(env, id, await request.json(), user, url.origin);
         if (method === 'DELETE') return deleteProduct(env, id, url.origin);
       }
 
