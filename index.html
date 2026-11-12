@@ -640,6 +640,11 @@
   @media (max-width: 640px){ #stm-card .stm-row .acts{ margin-left:0; } }
   .tab-btn{ background:transparent; color:var(--muted); border:1px solid var(--line); }
   .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .sr-bar{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:2px 0 12px; padding:8px 10px; background:#fff7f4; border:1px solid #f3dcd6; border-radius:12px; }
+  .sr-bar .sr-lb{ font-size:13px; font-weight:700; color:#8c7f80; margin-right:2px; }
+  .sr-chip{ background:#fff; border:1px solid #efc9c9; color:#4a3f41; border-radius:999px; padding:6px 14px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .sr-chip.on{ background:linear-gradient(100deg, #c50f2c, #e01f2e); border-color:#d0172f; color:#fff; }
+  .sr-raw-tbl td, .sr-raw-tbl th{ padding:6px 10px; }
   .sorting-tabstrip, .sample-tabstrip, .cost-tabstrip, .admin-tabstrip{ padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--line); }   /* 탭 줄과 아래 입력 칸 사이 구분 */
   /* 메인 네비게이션 탭 */
   .main-nav{ display:flex; gap:0; border-bottom:2px solid var(--line); margin:0 0 16px; padding:0; overflow-x:auto; }
@@ -1724,6 +1729,7 @@
       <button class="tab-btn" id="sorting-tab-equipment-btn">물류기기</button>
       <button class="tab-btn sorting-master-only" id="sorting-tab-master-btn" style="display:none; background:#fef9e7; color:#b7770d;">마스터관리</button>
     </div>
+    <div id="sr-bar" class="sr-bar"></div>
 
     <div id="sorting-section-overview">
       <div class="row" style="margin-top:0; align-items:center;">
@@ -2725,6 +2731,15 @@
 <h2>원물선별</h2>
 <p class="mn-lead">원물(방울토마토)이 들어와서 선별되고 출고·정산되기까지를 기록합니다. 홈 화면의 <b>원물선별</b> 타일로 들어갑니다. 위쪽 탭으로 화면을 바꿉니다.</p>
 
+<h3>원물 구분 (대추방울토마토 · 찰토마토 · 수박 …)</h3>
+<p>원물선별 맨 위의 <b>원물</b> 버튼으로 원물을 고르면 원물입고·선별산출·출고·정산·현황이 모두 그 원물 기준으로 바뀝니다. 현황에서는 <span class="mn-b">전체</span>를 고르면 원물별로 나눠 한 번에 봅니다.</p>
+<ul>
+  <li><b>원물 종류 정하기</b> (마스터관리 권한): 마스터관리 → <b>원물 종류</b>에서 이카운트 자재 마스터의 원자재 중 다룰 원물을 체크하고, 예전 자료가 속할 <b>기본 원물</b>(지금까지의 대추방울토마토)을 고른 뒤 저장합니다. 목록에 없으면 이카운트·기준정보 → 자재·재고 관리 → 자재 마스터에 품목코드와 함께 먼저 등록하세요.</li>
+  <li><b>원물별 등급</b>: 마스터관리 → 등급에서 등급마다 <b>원물</b>을 정합니다(비우면 기본 원물). 선별산출·출고에는 고른 원물의 등급만 나오고, 선별후재고도 원물별로 계산됩니다.</li>
+  <li><b>원물입고</b>: 원물 칸은 맨 위에서 고른 원물로 자동으로 정해집니다. 선별전재고·선입선출 배분도 그 원물의 입고만으로 계산합니다.</li>
+  <li>원물 종류를 하나도 체크하지 않으면 예전처럼 원물 구분 없이 동작합니다.</li>
+</ul>
+
 <h3>현황</h3>
 <p>사입처별 <b>선별전재고</b>, 등급별 <b>선별후재고</b>(판매 가능), 날짜별 작업·출고 현황을 한눈에 봅니다. 조회 날짜를 바꾸고 <span class="mn-b">🔄 새로고침</span>.</p>
 
@@ -3043,6 +3058,7 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
       else if (init && typeof init.body === 'string') { const b = JSON.parse(init.body); key = String((Array.isArray(b) ? b[0] : b).key || ''); }
       if (/^(ship-plan-|prod-plan-|prod-seq-routine|mat-auto-)/.test(key) || /^(previous-stock|raw-materials|raw-material-usage)$/.test(key)) return 'plan';   // 전일 재고·원물 재고도 생산/물류
       if (/^(statement-|shipdoc-)/.test(key)) return 'invoice';
+      if (/^sorting-/.test(key)) return 'sorting_master';   // 원물선별 설정(원물 종류 등)
     } catch (e) { /* 구분 못 하면 발주자동화로 */ }
     return null;
   }
@@ -3052,7 +3068,11 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
     const table = url.slice(REST.length).split(/[?\/]/)[0];
     const prog = programFor(table);
     let lvl = prog ? window.accessLevel(prog) : null;
-    if (table === 'kv_store') { const sec = kvSection(url, init); if (sec) lvl = window.sectionLevel(sec); }   // 생산/물류·송장/명세서 저장값은 그 세부 권한을 따름
+    if (table === 'kv_store') {
+      const sec = kvSection(url, init);
+      if (sec === 'sorting_master') { const u = window.currentUser || {}; lvl = (u.role === 'admin' || (window.accessLevel('sorting') === 'full' && u.sorting_master_edit === true)) ? 'full' : (window.accessLevel('sorting') === 'none' ? 'none' : 'read'); }
+      else if (sec) lvl = window.sectionLevel(sec);
+    }   // 생산/물류·송장/명세서 저장값은 그 세부 권한을 따름
     if (!prog) return false;
     return lvl === 'read' ? 'read' : (lvl === 'none' ? 'none' : false);
   }
@@ -13011,6 +13031,116 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
   });
 
+  // ══════════════════ 원물선별 · 원물 구분 ══════════════════
+  // 원물 = 이카운트 자재 마스터의 원자재(품목코드). 마스터관리 → 원물 종류에서 '선별 원물'로 고른 것만 맨 위 원물 선택에 나옴
+  // 저장: kv 'sorting-raw-settings' = { codes:[자재 코드], defaultCode } — defaultCode: 원물 칸이 빈 예전 입고·등급이 속하는 원물
+  // 입고는 item_code로, 선별산출·출고는 등급(sorting_grades.item_code, 비어 있으면 기본 원물)으로 원물이 정해짐
+  // 선별 원물을 하나도 고르지 않았으면 예전처럼 원물 구분 없이 동작
+  let srRaws = [], srDefault = '', srCur = '', srLoaded = false, srMatItems = [], srGradesCache = null, srLoading = null;
+  async function srLoad(force){
+    if(srLoaded && !force) return;
+    if(srLoading && !force) return srLoading;
+    srLoading = (async () => {
+      let st = {}; try{ const r = await window.storage.get('sorting-raw-settings', true); st = r ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
+      let items = []; try{ const r = await window.storage.get('mat-master', true); items = ((r ? JSON.parse(r.value) : {}).items || []).filter(i => i && i.code && !i.off && i.kind !== 'semi'); }catch(e){ items = []; }
+      srMatItems = items;
+      const codes = Array.isArray(st.codes) ? st.codes.map(String) : [];
+      srRaws = codes.map(c => { const it = items.find(i => String(i.code) === c); return { code: c, name: it ? it.name : c }; });
+      srDefault = srRaws.some(r => r.code === String(st.defaultCode || '')) ? String(st.defaultCode) : (srRaws[0] ? srRaws[0].code : '');
+      if(!srCur){ try{ srCur = localStorage.getItem('sr-cur') || ''; }catch(e){ srCur = ''; } }
+      if(srCur !== '*' && !srRaws.some(r => r.code === srCur)) srCur = srDefault;
+      srLoaded = true; srLoading = null;
+      srRenderBar();
+    })();
+    return srLoading;
+  }
+  const srOn = () => srRaws.length > 0;
+  const srOverviewAll = () => srOn() && srCur === '*';
+  // 입고·선별·출고 탭에서 쓰는 원물 (현황에서 '전체'를 골랐으면 기본 원물)
+  function srActive(){
+    if(!srOn()) return null;
+    const c = srCur === '*' ? srDefault : srCur;
+    return srRaws.find(r => r.code === c) || srRaws[0];
+  }
+  const srCodeOf = code => (code ? String(code) : '') || srDefault;   // 원물 칸이 빈 예전 자료는 기본 원물
+  const srNameOf = code => { const r = srRaws.find(x => x.code === srCodeOf(code)); return r ? r.name : (code || ''); };
+  // 입고 조회 조건 (기본 원물은 원물 칸이 빈 예전 입고도 포함)
+  function srQ(field, raw){
+    if(!raw) return '';
+    if(raw.code === srDefault){ const c = raw.code.replace(/"/g, ''); return '&or=' + encodeURIComponent(`(${field}.eq."${c}",${field}.is.null,${field}.eq."")`); }
+    return `&${field}=eq.${encodeURIComponent(raw.code)}`;
+  }
+  async function srGrades(force){ if(!srGradesCache || force) srGradesCache = await sbQuery('sorting_grades', '?order=sort_order.asc,id.asc'); return srGradesCache; }
+  const srGradeIn = (g, raw) => !raw || srCodeOf(g.item_code) === raw.code;
+  async function srGradeIds(raw){ return (await srGrades()).filter(g => srGradeIn(g, raw)).map(g => g.id); }
+  // 선별산출 항목 조회 조건: 그 원물의 등급만
+  async function srItemsQ(raw){ if(!raw) return ''; const ids = await srGradeIds(raw); return '&grade_id=in.(' + (ids.length ? ids.join(',') : '0') + ')'; }
+  function srCurrentSection(){ return SORTING_SECTIONS.find(x => { const el = document.getElementById(`sorting-section-${x}`); return el && el.style.display !== 'none'; }) || 'overview'; }
+  function srRenderBar(){
+    const bar = document.getElementById('sr-bar'); if(!bar) return;
+    if(!srOn()){
+      bar.innerHTML = '<span class="sub" style="margin:0;">지금은 원물 구분 없이 한 가지로 보고 있습니다. 찰토마토·수박처럼 원물을 나눠 보려면 <b>마스터관리 → 원물 종류</b>에서 선별 원물을 고르세요.</span>';
+      return;
+    }
+    const sec = srCurrentSection();
+    const list = (sec === 'overview' ? [{ code: '*', name: '전체' }] : []).concat(srRaws);
+    const cur = (sec !== 'overview' && srCur === '*') ? srDefault : srCur;
+    bar.innerHTML = '<span class="sr-lb">원물</span>' + list.map(r => `<button type="button" class="sr-chip${r.code === cur ? ' on' : ''}" data-code="${escapeHtml(r.code)}">${escapeHtml(r.name)}</button>`).join('');
+  }
+  function srSet(code){
+    srCur = code; try{ localStorage.setItem('sr-cur', code); }catch(e){}
+    srRenderBar(); srReloadAll();
+  }
+  // 원물을 바꾸면 열려 있던 화면들을 그 원물 기준으로 다시 불러옴
+  function srReloadAll(){
+    srGradesCache = null;
+    if(srCurrentSection() === 'overview') loadSortingOverview();
+    if(sortingPanelInited){ srApplyInboundItem(); loadSortingStock(); loadSortingInboundTable(); }
+    if(sortingOutputUIInited){ resetOutputAllocationUI(); srApplyShareName(); loadOutputPostStock(); loadSortingOutputTable(); }
+    if(sortingShipmentUIInited){ shipmentFillGrades(); loadSellableGradeStock('shipment-stock-wrap'); loadSortingShipmentTable(); }
+  }
+  document.getElementById('sr-bar').addEventListener('click', e => { const b = e.target.closest('.sr-chip'); if(b) srSet(b.dataset.code); });
+  // 원물입고: 원물 칸을 지금 고른 원물로 맞춤 (원물 구분을 쓸 때)
+  function srApplyInboundItem(){
+    const sel = document.getElementById('inbound-item-select'); if(!sel) return;
+    const raw = srActive();
+    if(!raw){ sel.disabled = false; return; }
+    const it = inboundMatItems.find(i => String(i.code) === raw.code);
+    if(it) sel.value = String(it.id);
+    sel.disabled = true;
+    sel.title = '원물은 맨 위 원물 선택을 따릅니다';
+  }
+  function srApplyShareName(){ const raw = srActive(), el = document.getElementById('share-product-name'); if(raw && el) el.value = raw.name; }
+  // 마스터관리 → 원물 종류: 자재 마스터 원자재 중 선별 원물 고르기 + 기본 원물(예전 자료)
+  async function srRenderRawSettings(wrap){
+    wrap.innerHTML = '<div class="empty">불러오는 중…</div>';
+    await srLoad(true);
+    const can = window.currentUser && (window.currentUser.role === 'admin' || (window.accessLevel('sorting') === 'full' && window.currentUser.sorting_master_edit === true));
+    const items = srMatItems.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+    const on = new Set(srRaws.map(r => r.code));
+    let h = `<div class="sub" style="margin:0 0 8px;">이카운트 자재 마스터의 원자재 중 원물선별에서 다룰 원물을 체크하세요. 체크한 원물이 맨 위 원물 선택에 나오고, 입고·선별산출·등급·재고·출고가 원물별로 나뉩니다.<br>
+      <b>기본 원물</b>은 원물 칸이 비어 있는 예전 입고·등급이 속할 원물입니다(지금까지 다룬 대추방울토마토를 고르세요). 목록에 원물이 없으면 이카운트·기준정보 → 자재·재고 관리 → 자재 마스터에 품목코드와 함께 먼저 등록하세요.</div>`;
+    if(!items.length){ wrap.innerHTML = h + '<div class="empty">자재 마스터에 품목코드가 있는 원자재가 없습니다</div>'; return; }
+    h += '<table class="sr-raw-tbl"><thead><tr><th>선별 원물</th><th>기본 원물</th><th>코드</th><th>품목명</th></tr></thead><tbody>';
+    items.forEach(i => { const c = String(i.code); h += `<tr><td style="text-align:center;"><input type="checkbox" class="sr-raw-on" value="${escapeHtml(c)}" ${on.has(c) ? 'checked' : ''} ${can ? '' : 'disabled'}></td><td style="text-align:center;"><input type="radio" name="sr-raw-def" value="${escapeHtml(c)}" ${srDefault === c ? 'checked' : ''} ${can ? '' : 'disabled'}></td><td>${escapeHtml(c)}</td><td>${escapeHtml(i.name)}</td></tr>`; });
+    h += `</tbody></table><div class="row" style="margin-top:10px;"><button class="btn-primary small-btn" id="sr-raw-save" ${can ? '' : 'disabled'}>원물 종류 저장</button>${can ? '' : '<span class="sub" style="margin:0;">마스터관리 권한이 있어야 저장할 수 있습니다</span>'}</div>`;
+    wrap.innerHTML = h;
+    const save = document.getElementById('sr-raw-save');
+    if(save) save.addEventListener('click', async () => {
+      const codes = [...wrap.querySelectorAll('.sr-raw-on:checked')].map(x => x.value);
+      let def = (wrap.querySelector('input[name="sr-raw-def"]:checked') || {}).value || '';
+      if(codes.length && !codes.includes(def)){ toast('기본 원물은 체크한 선별 원물 중에서 골라주세요'); return; }
+      if(!codes.length) def = '';
+      try{
+        await window.storage.set('sorting-raw-settings', JSON.stringify({ codes, defaultCode: def, by: window.currentUser.display_name || '', at: Date.now() }), true);
+        await writeLog('sorting_master_edit', `원물 종류 저장: ${codes.length}개`);
+        await srLoad(true); srReloadAll();
+        toast(codes.length ? `선별 원물 ${codes.length}개를 저장했습니다` : '원물 구분을 껐습니다 (한 가지로 보기)');
+        srRenderRawSettings(wrap);
+      }catch(e){ toast('저장하지 못했습니다: ' + (e.message || e)); }
+    });
+  }
+
   // ── 원물선별: 서브탭 전환 ──
   const SORTING_SECTIONS = ['overview','inbound','output','shipment','equipment','master'];
   function showSortingSection(sec){
@@ -13018,6 +13148,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       document.getElementById(`sorting-section-${s}`).style.display = (s===sec) ? 'block' : 'none';
       document.getElementById(`sorting-tab-${s}-btn`).classList.toggle('active', s===sec);
     });
+    srRenderBar();
   }
   let sortingMasterUIInited = false;
   let sortingOutputUIInited = false;
@@ -13052,6 +13183,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   function initSortingPanel(){
     if(sortingPanelInited) return;
     sortingPanelInited = true;
+    srLoad();
     initSortingOverviewUI();
     initSortingInboundUI();
     // 선별산출/출고·정산/물류기기 데이터 로더는 이후 단계에서 여기에 연결됩니다.
@@ -13069,76 +13201,84 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 
   function loadSortingOverview(){
     loadOverviewPreStock();
-    loadSellableGradeStock('overview-poststock-wrap');
+    loadSellableGradeStock('overview-poststock-wrap', true);
     loadOverviewWork();
     loadOverviewShipment();
   }
 
   async function loadOverviewPreStock(){
     const wrap = document.getElementById('overview-prestock-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     try{
+      await srLoad();
+      const raws = !srOn() ? [null] : (srOverviewAll() ? srRaws : [srActive()]);
+      const multi = raws.length > 1;
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>구분</th><th>이름</th><th>선별전재고(kg)</th></tr></thead>`;
+      table.innerHTML = `<thead><tr>${multi ? '<th>원물</th>' : ''}<th>구분</th><th>이름</th><th>선별전재고(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       const vendors = await sbQuery('sorting_vendors', '?is_active=eq.true&order=name.asc');
-      for(const o of vendors){
-        const { stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', o.id);
+      for(const raw of raws) for(const o of vendors){
+        const { stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', o.id, raw);
         if(stock === 0) continue;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>사입처</td><td>${escapeHtml(o.name)}</td><td>${stock.toLocaleString()}</td>`;
+        tr.innerHTML = `${multi ? `<td>${escapeHtml(raw.name)}</td>` : ''}<td>사입처</td><td>${escapeHtml(o.name)}</td><td>${stock.toLocaleString()}</td>`;
         tbody.appendChild(tr);
       }
+      if(!tbody.children.length) tbody.innerHTML = `<tr><td colspan="${multi ? 4 : 3}" style="color:var(--muted);">선별전재고가 없습니다</td></tr>`;
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
   async function loadOverviewWork(){
     const wrap = document.getElementById('overview-work-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
     try{
-      const inboundRows = await sbQuery('sorting_inbound', `?work_date=eq.${date}&select=weight_kg`);
-      const inboundTotal = inboundRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
-      const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}&select=id`);
-      let outputTotal = 0;
-      if(outputs.length){
-        const ids = outputs.map(o=>o.id).join(',');
-        const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
-        outputTotal = items.reduce((s,r)=>s+Number(r.weight_kg||0),0);
-      }
+      await srLoad();
+      const raws = !srOn() ? [null] : (srOverviewAll() ? srRaws : [srActive()]);
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>구분</th><th>수량(kg)</th></tr></thead>`;
+      table.innerHTML = `<thead><tr>${srOn() ? '<th>원물</th>' : ''}<th>원물입고(kg)</th><th>선별산출 처리량(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      [['원물입고', inboundTotal], ['선별산출(처리량)', outputTotal]].forEach(([label, val])=>{
+      const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}&select=id`);
+      for(const raw of raws){
+        const inboundRows = await sbQuery('sorting_inbound', `?work_date=eq.${date}&select=weight_kg` + srQ('item_code', raw));
+        const inboundTotal = inboundRows.reduce((s,r)=>s+Number(r.weight_kg||0),0);
+        let outputTotal = 0;
+        if(outputs.length){
+          const ids = outputs.map(o=>o.id).join(',');
+          const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg` + await srItemsQ(raw));
+          outputTotal = items.reduce((s,r)=>s+Number(r.weight_kg||0),0);
+        }
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${val.toLocaleString()}</td>`;
+        tr.innerHTML = `${srOn() ? `<td>${escapeHtml(raw.name)}</td>` : ''}<td>${inboundTotal.toLocaleString()}</td><td>${outputTotal.toLocaleString()}</td>`;
         tbody.appendChild(tr);
-      });
+      }
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
   async function loadOverviewShipment(){
     const wrap = document.getElementById('overview-shipment-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
     try{
-      const rows = await sbQuery('sorting_shipment', `?ship_date=eq.${date}`);
-      const totalQty = rows.reduce((s,r)=>s+Number(r.qty_kg||0),0);
-      const unpriced = rows.filter(r=> r.unit_price===null || r.unit_price===undefined).length;
+      await srLoad();
+      const raws = !srOn() ? [null] : (srOverviewAll() ? srRaws : [srActive()]);
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>구분</th><th>값</th></tr></thead>`;
+      table.innerHTML = `<thead><tr>${srOn() ? '<th>원물</th>' : ''}<th>출고 건수</th><th>출고 총량(kg)</th><th>단가 미확정</th></tr></thead>`;
       const tbody = document.createElement('tbody');
-      [['출고 건수', rows.length+'건'], ['출고 총량(kg)', totalQty.toLocaleString()], ['단가 미확정 건수', unpriced+'건']].forEach(([label,val])=>{
+      for(const raw of raws){
+        const rows = await sbQuery('sorting_shipment', `?ship_date=eq.${date}` + await srItemsQ(raw));
+        const totalQty = rows.reduce((s,r)=>s+Number(r.qty_kg||0),0);
+        const unpriced = rows.filter(r=> r.unit_price===null || r.unit_price===undefined).length;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${escapeHtml(String(val))}</td>`;
+        tr.innerHTML = `${srOn() ? `<td>${escapeHtml(raw.name)}</td>` : ''}<td>${rows.length}건</td><td>${totalQty.toLocaleString()}</td><td>${unpriced}건</td>`;
         tbody.appendChild(tr);
-      });
+      }
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
@@ -13165,6 +13305,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
       inboundMatItems = (d.items || []).filter(i => i && !i.off && i.kind !== 'semi');
     }catch(e){ inboundMatItems = []; }
     inboundFillMatSelect();
+    await srLoad(); srApplyInboundItem();
   }
 
   async function initSortingInboundUI(){
@@ -13191,14 +13332,14 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
   }
 
   // 선별전재고(사입처) = 입고 누계 − 해당 사입처로 등록된 선별산출 누계
-  async function computeOriginPreStock(sourceTable, originField, originId){
-    const inRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=weight_kg`);
+  async function computeOriginPreStock(sourceTable, originField, originId, raw){
+    const inRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=weight_kg` + srQ('item_code', raw));
     const totalIn = inRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
     const outputs = await sbQuery('sorting_output', `?${originField}=eq.${originId}&select=id`);
     let totalOut = 0;
     if(outputs.length){
       const ids = outputs.map(o=>o.id).join(',');
-      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
+      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg` + await srItemsQ(raw));
       totalOut = items.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
     }
     return { totalIn, totalOut, stock: totalIn - totalOut };
@@ -13218,8 +13359,10 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     const vendorId = vendorSel.value;
     if(!vendorId){ display.textContent = ''; return; }
     try{
-      const { totalIn, totalOut, stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', vendorId);
-      const name = vendorSel.selectedOptions[0]?.textContent || '';
+      await srLoad();
+      const raw = srActive();
+      const { totalIn, totalOut, stock } = await computeOriginPreStock('sorting_inbound', 'vendor_id', vendorId, raw);
+      const name = (vendorSel.selectedOptions[0]?.textContent || '') + (raw ? ' · ' + raw.name : '');
       display.innerHTML = `<strong>선별전재고(${escapeHtml(name)})</strong>: ${stock.toLocaleString()} kg (입고 누계 ${totalIn.toLocaleString()}kg − 선별산출 누계 ${totalOut.toLocaleString()}kg)`;
     }catch(e){ display.textContent = '재고 계산 실패: '+e.message; }
   }
@@ -13227,7 +13370,8 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
   async function submitSortingInbound(){
     const vendorId = document.getElementById('inbound-vendor-select').value;
     const farmId = document.getElementById('inbound-origin-select').value;
-    const item = inboundMatItems.find(i => String(i.id) === document.getElementById('inbound-item-select').value) || null;
+    let item = inboundMatItems.find(i => String(i.id) === document.getElementById('inbound-item-select').value) || null;
+    { const raw = srActive(); if(raw) item = inboundMatItems.find(i => String(i.code) === raw.code) || { code: raw.code, name: raw.name }; }   // 원물 구분을 쓰면 맨 위에서 고른 원물로 입고
     const date = document.getElementById('inbound-date').value;
     const weight = Number(document.getElementById('inbound-weight').value || 0);
     const a1 = Number(document.getElementById('inbound-a1').value || 0);
@@ -13272,9 +13416,10 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
 
   async function loadSortingInboundTable(){
     const wrap = document.getElementById('inbound-table-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     try{
-      const rows = await sbQuery('sorting_inbound', `?order=work_date.desc,id.desc&limit=50`);
+      await srLoad();
+      const rows = await sbQuery('sorting_inbound', `?order=work_date.desc,id.desc&limit=50` + srQ('item_code', srActive()));
       const vendorRows = await sbQuery('sorting_vendors', '');
       const farmRows = await sbQuery('sorting_farms', '');
       const userMap = await getSortingUserDisplayNameMap();
@@ -13306,7 +13451,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
@@ -13333,8 +13478,8 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
   }
 
   // origin(농가 또는 사입처) 1곳의 날짜별 입고 잔량 원장 — 오래된 배치부터 기존 소진량을 차감
-  async function computeOriginFifoLedger(sourceTable, originField, originId){
-    const batchRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=work_date,weight_kg&order=work_date.asc`);
+  async function computeOriginFifoLedger(sourceTable, originField, originId, raw){
+    const batchRows = await sbQuery(sourceTable, `?${originField}=eq.${originId}&select=work_date,weight_kg&order=work_date.asc` + srQ('item_code', raw));
     const batchesByDate = {};
     batchRows.forEach(r=>{ batchesByDate[r.work_date] = (batchesByDate[r.work_date]||0) + Number(r.weight_kg||0); });
     const dates = Object.keys(batchesByDate).sort();
@@ -13342,7 +13487,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     let consumedTotal = 0;
     if(outputs.length){
       const ids = outputs.map(o=>o.id).join(',');
-      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg`);
+      const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&select=weight_kg` + await srItemsQ(raw));
       consumedTotal = items.reduce((s,r)=>s+Number(r.weight_kg||0),0);
     }
     let remainingToConsume = consumedTotal;
@@ -13362,9 +13507,11 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     const originField = 'vendor_id';
     const origins = await sbQuery(originTable, '?is_active=eq.true&order=name.asc');
 
+    await srLoad();
+    const raw = srActive();
     const ledgers = {};
     for(const o of origins){
-      ledgers[o.id] = await computeOriginFifoLedger(sourceTable, originField, o.id);
+      ledgers[o.id] = await computeOriginFifoLedger(sourceTable, originField, o.id, raw);
     }
 
     const allDates = new Set();
@@ -13477,6 +13624,8 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     let grades;
     try{
       grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
+      const raw = srActive(); grades = grades.filter(g => srGradeIn(g, raw));
+      if(raw && !grades.length){ wrap.innerHTML = `<div class="empty">${escapeHtml(raw.name)} 등급이 없습니다. 마스터관리 → 등급에서 원물을 ${escapeHtml(raw.name)}(으)로 정해 등급을 추가하세요.</div>`; return; }
     }catch(e){ wrap.innerHTML = `<div class="empty">등급 로드 실패: ${e.message}</div>`; return; }
 
     plan.origins.forEach(o=>{
@@ -13553,34 +13702,40 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
   }
 
   // 선별후재고(등급별, 판매가능) 표 — 선별산출/출고정산 화면에서 공용으로 사용
-  async function loadSellableGradeStock(wrapId){
+  async function loadSellableGradeStock(wrapId, overview){
     const wrap = document.getElementById(wrapId);
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     try{
-      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
+      await srLoad();
+      let grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
+      const all = overview && srOverviewAll();
+      if(srOn() && !all){ const raw = srActive(); grades = grades.filter(g => srGradeIn(g, raw)); }
+      if(all) grades.sort((a, b) => srRaws.findIndex(r => r.code === srCodeOf(a.item_code)) - srRaws.findIndex(r => r.code === srCodeOf(b.item_code)));
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>등급</th><th>선별후재고(kg)</th></tr></thead>`;
+      table.innerHTML = `<thead><tr>${all ? '<th>원물</th>' : ''}<th>등급</th><th>선별후재고(kg)</th></tr></thead>`;
       const tbody = document.createElement('tbody');
+      if(!grades.length) tbody.innerHTML = `<tr><td colspan="${all ? 3 : 2}" style="color:var(--muted);">판매가능 등급이 없습니다</td></tr>`;
       for(const g of grades){
         const itemRows = await sbQuery('sorting_output_items', `?grade_id=eq.${g.id}&select=weight_kg`);
         const totalOut = itemRows.reduce((s,r)=> s + Number(r.weight_kg||0), 0);
         const shipRows = await sbQuery('sorting_shipment', `?grade_id=eq.${g.id}&select=qty_kg`);
         const totalShipped = shipRows.reduce((s,r)=> s + Number(r.qty_kg||0), 0);
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(g.name)}</td><td>${(totalOut-totalShipped).toLocaleString()}</td>`;
+        tr.innerHTML = `${all ? `<td>${escapeHtml(srNameOf(g.item_code))}</td>` : ''}<td>${escapeHtml(g.name)}</td><td>${(totalOut-totalShipped).toLocaleString()}</td>`;
         tbody.appendChild(tr);
       }
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
   function loadOutputPostStock(){ return loadSellableGradeStock('output-post-stock-wrap'); }
 
   async function loadSortingOutputTable(){
     const wrap = document.getElementById('output-table-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     try{
-      const rows = await sbQuery('sorting_output', '?order=work_date.desc,id.desc&limit=30');
+      await srLoad();
+      let rows = await sbQuery('sorting_output', `?order=work_date.desc,id.desc&limit=${srOn() ? 150 : 30}`);
       const farms = await sbQuery('sorting_farms', '');
       const vendors = await sbQuery('sorting_vendors', '');
       const userMap = await getSortingUserDisplayNameMap();
@@ -13597,6 +13752,8 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
           itemsByOutput[it.output_id].push(it);
         });
       }
+      // 원물 구분: 그 원물 등급으로 산출한 건만 (최근 30건)
+      { const raw = srActive(); if(raw){ const gset = new Set(grades.filter(g => srGradeIn(g, raw)).map(g => g.id)); rows = rows.filter(r => (itemsByOutput[r.id] || []).some(it => gset.has(it.grade_id))).slice(0, 30); } }
       const table = document.createElement('table');
       table.innerHTML = `<thead><tr><th>날짜</th><th>원본</th><th>담당자</th><th>등급별 산출</th><th>메모</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -13621,7 +13778,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
@@ -13634,13 +13791,16 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     document.getElementById('share-generate-btn').addEventListener('click', generateShareImage);
     document.getElementById('share-download-btn').addEventListener('click', downloadShareImage);
     document.getElementById('share-native-btn').addEventListener('click', nativeShareImage);
+    srLoad().then(srApplyShareName);
   }
 
   async function generateShareImage(){
     const originType = 'vendor';
     const date = document.getElementById('share-date').value;
     const bizName = document.getElementById('share-business-name').value.trim() || '자담';
-    const productName = document.getElementById('share-product-name').value.trim() || '대추방울토마토';
+    await srLoad();
+    const shareRaw = srActive();
+    const productName = document.getElementById('share-product-name').value.trim() || (shareRaw ? shareRaw.name : '대추방울토마토');
     if(!date){ toast('날짜를 선택해주세요'); return; }
 
     const originTable = 'sorting_vendors';
@@ -13651,7 +13811,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
       const origins = await sbQuery(originTable, '');
       const originMap = Object.fromEntries(origins.map(o=>[o.id, o.name]));
 
-      const inboundRows = await sbQuery(sourceTable, `?work_date=eq.${date}`);
+      const inboundRows = await sbQuery(sourceTable, `?work_date=eq.${date}` + srQ('item_code', shareRaw));
       const inboundByOrigin = {};
       inboundRows.forEach(r=>{
         const oid = r[originField];
@@ -13663,13 +13823,16 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
       });
 
       const outputs = await sbQuery('sorting_output', `?work_date=eq.${date}`);
-      const relevantOutputs = outputs.filter(o=> o[originField] !== null && o[originField] !== undefined);
-      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc');
+      let relevantOutputs = outputs.filter(o=> o[originField] !== null && o[originField] !== undefined);
+      const grades = (await sbQuery('sorting_grades', '?is_active=eq.true&order=sort_order.asc,id.asc')).filter(g => srGradeIn(g, shareRaw));
+      const shareGradeIds = new Set(grades.map(g => g.id));
 
       const gradeByOrigin = {};
       if(relevantOutputs.length){
         const ids = relevantOutputs.map(o=>o.id).join(',');
-        const items = await sbQuery('sorting_output_items', `?output_id=in.(${ids})`);
+        const items = (await sbQuery('sorting_output_items', `?output_id=in.(${ids})`)).filter(it => !shareRaw || shareGradeIds.has(it.grade_id));
+        const usedOut = new Set(items.map(it => it.output_id));
+        if(shareRaw) relevantOutputs = relevantOutputs.filter(o => usedOut.has(o.id));
         const outputToOrigin = Object.fromEntries(relevantOutputs.map(o=>[o.id, o[originField]]));
         items.forEach(it=>{
           const oid = outputToOrigin[it.output_id];
@@ -13786,10 +13949,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     document.getElementById('shipment-destination-input').addEventListener('input', shipmentShowDestHint);
     document.getElementById('shipment-destination-input').addEventListener('change', shipmentShowDestHint);
 
-    try{
-      const grades = await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc');
-      document.getElementById('shipment-grade-select').innerHTML = grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
-    }catch(e){ document.getElementById('shipment-grade-select').innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+    await shipmentFillGrades();
 
     // 포장단위 = SKU 관리의 출고 제품 (SKU가 늦게 불러와져도 드롭다운을 열 때마다 최신 목록으로 채움)
     shipmentFillSkuOptions();
@@ -13806,6 +13966,16 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     loadSortingShipmentTable();
   }
 
+  // 출고 등급 목록: 판매가능 등급 중 지금 고른 원물의 등급
+  async function shipmentFillGrades(){
+    const sel = document.getElementById('shipment-grade-select');
+    try{
+      await srLoad();
+      const raw = srActive();
+      const grades = (await sbQuery('sorting_grades', '?is_active=eq.true&sellable=eq.true&order=sort_order.asc,id.asc')).filter(g => srGradeIn(g, raw));
+      sel.innerHTML = grades.length ? grades.map(g=>`<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('') : `<option value="">${raw ? escapeHtml(raw.name) + ' 판매가능 등급 없음' : '등급 없음'}</option>`;
+    }catch(e){ sel.innerHTML = `<option value="">로드 실패: ${e.message}</option>`; }
+  }
   // ── 출고 거래처: 이카운트 거래처 관리 목록(이름·코드)에서 검색 → 정산용 거래처(sorting_destinations)에 자동 연결 ──
   let shipmentDests = [];
   const SORTING_DEST_SQL = 'ALTER TABLE sorting_destinations ADD COLUMN IF NOT EXISTS ecount_code text;';
@@ -13990,10 +14160,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   async function loadSortingShipmentTable(){
     const wrap = document.getElementById('shipment-table-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
     try{
+      await srLoad();
       let params = '?order=ship_date.desc,id.desc&limit=50';
       if(shipmentFilterUnpriced) params += '&unit_price=is.null';
+      params += await srItemsQ(srActive());   // 원물 구분: 그 원물 등급의 출고만
       const rows = await sbQuery('sorting_shipment', params);
       const dests = await sbQuery('sorting_destinations', '');
       const grades = await sbQuery('sorting_grades', '');
@@ -14041,7 +14213,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
-      wrap.appendChild(table);
+      if(wrap._srGen === srGen){ wrap.innerHTML = ''; wrap.appendChild(table); }
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message}</div>`; }
   }
 
@@ -14377,7 +14549,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     { key:'sorting_vendors', label:'사입처', fields:[
         { name:'name', label:'이름', type:'text' }
       ]},
+    { key:'__raw', label:'원물 종류', fields:[] },
     { key:'sorting_grades', label:'등급', fields:[
+        { name:'item_code', label:'원물', type:'raw' },
         { name:'name', label:'이름', type:'text' },
         { name:'sellable', label:'판매가능', type:'checkbox', default:true },
         { name:'sort_order', label:'정렬순서', type:'number', default:0 }
@@ -14425,14 +14599,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     loadSortingMasterTable();
   }
 
+  // 등급의 원물 고르기 (선별 원물 목록, 비우면 기본 원물)
+  function srRawSelect(value){
+    const sel = document.createElement('select');
+    sel.innerHTML = `<option value="">기본 원물${srDefault ? ' (' + escapeHtml(srNameOf('')) + ')' : ''}</option>` + srRaws.map(r => `<option value="${escapeHtml(r.code)}">${escapeHtml(r.name)}</option>`).join('');
+    sel.value = value && srRaws.some(r => r.code === String(value)) ? String(value) : '';
+    if(!srOn()) sel.disabled = true;
+    return sel;
+  }
   function renderSortingMasterAddForm(){
     const cfg = getSortingMasterConfig(sortingMasterCurrentKey);
     const form = document.getElementById('sorting-master-add-form');
     form.innerHTML = '';
+    if(cfg.key === '__raw') return;
     const inputs = {};
     cfg.fields.forEach(f=>{
       let input;
-      if(f.type === 'checkbox'){
+      if(f.type === 'raw'){
+        input = srRawSelect(srCur && srCur !== '*' ? srCur : '');
+        input.title = '이 등급이 속한 원물';
+        form.appendChild(input);
+      } else if(f.type === 'checkbox'){
         input = document.createElement('input');
         input.type = 'checkbox';
         input.checked = f.default !== undefined ? !!f.default : false;
@@ -14460,25 +14647,29 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const data = { is_active: true };
       cfg.fields.forEach(f=>{
         const el = inputs[f.name];
+        if(f.type === 'raw'){ if(srOn()) data[f.name] = el.value || null; return; }
         data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
       });
       try{
         await sbInsert(cfg.key, data);
+        srGradesCache = null;
         await writeLog('sorting_master_add', `${cfg.label} 추가: ${data.name}`);
         cfg.fields.forEach(f=>{
           const el = inputs[f.name];
+          if(f.type === 'raw') return;
           if(f.type === 'checkbox') el.checked = f.default !== undefined ? !!f.default : false;
           else el.value = f.default !== undefined ? f.default : '';
         });
         loadSortingMasterTable();
         toast(`${cfg.label}이(가) 추가되었습니다`);
-      }catch(e){ toast('추가 실패: '+e.message); }
+      }catch(e){ toast(/item_code/.test(e.message || '') ? '등급에 원물 칸이 아직 없습니다. Supabase에서 「원물선별_원물구분_SQL.sql」을 먼저 실행해주세요' : '추가 실패: '+e.message); }
     });
     form.appendChild(addBtn);
   }
 
   function sortingFieldDisplay(f, row){
     const v = row[f.name];
+    if(f.type === 'raw') return escapeHtml(srOn() ? srNameOf(v) : '—');
     if(f.type === 'checkbox') return v ? '✅' : '—';
     return escapeHtml(v === null || v === undefined ? '' : String(v));
   }
@@ -14487,6 +14678,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const cfg = getSortingMasterConfig(sortingMasterCurrentKey);
     const wrap = document.getElementById('sorting-master-table-wrap');
     wrap.innerHTML = '';
+    if(cfg.key === '__raw'){ srRenderRawSettings(wrap); return; }
+    await srLoad();
     try{
       const rows = await sbQuery(cfg.key, '?order=id.asc');
       const table = document.createElement('table');
@@ -14534,7 +14727,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const td = cells[i];
       td.innerHTML = '';
       let input;
-      if(f.type === 'checkbox'){
+      if(f.type === 'raw'){
+        input = srRawSelect(row[f.name]);
+      } else if(f.type === 'checkbox'){
         input = document.createElement('input');
         input.type = 'checkbox';
         input.checked = !!row[f.name];
@@ -14556,12 +14751,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const data = {};
       cfg.fields.forEach(f=>{
         const el = inputs[f.name];
+        if(f.type === 'raw'){ if(srOn()) data[f.name] = el.value || null; return; }
         data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
       });
       try{
-        await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
+        const res = await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
           method:'PATCH', headers: sbHeaders, body: JSON.stringify(data)
         });
+        if(!res.ok){ const t = await res.text().catch(() => ''); throw new Error(/item_code/.test(t) ? '등급에 원물 칸이 아직 없습니다. Supabase에서 「원물선별_원물구분_SQL.sql」을 먼저 실행해주세요' : `저장 실패 (${res.status})`); }
+        srGradesCache = null;
         await writeLog('sorting_master_edit', `${cfg.label} 수정: ${data.name}`);
         loadSortingMasterTable();
       }catch(e){ toast('저장 실패: '+e.message); }
