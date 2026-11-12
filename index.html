@@ -2060,6 +2060,7 @@
       <button class="btn-ghost small-btn view-ctl" id="price-view-reset" title="검색·필터·정렬 초기화">초기화</button>
       <label style="font-size:12.5px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="price-keep-existing" class="view-ctl"> 이미 입력된 단가는 유지 (빈 칸만 채움)</label>
       <span id="price-view-result" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
+      <button type="button" class="btn-ghost small-btn" id="price-fold-btn" title="업체 목록을 접거나 펼칩니다 (검색·필터를 쓰면 접어 둬도 찾은 업체는 보입니다)"></button>
     </div>
     <div class="sub" style="margin:0 0 6px;">※ 위에서 <b>구분(직거래·SP·도매 …)·지역·단가 상태</b>를 고르면 그 업체만 표시됩니다. 표 맨 윗줄 <b>"⬇ 표시된 N곳 한꺼번에"</b> 칸에 단가를 입력하고 Enter → 안내 줄의 <b>[적용]</b>을 누르면 표시된 업체 전체에 들어갑니다.<br>※ 공통 검색어가 없는 업체들은 업체명 왼쪽 <b>☑</b>로 골라 두면(검색어를 바꿔 가며 여러 번 골라도 유지) 윗줄이 <b>"⬇ 체크한 N곳 한꺼번에"</b>로 바뀌어 체크한 업체에만 들어갑니다.</div>
     <div id="price-sel-bar" style="display:none; margin:0 0 8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:var(--accent-soft);"></div>
@@ -2668,6 +2669,7 @@
 
 <h3>업체별 예외 단가 (거래처별 품목 단가)</h3>
 <ul>
+  <li>업체가 많아 표가 길어지지 않도록 업체 목록은 <b>접혀</b> 있습니다. 업체명·코드로 검색하거나 분류·구분·지역·단가 상태를 고르면 찾은 업체만 펼쳐지고, <span class="mn-b">▾ 업체 목록 펼치기</span>로 전체를 펼칠 수 있습니다(펼침·접힘은 그 PC에 기억).</li>
   <li>위쪽에서 <b>발주 구분</b>·<b>지역</b>을 고르거나 <b>업체명 또는 코드</b>로 검색하면 그 업체만 표에 보입니다. 코드는 표에서 업체명 오른쪽 칸에 나옵니다.</li>
   <li>정렬은 등록순, 거래처명순, 구분순, 지역순, 시장명순, 코드순 중에서 고릅니다.</li>
   <li>표 맨 윗줄 <b>"표시된 N곳 한꺼번에"</b> 칸에 단가를 넣고 Enter → 위쪽 안내의 <span class="mn-b">적용</span>을 누르면 표시된 업체 전체에 들어갑니다. <b>이미 입력된 단가는 유지</b>를 체크하면 빈 칸만 채웁니다. 실수했다면 안내 줄의 되돌리기를 쓰세요.</li>
@@ -6529,6 +6531,9 @@ function mnShow(id, keepScroll) {
       ['checked', `☑ 체크한 업체만 (${priceSelCompanies().length}곳)`]]);
     viewFillSelect(document.getElementById('price-sort'), COMPANY_SORT_OPTS.filter(o => ['', 'name', 'cat', 'region', 'market', 'code'].includes(o[0])));
   }
+  // 업체별 예외 단가 표 접기 (이 브라우저에 기억, 처음엔 접힘)
+  function priceFoldOn(){ try{ return localStorage.getItem('price-fold') !== '0'; }catch(e){ return true; } }
+  function priceFoldSet(on){ try{ localStorage.setItem('price-fold', on ? '1' : '0'); }catch(e){} renderPriceMapEditor(); }
   function priceViewState(){
     return { raw: viewVal('price-search-input'), q: viewKey(viewVal('price-search-input')), cls: viewVal('price-class-filter'), cat: viewVal('price-cat-filter'), region: viewVal('price-region-filter'), status: viewVal('price-status-filter'), flag: '', sort: viewVal('price-sort') };
   }
@@ -6845,6 +6850,10 @@ function mnShow(id, keepScroll) {
       return;
     }
     const shown = priceShownCompanies();
+    // 업체 접기: 접어 두면 일괄 입력 줄만 보이고, 검색어나 분류·구분·지역·단가 상태를 고르면 찾은 업체만 펼쳐 보임
+    const pv = priceViewState(), narrowed = !!(pv.raw || pv.cls || pv.cat || pv.region || pv.status);
+    const folded = priceFoldOn() && !narrowed;
+    { const fb = document.getElementById('price-fold-btn'); if(fb){ fb.textContent = priceFoldOn() ? (narrowed ? '▾ 찾은 업체만 보는 중 · 전체 펼치기' : '▾ 업체 목록 펼치기') : '▴ 업체 목록 접기'; } }
     if(countEl){
       const filtering = shown.length !== registeredCompanies.length || priceViewState().sort;
       countEl.textContent = filtering ? `표시 ${shown.length}곳 (전체 ${registeredCompanies.length}곳)` : `전체 ${registeredCompanies.length}곳`;
@@ -7023,8 +7032,16 @@ function mnShow(id, keepScroll) {
       dict.forEach(d=> bulkTr.appendChild(bulkCell([d.id], d.name, 80, '단가')));
     }
     tbody.appendChild(bulkTr);
+    if(folded){
+      const ft = document.createElement('tr');
+      const fc = document.createElement('td'); fc.colSpan = bulkTr.children.length;
+      fc.style.cssText = 'text-align:left;padding:12px 14px;color:var(--muted);font-size:13px;background:#fffaf5;';
+      fc.innerHTML = `업체 <b>${shown.length}곳</b>이 접혀 있습니다. 위에서 <b>업체명·코드로 검색</b>하거나 분류·구분·지역·단가 상태를 고르면 찾은 업체만 펼쳐집니다. <button type="button" class="btn-ghost small-btn" id="price-fold-open">전체 펼치기</button>`;
+      ft.appendChild(fc); tbody.appendChild(ft);
+      fc.querySelector('#price-fold-open').addEventListener('click', () => priceFoldSet(false));
+    }
 
-    shown.forEach(company=>{
+    (folded ? [] : shown).forEach(company=>{
       if(!company.priceMap) company.priceMap = {};
       const tr = document.createElement('tr');
       const selTd = document.createElement('td');
@@ -8766,6 +8783,7 @@ function mnShow(id, keepScroll) {
   ['dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort'].forEach(id => document.getElementById(id).addEventListener('change', applyDictView));
   document.getElementById('dict-view-reset').addEventListener('click', ()=>{ viewResetControls(['dict-search-input', 'dict-box-filter', 'dict-group-filter', 'dict-flag-filter', 'dict-sort']); applyDictView(); });
   document.getElementById('price-search-input').addEventListener('input', onPriceViewChange);
+  document.getElementById('price-fold-btn').addEventListener('click', () => priceFoldSet(!priceFoldOn()));
   ['price-class-filter', 'price-cat-filter', 'price-region-filter', 'price-status-filter', 'price-sort'].forEach(id => document.getElementById(id).addEventListener('change', onPriceViewChange));
   document.getElementById('price-keep-existing').addEventListener('change', renderPriceBulkBanner);
   document.getElementById('cp-import-btn').addEventListener('click', cpOpenImport);   // 기존 업체 단가 → 거래 방식 단가 (검토 후 적용)
