@@ -387,7 +387,9 @@
   #po-board .pr-rep .t1 td.nm{ font-weight:700; }
   #po-board .pr-rep td.big{ font-size:21px; font-weight:800; }
   #po-board .pr-rep .t1 td.pd{ background:#fdeccf; font-weight:800; font-size:19px; }
-  #po-board .pr-rep .t1 td.neg{ color:#c0392b; }
+  #po-board .pr-rep .t1 td.need{ color:#c0392b; }
+  #po-board .pr-rep .t1 td.zero{ color:#8a94a8; }
+  #po-board .pr-rep .t1 td .lf{ display:block; font-size:12px; font-weight:600; color:#8a94a8; }
   #po-board .pr-rep .t2 th{ background:#f5a623; color:#111; font-weight:800; }
   #po-board .pr-rep .t2 td.raw{ font-size:20px; font-weight:700; }
   #po-board .pr-rep .t2 td.nt{ text-align:right; }
@@ -1440,7 +1442,7 @@
     <summary><span class="pp-fold-t">📝 생산일보</span> <span class="badge" id="prod-report-date"></span> <span class="pp-sumhint" id="prod-report-sumhint"></span></summary>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
       생산본부 생산일보입니다. 적은 내용은 <b>TV 생산 현황판</b>의 <b>[생산일보]</b> 화면에 그대로 나옵니다(현황판 오른쪽 위 '보기' 버튼으로 현황판 / 생산일보 / 번갈아 보기). 고칠 때마다 바로 저장됩니다.<br>
-      · <b>① 발주현황</b>은 자동입니다: 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 재고 − 출고(빨간 음수 = 더 만들어야 할 박스).<br>
+      · <b>① 발주현황</b>은 자동입니다: 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 금일출고 − 재고 = 오늘 만들어야 할 박스(재고로 충분하면 0, 남는 재고는 "재고 남음"으로 작게 표시).<br>
       · <b>② 생산지시</b>의 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg). 직접 적으면 그 값이 우선입니다. 비고(향료 사용량 등)는 자유 입력입니다.<br>
       · 생산 순서에 적은 품목은 <b>⤵ 생산 순서에서 가져오기</b>로 한 번에 넣을 수 있고, 인원 배치는 <b>⤵ 전날 인원·비고 가져오기</b>로 이어 쓸 수 있습니다.
     </div></details>
@@ -2565,7 +2567,7 @@
 <h3>생산일보</h3>
 <p>생산 순서 카드 아래 <b>📝 생산일보</b> 카드입니다. 적은 내용은 TV 생산 현황판의 <b>[생산일보]</b> 화면에 생산본부 생산일보 양식 그대로 나옵니다.</p>
 <ul>
-  <li><b>발주현황</b>은 자동입니다. 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 재고 − 출고(빨간 음수 = 더 만들어야 할 박스).</li>
+  <li><b>발주현황</b>은 자동입니다. 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 금일출고 − 재고 = 오늘 만들어야 할 박스(재고로 충분하면 0, 남는 재고는 "재고 남음"으로 작게 표시).</li>
   <li><b>생산지시</b>: 차수·원물·품목·작업kg·ct·비고를 줄마다 적습니다. 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg(기본 12)). <span class="mn-b">⤵ 생산 순서에서 가져오기</span>로 생산 순서의 품목을 한 번에 넣을 수 있습니다.</li>
   <li>비고, 일용직 충원, 인원 배치(가공실·원물·내포장실·외포장실, 구역 추가 가능), 총 인원, 하단 비고(소비기한·로트 등)를 적습니다. <span class="mn-b">⤵ 전날 인원·비고 가져오기</span>로 최근 생산일보의 인원 배치를 이어 씁니다.</li>
   <li><b>기준 안내</b>(용액 투입량 기준 등)는 매일 같은 내용이라 한 번 적어 두면 계속 나옵니다.</li>
@@ -18695,7 +18697,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     return dict.filter(d => (need[d.id] || 0) > 0 || (st[d.id] || 0) > 0).map(d => {
       const n = Number(d.boxUnitCount) || 0, b = p => n > 0 ? prR(p / n) : prR(p);
       const stock = b(st[d.id] || 0), out = b(need[d.id] || 0);
-      return { id: d.id, name: d.shortName || d.name, stock, out, outPack: prR(need[d.id] || 0), prod: prR(stock - out), unit: n > 0 ? '박스' : '팩' };
+      return { id: d.id, name: d.shortName || d.name, stock, out, outPack: prR(need[d.id] || 0), prod: prR(Math.max(0, out - stock)), left: prR(Math.max(0, stock - out)), unit: n > 0 ? '박스' : '팩' };
     });
   }
   // 품목의 원물·자동 작업kg(생산 필요 박스 × 원물 kg/박스)·자동 ct(작업kg ÷ 1ct kg)
@@ -18736,7 +18738,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const el = document.getElementById('pr-order'); if(!el || !currentDateKey) return;
     const rows = prOrderRows(currentDateKey);
     if(!rows.length){ el.innerHTML = '<div class="sub" style="margin:0;">오늘 발주·재고가 있는 품목이 없습니다</div>'; return; }
-    el.innerHTML = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>품목</th><th>재고(박스)</th><th>금일출고 박스</th><th>팩</th><th>생산박스(금일)</th></tr></thead><tbody>${rows.map(r => `<tr><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.stock}</td><td><b>${r.out}</b></td><td>${r.outPack}</td><td style="background:#fdf3dc;${r.prod < 0 ? 'color:#c0392b;' : ''}font-weight:700;">${r.prod}</td></tr>`).join('')}</tbody></table></div>`;
+    el.innerHTML = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>품목</th><th>재고(박스)</th><th>금일출고 박스</th><th>팩</th><th>생산박스(금일)</th></tr></thead><tbody>${rows.map(r => `<tr><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.stock}</td><td><b>${r.out}</b></td><td>${r.outPack}</td><td style="background:#fdf3dc;${r.prod > 0 ? 'color:#c0392b;' : 'color:#8a94a8;'}font-weight:700;">${r.prod}${r.left ? `<div style="font-size:11px;font-weight:500;color:#8a94a8;">재고 남음 ${r.left}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
   function prRender(){
     const card = document.getElementById('prod-report-card'); if(!card) return;
@@ -18857,7 +18859,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const first = i === 0 || rows[i - 1].grp !== r.grp;
       const span = first ? rows.slice(i).findIndex((x, j) => j > 0 && x.grp !== r.grp) : 0;
       const n = first ? (span < 0 ? rows.length - i : span) : 0;
-      t1 += `<tr>${first ? `<td class="g" rowspan="${n}">${e(r.grp || '')}</td>` : ''}<td class="nm">${e(r.label)}</td><td>${r.stock}</td><td class="big">${r.out}</td><td>${r.outPack}</td><td class="pd${r.prod < 0 ? ' neg' : ''}">${r.prod}</td></tr>`;
+      t1 += `<tr>${first ? `<td class="g" rowspan="${n}">${e(r.grp || '')}</td>` : ''}<td class="nm">${e(r.label)}</td><td>${r.stock}</td><td class="big">${r.out}</td><td>${r.outPack}</td><td class="pd${r.prod > 0 ? ' need' : ' zero'}">${r.prod}${r.left ? `<span class="lf">재고 남음 ${r.left}</span>` : ''}</td></tr>`;
     });
     t1 += '</tbody></table>';
     const v = prInstView(dk, doc).filter(x => x.r.item || x.r.raw || x.r.note || x.r.kg !== '' || x.r.lbl);
