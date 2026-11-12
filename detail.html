@@ -127,12 +127,30 @@
   .toast{ position:fixed; left:50%; top:16px; transform:translateX(-50%); background:var(--ink); color:#fff;
     padding:10px 16px; border-radius:20px; font-size:13.5px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:60; max-width:90vw; }
   .toast.show{ opacity:1; }
+
+  /* ── 브랜드 디자인 (통합 시스템 홈과 같은 빨간 머리글) ── */
+  html, body{ background:#fdf3ec; }
+  body{ background:linear-gradient(180deg, #fcefe4 0, #fef6f1 420px) #fef6f1; }
+  header{ background:linear-gradient(100deg, #c50f2c 0%, #e01f2e 55%, #ec3437 100%); color:#fff; padding:10px 16px; border-radius:16px; box-shadow:0 8px 22px rgba(197,15,44,.2); flex-wrap:wrap; row-gap:8px; }
+  header h1{ color:#fff; display:flex; align-items:center; gap:8px; font-size:17px; min-width:0; }
+  header .hd-logo{ height:30px; width:auto; display:block; flex:0 0 auto; }
+  header .hd-sep{ width:1px; align-self:stretch; min-height:24px; background:rgba(255,255,255,.5); }
+  header .back-link{ background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.4); border-radius:999px; }
+  header #user-badge{ color:#fff; opacity:.92; }
+  header button{ background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.4); border-radius:999px; }
+  header button:hover, header .back-link:hover{ background:rgba(255,255,255,.28); }
+  .login-card{ border:none !important; border-radius:20px !important; box-shadow:0 16px 44px rgba(150,40,40,.14); text-align:center; }
+  .login-card .lg-logo{ display:block; height:56px; width:auto; margin:4px auto 10px; }
+  .login-card h1{ display:flex; align-items:center; justify-content:center; gap:6px; }
+  @media (max-width:520px){ header .hd-sep{ display:none; } header .hd-logo{ height:24px; } }
 </style>
+<script src="assets/icons.js"></script>
 </head>
 <body>
 
 <div id="login-screen">
   <div class="login-card">
+    <img class="lg-logo" src="assets/logo-red.png" alt="다름달음">
     <h1>🖼 상세페이지 만들기</h1>
     <div class="sub">발주 프로그램과 같은 아이디로 로그인합니다</div>
     <div id="login-error"></div>
@@ -145,7 +163,8 @@
 <div id="app">
   <header>
     <a class="back-link" href="index.html">← 통합 시스템</a>
-    <h1>🖼 다름달음 상세페이지 만들기</h1>
+    <img class="hd-logo" src="assets/logo-white.png" alt="다름달음"><span class="hd-sep"></span>
+    <h1>🖼 상세페이지 만들기</h1>
     <span id="user-badge"></span>
     <button id="logout-btn">로그아웃</button>
   </header>
