@@ -235,11 +235,19 @@
   .cc-box > .cc-hd{ padding:16px 20px 8px; font-size:16px; font-weight:800; }
   .cc-box > .cc-bd{ padding:0 20px 8px; overflow:auto; font-size:13px; }
   .cc-box > .cc-ft{ padding:12px 20px 16px; display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; border-top:1px solid var(--line); }
-  .cc-tree .cc-node{ display:flex; align-items:center; gap:6px; margin:3px 0; }
-  .cc-tree .cc-node input{ width:170px; padding:3px 6px; font-size:13px; }
+  .cc-tree .cc-node{ display:flex; align-items:center; gap:6px; margin:3px 0; flex-wrap:nowrap; white-space:nowrap; }
+  .cc-tree .cc-node input[type=text]{ padding:3px 6px; font-size:13px; }
+  .cc-tree .cc-node input.cc-name{ width:150px; flex:none; }
+  .cc-tree .cc-node input[type=checkbox]{ width:auto; margin:0; }
+  .cc-tree .cc-leaf-tag, .cc-tree .cc-used{ white-space:nowrap; flex:none; }
+  .cc-tree .cc-node button{ flex:none; white-space:nowrap; }
   .cc-tree .cc-node button{ padding:2px 7px; font-size:12px; }
   .cc-tree .cc-leaf-tag{ font-size:11px; color:var(--accent); font-weight:700; }
   .cc-tree .cc-used{ font-size:11px; color:var(--muted); }
+  .cc-tree .cc-ec{ display:inline-flex; align-items:center; gap:4px; margin-left:8px; padding-left:8px; border-left:1px dashed var(--line); font-size:11.5px; color:var(--muted); }
+  .cc-tree .cc-ec input.cc-ec-code{ width:110px; flex:none; }
+  .cc-tree .cc-ec input.cc-ec-spec{ width:150px; flex:none; }
+  .cc-tree .cc-ec-g{ display:inline-flex; align-items:center; gap:3px; white-space:nowrap; cursor:pointer; }
   .cc-review{ border-collapse:collapse; width:100%; font-size:12.5px; }
   .cc-review th, .cc-review td{ border:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:middle; }
   .cc-review th{ background:var(--hover); position:sticky; top:0; z-index:1; }
@@ -951,6 +959,10 @@
       <span id="ship-date-dow" style="font-size:13px;"></span>
       <button class="btn-ghost small-btn" id="ship-date-next-btn" title="생산일 다음 출고일 (토·일요일은 건너뜀)">다음 출고일로</button>
       <span class="sub" style="margin:0;">우리 회사 실제 출고일 (토요일은 생산 휴무라 금요일에 함께 출고)</span>
+      <label style="font-size:13px;font-weight:600;margin-left:10px;">납품일 :</label>
+      <input type="date" id="deliver-date-input" title="쿠팡 등 받는 쪽에 납품되는 날 — 이카운트 매출은 이 날짜로 입력됩니다 (기본은 출고일 다음 날)">
+      <span id="deliver-date-dow" style="font-size:13px;"></span>
+      <span class="sub" style="margin:0;">이카운트 매출 일자 (기본: 출고일 다음 날)</span>
     </div>
     <div id="parsed-items" style="margin-top:12px;"></div>
     <div class="row" style="margin-top:6px;">
@@ -1803,6 +1815,7 @@
       <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
+    <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
 
     <h3 style="margin-top:14px;">거래 방식별 단가</h3>
     <div class="sub" style="margin:0 0 8px;">거래처 분류(거래 방식)마다 단가를 한 번만 넣으면 그 분류의 모든 거래처에 적용됩니다. 특정 업체만 다른 단가는 아래 <b>업체별 예외 단가</b>에 넣으세요(예외가 우선). 이카운트 매출 엑셀·거래명세서·월간 매출에 이 단가가 쓰입니다.</div>
@@ -2373,7 +2386,9 @@
   <li><span class="mn-b">매출 엑셀 다운로드</span>를 눌러 받은 파일을 이카운트에 올립니다.</li>
 </ol>
 <ul>
-  <li>단가는 아래 <b>거래처별 품목 단가 설정</b>에 입력된 값을 씁니다. 과거 날짜는 현재 설정된 단가로 계산됩니다.</li>
+  <li>단가는 아래 <b>거래 방식별 단가</b>(업체 예외가 있으면 예외)를 씁니다. 과거 날짜는 현재 설정된 단가로 계산됩니다.</li>
+  <li><b>SP처럼 묶어서 판매 입력</b>: 거래처 분류표에서 칸에 <b>매출처 코드</b>를 적고 <b>묶어서 판매 입력</b>을 켜 두면, 그 아래 거래처는 업체별이 아니라 <b>거래 방식(규격)별로 한 전표</b>로 들어갑니다. 거래처명은 비우고 매출처 코드로 입력되며, 규격 칸에 "수도권_상장" 같은 이름이 들어갑니다(분류표 맨 끝 칸에서 이름을 바꿀 수 있고, 같은 이름끼리는 한 전표로 합쳐짐). 단가가 다른 업체(예외)는 같은 전표 안에서 줄이 나뉩니다.</li>
+  <li><b>쿠팡 등 출고일 지정 업체</b>는 발주 입력 때 적은 <b>납품일</b>(기본: 출고일 다음 날)을 일자로 따로 전표가 만들어집니다. 납품일은 집계 / 출고 탭의 출고일 지정 주문 목록에서 고칠 수 있습니다.</li>
   <li>다운로드하면 그날 <b>매출 집계에 자동 저장</b>되어 실적 / 매출에 반영됩니다.</li>
   <li>3PL 택배비는 <b>3PL 택배비 품목 설정</b>의 품목·단가대로 행이 자동 추가됩니다.</li>
 </ul>
@@ -4526,6 +4541,20 @@ function mnShow(id, keepScroll) {
     sel.title = cur ? (ccLabel(cur) || '분류표에 없는 칸입니다') : '거래처 분류 (단가·이카운트 기준)';
     return sel;
   }
+  // 이카운트 매출처: 분류표의 칸에 '매출처 코드'와 '거래 방식별로 묶어 판매 입력'을 지정하면 그 아래 거래 방식 모두에 적용 (가까운 칸의 설정이 우선)
+  //  → { code, group, spec, nodeName } 또는 null. spec = 이카운트 규격 칸에 넣는 거래 방식 이름 (맨 끝 칸에서 바꿀 수 있음, 같은 이름이면 한 전표로 합침)
+  function ccDefaultSpec(path){ const p = path.slice(1).filter(n => n !== '도매시장'); return (p.length ? p : path).join('_'); }
+  function ccEcountOf(leafId, tree){
+    const chain = [];
+    const walk = (nodes, acc) => { for(const n of (nodes || [])){ const a = acc.concat(n); if(n.id === leafId){ chain.push(...a); return true; } if(n.children && walk(n.children, a)) return true; } return false; };
+    walk(tree || companyClassTree, []);
+    if(!chain.length) return null;
+    const gNode = [...chain].reverse().find(n => n.ecGroup);
+    if(!gNode) return null;
+    const cNode = [...chain].reverse().find(n => String(n.ecCode || '').trim());
+    const leaf = chain[chain.length - 1];
+    return { code: cNode ? String(cNode.ecCode).trim() : '', group: true, spec: String(leaf.ecSpec || '').trim() || ccDefaultSpec(chain.map(n => n.name)), nodeName: gNode.name };
+  }
   function ccStatusText(){
     const list = companies.filter(c => c.category !== '개인구매');
     const ok = list.filter(c => ccLeafById(c.classId)).length;
@@ -4551,6 +4580,20 @@ function mnShow(id, keepScroll) {
     let tree = JSON.parse(JSON.stringify(companyClassTree));
     let seq = 0;
     const newId = () => 'n' + Date.now().toString(36) + (seq++).toString(36);
+    // 이 칸(또는 위 칸)에 '묶어서 판매 입력'이 켜져 있는지 · 칸까지의 이름 목록
+    const pathTo = target => { const out = []; const walk = (ns, acc) => { for(const x of ns){ const a = acc.concat(x); if(x === target){ out.push(...a); return true; } if(x.children && walk(x.children, a)) return true; } return false; }; walk(tree, []); return out; };
+    const ccUnderGroup = node => pathTo(node).some(x => x.ecGroup);
+    const ccPathNames = node => pathTo(node).map(x => x.name);
+    // SP 칸에 아직 매출처 설정이 없으면, SP 거래처들이 가장 많이 쓰는 코드와 '묶어서 판매 입력'을 미리 채워 둠 (저장해야 적용)
+    { const sp = tree.find(x => x.id === 'sp');
+      if(sp && !sp.ecCode && !sp.ecGroup && !sp.ecTouched){
+        const ids = new Set(); const w = x => { if(x.children && x.children.length) x.children.forEach(w); else ids.add(x.id); }; w(sp);
+        const cnt = {}; companies.filter(c => ids.has(c.classId) && c.code).forEach(c => { cnt[c.code] = (cnt[c.code] || 0) + 1; });
+        const best = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+        sp.ecGroup = true; if(best) sp.ecCode = best[0]; sp.ecTouched = true;
+        setTimeout(() => toast('SP 칸에 매출처 코드와 "묶어서 판매 입력"을 미리 채웠습니다. 확인하고 저장하세요'), 50);
+      }
+    }
     const usedBy = node => { const ids = new Set(); const walk = n => { if(n.children && n.children.length) n.children.forEach(walk); else ids.add(n.id); }; walk(node); return companies.filter(c => ids.has(c.classId)).length; };
     const wrap = document.createElement('div'); wrap.className = 'cc-tree';
     const intro = document.createElement('div'); intro.className = 'sub'; intro.style.margin = '0 0 8px';
@@ -4567,6 +4610,26 @@ function mnShow(id, keepScroll) {
         const leaf = !(n.children && n.children.length);
         const used = usedBy(n);
         if(leaf){ const t = document.createElement('span'); t.className = 'cc-leaf-tag'; t.textContent = '거래 방식'; row.appendChild(t); }
+        // 이카운트 매출처 코드 · 거래 방식별 묶음 (이 칸 아래 전체에 적용) · 맨 끝 칸은 규격 이름
+        {
+          const ec = document.createElement('span'); ec.className = 'cc-ec';
+          const code = document.createElement('input'); code.type = 'text'; code.className = 'cc-ec-code'; code.placeholder = '매출처 코드'; code.value = n.ecCode || ''; code.disabled = !admin;
+          code.title = '이카운트 매출처(거래처) 코드 — 이 칸 아래 거래처를 묶어 판매 입력할 때 쓰는 코드 (비우면 위 칸의 코드)';
+          code.addEventListener('input', () => { n.ecCode = code.value.trim(); if(!n.ecCode) delete n.ecCode; });
+          const gl = document.createElement('label'); gl.className = 'cc-ec-g'; gl.title = '체크하면 이 칸 아래 거래처는 이카운트 매출 엑셀에서 거래 방식별로 묶어 한 전표로 들어갑니다 (거래처명은 비우고 위 코드로 입력)';
+          const g = document.createElement('input'); g.type = 'checkbox'; g.className = 'cc-ec-group'; g.checked = !!n.ecGroup; g.disabled = !admin;
+          g.addEventListener('change', () => { if(g.checked) n.ecGroup = true; else delete n.ecGroup; render(); });
+          gl.append(g, document.createTextNode('묶어서 판매 입력'));
+          ec.append(code, gl);
+          if(leaf && ccUnderGroup(n)){
+            const sp = document.createElement('input'); sp.type = 'text'; sp.className = 'cc-ec-spec'; sp.disabled = !admin;
+            sp.placeholder = ccDefaultSpec(ccPathNames(n)); sp.value = n.ecSpec || '';
+            sp.title = '이카운트 규격 칸에 들어가는 거래 방식 이름 (비우면 회색 글자). 같은 이름끼리는 한 전표로 합쳐집니다';
+            sp.addEventListener('input', () => { n.ecSpec = sp.value.trim(); if(!n.ecSpec) delete n.ecSpec; });
+            ec.append(document.createTextNode(' 규격 '), sp);
+          }
+          row.appendChild(ec);
+        }
         if(used){ const u = document.createElement('span'); u.className = 'cc-used'; u.textContent = `거래처 ${used}곳`; row.appendChild(u); }
         if(admin){
           const btn = (text, title, fn, dis) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost'; b.textContent = text; b.title = title; b.disabled = !!dis; b.addEventListener('click', fn); row.appendChild(b); };
@@ -4598,7 +4661,7 @@ function mnShow(id, keepScroll) {
         if(lost.length){ toast(`거래처 ${lost.length}곳의 분류가 사라집니다. 그 칸을 지우지 말거나 거래처를 먼저 옮겨 주세요`); return; }
         companyClassTree = tree;
         try{ await saveCompanyClassTree(); }catch(e){ return; }
-        close(); renderCompanyManager(); toast('거래처 분류표를 저장했습니다');
+        close(); renderCompanyManager(); try{ renderEcountGroupNote(); }catch(e){} toast('거래처 분류표를 저장했습니다');
       } });
     }
     ccModal('📂 거래처 분류표', wrap, btns);
@@ -4809,8 +4872,14 @@ function mnShow(id, keepScroll) {
     row.style.display = 'flex';
     if(!currentParsed.shipDate) currentParsed.shipDate = nextShipDate(currentDateKey);
     document.getElementById('ship-date-input').value = currentParsed.shipDate;
+    if(!currentParsed.deliverDate || !currentParsed.deliverManual) currentParsed.deliverDate = dispDefaultDeliver(currentParsed.shipDate);
+    document.getElementById('deliver-date-input').value = currentParsed.deliverDate || '';
     paintShipDow();
   }
+  // 납품일 기본값: 출고일 다음 날 / 요일 표시
+  function dispDefaultDeliver(ship){ return parseDateKey(ship) ? sampleAddDays(ship, 1) : ''; }
+  function dispDeliverOf(e){ return (e && parseDateKey(e.deliverDate)) ? e.deliverDate : dispDefaultDeliver(e && e.shipDate); }
+  function paintDeliverDow(){ const el = document.getElementById('deliver-date-dow'); if(!el || !currentParsed) return; const v = currentParsed.deliverDate; const warn = v && currentParsed.shipDate && v < currentParsed.shipDate ? ' ⚠ 출고일보다 이른 날짜' : ''; el.textContent = (v ? `(${dowLabel(v)})` : '') + warn; el.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)'; }
 
   // 출고일 지정 주문 목록 (집계표 아래): 출고일별 내역 확인·삭제
   function renderDispatchList(){
@@ -4829,7 +4898,7 @@ function mnShow(id, keepScroll) {
     h.appendChild(sub);
     el.appendChild(h);
     const table = document.createElement('table');
-    table.innerHTML = '<thead><tr><th>출고일</th><th class="name-cell">업체</th><th>창고</th><th class="name-cell">내용 (박스)</th><th></th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>출고일</th><th title="받는 쪽 납품일 — 이카운트 매출 일자">납품일</th><th class="name-cell">업체</th><th>창고</th><th class="name-cell">내용 (박스)</th><th></th></tr></thead>';
     const tbody = document.createElement('tbody');
     const fmt = n => Math.round(n * 100) / 100;
     list.forEach(e => {
@@ -4847,6 +4916,14 @@ function mnShow(id, keepScroll) {
         if(i === 1 || i === 3) td.className = 'name-cell';
         td.textContent = t;
         tr.appendChild(td);
+        if(i === 0){
+          // 납품일 (이카운트 매출 일자) — 여기서 바로 고침
+          const dtd = document.createElement('td');
+          const di = document.createElement('input'); di.type = 'date'; di.className = 'disp-deliver'; di.value = dispDeliverOf(e); di.style.cssText = 'font-size:12px;padding:2px 4px;';
+          di.title = '받는 쪽 납품일 — 이카운트 매출은 이 날짜로 입력됩니다';
+          di.addEventListener('change', () => { if(!parseDateKey(di.value)){ di.value = dispDeliverOf(e); return; } e.deliverDate = di.value; saveDispatchByDate(); toast(`납품일을 ${shortDate(di.value)}로 바꿨습니다`); });
+          dtd.appendChild(di); tr.appendChild(dtd);
+        }
       });
       const act = document.createElement('td');
       const del = document.createElement('button');
@@ -7797,13 +7874,16 @@ function mnShow(id, keepScroll) {
     if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); renderShipDateRow(); }
   });
 
-  document.getElementById('ship-date-input').addEventListener('input', (e)=>{ if(currentParsed){ currentParsed.shipDate = e.target.value; paintShipDow(); } });
+  // 출고일을 바꾸면 납품일도 다음 날로 (납품일을 직접 바꾼 뒤에는 그대로 둠)
+  const syncDeliver = () => { if(!currentParsed) return; if(!currentParsed.deliverManual) currentParsed.deliverDate = dispDefaultDeliver(currentParsed.shipDate); document.getElementById('deliver-date-input').value = currentParsed.deliverDate || ''; paintDeliverDow(); };
+  document.getElementById('ship-date-input').addEventListener('input', (e)=>{ if(currentParsed){ currentParsed.shipDate = e.target.value; paintShipDow(); syncDeliver(); } });
   document.getElementById('ship-date-next-btn').addEventListener('click', ()=>{
     if(!currentParsed) return;
     currentParsed.shipDate = nextShipDate(currentDateKey);
     document.getElementById('ship-date-input').value = currentParsed.shipDate;
-    paintShipDow();
+    paintShipDow(); syncDeliver();
   });
+  document.getElementById('deliver-date-input').addEventListener('input', (e)=>{ if(!currentParsed) return; currentParsed.deliverDate = e.target.value; currentParsed.deliverManual = !!e.target.value; if(!e.target.value) syncDeliver(); paintDeliverDow(); });
 
   // 인식 결과에 품목·수량 줄을 직접 추가 (인식이 안 된 줄 보충)
   document.getElementById('add-parsed-item-btn').addEventListener('click', ()=>{
@@ -7943,7 +8023,7 @@ function mnShow(id, keepScroll) {
     if(mode === 'part'){ splitEnsure(currentDateKey, company).push({ id: cryptoId(), label: '', items: addedItems }); saveSplitByDate(); }
     if(isDisp){
       // 출고일을 따로 지정한 업체: 출고일별 내역을 따로 저장 (발주취합 파일의 쿠팡 블록에 사용)
-      currentDispatch().push(Object.assign({ id: cryptoId(), company, shipDate: currentParsed.shipDate, warehouse: DISPATCH_WAREHOUSE, items: addedItems, enteredBy: getStaffName(), createdAt: new Date().toISOString() }, dispSeq > 1 ? { seq: dispSeq } : {}));
+      currentDispatch().push(Object.assign({ id: cryptoId(), company, shipDate: currentParsed.shipDate, deliverDate: parseDateKey(currentParsed.deliverDate) ? currentParsed.deliverDate : dispDefaultDeliver(currentParsed.shipDate), warehouse: DISPATCH_WAREHOUSE, items: addedItems, enteredBy: getStaffName(), createdAt: new Date().toISOString() }, dispSeq > 1 ? { seq: dispSeq } : {}));
       saveDispatchByDate();
     }
     // 품목이 매칭되지 않은 줄은 버리지 않고 인식 결과 화면에 남겨 둠 (집계표 아래 붉은 안내에 건수 표시)
@@ -8887,6 +8967,15 @@ function mnShow(id, keepScroll) {
   document.getElementById('ecount-date-select').addEventListener('mousedown', renderEcountDateSelect);
   document.getElementById('ecount-date-select').addEventListener('change', renderEcountDateSelect);
 
+  // 매출 엑셀 옆 안내: 묶어서 판매 입력하는 분류
+  function renderEcountGroupNote(){
+    const el = document.getElementById('ecount-group-note'); if(!el) return;
+    const specs = {};
+    ccLeaves().forEach(l => { const ec = ccEcountOf(l.id); if(ec) (specs[ec.nodeName + ' ' + (ec.code || '코드 없음')] = specs[ec.nodeName + ' ' + (ec.code || '코드 없음')] || new Set()).add(ec.spec); });
+    const keys = Object.keys(specs);
+    el.innerHTML = keys.length ? '📦 묶어서 판매 입력: ' + keys.map(k => `<b>${escapeHtml(k)}</b> → ${[...specs[k]].map(escapeHtml).join(' · ')}`).join(' / ') + ' (거래처명은 비우고 코드로 입력, 쿠팡 등 출고일 지정 업체는 납품일을 일자로)' : '거래처 분류표에서 "묶어서 판매 입력"을 켜면 SP처럼 거래 방식별로 묶어 한 전표로 내려받습니다.';
+  }
+  setTimeout(() => { try{ renderEcountGroupNote(); }catch(e){} }, 0);
   document.getElementById('export-ecount-btn').addEventListener('click', async ()=>{
     renderEcountDateSelect();
     const dateKey = ecountDateKey();
@@ -8918,7 +9007,43 @@ function mnShow(id, keepScroll) {
     let companySeq = 1;
 
     const orderCompanies = Object.keys(orders).filter(n=> n !== '_meta');
-    orderCompanies.forEach(companyName=>{
+    // 거래처 분류에서 '묶어서 판매 입력'인 거래처(SP 등)는 거래 방식별로 모아 한 전표로 — 거래처명 비움, 매출처 코드, 규격 = 거래 방식
+    //  출고일 지정 업체(쿠팡)는 그날 출고 내역을 납품일별로 나눠 납품일을 일자로
+    const ecGroupOf = name => { const c = companies.find(x => x.name === name); const ec = c ? ccEcountOf(c.classId) : null; return ec ? { c, ec } : null; };
+    const groupSlips = new Map();   // '일자|규격|코드' → { date, spec, code, items: Map('품목id|단가' → { item, packs, price }), names:Set, fees:{} }
+    const groupWarn = [];
+    orderCompanies.forEach(companyName => {
+      const g = ecGroupOf(companyName);
+      if(!g) return;
+      const code = g.ec.code || g.c.code || '';
+      if(!code) groupWarn.push(companyName);
+      const pm = effectivePriceMap(g.c);
+      const add = (date, items) => {
+        const k = `${date}|${g.ec.spec}|${code}`;
+        let sl = groupSlips.get(k);
+        if(!sl){ sl = { date, spec: g.ec.spec, code, items: new Map(), names: new Set(), fees: {} }; groupSlips.set(k, sl); }
+        sl.names.add(companyName);
+        dict.forEach(item => {
+          const packs = Number(items[item.id]) || 0; if(!packs) return;
+          const price = pm[item.id] ?? '';
+          const ik = `${item.id}|${price}`;
+          const cur = sl.items.get(ik) || { item, packs: 0, price };
+          cur.packs += packs; sl.items.set(ik, cur);
+        });
+        return sl;
+      };
+      const disp = (dispatchByDate[dateKey] || []).filter(e => e.company === companyName);
+      if(isDispatchCompany(companyName) && disp.length){
+        const byDate = {};
+        disp.forEach(e => { const d = dispDeliverOf(e) || dateLabel; const b = byDate[d] = byDate[d] || {}; Object.entries(e.items || {}).forEach(([id, q]) => { b[id] = (b[id] || 0) + (Number(q) || 0); }); });
+        Object.entries(byDate).forEach(([d, items]) => add(d, items));
+      } else {
+        const sl = add(dateLabel, orders[companyName]);
+        Object.entries(feeCountByCompany[companyName] || {}).forEach(([size, n]) => { sl.fees[size] = (sl.fees[size] || 0) + n; });
+      }
+    });
+    const groupedNames = new Set([...groupSlips.values()].flatMap(sl => [...sl.names]));
+    orderCompanies.filter(n => !groupedNames.has(n)).forEach(companyName=>{
       const companyObj = companies.find(c=>c.name===companyName);
       const companyCode = companyObj?.code || '';
       const priceMap = effectivePriceMap(companyObj);   // 업체 예외 단가 → 없으면 거래 방식 단가
@@ -8974,8 +9099,26 @@ function mnShow(id, keepScroll) {
         companySeq++;
       }
     });
+    // 묶음 전표 (일자 → 규격 순)
+    const salesKeyOf = new Map();   // 행 → 매출 집계용 이름
+    [...groupSlips.values()].sort((a, b) => a.date.localeCompare(b.date) || a.spec.localeCompare(b.spec, 'ko')).forEach(sl => {
+      const rows = [];
+      [...sl.items.values()].sort((a, b) => dict.indexOf(a.item) - dict.indexOf(b.item) || (Number(a.price) || 0) - (Number(b.price) || 0)).forEach(({ item, packs, price }) => {
+        const n = Number(item.boxUnitCount) || 0;
+        const qty = n > 0 ? parseFloat((packs / n).toFixed(2)) : packs;
+        const supply = (price !== '' && qty > 0) ? parseFloat((price * qty).toFixed(0)) : '';
+        rows.push([sl.date, companySeq, sl.code, '', manager, warehouse, tradeType, '', '', '', department, item.code || '', item.name, sl.spec, qty, price, '', supply, '', n > 0 ? `${Math.round(packs * 100) / 100}팩` : '', '', '']);
+      });
+      Object.entries(sl.fees).forEach(([size, count]) => {
+        const fi = feeItemsBySize[size]; if(!fi || !fi.name) return;
+        const up = fi.price !== '' ? Number(fi.price) : 0;
+        rows.push([sl.date, companySeq, sl.code, '', manager, warehouse, tradeType, '', '', '', department, fi.code || '', fi.name, sl.spec, count, up || '', '', up > 0 ? up * count : '', '', `택배비(${size})`, '', '']);
+      });
+      if(rows.length){ rows.forEach(r => salesKeyOf.set(r, `SP ${sl.spec}`)); dataRows.push(...rows); companySeq++; }
+    });
 
     if(dataRows.length === 0){ toast(`${ecountDateText(dateKey)}에 집계된 발주가 없습니다`); return; }
+    if(groupWarn.length) toast(`매출처 코드가 없는 묶음 거래처가 있습니다: ${groupWarn.slice(0, 3).join(', ')}${groupWarn.length > 3 ? ' 외' : ''} — 거래처 분류표에서 매출처 코드를 넣어 주세요`);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
     // Column widths
@@ -8995,20 +9138,29 @@ function mnShow(id, keepScroll) {
       if(!salesByDate[dateLabel]) salesByDate[dateLabel] = {};
 
       // dataRows에서 매출 데이터 추출 (거래처코드=2, 거래처명=3, 품목코드=11, 품목명=12, 수량=14, 단가=15, 공급가액=17)
+      // 이번 다운로드분을 거래처·품목별로 먼저 합침 (묶음 전표는 단가가 다른 줄·납품일이 다른 전표가 같은 품목으로 여러 줄일 수 있음)
+      const fresh = {};
       dataRows.forEach(row=>{
-        const companyName = row[3];
+        const companyName = row[3] || salesKeyOf.get(row);   // 묶음 전표는 거래처명이 비어 있어 'SP 규격'으로 기록
         const itemName = row[12];
-        const qty = row[14];
+        const qty = Number(row[14]) || 0;
         const unitPrice = row[15];
-        const supplyAmt = row[17];
+        const supplyAmt = Number(row[17]) || 0;
         const note = row[19]; // 적요(팩수량)
         if(!companyName || !itemName || !qty) return;
+        const m = fresh[companyName] = fresh[companyName] || {};
+        const cur = m[itemName];
+        if(!cur) m[itemName] = { itemName, qty, unitPrice: unitPrice||0, supplyAmt, note: note||'' };
+        else { cur.qty = Math.round((cur.qty + qty) * 100) / 100; cur.supplyAmt += supplyAmt; cur.unitPrice = cur.qty ? Math.round(cur.supplyAmt / cur.qty) : cur.unitPrice; cur.note = [cur.note, note].filter(Boolean).join(' + '); }
+      });
+      Object.entries(fresh).forEach(([companyName, items])=>{
         if(!salesByDate[dateLabel][companyName]) salesByDate[dateLabel][companyName] = [];
         // 같은 날짜+거래처+품목 중복 방지 (재다운로드 시 덮어쓰기)
-        const existIdx = salesByDate[dateLabel][companyName].findIndex(s=> s.itemName === itemName);
-        const entry = { itemName, qty, unitPrice: unitPrice||0, supplyAmt: supplyAmt||0, note: note||'' };
-        if(existIdx >= 0) salesByDate[dateLabel][companyName][existIdx] = entry;
-        else salesByDate[dateLabel][companyName].push(entry);
+        Object.values(items).forEach(entry=>{
+          const existIdx = salesByDate[dateLabel][companyName].findIndex(s=> s.itemName === entry.itemName);
+          if(existIdx >= 0) salesByDate[dateLabel][companyName][existIdx] = entry;
+          else salesByDate[dateLabel][companyName].push(entry);
+        });
       });
       await window.storage.set('sales-by-date', JSON.stringify(salesByDate), true);
       toast(`매출 엑셀 다운로드 완료 — ${dateLabel} 매출 집계에 자동 저장됐습니다`);
