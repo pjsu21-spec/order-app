@@ -214,6 +214,28 @@
   .dict-row .co-cell input[type=text], .dict-row .co-cell select, .dict-row .co-cell input.company-name-input{ width:100%; max-width:100%; flex:none; box-sizing:border-box; }
   .co-name{ width:200px; } .co-tpl{ width:50px; } .co-code{ width:92px; } .co-cat{ width:126px; } .co-region{ width:84px; }
   .co-market{ width:96px; } .co-listed{ width:130px; } .co-disp{ width:96px; } .co-tax{ width:90px; } .co-del{ width:48px; }
+  .co-class{ width:270px; }
+  .co-class select.cc-bad{ border-color:var(--danger,#c0392b); color:var(--danger,#c0392b); }
+  /* 거래처 분류 창 */
+  .cc-modal{ position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .cc-box{ background:#fff; color:var(--ink); border-radius:12px; width:100%; max-width:980px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.3); }
+  .cc-box > .cc-hd{ padding:16px 20px 8px; font-size:16px; font-weight:800; }
+  .cc-box > .cc-bd{ padding:0 20px 8px; overflow:auto; font-size:13px; }
+  .cc-box > .cc-ft{ padding:12px 20px 16px; display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; border-top:1px solid var(--line); }
+  .cc-tree .cc-node{ display:flex; align-items:center; gap:6px; margin:3px 0; }
+  .cc-tree .cc-node input{ width:170px; padding:3px 6px; font-size:13px; }
+  .cc-tree .cc-node button{ padding:2px 7px; font-size:12px; }
+  .cc-tree .cc-leaf-tag{ font-size:11px; color:var(--accent); font-weight:700; }
+  .cc-tree .cc-used{ font-size:11px; color:var(--muted); }
+  .cc-review{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  .cc-review th, .cc-review td{ border:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:middle; }
+  .cc-review th{ background:var(--hover); position:sticky; top:0; z-index:1; }
+  .cc-review td.cc-cur{ color:var(--muted); font-size:12px; }
+  .cc-review select{ max-width:260px; font-size:12.5px; }
+  .cc-review tr.cc-need td{ background:#fff4e5; }
+  .cc-review tr.cc-chg td.cc-pick{ background:#e8f4ec; }
+  .cc-why{ font-size:11.5px; }
+  .cc-why.need{ color:#b45309; font-weight:700; }
   .co-head{ display:flex; gap:8px; align-items:flex-end; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:4px; line-height:1.3; }
   .co-head .co-map{ display:block; font-weight:500; color:var(--accent); }
   /* 출고 건 나누기 (집계표) */
@@ -1704,7 +1726,12 @@
         · <b>상장청과명</b> — (상장)중앙청과처럼 도매 법인 이름 → 발주취합 <b>E열</b><br>
         발주취합 서식에 자리가 없는 새 거래처는 같은 구분 맨 아래에 행이 자동으로 추가되고, 위 값들이 해당 칸에 채워집니다. (구분 목록은 아래 "구분 목록 관리"에서 추가·수정)
       </div></details>
-      <div class="row" style="margin-top:10px;">
+      <div class="row cc-bar" style="margin-top:10px;">
+        <button class="btn-ghost small-btn" id="cc-tree-btn" title="대분류 › 중분류 › 소분류 거래처 분류표 보기·편집 (관리자)">📂 거래처 분류표</button>
+        <button class="btn-ghost small-btn" id="cc-auto-btn" title="지금 입력된 발주 구분·지역·시장명·상장청과명·3PL로 분류를 추정해 보여 주고, 확인한 뒤 한꺼번에 적용합니다 (관리자)">🔎 기존 거래처 자동 분류</button>
+        <span class="sub" id="cc-status" style="margin:0;"></span>
+      </div>
+      <div class="row" style="margin-top:6px;">
         <input type="search" id="company-search-input" class="view-ctl" placeholder="등록된 거래처 검색 (예: 생명, 경동) — 이미 등록됐는지 확인" style="min-width:300px; flex:0 1 420px;">
         <select id="company-cat-filter" class="view-ctl" title="발주 구분으로 걸러 보기"></select>
         <select id="company-region-filter" class="view-ctl" title="지역으로 걸러 보기"></select>
@@ -2314,6 +2341,7 @@
   <li><b>코드</b>는 이카운트 거래처코드입니다. 거래처별 단가 표와 출고·정산 거래처 검색에서 이 코드로 찾을 수 있습니다.</li>
   <li>이미 등록된 업체인지 위쪽 검색칸으로 먼저 확인하세요.</li>
   <li><span class="mn-b">품목·거래처 코드표 다운로드</span>로 현재 코드표를 엑셀로 받습니다.</li>
+  <li><b>거래처 분류</b>: 대분류(오프라인·SP·온라인) › 중분류(수도권·지방·쿠팡) › 소분류(도매시장·직거래 › 상장·직거래) 중 맨 끝 칸(거래 방식)을 고릅니다. 앞으로 단가와 이카운트 매출 입력의 기준이 됩니다. <span class="mn-b">📂 거래처 분류표</span>에서 칸 이름을 바꾸거나 추가할 수 있고(관리자), <span class="mn-b">🔎 기존 거래처 자동 분류</span>는 지금 입력된 발주 구분·지역·시장명·상장청과명으로 분류를 추정해 보여 준 뒤 확인하고 한꺼번에 적용합니다. 분류가 빠진 거래처는 위쪽 "기타 조건"에서 <b>거래처 분류 미지정</b>으로 찾을 수 있습니다.</li>
 </ul>
 
 <h3>이카운트 매출입력 엑셀 다운로드</h3>
@@ -3621,7 +3649,7 @@ function mnShow(id, keepScroll) {
   const LOAD_STATE_KEYS = ['dictionary', 'companies', 'delivery-date', 'orders-by-date', 'thirdparty-lineitems', 'raw-materials', 'previous-stock',
     'raw-material-usage', 'company-categories', 'retention-months', 'internal-order-counters', 'uploaded-original-files', 'sender-info',
     'production-template-b64', 'sku-group-map', 'sku-column-map', 'tracking-col-mappings', 'ecount-settings', 'sales-by-date', 'delivery-fee-items',
-    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date', 'order-extras-by-date'];
+    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date', 'order-extras-by-date', 'company-class-tree'];
   // soft=true (화면에서 '새로고침'을 누른 경우): 서버 연결에 실패하면 예외를 던지고 화면의 현재 내용을 그대로 둠
   async function loadState(soft){
     if(window.storage.prefetch){
@@ -3795,6 +3823,12 @@ function mnShow(id, keepScroll) {
       const v = spl ? JSON.parse(spl.value) : {};
       splitByDate = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     }catch(e){ splitByDate = {}; }
+    try{
+      const cct = await window.storage.get('company-class-tree', true);
+      const v = cct ? JSON.parse(cct.value) : null;
+      companyClassTree = (v && Array.isArray(v.nodes) && v.nodes.length) ? v.nodes : ccDefaultTree();
+      companyClassSaved = !!(v && Array.isArray(v.nodes) && v.nodes.length);
+    }catch(e){ companyClassTree = ccDefaultTree(); companyClassSaved = false; }
     try{
       const oex = await window.storage.get('order-extras-by-date', true);
       const v = oex ? JSON.parse(oex.value) : {};
@@ -4377,6 +4411,203 @@ function mnShow(id, keepScroll) {
   //  - 집계·이카운트·거래명세서·재고 계산은 업체 단위 합계 그대로.
   //  - 같은 업체를 같은 날 두 번 이상 발주 입력하면("발주를 추가하겠습니까?" → 네) 두 번째부터는 추가 발주로 따로 저장됨.
   //  - 배차/적재 입력·발주취합 파일의 업체 행(업체명은 그대로)·생산 현황판·송품장은 발주마다 따로.
+  // ── 거래처 분류표 (대분류 › 중분류 › 소분류1 › 소분류2) ──
+  //  저장: kv 'company-class-tree' = { v:1, nodes:[{ id, name, children:[…] }] }. 거래처는 맨 끝 칸(거래 방식) 하나를 company.classId 로 가짐.
+  //  id 는 바뀌지 않음(이름을 바꿔도 거래처 분류는 그대로). 단가(②)·이카운트 매출처(③)·발주서(④)가 이 분류를 기준으로 씀.
+  //  ①단계에서는 발주서 배치에 쓰는 기존 발주 구분(category)·지역(region)은 그대로 둠.
+  const CC_MAX_DEPTH = 4;
+  function ccDefaultTree(){
+    const mk = (id, name, children) => children ? { id, name, children } : { id, name };
+    const area = (p, nm, mktDirect) => mk(p, nm, [mk(p + '-m', '도매시장', [mk(p + '-m-l', '상장'), mk(p + '-m-d', mktDirect)]), mk(p + '-d', '직거래')]);
+    return [
+      mk('off', '오프라인', [area('off-c', '수도권', '직거래'), area('off-r', '지방', '직거래')]),
+      mk('sp', 'SP', [area('sp-c', '수도권', '직거래/온라인'), area('sp-r', '지방', '직거래'), mk('sp-cpg', '쿠팡')]),
+      mk('on', '온라인')
+    ];
+  }
+  let companyClassTree = ccDefaultTree();
+  let companyClassSaved = false;   // 서버에 분류표가 저장돼 있는지 (없으면 기본 분류표를 보여 주고, 처음 적용할 때 함께 저장)
+  // 맨 끝 칸(거래 방식) 목록: [{ id, path:[이름…], label:'SP › 수도권 › 도매시장 › 상장', top:'SP' }]
+  function ccLeaves(tree){
+    const out = [];
+    const walk = (nodes, path) => (nodes || []).forEach(n => { const p = path.concat(n.name); if(n.children && n.children.length) walk(n.children, p); else out.push({ id: n.id, path: p, label: p.join(' › '), top: p[0] }); });
+    walk(tree || companyClassTree, []);
+    return out;
+  }
+  function ccLeafById(id, tree){ return id ? ccLeaves(tree).find(l => l.id === id) || null : null; }
+  function ccLabel(id){ const l = ccLeafById(id); return l ? l.label : ''; }
+  async function saveCompanyClassTree(){
+    try{ await window.storage.set('company-class-tree', JSON.stringify({ v: 1, nodes: companyClassTree }), true); companyClassSaved = true; }
+    catch(e){ console.error(e); toast('거래처 분류표를 저장하지 못했습니다'); throw e; }
+  }
+  // 지금 입력된 발주 구분·지역·시장명·상장청과명·3PL·출고일 지정으로 분류를 추정 → { id, why, need }
+  function ccGuess(c, tree){
+    const has = id => !!ccLeafById(id, tree);
+    const pick = (id, why) => has(id) ? { id, why, need: false } : { id: '', why: '분류표에 맞는 칸이 없음', need: true };
+    if(c.isThirdParty) return pick('on', '3PL 업체 → 온라인');
+    if(c.dispatchByDate || /coupang|쿠팡/i.test(c.name || '')) return pick('sp-cpg', '출고일 지정(쿠팡) → SP › 쿠팡');
+    const cat = String(c.category || '').trim(), r = c.region === '수도권' ? 'c' : c.region === '지방' ? 'r' : '';
+    const mkt = !!(String(c.marketName || '').trim() || String(c.listedMarketName || '').trim()), listed = !!String(c.listedMarketName || '').trim();
+    if(cat === '개인구매') return { id: '', why: '직원 개인구매 (분류하지 않음)', need: false };
+    const top = cat === 'SP' ? 'sp' : cat === '도매' ? 'off' : cat === '직거래' ? 'off' : '';
+    if(!top) return { id: '', why: cat ? `발주 구분 "${cat}" — 직접 골라 주세요` : '발주 구분 없음 — 직접 골라 주세요', need: true };
+    if(!r) return { id: '', why: '지역(수도권/지방)이 비어 있음 — 직접 골라 주세요', need: true };
+    const lead = (top === 'sp' ? 'SP' : '오프라인') + ' › ' + c.region;
+    if(cat === '직거래' && !mkt) return pick(`off-${r}-d`, `${lead} › 직거래 (시장명 없음)`);
+    if(!mkt) return pick(`${top}-${r}-d`, `${lead} › 직거래 (시장명·상장청과명 없음)`);
+    return pick(`${top}-${r}-m-${listed ? 'l' : 'd'}`, `${lead} › 도매시장 › ${listed ? '상장 (상장청과명 있음)' : '직거래 (상장청과명 없음)'}`);
+  }
+  // 분류 고르는 칸 (맨 끝 칸만, 대분류별로 묶음)
+  function ccSelect(cur, opts){
+    const sel = document.createElement('select');
+    const leaves = ccLeaves(opts && opts.tree);
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = (opts && opts.placeholder) || '분류 선택'; sel.appendChild(o0);
+    const tops = [...new Set(leaves.map(l => l.top))];
+    tops.forEach(t => {
+      const its = leaves.filter(l => l.top === t);
+      if(its.length === 1 && its[0].path.length === 1){ const o = document.createElement('option'); o.value = its[0].id; o.textContent = t; sel.appendChild(o); return; }
+      const g = document.createElement('optgroup'); g.label = t;
+      its.forEach(l => { const o = document.createElement('option'); o.value = l.id; o.textContent = l.label; o.title = l.label; g.appendChild(o); });   // 닫힌 칸에서도 대분류가 보이도록 전체 이름
+      sel.appendChild(g);
+    });
+    if(cur && !leaves.some(l => l.id === cur)){ const o = document.createElement('option'); o.value = cur; o.textContent = '⚠ 없는 분류 (다시 골라 주세요)'; sel.appendChild(o); sel.classList.add('cc-bad'); }
+    sel.value = cur || '';
+    sel.title = cur ? (ccLabel(cur) || '분류표에 없는 칸입니다') : '거래처 분류 (단가·이카운트 기준)';
+    return sel;
+  }
+  function ccStatusText(){
+    const list = companies.filter(c => c.category !== '개인구매');
+    const ok = list.filter(c => ccLeafById(c.classId)).length;
+    return `분류 지정 ${ok}/${list.length}곳${list.length - ok ? ` · 미지정 ${list.length - ok}곳` : ''}`;
+  }
+  // 공통 창
+  function ccModal(title, body, buttons){
+    const back = document.createElement('div'); back.className = 'cc-modal';
+    const box = document.createElement('div'); box.className = 'cc-box';
+    const hd = document.createElement('div'); hd.className = 'cc-hd'; hd.textContent = title;
+    const bd = document.createElement('div'); bd.className = 'cc-bd'; bd.appendChild(body);
+    const ft = document.createElement('div'); ft.className = 'cc-ft';
+    const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    buttons.forEach(b => { if(b.el){ ft.appendChild(b.el); return; } const x = document.createElement('button'); x.type = 'button'; x.className = (b.cls || 'btn-ghost') + ' small-btn'; x.textContent = b.text; if(b.id) x.id = b.id; x.addEventListener('click', () => b.fn(close)); ft.appendChild(x); });
+    box.append(hd, bd, ft); back.appendChild(box); document.body.appendChild(back);
+    return { close, back, bd };
+  }
+  // ── 분류표 보기·편집 ──
+  function ccOpenTree(){
+    const admin = !!(window.currentUser && window.currentUser.role === 'admin');
+    let tree = JSON.parse(JSON.stringify(companyClassTree));
+    let seq = 0;
+    const newId = () => 'n' + Date.now().toString(36) + (seq++).toString(36);
+    const usedBy = node => { const ids = new Set(); const walk = n => { if(n.children && n.children.length) n.children.forEach(walk); else ids.add(n.id); }; walk(node); return companies.filter(c => ids.has(c.classId)).length; };
+    const wrap = document.createElement('div'); wrap.className = 'cc-tree';
+    const intro = document.createElement('div'); intro.className = 'sub'; intro.style.margin = '0 0 8px';
+    intro.innerHTML = '맨 끝 칸(<span class="cc-leaf-tag">거래 방식</span>)이 거래처에 지정되고, 다음 단계에서 <b>단가</b>와 <b>이카운트 매출처</b>의 기준이 됩니다. 이름을 바꿔도 이미 지정한 거래처의 분류는 그대로입니다.' + (admin ? '' : ' <b>(보기만 — 편집은 관리자)</b>');
+    wrap.appendChild(intro);
+    const list = document.createElement('div'); wrap.appendChild(list);
+    const render = () => {
+      list.innerHTML = '';
+      const walk = (nodes, depth, parent) => nodes.forEach((n, i) => {
+        const row = document.createElement('div'); row.className = 'cc-node'; row.style.paddingLeft = (depth * 22) + 'px';
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = n.name; inp.disabled = !admin; inp.className = 'cc-name';
+        inp.addEventListener('input', () => { n.name = inp.value; });
+        row.appendChild(inp);
+        const leaf = !(n.children && n.children.length);
+        const used = usedBy(n);
+        if(leaf){ const t = document.createElement('span'); t.className = 'cc-leaf-tag'; t.textContent = '거래 방식'; row.appendChild(t); }
+        if(used){ const u = document.createElement('span'); u.className = 'cc-used'; u.textContent = `거래처 ${used}곳`; row.appendChild(u); }
+        if(admin){
+          const btn = (text, title, fn, dis) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost'; b.textContent = text; b.title = title; b.disabled = !!dis; b.addEventListener('click', fn); row.appendChild(b); };
+          btn('↑', '위로', () => { [nodes[i - 1], nodes[i]] = [nodes[i], nodes[i - 1]]; render(); }, i === 0);
+          btn('↓', '아래로', () => { [nodes[i + 1], nodes[i]] = [nodes[i], nodes[i + 1]]; render(); }, i === nodes.length - 1);
+          if(depth < CC_MAX_DEPTH - 1) btn('+ 하위', '이 칸 아래에 칸 추가', () => {
+            if(leaf && used){ toast(`거래처 ${used}곳이 이 칸을 쓰고 있어 하위 칸을 만들 수 없습니다. 거래처 분류를 먼저 옮겨 주세요`); return; }
+            (n.children = n.children || []).push({ id: newId(), name: '새 칸' }); render();
+          });
+          btn('삭제', '이 칸과 하위 칸 삭제', () => {
+            if(used){ toast(`거래처 ${used}곳이 이 칸(또는 하위 칸)을 쓰고 있어 지울 수 없습니다. 거래처 분류를 먼저 옮겨 주세요`); return; }
+            nodes.splice(i, 1); if(parent && !parent.children.length) delete parent.children; render();
+          });
+        }
+        list.appendChild(row);
+        if(!leaf) walk(n.children, depth + 1, n);
+      });
+      walk(tree, 0, null);
+      if(admin){ const add = document.createElement('button'); add.type = 'button'; add.className = 'btn-ghost small-btn'; add.textContent = '+ 대분류 추가'; add.style.marginTop = '8px'; add.addEventListener('click', () => { tree.push({ id: newId(), name: '새 대분류' }); render(); }); list.appendChild(add); }
+    };
+    render();
+    const btns = [{ text: admin ? '취소' : '닫기', fn: close => close() }];
+    if(admin){
+      btns.push({ text: '기본 분류표로', fn: () => { if(companies.some(c => c.classId && !ccLeafById(c.classId, ccDefaultTree()))){ toast('기본 분류표에 없는 칸을 쓰는 거래처가 있어 되돌릴 수 없습니다'); return; } tree = ccDefaultTree(); render(); } });
+      btns.push({ text: '저장', cls: 'btn-primary', id: 'cc-tree-save', fn: async close => {
+        const bad = []; const walk = ns => ns.forEach(n => { n.name = String(n.name || '').trim(); if(!n.name) bad.push(n); if(n.children) walk(n.children); }); walk(tree);
+        if(bad.length){ toast('이름이 빈 칸이 있습니다'); return; }
+        const lost = companies.filter(c => c.classId && ccLeafById(c.classId, companyClassTree) && !ccLeafById(c.classId, tree));
+        if(lost.length){ toast(`거래처 ${lost.length}곳의 분류가 사라집니다. 그 칸을 지우지 말거나 거래처를 먼저 옮겨 주세요`); return; }
+        companyClassTree = tree;
+        try{ await saveCompanyClassTree(); }catch(e){ return; }
+        close(); renderCompanyManager(); toast('거래처 분류표를 저장했습니다');
+      } });
+    }
+    ccModal('📂 거래처 분류표', wrap, btns);
+  }
+  // ── 기존 거래처 자동 분류: 추정 결과를 표로 보여 주고, 고친 뒤 한꺼번에 적용 ──
+  function ccOpenAuto(){
+    const rows = companies.map(c => {
+      const g = ccGuess(c);
+      const cur = ccLeafById(c.classId) ? c.classId : '';
+      return { c, g, cur, pick: cur || g.id };
+    });
+    const wrap = document.createElement('div');
+    const top = document.createElement('div'); top.className = 'row'; top.style.cssText = 'margin:0 0 8px;align-items:center;';
+    const sumEl = document.createElement('span'); sumEl.className = 'sub'; sumEl.style.margin = '0';
+    const onlyLbl = document.createElement('label'); onlyLbl.style.cssText = 'font-size:12.5px;display:flex;gap:4px;align-items:center;cursor:pointer;';
+    const only = document.createElement('input'); only.type = 'checkbox'; only.id = 'cc-only-need';
+    onlyLbl.append(only, document.createTextNode('확인 필요·바뀌는 거래처만 보기'));
+    top.append(sumEl, onlyLbl);
+    const tip = document.createElement('div'); tip.className = 'sub'; tip.style.margin = '0 0 8px';
+    tip.innerHTML = '지금 입력된 <b>발주 구분 · 지역 · 시장명 · 상장청과명 · 3PL · 출고일 지정</b>으로 분류를 추정했습니다. 오른쪽 칸에서 고칠 수 있고, <b>적용</b>을 눌러야 저장됩니다. 이미 분류가 지정된 거래처는 지금 분류를 그대로 보여 줍니다. (발주 구분·지역 등 기존 칸은 바뀌지 않습니다)';
+    const tbl = document.createElement('table'); tbl.className = 'cc-review';
+    tbl.innerHTML = '<thead><tr><th>거래처</th><th>지금 입력된 정보</th><th>분류</th><th>근거</th></tr></thead>';
+    const tb = document.createElement('tbody'); tbl.appendChild(tb);
+    wrap.append(tip, top, tbl);
+    const changed = r => (r.pick || '') !== (r.cur || '');
+    const paint = () => {
+      tb.innerHTML = '';
+      rows.forEach((r, i) => {
+        const need = !r.pick && r.g.need;
+        if(only.checked && !need && !changed(r)) return;
+        const tr = document.createElement('tr'); tr.className = (need ? 'cc-need ' : '') + (changed(r) ? 'cc-chg' : ''); tr.dataset.i = i;
+        const info = [r.c.category || '(구분 없음)', r.c.region, r.c.marketName, r.c.listedMarketName, r.c.isThirdParty ? '3PL' : '', r.c.dispatchByDate ? '출고일 지정' : ''].filter(Boolean).join(' · ');
+        tr.innerHTML = `<td>${escapeHtml(companyDisplayName(r.c))}</td><td class="cc-cur">${escapeHtml(info)}</td><td class="cc-pick"></td><td class="cc-why${need ? ' need' : ''}">${escapeHtml(r.cur ? (r.pick === r.cur ? '이미 지정됨' : '지정된 분류를 바꿈') : r.g.why)}</td>`;
+        const sel = ccSelect(r.pick, { placeholder: '(분류 안 함)' });
+        sel.className = 'cc-row-sel';
+        sel.addEventListener('change', () => { r.pick = sel.value; paint(); });
+        tr.children[2].appendChild(sel);
+        tb.appendChild(tr);
+      });
+      const nChg = rows.filter(changed).length, nNeed = rows.filter(r => !r.pick && r.g.need).length;
+      sumEl.innerHTML = `전체 ${rows.length}곳 · <b>적용하면 바뀌는 곳 ${nChg}곳</b>${nNeed ? ` · <span style="color:#b45309;font-weight:700;">확인 필요 ${nNeed}곳</span>` : ''}`;
+      applyBtn.disabled = !nChg;
+      applyBtn.textContent = nChg ? `적용 (${nChg}곳)` : '적용';
+    };
+    only.addEventListener('change', paint);
+    const applyBtn = document.createElement('button'); applyBtn.type = 'button'; applyBtn.className = 'btn-primary small-btn'; applyBtn.id = 'cc-auto-apply';
+    let modal = null;
+    applyBtn.addEventListener('click', async () => {
+      const chg = rows.filter(changed);
+      if(!chg.length) return;
+      try{ if(!companyClassSaved) await saveCompanyClassTree(); }catch(e){ return; }
+      chg.forEach(r => { if(r.pick) r.c.classId = r.pick; else delete r.c.classId; });
+      saveCompanies();
+      modal.close(); renderCompanyManager();
+      toast(`거래처 ${chg.length}곳의 분류를 적용했습니다`);
+    });
+    modal = ccModal('🔎 기존 거래처 자동 분류', wrap, [{ text: '취소', fn: close => close() }, { el: applyBtn }]);
+    paint();
+  }
+
   let splitByDate = {};   // { 'YYYY-MM-DD': { 업체명: [{ id, label, items: { 품목id: 팩 } }] } }
   // ── 업체별 비고 · 샘플 동봉 ──
   //  - 비고: 그날 출고하는 업체별 특이 사항 (집계표에서 입력, 배차·적재 화면에 표시)
@@ -4800,6 +5031,7 @@ function mnShow(id, keepScroll) {
       case 'disp': if(!c.dispatchByDate) return false; break;
       case 'nocode': if(c.code) return false; break;
       case 'nomarket': if(c.marketName) return false; break;
+      case 'noclass': if(c.category === '개인구매' || ccLeafById(c.classId)) return false; break;
     }
     return true;
   }
@@ -5079,6 +5311,7 @@ function mnShow(id, keepScroll) {
     }
 
     let dragSrcIdx = null;
+    { const st = document.getElementById('cc-status'); if(st) st.textContent = ccStatusText(); }
 
     // 예전에 지역 칸에 적던 값(가락, 구리 …)은 수도권/지방만 남기고 나머지는 시장명(D열) 칸으로 옮김
     let migrated = false;
@@ -5098,7 +5331,7 @@ function mnShow(id, keepScroll) {
     head.className = 'co-head';
     const hc = (key, title, map) => { const d = document.createElement('div'); d.className = 'co-cell co-' + key; d.innerHTML = escapeHtml(title) + (map ? `<span class="co-map">${escapeHtml(map)}</span>` : ''); return d; };
     const sp = document.createElement('div'); sp.style.flex = '0 0 28px'; head.appendChild(sp);
-    [['name', '거래처명', 'ERP 거래처명 → 취합 F열'], ['tpl', '3PL', ''], ['code', '코드', ''], ['cat', '발주 구분', '→ 취합 B열'], ['region', '지역', '→ 취합 C열'], ['market', '시장명', '→ 취합 D열'], ['listed', '상장청과명', '→ 취합 E열'], ['disp', '', ''], ['tax', '', '']].forEach(([k, t, m]) => head.appendChild(hc(k, t, m)));
+    [['name', '거래처명', 'ERP 거래처명 → 취합 F열'], ['class', '거래처 분류', '단가·이카운트 기준'], ['tpl', '3PL', ''], ['code', '코드', ''], ['cat', '발주 구분', '→ 취합 B열'], ['region', '지역', '→ 취합 C열'], ['market', '시장명', '→ 취합 D열'], ['listed', '상장청과명', '→ 취합 E열'], ['disp', '', ''], ['tax', '', '']].forEach(([k, t, m]) => head.appendChild(hc(k, t, m)));
     wrap.appendChild(head);
 
     companies.forEach((company, idx)=>{
@@ -5290,6 +5523,18 @@ function mnShow(id, keepScroll) {
       const cell = (key, el) => { const d = document.createElement('div'); d.className = 'co-cell co-' + key; d.appendChild(el); return d; };
       row.appendChild(handle);
       row.appendChild(cell('name', nameInput));
+      {
+        const csel = ccSelect(company.classId);
+        csel.className = (csel.className + ' cc-co-sel').trim();
+        csel.addEventListener('change', async () => {
+          try{ if(!companyClassSaved) await saveCompanyClassTree(); }catch(e){ csel.value = company.classId || ''; return; }
+          if(csel.value) company.classId = csel.value; else delete company.classId;
+          csel.classList.remove('cc-bad'); csel.title = ccLabel(company.classId) || '거래처 분류 (단가·이카운트 기준)';
+          saveCompanies();
+          const st = document.getElementById('cc-status'); if(st) st.textContent = ccStatusText();
+        });
+        row.appendChild(cell('class', csel));
+      }
       row.appendChild(cell('tpl', label));
       row.appendChild(cell('code', codeInput));
       row.appendChild(cell('cat', catBox));
@@ -5308,7 +5553,7 @@ function mnShow(id, keepScroll) {
   function refreshCompanyViewOptions(){
     viewFillSelect(document.getElementById('company-cat-filter'), [['', '발주 구분 전체'], ...companyCategoryOptions().map(c => [c, c]), [VIEW_NONE, '(구분 미지정)']]);
     viewFillSelect(document.getElementById('company-region-filter'), [['', '지역 전체'], ['수도권', '수도권'], ['지방', '지방'], [VIEW_NONE, '(지역 미지정)']]);
-    viewFillSelect(document.getElementById('company-flag-filter'), [['', '기타 조건 없음'], ['3pl', '3PL 업체만'], ['not3pl', '3PL 제외'], ['tax', '택배 과세만'], ['disp', '출고일 지정만'], ['nocode', '코드 없음'], ['nomarket', '시장명 없음']]);
+    viewFillSelect(document.getElementById('company-flag-filter'), [['', '기타 조건 없음'], ['3pl', '3PL 업체만'], ['not3pl', '3PL 제외'], ['tax', '택배 과세만'], ['disp', '출고일 지정만'], ['noclass', '거래처 분류 미지정'], ['nocode', '코드 없음'], ['nomarket', '시장명 없음']]);
     viewFillSelect(document.getElementById('company-sort'), COMPANY_SORT_OPTS);
   }
   function applyCompanySearch(){
@@ -7763,6 +8008,8 @@ function mnShow(id, keepScroll) {
     input.value = '';
   });
 
+  document.getElementById('cc-tree-btn').addEventListener('click', ccOpenTree);   // 거래처 분류표 보기·편집
+  document.getElementById('cc-auto-btn').addEventListener('click', ccOpenAuto);   // 기존 거래처 자동 분류 (검토 후 적용)
   document.getElementById('add-company-manage-btn').addEventListener('click', ()=>{
     const input = document.getElementById('new-company-manage-input');
     const val = input.value.trim();
