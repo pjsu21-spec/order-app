@@ -406,6 +406,9 @@
   #po-board .pr-rep .staff .tot{ text-align:center; border-bottom:none; }
   #po-board .pr-rep .std{ flex:1 1 0; background:#c9d6f0; border:1px solid #7d879c; padding:14px 16px; text-align:center; font-size:19px; line-height:1.6; display:flex; flex-direction:column; justify-content:center; }
   #po-board .pr-rep .std .t{ font-size:27px; font-weight:700; margin-bottom:6px; }
+  .ps-more{ margin-top:6px; border-top:1px dashed var(--line); padding-top:4px; }
+  .ps-more > summary{ cursor:pointer; font-size:12.5px; color:var(--muted); padding:6px 0; font-weight:600; }
+  .ps-more[open] > summary{ color:var(--accent); }
   .pp-fold > summary{ cursor:pointer; font-size:16px; font-weight:700; color:var(--fg); padding:2px 0 8px; }
   .pp-fold:not([open]) > summary{ padding-bottom:2px; }
   .pp-fold .pp-sumhint{ font-size:12px; font-weight:400; color:var(--muted); }
@@ -2562,6 +2565,8 @@
 <ul>
   <li><b>자동 이월</b>: 비워 두면 직전 영업일의 <b>전일 재고 + 생산 − 출고</b>로 자동 계산됩니다. 그날 생산량을 적지 않았으면 생산 필요수량만큼 만든 것으로 봅니다. 직접 적은 값은 자동 계산이 덮어쓰지 않습니다.</li>
   <li><b>샘플 신청도 반영</b>: 생산본부 생산 샘플은 만든 날 생산량에, 나간 날 출고에 들어갑니다. 그래서 어제 미리 만들어 둔 <b>재고 사용</b> 샘플은 오늘 전일 재고에 잡히고, 오늘 생산 필요수량에 두 번 잡히지 않습니다.</li>
+  <li>재고·생산량은 <b>박스</b>로 입력하고(11.75처럼 소수도 됨), 옆에 팩 수가 표시됩니다. 박스입수가 없는 품목만 팩으로 입력합니다.</li>
+  <li>최근 30일 동안 발주가 없고 재고·생산량도 없는 품목은 맨 아래 <b>자주 안 쓰는 품목</b> 칸에 접혀 있습니다. 눌러서 펼치면 입력할 수 있고, 발주가 생기면 자동으로 위로 올라옵니다.</li>
   <li>휴대폰에서는 품목명 아래에 전일 재고·이틀 전 재고·오늘 생산량 세 칸이 나와 좁은 화면에서도 입력하기 쉽습니다.</li>
 </ul>
 
@@ -6331,10 +6336,17 @@ function mnShow(id, keepScroll) {
       '<b>오늘 생산량</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
       '<b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
+    // 자주 안 쓰는 품목(최근 30일 발주·오늘 필요량·재고·생산량이 모두 없음)은 아래 접힌 칸으로
+    const more = document.createElement('details'); more.className = 'ps-more';
+    try{ more.open = localStorage.getItem('ps-more-open') === '1'; }catch(e){}
+    more.addEventListener('toggle', () => { try{ localStorage.setItem('ps-more-open', more.open ? '1' : '0'); }catch(e){} });
+    const moreSum = document.createElement('summary'); more.appendChild(moreSum);
+    let nMore = 0;
     dict.forEach(item=>{
       const id = item.id;
       const row = document.createElement('div');
       row.className = 'dict-row ps-row';
+      const active = psItemActive(id, stock, shipped);
 
       const nameSpan = document.createElement('div');
       nameSpan.className = 'ps-name';
@@ -6343,23 +6355,26 @@ function mnShow(id, keepScroll) {
       nameSpan.textContent = item.name;
       row.appendChild(nameSpan);
 
-      // 개(팩) 단위 입력 + 옆에 박스 환산 표시
+      // 박스 단위 입력 + 옆에 팩 수 표시 (저장은 팩). 박스입수가 없는 품목은 팩으로 입력
+      const per = Number(item.boxUnitCount) || 0, U = per > 0 ? '박스' : '팩';
+      const toIn = packs => (packs === '' || packs == null) ? '' : (per > 0 ? Math.round(Number(packs) / per * 1000) / 1000 : Number(packs));
+      const toPacks = raw => { const v = parseFloat(raw) || 0; return per > 0 ? carryRound(v * per) : v; };
       const mkStock = (store, ph, onChange) => {
         const input = document.createElement('input');
-        input.type = 'number';
-        input.style.width = '90px';
+        input.type = 'number'; input.step = 'any';
+        input.style.width = '118px';
         input.placeholder = ph;
         const span = document.createElement('span');
         span.style.fontSize = '11.5px';
         span.style.color = 'var(--accent)';
         span.style.minWidth = '90px';
         span.className = 'ps-conv';
-        const upd = (val)=>{
-          const breakdown = formatBoxBreakdown(val, item.boxUnitCount);
-          span.textContent = breakdown ? `= ${breakdown}` : (item.boxUnitCount ? '' : '(박스입수 미설정)');
+        const upd = (packs)=>{
+          const p = Number(packs) || 0;
+          span.textContent = per > 0 ? (p ? `= ${carryRound(p)}팩` : '') : '(박스입수 미설정 · 팩)';
         };
-        input.addEventListener('input', (e)=>{ upd(e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0)); });
-        input.addEventListener('change', (e)=> onChange(e.target.value));
+        input.addEventListener('input', (e)=>{ upd(e.target.value === '' ? 0 : toPacks(e.target.value)); });
+        input.addEventListener('change', (e)=> onChange(e.target.value === '' ? '' : String(toPacks(e.target.value))));
         return { input, span, upd };
       };
       const tag = document.createElement('span');
@@ -6367,37 +6382,37 @@ function mnShow(id, keepScroll) {
       tag.title = '직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고로 자동 계산한 값입니다. 직접 입력하면 그 값이 우선합니다';
       tag.style.cssText = 'font-size:10.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:100px;padding:1px 7px;';
 
-      const s1 = mkStock(stock.product, '전일 재고(개)', raw => {
+      const s1 = mkStock(stock.product, `전일 재고(${U})`, raw => {
         if(raw === ''){ delete stock.product[id]; delete stock.auto[id]; ensureCarryOver(currentDateKey); }   // 비우면 자동 계산으로
         else { stock.product[id] = parseFloat(raw) || 0; delete stock.auto[id]; }
         savePreviousStock(); renderAggTable(); refresh();
       });
-      const s2 = mkStock(stock.product2, '이틀 전 재고(개)', raw => {
+      const s2 = mkStock(stock.product2, `이틀 전 재고(${U})`, raw => {
         stock.product2[id] = raw === '' ? 0 : (parseFloat(raw) || 0);
         savePreviousStock(); renderAggTable();
       });
-      const s3 = mkStock(stock.made, '오늘 생산량(개)', raw => {
+      const s3 = mkStock(stock.made, `오늘 생산량(${U})`, raw => {
         if(raw === '') delete stock.made[id]; else stock.made[id] = Math.max(0, parseFloat(raw) || 0);
         savePreviousStock();
       });
       s3.input.title = '오늘 실제로 생산한 수량. 내일 전일 재고를 자동 계산할 때만 쓰입니다. 비우면 생산 필요수량(오늘 출고 − 전일 재고)만큼 생산한 것으로 봅니다';
       const refresh = ()=>{
         const isAuto = !!stock.auto[id];
-        s1.input.value = stock.product[id] ?? '';
+        s1.input.value = toIn(stock.product[id] ?? '');
         s1.input.style.background = isAuto ? 'var(--accent-soft)' : '';
         tag.style.display = isAuto ? '' : 'none';
         s1.upd(stock.product[id] ?? 0);
         const need = Math.max(0, carryRound((shipped[id] || 0) - (Number(stock.product[id]) || 0)));
-        s3.input.placeholder = need > 0 ? `필요 ${need}` : '오늘 생산량(개)';
+        s3.input.placeholder = need > 0 ? `필요 ${toIn(need)}${per > 0 ? '박스' : ''}` : `오늘 생산량(${U})`;
       };
-      s2.input.value = stock.product2[id] ?? ''; s2.upd(stock.product2[id] ?? 0);
-      s3.input.value = stock.made[id] ?? ''; s3.upd(stock.made[id] ?? 0);
+      s2.input.value = toIn(stock.product2[id] ?? ''); s2.upd(stock.product2[id] ?? 0);
+      s3.input.value = toIn(stock.made[id] ?? ''); s3.upd(stock.made[id] ?? 0);
       refresh();
       // 칸마다 묶음(휴대폰에서는 이름 아래에 3칸으로 나란히, 칸 이름 표시)
       const field = (label, parts) => { const f = document.createElement('div'); f.className = 'ps-f'; const l = document.createElement('span'); l.className = 'ps-l'; l.textContent = label; f.append(l, ...parts); return f; };
-      row.appendChild(field('전일 재고(개)', [s1.input, tag, s1.span]));
-      row.appendChild(field('이틀 전 재고(개)', [s2.input, s2.span]));
-      row.appendChild(field('오늘 생산량(개)', [s3.input, s3.span]));
+      row.appendChild(field(`전일 재고(${U})`, [s1.input, tag, s1.span]));
+      row.appendChild(field(`이틀 전 재고(${U})`, [s2.input, s2.span]));
+      row.appendChild(field(`오늘 생산량(${U})`, [s3.input, s3.span]));
 
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-ghost small-btn ps-clear';
@@ -6413,8 +6428,22 @@ function mnShow(id, keepScroll) {
       });
       row.appendChild(clearBtn);
 
-      wrap.appendChild(row);
+      if(active) wrap.appendChild(row); else { more.appendChild(row); nMore++; }
     });
+    if(nMore){
+      moreSum.textContent = `자주 안 쓰는 품목 ${nMore}개 (최근 30일 발주·재고·생산량 없음) — 눌러서 펼치기`;
+      wrap.appendChild(more);
+    }
+  }
+  // 재고 입력에서 위에 보일 품목: 최근 30일(앞으로 잡힌 날짜 포함) 발주가 있거나, 오늘 필요량·전일/이틀 전 재고·생산량이 있는 품목
+  function psItemActive(id, stock, shipped){
+    if((shipped && shipped[id]) || Number((stock.product || {})[id]) || Number((stock.product2 || {})[id]) || Number((stock.made || {})[id])) return true;
+    const from = sampleAddDays(currentDateKey || computeCurrentDateKey(), -30);
+    for(const [dk, byCo] of Object.entries(ordersByDate || {})){
+      if(dk < from) continue;
+      for(const [co, items] of Object.entries(byCo || {})){ if(co !== '_meta' && items && Number(items[id]) > 0) return true; }
+    }
+    return false;
   }
 
   function populateUploadCompanySelect(){
