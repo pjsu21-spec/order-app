@@ -5241,6 +5241,13 @@ function mnShow(id, keepScroll) {
     return n > 0 ? r(packs / n) + '박스' : r(packs) + '팩';
   }
   // '샘플 스테비아토마토 2박스 포함' (샘플이 없으면 '')
+  // 파일·현황판 비고용 짧은 문구: 재고사용 칸과 같은 이름 규칙 (예: '샘플 복숭아 1' — 숫자는 박스, 박스입수 없는 품목은 팩)
+  function sampleNoteShort(dateKey, company){
+    const s = sampleOf(dateKey, company);
+    const parts = dict.filter(d => s[d.id]).map(d => { const n = Number(d.boxUnitCount) || 0, v = Math.round((n > 0 ? s[d.id] / n : s[d.id]) * 100) / 100; return spStockLabel(d) + ' ' + v + (n > 0 ? '' : '팩'); });
+    Object.keys(s).forEach(id => { if(!dict.some(d => d.id === id)) parts.push('(삭제된 품목) ' + s[id] + '팩'); });
+    return parts.length ? '샘플 ' + parts.join('·') : '';
+  }
   function sampleNoteText(dateKey, company){
     const s = sampleOf(dateKey, company);
     const parts = dict.filter(d => s[d.id]).map(d => `${d.name} ${sampleQtyText(d.id, s[d.id])}`);
@@ -5273,7 +5280,7 @@ function mnShow(id, keepScroll) {
   }
   // 화면·출력용 비고 = 샘플 자동 문구 + 업체 비고
   function orderNoteText(dateKey, company){
-    return [sampleNoteText(dateKey, company), unitNote(dateKey, company)].filter(Boolean).join(' / ');
+    return [sampleNoteShort(dateKey, company), unitNote(dateKey, company)].filter(Boolean).join(' / ');
   }
   // 실물 기준 수량 = 발주 + 샘플 동봉 (생산·적재·재고·자재 차감용). 샘플이 없으면 발주 자료 그대로 돌려줌. 돌려준 값은 읽기 전용으로만 쓸 것.
   function ordersPhys(dateKey){
