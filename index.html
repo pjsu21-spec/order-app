@@ -457,6 +457,13 @@
   #po-board .pb-info > *{ flex:0 0 auto; }
   #po-board .pb-raw{ font-size:22px; font-weight:800; color:#1e7a3c; padding:6px 14px; border:1px solid #cfe0d3; border-radius:8px; background:#f4f9f5; white-space:nowrap; }
   .pb-ship{ border-collapse:collapse; font-size:15px; }
+  #po-board .pb-shipbox{ margin-top:12px; width:0; min-width:100%; }
+  #po-board .pb-shipbox > summary{ cursor:pointer; font-size:18px; font-weight:800; color:#1a2233; padding:4px 2px 6px; list-style:none; }
+  #po-board .pb-shipbox > summary::-webkit-details-marker{ display:none; }
+  #po-board .pb-shipbox > summary::before{ content:"▸ "; color:#4a5a78; }
+  #po-board .pb-shipbox[open] > summary::before{ content:"▾ "; }
+  #po-board .pb-shipbox .pb-ship-sum{ font-size:14px; font-weight:600; color:#4a5a78; margin-left:6px; }
+  #po-board .pb-shipbox .pb-ship{ width:100%; }
   .pb-ship th, .pb-ship td{ border:1px solid #c3cde0; padding:3px 10px; white-space:nowrap; }
   .pb-ship th{ background:#e9eef8; color:#2a3a5c; font-weight:700; }
   .pb-ship td.n{ text-align:right; font-variant-numeric:tabular-nums; font-size:18px; }
@@ -19035,14 +19042,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const seqHtml = (m.prodSeq && m.prodSeq.length) ? `<div class="pb-seq"><div class="pb-seq-t">생산 순서</div>${m.prodSeq.map((x, i) => `<div class="pb-seq-r"><span class="pb-seq-n">${i + 1}</span>${x.range ? `<span class="pb-seq-time">${e(x.range)}</span>` : ''}<b>${e(x.item)}</b></div>`).join('')}</div>` : '';
     const reqHtml = (m.prodReq && m.prodReq.length) ? `<div class="pb-req"><div class="pb-req-t">⚠ 생산 순서 지시 요청</div>${m.prodReq.map((x, i) => `<div class="pb-req-r"><span class="pb-req-n">${i + 1}</span>${e(x.text)}</div>`).join('')}</div>` : '';
     const varHtml = (m.prodVariety && m.prodVariety.length) ? `<div class="pb-var"><div class="pb-var-t">오늘 사용 품종</div>${m.prodVariety.map(x => `<div class="pb-var-r">${e(x)}</div>`).join('')}</div>` : '';
-    if(seqHtml || reqHtml || varHtml || m.rawUse || (m.ship && m.ship.length)){
+    if(seqHtml || reqHtml || varHtml || m.rawUse){
       html += '<div class="pb-info">' + seqHtml + reqHtml + varHtml;
       if(m.rawUse) html += `<div class="pb-raw">${e(m.rawUse)}</div>`;
-      if(m.ship && m.ship.length){
-        html += '<table class="pb-ship"><thead><tr><th>납품담당</th><th>업체</th><th>총수량(박스)</th><th>파렛트</th><th>까대기(박스)</th><th>하차지</th></tr></thead><tbody>' +
-          m.ship.map(s => `<tr><td class="pb-sname">${e(s.name)}</td><td class="n">${s.rows}</td><td class="n">${pbFmt(s.boxes) || 0}</td><td class="n">${s.pallets || ''}</td><td class="n">${pbFmt(s.ggd)}</td><td>${e(Object.entries(s.drops).map(([k, v]) => k + (v > 1 ? '×' + v : '')).join(' · '))}</td></tr>`).join('') +
-          '</tbody></table>';
-      }
       html += '</div>';
     }
     html += `<table class="pb-table"><thead><tr><th colspan="${fixed}" rowspan="2" class="pb-corner"><span class="pb-cl">업체</span></th>${g1}${pHead}</tr><tr>${heads}</tr></thead><tbody>`;
@@ -19075,6 +19077,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }
     html += `<tr class="pb-grand"><td colspan="${fixed}" class="pb-lbl">합계</td>${m.cols.map(c => `<td class="pb-n"${m.total[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(m.total[c.L])}</td>`).join('')}${pBlank}</tr>`;
     html += '</tbody></table>';
+    // 기사별 배차 현황: 현황판 아래, 접고 펼 수 있음 (이 PC에 기억)
+    if(m.ship && m.ship.length){
+      let open = true; try{ open = localStorage.getItem('pb-ship-open') !== '0'; }catch(e){}
+      html += `<details class="pb-shipbox"${open ? ' open' : ''}><summary>🚚 기사별 배차 현황 <span class="pb-ship-sum">${m.ship.length}명 · ${pbFmt(m.ship.reduce((a, x) => a + (x.boxes || 0), 0))}박스</span></summary><table class="pb-ship"><thead><tr><th>납품담당</th><th>업체</th><th>총수량(박스)</th><th>파렛트</th><th>까대기(박스)</th><th>하차지</th></tr></thead><tbody>` +
+          m.ship.map(s => `<tr><td class="pb-sname">${e(s.name)}</td><td class="n">${s.rows}</td><td class="n">${pbFmt(s.boxes) || 0}</td><td class="n">${s.pallets || ''}</td><td class="n">${pbFmt(s.ggd)}</td><td>${e(Object.entries(s.drops).map(([k, v]) => k + (v > 1 ? '×' + v : '')).join(' · '))}</td></tr>`).join('') +
+        '</tbody></table></details>';
+    }
     return html;
   }
   function poBoardFit(){
@@ -19228,6 +19237,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   document.getElementById('po-board-btn').addEventListener('click', () => poBoardOpen());
   { const b2 = document.getElementById('po-board-btn-plan'); if(b2) b2.addEventListener('click', () => poBoardOpen()); }
   document.getElementById('pb-refresh').addEventListener('click', () => poBoardRefresh(true));
+  document.getElementById('pb-fit').addEventListener('toggle', e => { if(e.target.classList && e.target.classList.contains('pb-shipbox')){ try{ localStorage.setItem('pb-ship-open', e.target.open ? '1' : '0'); }catch(err){} poBoardFit(); } }, true);
   document.getElementById('pb-view').addEventListener('click', () => {
     pbView = pbView === 'board' ? 'report' : pbView === 'report' ? 'cycle' : 'board';
     try{ localStorage.setItem('pb-view', pbView); }catch(e){}
