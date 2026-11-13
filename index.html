@@ -19104,7 +19104,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">전일재고 (박스)</td>${m.cols.map(c => cell('stock', c.L, m.stock[c.L])).join('')}${pBlank}</tr>`;
     { const su = m.stockUse || {}, s2 = m.stock2 || {};
       html += `<tr class="pb-sum2 pb-use"><td colspan="${fixed}" class="pb-lbl" title="배차·적재에서 업체마다 적은 재고사용(전일+이틀 전) + 재고 사용 샘플">재고사용 합계 (박스)</td>${m.cols.map(c => `<td class="pb-n">${su[c.L] ? pbFmt(su[c.L]) : ''}</td>`).join('')}${pBlank}</tr>`;
-      html += `<tr class="pb-sum2 pb-use"><td colspan="${fixed}" class="pb-lbl" title="전일재고 + 이틀 전 재고 − 재고사용 합계 — 실제 남은 재고와 맞는지 확인용">재고사용 후 남음</td>${m.cols.map(c => { const has = su[c.L] || s2[c.L] || m.stock[c.L]; const v = Math.round(((m.stock[c.L] || 0) + (s2[c.L] || 0) - (su[c.L] || 0)) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${has ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`; }
+    }
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
     // 업체별
     m.blocks.forEach(b => {
