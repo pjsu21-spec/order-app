@@ -2795,6 +2795,7 @@
 
 <h3>마스터관리 <span class="mn-who">마스터 권한</span></h3>
 <p>농가, 사입처, 등급, 거래처, 기기유형, 사업자 같은 목록을 추가·수정합니다. 마스터관리 권한이 있는 계정에만 이 탭이 보입니다.</p>
+<p><span class="mn-b">비활성화</span>는 목록에서 숨기기만 하고, <span class="mn-b">삭제</span>는 완전히 지웁니다. 입고·선별·출고·물류기기 기록에 한 번이라도 쓰인 항목은 예전 기록의 이름이 비지 않도록 삭제가 막히니 비활성화를 쓰세요.</p>
 </section>
 
 <!-- ───────────── 샘플 신청 ───────────── -->
@@ -2868,7 +2869,7 @@
 <p class="mn-lead">관리자 메뉴와 권한이 필요한 설정을 모았습니다. 일반 직원은 이 탭을 읽지 않아도 됩니다.</p>
 
 <h3>사용자 관리</h3>
-<p>관리자 → <b>사용자 관리</b>에서 직원 계정을 만들고 이름·부서·비밀번호를 관리합니다. 비밀번호는 서버에 그대로 저장되지 않습니다. 직원이 비밀번호를 잊으면 관리자가 초기화해 줍니다.</p>
+<p>관리자 → <b>사용자 관리</b>에서 직원 계정을 만들고 이름·부서·비밀번호를 관리합니다. 퇴사자는 <b>비활성화</b>(로그인만 막고 기록의 이름은 남김)를 권장하고, 잘못 만든 계정은 <b>삭제</b>로 완전히 지울 수 있습니다. 비밀번호는 서버에 그대로 저장되지 않습니다. 직원이 비밀번호를 잊으면 관리자가 초기화해 줍니다.</p>
 
 <h3>권한 관리</h3>
 <ul>
@@ -3378,6 +3379,14 @@ async function apiUsersAdmin() {
   return sbQuery('users', '?order=created_at.asc');
 }
 // 사용자 정보·권한 수정 → { ok:boolean }
+// 사용자 삭제 (관리자, 자기 자신 제외) — 서버 함수 app_admin_delete_user. 결과: { ok } / { ok:false, error: 'in_use'|'no_function'|... }
+async function apiDeleteUser(id) {
+  try {
+    const r = await sbRpc('app_admin_delete_user', { p_token: sessionToken(), p_id: String(id) });
+    if (r && r.ok) return { ok: true };
+    return { ok: false, error: (r && r.error) || 'failed' };
+  } catch (e) { return { ok: false, error: (e && e.rpcMissing) || /404|PGRST202|could not find/i.test((e && e.message) || '') ? 'no_function' : 'failed' }; }
+}
 async function apiUpdateUser(id, fields) {
   try {
     const r = await sbRpc('app_admin_update_user', { p_token: sessionToken(), p_id: String(id), p_fields: fields });
@@ -14745,6 +14754,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         });
         actionTd.appendChild(toggleBtn);
 
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-danger small-btn';
+        delBtn.style.marginLeft = '6px';
+        delBtn.textContent = '삭제';
+        delBtn.title = '기록(입고·선별·출고·물류기기)에 쓰인 적이 없을 때만 지울 수 있습니다';
+        delBtn.addEventListener('click', ()=> sortingMasterDelete(cfg, row));
+        actionTd.appendChild(delBtn);
+
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -14752,6 +14769,31 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }catch(e){ wrap.innerHTML = `<div class="empty">로드 실패: ${e.message} (Supabase에 ${cfg.key} 테이블이 생성되어 있는지 확인하세요)</div>`; }
   }
 
+  // 마스터 항목이 쓰인 기록 (표, 칸) — 하나라도 있으면 삭제하지 않고 비활성화를 안내
+  const SM_REFS = {
+    sorting_farms: [['sorting_inbound', 'farm_id', '원물입고'], ['sorting_output', 'farm_id', '선별산출'], ['sorting_equipment_log', 'farm_id', '물류기기 이력']],
+    sorting_vendors: [['sorting_inbound', 'vendor_id', '원물입고'], ['sorting_output', 'vendor_id', '선별산출']],
+    sorting_grades: [['sorting_output_items', 'grade_id', '선별산출'], ['sorting_shipment', 'grade_id', '출고']],
+    sorting_destinations: [['sorting_shipment', 'destination_id', '출고'], ['sorting_equipment_log', 'destination_id', '물류기기 이력']],
+    sorting_packaging_units: [['sorting_shipment', 'packaging_unit_id', '출고']],
+    sorting_equipment_types: [['sorting_equipment_log', 'equipment_type_id', '물류기기 이력']],
+    sorting_businesses: [['sorting_equipment_log', 'business_id', '물류기기 이력'], ['sorting_equipment_log', 'to_business_id', '물류기기 이력']],
+  };
+  async function sortingMasterDelete(cfg, row){
+    const used = [];
+    for(const [t, col, label] of (SM_REFS[cfg.key] || [])){
+      try{ const r = await sbQuery(t, `?${col}=eq.${row.id}&select=id&limit=1`); if(r && r.length && !used.includes(label)) used.push(label); }catch(e){ /* 칸이 없는 표는 건너뜀 */ }
+    }
+    if(used.length){ alert(`「${row.name}」은(는) ${used.join('·')} 기록에 쓰이고 있어 삭제할 수 없습니다.\n예전 기록의 이름이 비지 않도록 삭제 대신 [비활성화]를 눌러 목록에서 숨기세요.`); return; }
+    if(!confirm(`${cfg.label} 「${row.name}」을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return;
+    try{
+      await sbDelete2(cfg.key, `id=eq.${row.id}`);
+      await writeLog('sorting_master_delete', `${cfg.label} 삭제: ${row.name}`);
+      if(cfg.key === 'sorting_grades') srGradesCache = null;
+      toast(`${cfg.label} 「${row.name}」을(를) 삭제했습니다`);
+      loadSortingMasterTable();
+    }catch(e){ toast('삭제하지 못했습니다: ' + (e.message || e) + ' — 다른 기록과 연결돼 있으면 [비활성화]를 쓰세요'); }
+  }
   function startSortingMasterEdit(tr, row, cfg){
     const cells = tr.querySelectorAll('td');
     const inputs = {};
@@ -16995,6 +17037,22 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           loadAdminUsers();
         });
         tr.lastElementChild.appendChild(toggleBtn);
+
+        const userDelBtn = document.createElement('button');
+        userDelBtn.className = 'btn-danger small-btn';
+        userDelBtn.style.marginLeft = '4px';
+        userDelBtn.textContent = '삭제';
+        userDelBtn.title = '계정을 완전히 지웁니다. 퇴사자는 기록의 이름을 남기려면 비활성화를 권장합니다';
+        userDelBtn.addEventListener('click', async ()=>{
+          if(u.id === window.currentUser?.id){ toast('자기 자신은 삭제할 수 없습니다'); return; }
+          if(!confirm(`${u.display_name}(${u.username}) 계정을 삭제할까요?\n\n· 되돌릴 수 없습니다.\n· 이 직원이 입력한 기록의 담당자 이름이 비어 보일 수 있습니다.\n· 이름을 남기고 로그인만 막으려면 [비활성화]를 쓰세요.`)) return;
+          const r = await apiDeleteUser(u.id);
+          if(!r.ok){ toast(r.error === 'in_use' ? '다른 기록과 연결돼 있어 삭제할 수 없습니다. [비활성화]를 쓰세요' : r.error === 'no_function' ? '삭제 기능이 서버에 아직 없습니다. 「사용자삭제_SQL.sql」을 먼저 실행해주세요' : '삭제하지 못했습니다'); return; }
+          await writeLog('user_delete', `${u.username} 계정 삭제`);
+          toast(`${u.display_name} 계정을 삭제했습니다`);
+          loadAdminUsers();
+        });
+        tr.lastElementChild.appendChild(userDelBtn);
 
         // 관리자 권한 토글 버튼 (admin-only: 관리자만 해당 UI를 볼 수 있음)
         const roleBtn = document.createElement('button');
