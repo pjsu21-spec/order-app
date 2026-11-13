@@ -457,6 +457,8 @@
   #po-board .pb-info > *{ flex:0 0 auto; }
   #po-board .pb-raw{ font-size:22px; font-weight:800; color:#1e7a3c; padding:6px 14px; border:1px solid #cfe0d3; border-radius:8px; background:#f4f9f5; white-space:nowrap; }
   .pb-ship{ border-collapse:collapse; font-size:15px; }
+  #po-board tr.pb-use td{ background:#fff8ec; }
+  #po-board tr.pb-use td.pb-lbl{ color:#9a5b00; }
   #po-board .pb-shipbox{ margin-top:12px; width:0; min-width:100%; }
   #po-board .pb-shipbox > summary{ cursor:pointer; font-size:18px; font-weight:800; color:#1a2233; padding:4px 2px 6px; list-style:none; }
   #po-board .pb-shipbox > summary::-webkit-details-marker{ display:none; }
@@ -18706,8 +18708,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 사용 원물량: 서식 위쪽(B3)의 원물사용량 수식을 오늘 합계로 계산 (수식이 없거나 못 읽으면 표시 안 함)
     const rawUse = poEvalConcat(poFormulaText(ctx, 'B3'), total, Y.totalsRow).replace(/\s{2,}/g, '   ').trim();
     const pp = ppBoardData(dateKey);
+    // 재고사용 합계(박스): 배차·적재의 업체별 재고사용(전일+이틀 전) + 재고 사용 샘플 — 배차·적재 화면의 재고 현황과 같은 기준
+    const stockUse = {}, stock2 = {};
+    const toBx = (d, packs) => { const n = Number(d.boxUnitCount) || 0; return n > 0 ? packs / n : packs; };
+    Object.values((shipPlanCache[dateKey] || {}).rows || {}).forEach(r => Object.entries(r.stock || {}).forEach(([id, q]) => { const L = skuColumnMap[id]; if(L) stockUse[L] = (stockUse[L] || 0) + (Number(q.d1) || 0) + (Number(q.d2) || 0); }));
+    (sampleRows || []).forEach(r => (r.items || []).forEach(i => { if(!i.fromStock) return; const d = dict.find(x => x.id === i.skuId), L = skuColumnMap[i.skuId]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, Number(i.packs) || 0); }));
+    Object.entries(((previousStock[dateKey] || {}).product2) || {}).forEach(([id, packs]) => { const d = dict.find(x => x.id === id), L = skuColumnMap[id]; if(d && L) stock2[L] = (stock2[L] || 0) + toBx(d, Number(packs) || 0); });
+    Object.keys(stockUse).forEach(L => { stockUse[L] = Math.round(stockUse[L] * 100) / 100; });
     const colors = await poBoardColors(ctx, cols);
-    return { colors, draft: draftInfo, dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+    return { colors, draft: draftInfo, dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, stockUse, stock2, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
   }
 
   // ── 현황판 색: 엑셀 발주서(서식)와 같은 품목별·묶음별 색 ──
@@ -19093,6 +19102,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     html += `<tr class="pb-sum"><td colspan="${fixed}" class="pb-lbl">총 발주 (박스)</td>${m.cols.map(c => cell('total', c.L, m.total[c.L], ' pb-big', m.total[c.L] > 0 ? baseOf(c) : '')).join('')}${pBlank}</tr>`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">팩 수</td>${m.cols.map(c => `<td class="pb-n pb-dim">${c.unit && m.total[c.L] ? Math.round(m.total[c.L] * c.unit) + '팩' : ''}</td>`).join('')}${pBlank}</tr>`;
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">전일재고 (박스)</td>${m.cols.map(c => cell('stock', c.L, m.stock[c.L])).join('')}${pBlank}</tr>`;
+    { const su = m.stockUse || {}, s2 = m.stock2 || {};
+      html += `<tr class="pb-sum2 pb-use"><td colspan="${fixed}" class="pb-lbl" title="배차·적재에서 업체마다 적은 재고사용(전일+이틀 전) + 재고 사용 샘플">재고사용 합계 (박스)</td>${m.cols.map(c => `<td class="pb-n">${su[c.L] ? pbFmt(su[c.L]) : ''}</td>`).join('')}${pBlank}</tr>`;
+      html += `<tr class="pb-sum2 pb-use"><td colspan="${fixed}" class="pb-lbl" title="전일재고 + 이틀 전 재고 − 재고사용 합계 — 실제 남은 재고와 맞는지 확인용">재고사용 후 남음</td>${m.cols.map(c => { const has = su[c.L] || s2[c.L] || m.stock[c.L]; const v = Math.round(((m.stock[c.L] || 0) + (s2[c.L] || 0) - (su[c.L] || 0)) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${has ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`; }
     html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
     // 업체별
     m.blocks.forEach(b => {
