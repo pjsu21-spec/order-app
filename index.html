@@ -2531,7 +2531,7 @@
 </ul>
 
 <h3>송품장 (JPG)</h3>
-<p>출고할 때 동봉하는 표준송품장을 업체별로 만듭니다. 사용법은 명세서와 같고, <b>운송자(기사)</b>는 생산 / 물류 탭의 납품담당을 따릅니다. 기사 이름은 송품장 설정의 운송자 목록에 있어야 차량번호·전화번호가 자동으로 채워집니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다.</p>
+<p>출고할 때 동봉하는 표준송품장을 업체별로 만듭니다. 사용법은 명세서와 같고, <b>운송자(기사)</b>는 생산 / 물류 탭의 납품담당을 따릅니다. 기사 이름은 송품장 설정의 운송자 목록에 있어야 차량번호·전화번호가 자동으로 채워집니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. <b>도착일시</b>는 업체명에 "(상장)"이 붙은 곳은 다음 날 경매라 출하일 <b>+1일</b>, 그 밖은 출하일 <b>당일</b>로 자동으로 들어갑니다. 예외 업체는 송품장 설정 → 업체별 설정의 "도착"에서 익일·당일을 직접 고르고, 이 화면의 업체 줄에서도 그때그때 바꿀 수 있습니다.</p>
 
 <h2>실적 / 매출 · 설정</h2>
 <ul>
@@ -10196,6 +10196,10 @@ function mnShow(id, keepScroll) {
     return out;
   }
 
+  // 도착 자동: 업체명에 '(상장)'이 붙은 곳은 다음 날 경매라 익일, 그 밖은 당일
+  function sdIsListed(co){ return !!co && /\(\s*상장\s*\)/.test(co.name || ''); }
+  const sdAutoArrive = co => sdIsListed(co) ? 1 : 0;
+  const sdArriveOf = co => (co && co.invArrive !== undefined && co.invArrive !== '' && co.invArrive != null) ? Number(co.invArrive) : sdAutoArrive(co);   // 업체별 설정(익일/당일)이 있으면 그 값, 없으면 자동
   // 한 장의 내용: 날짜·수신·거래/매매 방법·품목 줄·운송자
   function sdDoc(c){
     const dk = stmDate(), st = sdRowState[c.key] || {};
@@ -10204,7 +10208,7 @@ function mnShow(id, keepScroll) {
     const baseShip = c.dates && c.dates.length ? c.dates.slice().sort()[0] : dk;
     const shipDate = planRow.next && !c.dates.length ? sdAddDays(dk, 1) : baseShip;
     const arriveOff = st.arrive !== undefined && st.arrive !== '' ? Number(st.arrive)
-      : (is3pl ? Number(sdSettings.threePlArrive) || 0 : (c.co.invArrive !== undefined && c.co.invArrive !== '' && c.co.invArrive != null ? Number(c.co.invArrive) : 1));
+      : (is3pl ? Number(sdSettings.threePlArrive) || 0 : sdArriveOf(c.co));
     const driverName = st.driver !== undefined ? st.driver : (planRow.driver || '');
     const drv = sdSettings.drivers.find(x => x.name === driverName) || null;
     return {
@@ -10424,13 +10428,20 @@ function mnShow(id, keepScroll) {
         s.addEventListener('change', () => { c[field] = s.value; saveCompanies(); sdRenderList(); });
         tr.children[idx].appendChild(s);
       };
-      mkSel('invArrive', [['1', '익일'], ['0', '당일']], 2, '1');
+      mkSel('invArrive', [['', `자동 (${sdIsListed(c) ? '상장 → 익일' : '당일'})`], ['1', '익일'], ['0', '당일']], 2, '');
       mkSel('invTrade', [['', '(표시 안 함)'], ['매수', '매수거래'], ['위탁', '위탁거래'], ['중개', '중개거래']], 3, '');
       mkSel('invSale', [['', '(표시 안 함)'], ['경매', '경매/입찰'], ['정가', '정가/수의매매']], 4, '');
       tb.appendChild(tr);
     });
     tbl.appendChild(tb); wrap.innerHTML = '';
-    if(!list.length) wrap.innerHTML = '<div class="empty" style="padding:6px 0;">조건에 맞는 업체가 없습니다.</div>'; else wrap.appendChild(tbl);
+    // 도착을 직접 정해 둔 업체 수 (자동 판단보다 우선) — 관리자는 한 번에 자동으로 되돌릴 수 있음
+    const fixed = companies.filter(c => !c.isThirdParty && c.invArrive !== undefined && c.invArrive !== '' && c.invArrive != null);
+    const diff = fixed.filter(c => Number(c.invArrive) !== sdAutoArrive(c));
+    const bar = document.createElement('div'); bar.className = 'sub'; bar.style.cssText = 'margin:0 0 6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    bar.innerHTML = `도착 <b>자동</b>: 업체명에 "(상장)"이 붙은 곳은 <b>익일</b>(다음 날 경매), 그 밖은 <b>당일</b>. 직접 정한 업체 ${fixed.length}곳${diff.length ? ` (그중 ${diff.length}곳은 자동과 다름)` : ''}`;
+    if(admin && fixed.length){ const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '도착 설정 모두 자동으로'; b.addEventListener('click', async () => { if(!confirm(`직접 정해 둔 ${fixed.length}곳의 도착(익일/당일)을 지우고 자동(상장 익일 · 그 외 당일)으로 바꿀까요?`)) return; fixed.forEach(c => { delete c.invArrive; }); await saveCompanies(); sdRenderCompanySettings(); sdRenderList(); toast(`${fixed.length}곳을 자동으로 바꿨습니다`); }); bar.appendChild(b); }
+    wrap.appendChild(bar);
+    if(!list.length){ const em = document.createElement('div'); em.className = 'empty'; em.style.padding = '6px 0'; em.textContent = '조건에 맞는 업체가 없습니다.'; wrap.appendChild(em); } else wrap.appendChild(tbl);
   }
 
   // 표준송품장 엑셀에서 불러오기: 납품자 정보(기사 목록) · 출하자 정보 · 로고 · 업체별 수신 표기/도착/거래·매매방법
@@ -10494,7 +10505,8 @@ function mnShow(id, keepScroll) {
           || companies.find(c => !c.isThirdParty && [c.name, c.ecName, c.listedMarketName].map(poNameKey).filter(k => k.length >= 3).some(k => keys.some(q => q.length >= 3 && (k.includes(q) || q.includes(k)))));
         if(!co || matched.some(m => m.co === co)){ unmatched.push(n); return; }
         co.invRecv = poNameKey(recv) === poNameKey(co.name) ? '' : recv;
-        co.invArrive = String(arrive); co.invTrade = trade; co.invSale = sale;
+        if(arrive === sdAutoArrive(co)) delete co.invArrive; else co.invArrive = String(arrive);   // 자동 판단과 같으면 자동으로 둠
+        co.invTrade = trade; co.invSale = sale;
         matched.push({ co, sheet: n });
       });
       await sdSave(); await saveCompanies();
