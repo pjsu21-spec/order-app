@@ -2707,7 +2707,7 @@
 
 <h3>처음 세팅하는 순서</h3>
 <ol class="mn-flow">
-  <li><div><span class="mn-t">자재 마스터 등록</span><span class="mn-s">자재명, 단위(개·장·kg), <b>이카운트 품목코드</b>, 안전재고를 넣고 저장합니다. 중간 단계 제품은 구분을 <b>반제품</b>으로 합니다. 부가세가 붙는 자재는 <b>부가세 별도</b>를 체크합니다.</span></div></li>
+  <li><div><span class="mn-t">자재 마스터 등록</span><span class="mn-s">자재명, <b>구분(원물·부자재·반제품)</b>, 단위(개·장·kg), <b>이카운트 품목코드</b>, 안전재고를 넣고 저장합니다. 방울토마토·찰토마토·수박처럼 원물선별·단가 확인에서 고를 원물은 <b>원물</b>, 박스·팩·트레이·스티커는 <b>부자재</b>로 둡니다(예전에 '원자재'로 등록한 자재는 노란 칸으로 표시되니 구분을 골라 주세요). 중간 단계 제품은 구분을 <b>반제품</b>으로 합니다. 부가세가 붙는 자재는 <b>부가세 별도</b>를 체크합니다.</span></div></li>
   <li><div><span class="mn-t">매입 거래처 등록</span><span class="mn-s">같은 화면 아래 표에 자재를 사 오는 업체의 이름과 <b>이카운트 거래처코드</b>를 넣습니다.</span></div></li>
   <li><div><span class="mn-t">정전개 등록</span><span class="mn-s">제품을 펼쳐 자재와 <b>1팩당 소요량</b>을 넣습니다. 외박스는 박스입수가 4팩이면 <b>1/4</b>처럼 분수로 적어도 됩니다. 로스%는 불량·손실 여유분입니다.</span></div></li>
   <li><div><span class="mn-t">현재 재고 맞추기</span><span class="mn-s">재고 현황에서 자재별 실사 수량을 넣고 [맞추기]를 누릅니다. 이후 입고와 출고 차감으로 자동 관리됩니다.</span></div></li>
@@ -12577,7 +12577,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(!costConfig) return;
     const sel = document.getElementById('cost-raw-select'), wrap = document.getElementById('cost-raw-history-wrap');
     const prev = sel.value;
-    sel.innerHTML = costConfig.rawMaterials.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    if(costMatItems === null){ costMatLoad().then(() => { if(document.getElementById('cost-raw-select')) renderCostRaw(); }); }
+    sel.innerHTML = costConfig.rawMaterials.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}${r.code ? ' · ' + escapeHtml(r.code) : ''}</option>`).join('');
     if(costConfig.rawMaterials.some(r=>r.id === prev)) sel.value = prev;
     const fromInput = document.getElementById('cost-raw-from');
     if(!fromInput.value) fromInput.value = costNextSunday();
@@ -12826,7 +12827,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       </div>
       <div class="row" style="align-items:center; flex-wrap:wrap;">
         <label style="font-size:13px;">원물 종류 :</label>
-        <select id="cost-f-raw" style="min-width:140px;">${c.rawMaterials.map(r=>`<option value="${r.id}" ${cur.rawId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}</select>
+        <select id="cost-f-raw" style="min-width:140px;">${c.rawMaterials.map(r=>`<option value="${r.id}" ${cur.rawId === r.id ? 'selected' : ''}>${escapeHtml(r.name)}${r.code ? ' · ' + escapeHtml(r.code) : ''}</option>`).join('')}</select>
         <label style="font-size:13px;">원물 사용량(kg/박스) :</label>
         <input type="number" step="any" id="cost-f-rawkg" value="${val(cur.rawKgPerBox)}" style="width:90px;" placeholder="예: 2">
       </div>
@@ -12997,7 +12998,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         it => { costDropKeys(k => k.startsWith(`mat|${it.id}|`)); }, after)
     })), after, { namePlaceholder: '부자재 이름', valuePlaceholder: '단가(원)',
       add: (name, v)=>{ const id = cryptoId(); c.materials.push({ id, name }); costSetHist(`mat|${id}|common`, COST_BASE_FROM, v); } });
-    costListEditor('cost-c-raws', c.rawMaterials, [{ key: 'name', label: '원물명', type: 'text' }],
+    if(costMatItems === null){ costMatLoad().then(() => renderCostCommon()); }
+    costListEditor('cost-c-raws', c.rawMaterials, [{ key: 'name', label: '원물명', type: 'text' }, { key: 'code', label: '이카운트 원물 (품목코드)', type: 'matcode' }],
       { blockDelete: it => usedBySku('raw', it.id) ? '이 원물을 쓰는 SKU 설정이 있어 삭제할 수 없습니다' : null,
         onDelete: it => { delete rawPriceHistory[it.id]; } });
   }
@@ -13006,6 +13008,20 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(el) el.textContent = `→ 원물 1kg당 감가상각 ${costFmt2(costDeprecPerKg())}원 (투자금액 ÷ 내용연수 ÷ (일 처리 원물량 × 연 가동일수)). SKU별 원물 kg/박스를 곱해 적용됩니다 — 예: 2kg ${costFmt2(costDeprecPerKg() * 2)}원 · 500g ${costFmt2(costDeprecPerKg() * 0.5)}원 · 150g ${costFmt2(costDeprecPerKg() * 0.15)}원`;
   }
   // 단순 이름 목록 편집기 (원물 종류용)
+  // 단가 확인 원물을 이카운트 자재 마스터의 원물(품목코드)과 연결할 때 쓰는 목록
+  let costMatItems = null;
+  async function costMatLoad(){
+    try{ const r = await window.storage.get('mat-master', true); costMatItems = ((r ? JSON.parse(r.value) : {}).items || []).filter(i => i && i.code && !i.off && matIsProduce(i)).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')); }
+    catch(e){ costMatItems = []; }
+  }
+  const costMatLabel = code => { const it = (costMatItems || []).find(i => String(i.code) === String(code)); return it ? `${it.code} · ${it.name}` : (code ? code + ' (자재 마스터에 없음)' : ''); };
+  function costMatSelect(value){
+    const sel = document.createElement('select'); sel.style.minWidth = '200px';
+    sel.innerHTML = '<option value="">(이카운트 원물 연결 안 함)</option>' + (costMatItems || []).map(i => `<option value="${escapeHtml(i.code)}">${escapeHtml(i.code)} · ${escapeHtml(i.name)}</option>`).join('');
+    if(value && !(costMatItems || []).some(i => String(i.code) === String(value))){ const o = document.createElement('option'); o.value = value; o.textContent = costMatLabel(value); sel.appendChild(o); }
+    sel.value = value || '';
+    return sel;
+  }
   function costListEditor(wrapId, items, cols, opts){
     const wrap = document.getElementById(wrapId);
     wrap.innerHTML = '';
@@ -13016,6 +13032,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       const tr = document.createElement('tr');
       cols.forEach(col=>{
         const td = document.createElement('td');
+        if(col.type === 'matcode'){
+          const sel = costMatSelect(it[col.key]);
+          sel.addEventListener('change', async ()=>{
+            if(sel.value) it[col.key] = sel.value; else delete it[col.key];
+            if(await saveCostConfig()){ renderCostCommon(); renderCostView(); }
+          });
+          td.appendChild(sel); tr.appendChild(td); return;
+        }
         const inp = document.createElement('input');
         inp.type = col.type; inp.value = it[col.key] == null ? '' : it[col.key]; inp.style.width = col.width || '150px';
         inp.addEventListener('change', async ()=>{
@@ -13041,15 +13065,22 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const addTr = document.createElement('tr');
     const addIn = document.createElement('input'); addIn.type = 'text'; addIn.placeholder = cols[0].label; addIn.style.width = '150px';
     const addTd1 = document.createElement('td'); addTd1.appendChild(addIn);
+    // 이카운트 원물을 고르면 이름이 비어 있을 때 품목명으로 채움
+    const matCol = cols.find(c => c.type === 'matcode');
+    const addMat = matCol ? costMatSelect('') : null;
+    if(addMat) addMat.addEventListener('change', () => { const it = (costMatItems || []).find(i => String(i.code) === addMat.value); if(it && !addIn.value.trim()) addIn.value = it.name; });
+    const extraTds = cols.slice(1).map(c => { const td = document.createElement('td'); if(c.type === 'matcode' && addMat) td.appendChild(addMat); return td; });
     const addTd2 = document.createElement('td');
     const addBtn = document.createElement('button');
     addBtn.className = 'btn-primary small-btn'; addBtn.textContent = '+ 추가';
     addBtn.addEventListener('click', async ()=>{
       if(!addIn.value.trim()){ toast('이름을 입력해주세요'); return; }
-      items.push({ id: cryptoId(), name: addIn.value.trim() });
+      const nw = { id: cryptoId(), name: addIn.value.trim() };
+      if(matCol && addMat && addMat.value) nw[matCol.key] = addMat.value;
+      items.push(nw);
       if(await saveCostConfig()){ renderCostCommon(); renderCostView(); }
     });
-    addTd2.appendChild(addBtn); addTr.append(addTd1, addTd2);
+    addTd2.appendChild(addBtn); addTr.append(addTd1, ...extraTds, addTd2);
     tbody.appendChild(addTr);
     table.appendChild(tbody);
     wrap.appendChild(table);
@@ -13129,7 +13160,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(srLoading && !force) return srLoading;
     srLoading = (async () => {
       let st = {}; try{ const r = await window.storage.get('sorting-raw-settings', true); st = r ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
-      let items = []; try{ const r = await window.storage.get('mat-master', true); items = ((r ? JSON.parse(r.value) : {}).items || []).filter(i => i && i.code && !i.off && i.kind !== 'semi'); }catch(e){ items = []; }
+      let items = []; try{ const r = await window.storage.get('mat-master', true); items = ((r ? JSON.parse(r.value) : {}).items || []).filter(i => i && i.code && !i.off && matIsProduce(i)); }catch(e){ items = []; }
       srMatItems = items;
       const codes = Array.isArray(st.codes) ? st.codes.map(String) : [];
       srRaws = codes.map(c => { const it = items.find(i => String(i.code) === c); return { code: c, name: it ? it.name : c }; });
@@ -13389,7 +13420,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     try{
       const r = await window.storage.get('mat-master', true);
       const d = r ? JSON.parse(r.value) : { items: [] };
-      inboundMatItems = (d.items || []).filter(i => i && !i.off && i.kind !== 'semi');
+      inboundMatItems = (d.items || []).filter(i => i && !i.off && matIsProduce(i));
     }catch(e){ inboundMatItems = []; }
     inboundFillMatSelect();
     await srLoad(); srApplyInboundItem();
@@ -14664,6 +14695,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   ];
   let sortingMasterCurrentKey = SORTING_MASTER_TABLES[0].key;
 
+  // 원물로 쓸 수 있는 자재: 구분이 '원물'이거나 아직 구분하지 않은 예전 '원자재'
+  function matIsProduce(i){ return !!i && (i.kind === 'produce' || !i.kind || i.kind === 'raw'); }
   function getSortingMasterConfig(key){
     return SORTING_MASTER_TABLES.find(t => t.key === key);
   }
@@ -19258,7 +19291,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // 재고 = 수불 기록(입고·로스·사용·조정)의 합계. 원물은 원물선별 입고·사입 kg을 자동으로 더할 수 있다.
   // 저장(kv_store, 공유): mat-master(자재 목록) · mat-bom(제품/반제품별 구성) · mat-led-YYYY-MM(수불 기록, 월별)
   const MAT_K_MASTER = 'mat-master', MAT_K_BOM = 'mat-bom', MAT_K_LED = 'mat-led-', MAT_K_AUTO = 'mat-auto-';   // 자동 차감(출고)은 생산/물류 권한으로 저장하려고 키를 따로 씀
-  const MAT_KIND = { raw: '원자재', semi: '반제품' };
+  const MAT_KIND = { produce: '원물', pack: '부자재', semi: '반제품', raw: '원자재(구분 필요)' };
   const MAT_TYPES = { in: '입고(구매)', loss: '로스(파손·손망실)', use: '사용(수기)', adj: '재고조정' };
   const MAT = { loaded: false, loading: false, err: '', master: { items: [], vendors: [] }, mdraft: [], vdraft: [], skip: {}, ec: { warehouse: '00019', tt21: '21', tt22: '22' }, ecMgr: '', dedDate: '', ded: null, xFrom: '', xTo: '', xNew: true, bom: {}, led: [], rawIn: {}, rawErr: '', tab: 'stock', bomDirty: false, mdirty: false, plan: {}, calc: null, openP: new Set(), stockQ: '', stockLow: false, stockOff: false, revMat: '', ledMat: '', ledDays: 30, ledVoid: false };
   const matEl = id => document.getElementById(id);
@@ -19421,7 +19454,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     matRender();
   }
   async function matSaveMaster(){
-    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: r.kind === 'semi' ? 'semi' : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, vat: !!r.vat, off: !!r.off }));
+    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: ['produce', 'pack', 'semi'].includes(r.kind) ? r.kind : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, vat: !!r.vat, off: !!r.off }));
     const vendors = MAT.vdraft.map(v => ({ name: String(v.name || '').trim(), code: String(v.code || '').trim() })).filter(v => v.name || v.code);
     { const vn = new Set(); for(const v of vendors){ if(!v.name){ matMsg('거래처명이 비어 있는 매입 거래처가 있습니다', true); return; } if(vn.has(v.name)){ matMsg(`매입 거래처 「${v.name}」이(가) 두 번 들어 있습니다`, true); return; } vn.add(v.name); } }
     const names = new Set();
@@ -19734,7 +19767,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function matRenderMaster(){
     const body = matEl('mat-body');
     const rowHtml = (r, i) => `<tr data-i="${i}"><td><input type="text" class="mat-m-name" value="${escapeHtml(r.name || '')}" placeholder="자재명" style="width:160px;"></td>
-      <td><select class="mat-m-kind"><option value="raw"${r.kind !== 'semi' ? ' selected' : ''}>원자재</option><option value="semi"${r.kind === 'semi' ? ' selected' : ''}>반제품</option></select></td>
+      <td><select class="mat-m-kind"${['produce', 'pack', 'semi'].includes(r.kind) ? '' : ' style="border-color:var(--accent);background:#fff4d6;" title="원물·부자재·반제품 중에서 골라 주세요"'}>${['produce', 'pack', 'semi'].includes(r.kind) ? '' : '<option value="raw" selected>원자재 → 구분 필요</option>'}<option value="produce"${r.kind === 'produce' ? ' selected' : ''}>원물</option><option value="pack"${r.kind === 'pack' ? ' selected' : ''}>부자재</option><option value="semi"${r.kind === 'semi' ? ' selected' : ''}>반제품</option></select></td>
       <td><input type="text" class="mat-m-unit" value="${escapeHtml(r.unit || '')}" placeholder="개/장/kg" style="width:60px;"></td>
       <td><input type="text" class="mat-m-code" value="${escapeHtml(r.code || '')}" placeholder="이카운트 품목코드" style="width:110px;"></td>
       <td><input type="text" class="mat-m-vendor" value="${escapeHtml(r.vendor || '')}" placeholder="기본 거래처" style="width:110px;"></td>
@@ -19782,7 +19815,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     vtb.addEventListener('input', ev => { const tr = ev.target.closest('tr'), v = MAT.vdraft[Number(tr.dataset.i)]; if(!v) return; if(ev.target.classList.contains('mat-v-name')) v.name = ev.target.value; else if(ev.target.classList.contains('mat-v-code')) v.code = ev.target.value; else return; dirty(); });
     vtb.addEventListener('click', ev => { const d = ev.target.closest('.mat-v-del'); if(!d) return; MAT.vdraft.splice(Number(d.closest('tr').dataset.i), 1); dirty(); matRender(); });
     matEl('mat-v-add').addEventListener('click', () => { MAT.vdraft.push({ name: '', code: '' }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-v-name'); if(ins.length) ins[ins.length - 1].focus(); });
-    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'raw', unit: '', code: '', vendor: '', price: 0, safety: 0, vat: false, off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
+    matEl('mat-m-add').addEventListener('click', () => { MAT.mdraft.push({ id: matRid('m'), name: '', kind: 'pack', unit: '', code: '', vendor: '', price: 0, safety: 0, vat: false, off: false }); MAT.mdirty = true; matRender(); const ins = document.querySelectorAll('.mat-m-name'); if(ins.length) ins[ins.length - 1].focus(); });
     matEl('mat-m-save').addEventListener('click', () => matSaveMaster());
   }
 
