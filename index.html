@@ -3641,6 +3641,7 @@ const HOME_TILES = [
   { key: 'detail', icon: '🖼', img: 'assets/ic-detail.png', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'files', icon: '📁', img: 'assets/ic-files.png', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'shop', icon: '🛒', name: '다름달음 특가몰', desc: 'QR 행사몰', href: 'https://shop.dareumdaleum.com/shop.html' },   // 누구나, 새 창
+  { key: 'shop-admin', icon: '🛍', name: '특가몰 관리', desc: 'QR 행사몰 관리자 페이지', href: 'https://shop.dareumdaleum.com/admin.html', show: (u, admin) => admin },   // 관리자만, 새 창
   { key: 'admin', icon: '🛠', img: 'assets/ic-admin.png', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
   { key: 'manual', icon: '📖', img: 'assets/ic-manual.png', name: '사용설명서', desc: '화면별 사용 방법 · 자주 묻는 질문', nav: '#main-nav-btn-manual' },   // 권한과 무관하게 누구나
 ];
