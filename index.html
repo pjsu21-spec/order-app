@@ -394,6 +394,11 @@
   #po-board .pr-rep{ width:1040px; color:#111; font-size:17px; }
   .pg-pr .pr-rep{ width:1040px; color:#111; font-size:17px; }
   table.pg-rules{ border-collapse:collapse; font-size:13px; }
+  .pb-embed td.pbe-ed{ cursor:pointer; }
+  .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
+  .pb-embed td .pbe-in{ width:100%; min-width:60px; box-sizing:border-box; font:inherit; padding:2px 4px; border:2px solid #3b82f6; border-radius:4px; text-align:inherit; }
+  .pb-embed .pbe-del{ margin-left:6px; border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; opacity:.35; padding:0 3px; }
+  .pb-embed tr.pb-row:hover .pbe-del{ opacity:1; }
   table.pg-rules th, table.pg-rules td{ border:1px solid var(--line,#e5e7eb); padding:4px 6px; text-align:left; }
   table.pg-rules th{ background:var(--bg-soft,#f6f7f9); font-weight:700; }
   table.pg-rules input[type=color]{ width:34px; height:24px; padding:0; border:1px solid #ccc; vertical-align:middle; }
@@ -1242,7 +1247,7 @@
         <span id="agg-board-meta" class="sub" style="margin:0;">불러오는 중…</span>
         <button type="button" class="btn-ghost small-btn" id="agg-board-refresh">🔄 새로고침</button>
         <label class="sub" style="margin:0;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="agg-board-fit" checked> 화면 폭에 맞추기</label>
-        <span class="sub" style="margin:0;">수량을 고치거나 지우려면 <b>전체 집계 (편집)</b> 탭에서 하세요</span>
+        <span class="sub" style="margin:0;">파란 테두리가 생기는 칸은 눌러서 바로 고칠 수 있습니다 (Enter 저장 · Esc 취소). 잠긴 칸은 마우스를 올리면 어디서 고치는지 나옵니다</span>
       </div>
       <div id="agg-board-body" class="pb-embed tbl-scroll"></div>
     </div>
@@ -7594,6 +7599,166 @@ function mnShow(id, keepScroll) {
     const w = z.scrollWidth, avail = body.clientWidth - 4;
     if(w > avail && w > 0) z.style.zoom = Math.max(0.5, avail / w);
   }
+  // 현황판 형태 자료: 새 방식 자료(poGenModel)로 현황판(poBoardHtml)과 같은 모델을 만든다. metas = 표의 줄(tr.pb-row) 순서대로 어느 발주인지
+  async function aggBoardModel(dk){
+    const r = await poGenModel(dk);
+    const B = window.PO_BASE, PS = window.PoSheet, st = i => B.styles[i];
+    const hdr = n => B.header.rows.find(x => x.r === n) || { cells: [] }, cellOf = (row, L) => row.cells.find(c => c[0] === L) || [];
+    const clean = t => String(t || '').replace(/\s+/g, ' ').trim();
+    const R2 = v => Math.round((Number(v) || 0) * 100) / 100;
+    const r3 = hdr(3), r17 = hdr(17), col15 = r.model.col15;
+    const cols = [], colors = { cols: {}, groups: {} };
+    PS.GROUPS.forEach((G, gi) => {
+      const gc = cellOf(r3, G.cols[0]); const gf = gc[1] != null ? st(gc[1]).fill : '';
+      if(gf) colors.groups[gi] = gf.slice(1);
+      G.cols.forEach(L => {
+        if(!(col15[L] > 0)) return;
+        const hc = cellOf(r17, L), lf = hc[3] != null ? st(hc[3]).fill : (hc[1] != null ? st(hc[1]).fill : '');
+        if(lf) colors.cols[L] = lf.slice(1);
+        const sku = dict.find(d => skuColumnMap[d.id] === L);
+        cols.push({ L, gid: gi, group: clean(gc[2]), header: clean(hc[2]) || (sku ? sku.shortName || sku.name : L), unit: PS.PACK_COLS.includes(L) ? 0 : (sku ? Number(sku.boxUnitCount) || 0 : 0) });
+      });
+    });
+    const sum = rows => Object.fromEntries(cols.map(c => [c.L, R2(rows.reduce((a, x) => a + (Number(x.qty[c.L]) || 0), 0))]));
+    const metas = [], blocks = [];
+    let n = 0;
+    r.model.sections.forEach(sec => {
+      const rows = [];
+      sec.subs.forEach(sb => sb.rows.forEach(x => {
+        const kind = sb.kind;
+        const cat = kind === 'doma' || (kind === 'jik' && sb.label === '오프라인') ? '오프라인' : kind === 'tpl' ? '3PL' : (sb.label || '');
+        const name = kind === 'tpl' ? (x.label || '') : x.name;
+        rows.push({ key: 'g' + (n++), cat, region: kind === 'smp' ? (x.group || '') : (x.region || ''), name, qty: x.qty, boxes: x.boxes, changed: x.changed, market: x.market || '', p: x.plan, raw: { driver: x.plan.driver || '', load: x.plan.load || '' } });
+        const type = kind === 'tpl' ? (x.qc ? 'other' : 'tpl') : kind === 'smp' ? (x.name === QC_ENTRY_NAME ? 'qc' : 'smp') : 'co';
+        metas.push({ type, company: x.name, key: x._key || x.name, part: !!x._part, split: !!((splitByDate[dk] || {})[x.name] || []).length });
+      }));
+      if(rows.length) blocks.push({ rows, sub: sum(rows) });
+    });
+    const dispatch = r.model.disp.map((x, i) => { metas.push({ type: 'disp', company: x.company }); return { key: 'd' + i, name: x.company + (x.seq > 1 ? ` (${x.seq}차)` : ''), warehouse: x.warehouse, ship: x.shipDate, qty: x.qty, p: { driver: x.plan.driver, load: x.plan.load, stock: '', note: x.shelf } }; });
+    const total = Object.fromEntries(cols.map(c => [c.L, R2(col15[c.L])]));
+    const stock = Object.fromEntries(cols.map(c => [c.L, R2(r.model.stockByCol[c.L])]));
+    // 재고사용 합계(박스): 배차·적재의 업체별 재고사용 + 재고 사용 샘플 (현황판과 같은 기준)
+    const stockUse = {}, toBx = (d, packs) => { const u = Number(d.boxUnitCount) || 0; return u > 0 ? packs / u : packs; };
+    Object.values((shipPlanCache[dk] || {}).rows || {}).forEach(row => Object.entries(row.stock || {}).forEach(([id, q]) => { const L = skuColumnMap[id]; if(L) stockUse[L] = (stockUse[L] || 0) + (Number(q.d1) || 0) + (Number(q.d2) || 0); }));
+    aggSampleNow().forEach(s => (s.items || []).forEach(i => { if(!i.fromStock) return; const d = dict.find(x => x.id === i.skuId), L = skuColumnMap[i.skuId]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, Number(i.packs) || 0); }));
+    Object.keys(stockUse).forEach(L => { stockUse[L] = R2(stockUse[L]); });
+    // 기사별 배차 현황 (현황판과 같은 규칙)
+    const shipMap = {};
+    blocks.forEach(b => b.rows.forEach(x => {
+      const drv = x.raw.driver; if(!drv) return;
+      const sh = shipMap[drv] = shipMap[drv] || { name: drv, rows: 0, boxes: 0, pallets: 0, ggd: 0, drops: {} };
+      sh.rows++; sh.boxes += x.boxes || 0;
+      const lm = /^(일회용|KPP)\s*(?:\*\s*(\d+))?$/i.exec(x.raw.load); if(lm) sh.pallets += lm[2] ? Number(lm[2]) : 1;
+      if(x.raw.load === '까대기') sh.ggd += x.boxes || 0;
+      const drop = x.market || x.name; if(drop) sh.drops[drop] = (sh.drops[drop] || 0) + 1;
+    }));
+    const dOrder = new Map(shipPlanOpts.drivers.map((x, i) => [x, i]));
+    const ship = Object.values(shipMap).map(x => Object.assign(x, { boxes: R2(x.boxes), ggd: R2(x.ggd) })).sort((a, b) => (dOrder.has(a.name) ? dOrder.get(a.name) : 1e6) - (dOrder.has(b.name) ? dOrder.get(b.name) : 1e6) || a.name.localeCompare(b.name, 'ko'));
+    const m = { colors, dateKey: dk, cols, blocks, dispatch, disp: sum(dispatch), total, stock, stockUse, stock2: {}, notes: r.warn, hasPanel: true, ship };
+    return { m, metas };
+  }
+  // 칸 바로 고치기 (입력칸으로 바꿨다가 Enter·칸 밖 클릭이면 저장, Esc면 취소)
+  function aggBoardEdit(td, init, opts, save){
+    if(td.querySelector('input')) return;
+    const old = td.innerHTML;
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = init == null ? '' : init; inp.className = 'pbe-in';
+    if(opts.numeric) inp.inputMode = 'decimal';
+    if(opts.list){ spFillOptionLists(); inp.setAttribute('list', opts.list); }
+    td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
+    let done = false;
+    const finish = ok => {
+      if(done) return; done = true;
+      const v = inp.value.trim();
+      if(!ok || v === String(init == null ? '' : init)){ td.innerHTML = old; aggBoardResume(); return; }
+      if(opts.numeric && v !== '' && !isFinite(Number(v.replace(/,/g, '')))){ toast('숫자만 입력해주세요'); td.innerHTML = old; aggBoardResume(); return; }
+      td.innerHTML = '<span class="sub" style="margin:0;">저장 중…</span>';
+      Promise.resolve(save(opts.numeric ? (v === '' ? 0 : Number(v.replace(/,/g, ''))) : v)).finally(() => { aggBoardResume(true); });
+    };
+    inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); finish(true); } else if(e.key === 'Escape'){ e.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', () => finish(true));
+  }
+  function aggBoardResume(force){ setTimeout(() => aggBoardRender(!!force), 50); }
+  function aggDeleteCompany(dk, company){
+    const orders = ordersByDate[dk] || {};
+    delete orders[company];
+    if(extrasRemove(dk, company)) saveOrderExtras();
+    if(extrasOpen === company) extrasOpen = '';
+    if((splitByDate[dk] || {})[company]){ delete splitByDate[dk][company]; splitTidy(dk, company); saveSplitByDate(); }
+    if(splitOpen === company) splitOpen = '';
+    if((dispatchByDate[dk] || []).some(e => e.company === company)){ dispatchByDate[dk] = dispatchByDate[dk].filter(e => e.company !== company); saveDispatchByDate(); }
+    saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
+  }
+  // 표의 칸에 고치기 기능 달기 (고칠 수 없는 칸은 어디서 고치는지 안내)
+  function aggBoardWire(body, metas){
+    const dk = currentDateKey;
+    const canOrder = window.accessLevel('order') === 'full', canPlan = window.sectionLevel('plan') === 'full';
+    const lock = (td, why) => { td.classList.add('pbe-lock'); td.title = why; };
+    const WHY = {
+      tpl: '3PL 업체 합산 줄입니다 — 수량은 3PL 출고 집계 탭에서 고쳐 주세요',
+      other: '이 줄은 전체 집계 (편집) 탭에서 고쳐 주세요',
+      smp: '샘플 신청 탭에서 고쳐 주세요',
+      qc: '품질 확인용 샘플(생산본부) 줄입니다 — 설정의 품질 확인용 샘플에서 바꿉니다',
+      disp: '출고일 지정 주문입니다 — 전체 집계 (편집) 탭 아래 "출고일 지정 주문"에서 고쳐 주세요',
+      split: '출고 건을 나눈 업체라 전체 집계 (편집) 탭에서 고쳐 주세요',
+      ro: '발주 수정 권한이 없어 보기만 됩니다', roPlan: '생산 / 물류 권한이 없어 보기만 됩니다'
+    };
+    [...body.querySelectorAll('tr.pb-row')].forEach((tr, i) => {
+      const mt = metas[i]; if(!mt) return;
+      // 품목 수량
+      tr.querySelectorAll('td.pb-n[data-k]').forEach(td => {
+        if(mt.type !== 'co') return lock(td, WHY[mt.type] || WHY.other);
+        if(mt.part || mt.split) return lock(td, WHY.split);
+        if(!canOrder) return lock(td, WHY.ro);
+        const L = td.dataset.k.split('|')[1];
+        const ids = dict.filter(d => skuColumnMap[d.id] === L);
+        if(ids.length !== 1) return lock(td, '이 열에 품목이 여러 개라 전체 집계 (편집) 탭에서 고쳐 주세요');
+        const d = ids[0], unit = Number(d.boxUnitCount) || 0;
+        const cur = Number(((ordersByDate[dk] || {})[mt.company] || {})[d.id]) || 0;
+        const smpQ = Number((sampleOf(dk, mt.company) || {})[d.id]) || 0;
+        td.classList.add('pbe-ed');
+        td.title = `눌러서 ${d.shortName || d.name} 수량 고치기 (${unit > 0 ? '박스' : '팩'})` + (smpQ ? ` · 샘플 동봉 ${Math.round((unit > 0 ? smpQ / unit : smpQ) * 100) / 100} 별도` : '');
+        td.addEventListener('click', () => aggBoardEdit(td, Math.round((unit > 0 ? cur / unit : cur) * 100) / 100, { numeric: true }, v => {
+          const o = ordersByDate[dk] || (ordersByDate[dk] = {}), co = o[mt.company] || (o[mt.company] = {});
+          const packs = unit > 0 ? Math.round(v * unit * 100) / 100 : v;
+          if(packs > 0) co[d.id] = packs; else delete co[d.id];
+          co._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
+          if(!Object.keys(co).some(k => k !== '_meta')) delete o[mt.company];
+          saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
+          toast(`${mt.company} · ${d.shortName || d.name} ${v}${unit > 0 ? '박스' : '팩'}로 고쳤습니다`);
+        }));
+      });
+      // 업체 줄 지우기
+      const nameTd = tr.querySelector('td.pb-name');
+      if(nameTd && mt.type === 'co' && !mt.part && canOrder){
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'pbe-del'; x.textContent = '✕'; x.title = `${mt.company} 발주를 이 날짜에서 지우기`;
+        x.addEventListener('click', ev => { ev.stopPropagation(); if(confirm(`${mt.company} 의 ${dk} 발주를 지울까요?\n(샘플 동봉·출고 건 나누기 설정도 같이 지워집니다)`)) aggDeleteCompany(dk, mt.company); });
+        nameTd.appendChild(x);
+      }
+      // 납품담당 · 적재방식 · 재고사용 · 비고
+      const pc = tr.querySelectorAll('td.pb-p');
+      if(pc.length < 4) return;
+      const planEditable = mt.type === 'co' || mt.type === 'tpl' || mt.type === 'other';
+      [[0, 'driver', 'sp-drivers'], [1, 'load', 'sp-loads'], [3, 'note', '']].forEach(([ix, f, list]) => {
+        const td = pc[ix];
+        if(mt.type === 'disp') return lock(td, WHY.disp);
+        if(mt.type === 'smp' || mt.type === 'qc') return lock(td, '샘플 줄입니다 — 생산 / 물류 → 배차·적재에서 고쳐 주세요');
+        if(!planEditable) return lock(td, WHY.other);
+        if(!canPlan) return lock(td, WHY.roPlan);
+        const key = mt.type === 'tpl' ? '__3pl__' : mt.key;
+        const baseNote = f === 'note' && mt.type === 'co' && !mt.part && sampleAllowed(mt.company);
+        const row = ((shipPlanCache[dk] || {}).rows || {})[key] || {};
+        const init = baseNote ? unitNote(dk, mt.company) : (row[f] || '');
+        td.classList.add('pbe-ed');
+        td.title = f === 'note' ? '눌러서 비고 고치기 (배차·적재·집계의 비고와 같은 값)' : `눌러서 ${f === 'driver' ? '납품담당' : '적재방식'} 고치기 (배차·적재와 같은 값)`;
+        td.addEventListener('click', () => aggBoardEdit(td, init, { list }, v => {
+          if(baseNote) return unitNoteSet(dk, mt.company, v);
+          return spCommit(dk, key, rr => { if(v) rr[f] = v; else delete rr[f]; }, () => { try{ renderShipPlan(); }catch(e){} });
+        }));
+      });
+      if(mt.type !== 'disp') lock(pc[2], '재고사용은 생산 / 물류 → 배차·적재의 [재고사용 입력]에서 고쳐 주세요');
+    });
+  }
   function aggBoardSchedule(){
     if(aggTab !== 'board') return;
     clearTimeout(aggBoardTimer);
@@ -7607,14 +7772,15 @@ function mnShow(id, keepScroll) {
     const sig = JSON.stringify([dk, ordersByDate[dk], orderExtras[dk], dispatchByDate[dk], splitByDate[dk], previousStock[dk], aggSampleNow(), (shipPlanCache[dk] || {}).rows]);
     if(!force && sig === aggBoardSig) return;
     if(aggBoardBusy){ aggBoardAgain = true; return; }
-    if(!productionTemplateB64){ body.innerHTML = '<div class="empty">발주취합 서식이 등록되어 있어야 현황판 형태로 볼 수 있습니다.</div>'; if(meta) meta.textContent = ''; return; }
+    { const ae = document.activeElement; if(ae && ae.tagName === 'INPUT' && body.contains(ae)){ aggBoardSchedule(); return; } }   // 칸을 고치는 중이면 나중에
     aggBoardBusy = true; aggBoardSig = sig;
     if(meta) meta.textContent = '불러오는 중…';
     try{
       aggBoardCss();
-      const m = await poBoardCollect(dk);
+      const { m, metas } = await aggBoardModel(dk);
       if(dk !== currentDateKey){ aggBoardSig = ''; return; }
       body.innerHTML = m.cols.length ? '<div class="pb-zoom">' + poBoardHtml(m, null) + '</div>' : '<div class="empty">이 날짜에는 발주 데이터가 없습니다.</div>';
+      if(m.cols.length) aggBoardWire(body, metas);
       if(m.notes && m.notes.length) body.insertAdjacentHTML('beforeend', m.notes.map(n => `<div class="sub" style="color:var(--danger,#c0392b);margin:4px 0 0;">⚠ ${escapeHtml(n)}</div>`).join(''));
       aggBoardFit();
       if(meta){ const t = new Date(); meta.textContent = `${dk} 납품 · ${pad2(t.getHours())}:${pad2(t.getMinutes())} 기준 (발주를 입력하면 자동으로 다시 그립니다)`; }
@@ -16697,7 +16863,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261117c'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261117d'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -16730,7 +16896,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const boxes = R2(PS.BOX_COLS.reduce((a, c) => a + (qty[c] || 0), 0)), packs = R2(boxes * 4 + PS.PACK_COLS.reduce((a, c) => a + (qty[c] || 0), 0));
       const p = plan[e.planKey || e.name] || {};
       const note = [p.note || '', ...(e.notes || [])].filter(Boolean).join(' / ');
-      return Object.assign({ name: e.name, qty, boxes, packs, changed: !!e.changed, plan: { driver: p.driver || '', load: p.load || '', stock: p.stockText || (e.stockAll ? '전량재고' : ''), note } }, extra || {});
+      return Object.assign({ name: e.name, _key: e.planKey || e.name, _part: !!e.partOf, qty, boxes, packs, changed: !!e.changed, plan: { driver: p.driver || '', load: p.load || '', stock: p.stockText || (e.stockAll ? '전량재고' : ''), note } }, extra || {});
     };
     const idx = new Map(companies.map((c, i) => [c.name, i])), ix = n => idx.has(n) ? idx.get(n) : 1e6;
     const subs = { doma: [], jik: [], sp: [], gaein: [], smp: [], cvs: [], other: new Map() };

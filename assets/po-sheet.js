@@ -416,5 +416,5 @@
     }
     return { width: w, html: `<table class="po-sheet" style="border-collapse:collapse;table-layout:fixed;width:${w}px;font-family:'PoNanumEB','NanumSquareNeoExtraBold','나눔스퀘어 네오 ExtraBold','Malgun Gothic',sans-serif;line-height:1.15;"><colgroup>${colg.join('')}</colgroup><tbody>${h}</tbody></table>` };
   }
-  window.PoSheet = { build, toXlsx, toHtml, fmt, fontCss, FONT_URL, PROD_COLS, BOX_COLS, PACK_COLS };
+  window.PoSheet = { build, toXlsx, toHtml, fmt, fontCss, FONT_URL, PROD_COLS, BOX_COLS, PACK_COLS, GROUPS };
 })();
