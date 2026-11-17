@@ -397,6 +397,19 @@
   .pb-embed td.pbe-ed{ cursor:pointer; }
   .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
   .pb-embed td .pbe-in{ width:100%; min-width:60px; box-sizing:border-box; font:inherit; padding:2px 4px; border:2px solid #3b82f6; border-radius:4px; text-align:inherit; }
+  .pb-embed .pbe-smpq{ display:block; font-size:10.5px; font-weight:700; color:#b45f00; line-height:1.1; }
+  .pb-embed .pbe-chip{ margin-left:6px; border:1px solid #f3c58a; background:#fff7ec; color:#9a5300; border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; cursor:pointer; vertical-align:middle; }
+  .pb-embed .pbe-chip.on{ background:#f59e0b; color:#fff; border-color:#f59e0b; }
+  .pb-embed tr.pbe-edrow > td{ background:#fffaf2; padding:8px 10px; text-align:left; white-space:normal; }
+  .pb-embed .pbe-hd{ font-weight:800; font-size:14px; margin-bottom:6px; }
+  .pb-embed .pbe-grid{ display:flex; flex-wrap:wrap; gap:6px 10px; }
+  .pb-embed .pbe-it{ display:inline-flex; align-items:center; gap:4px; font-size:13px; border:1px solid #e5d3b8; border-radius:8px; padding:3px 6px; background:#fff; }
+  .pb-embed .pbe-it.on{ border-color:#f59e0b; background:#fff3dc; }
+  .pb-embed .pbe-it input, .pb-embed .pbe-split input{ width:62px; font:inherit; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; text-align:right; }
+  .pb-embed .pbe-it em{ font-style:normal; color:#64748b; font-size:12px; }
+  .pb-embed .pbe-bar{ display:flex; gap:8px; margin-top:8px; }
+  .pb-embed table.pbe-split{ border-collapse:collapse; font-size:13px; }
+  .pb-embed table.pbe-split th, .pb-embed table.pbe-split td{ border:1px solid #e5d3b8; padding:3px 6px; text-align:center; }
   .pb-embed .pbe-del{ margin-left:6px; border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; opacity:.35; padding:0 3px; }
   .pb-embed tr.pb-row:hover .pbe-del{ opacity:1; }
   table.pg-rules th, table.pg-rules td{ border:1px solid var(--line,#e5e7eb); padding:4px 6px; text-align:left; }
@@ -1239,8 +1252,8 @@
     <h2>발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
     <div class="row" style="margin-top:0;">
       <button class="tab-btn" id="tab-board-btn" title="생산 현황판과 같은 모양으로 오늘 발주를 봅니다 (보기 전용)">📺 현황판 형태</button>
-      <button class="tab-btn active" id="tab-all-btn" title="업체별 수량 표 — 선택 삭제·비고·샘플 동봉·출고 건 나누기는 여기서">전체 집계 (편집)</button>
       <button class="tab-btn" id="tab-3pl-btn">3PL 출고 집계</button>
+      <button class="tab-btn active" id="tab-all-btn" style="margin-left:auto;font-size:12px;padding:4px 10px;opacity:.75;" title="예전 업체별 수량 표 (여러 업체 선택 삭제 등). 현황판 형태에서 모두 할 수 있으면 나중에 없앱니다">예전 표</button>
     </div>
     <div id="agg-board-wrap" style="display:none;">
       <div class="row" style="margin-top:0;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -7689,6 +7702,77 @@ function mnShow(id, keepScroll) {
     if((dispatchByDate[dk] || []).some(e => e.company === company)){ dispatchByDate[dk] = dispatchByDate[dk].filter(e => e.company !== company); saveDispatchByDate(); }
     saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
   }
+  // 현황판 형태: 업체 줄 아래 펼치는 입력줄 (샘플 동봉 / 추가 발주) — 다시 그려도 열어 둔 것은 유지
+  let aggBoardOpen = { kind: '', company: '' };
+  const aggBx = (d, packs) => { const u = Number(d.boxUnitCount) || 0; return Math.round((u > 0 ? packs / u : packs) * 100) / 100; };
+  const aggPk = (d, boxes) => { const u = Number(d.boxUnitCount) || 0; return Math.round(Math.max(0, boxes) * (u > 0 ? u : 1) * 100) / 100; };
+  const aggUl = d => (Number(d.boxUnitCount) || 0) > 0 ? '박스' : '팩';
+  function aggBoardEditorRow(body, afterTr, html, wire){
+    let ncol = [...(body.querySelector('tr.pb-sum') || { children: [] }).children].reduce((a, td) => a + (td.colSpan || 1), 0) || 20;
+    // 왼쪽 구분 칸(여러 줄 합친 칸) 안에 끼우면 그 칸을 한 줄 늘리고 입력줄은 그만큼 좁게
+    let cur = afterTr, k = 0, cat = null;
+    while(cur){ cat = cur.querySelector('td.pb-cat'); if(cat) break; cur = cur.previousElementSibling; k++; }
+    if(cat && cat.rowSpan > k + 1){ cat.rowSpan += 1; ncol -= 1; }
+    const tr = document.createElement('tr'); tr.className = 'pbe-edrow';
+    tr.innerHTML = `<td colspan="${ncol}"><div class="pbe-box">${html}</div></td>`;
+    afterTr.after(tr);
+    wire(tr.querySelector('.pbe-box'));
+  }
+  function aggSampleEditor(body, tr, company){
+    const dk = currentDateKey;
+    const cur = sampleOf(dk, company);
+    const items = dict.filter(d => skuColumnMap[d.id] || cur[d.id]);
+    const html = `<div class="pbe-hd">🎁 샘플 동봉 — ${escapeHtml(company)} <span class="sub" style="margin:0 0 0 6px;">발주 수량에 더해져 생산·적재·재고에 잡히고, 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않습니다.</span></div>
+      <div class="pbe-grid">${items.map(d => `<label class="pbe-it${cur[d.id] ? ' on' : ''}"><span>${escapeHtml(d.shortName || d.name)}</span><input type="text" inputmode="decimal" data-id="${escapeHtml(d.id)}" value="${cur[d.id] ? aggBx(d, cur[d.id]) : ''}" placeholder="0"><em>${aggUl(d)}</em></label>`).join('')}</div>
+      <div class="pbe-bar"><button type="button" class="btn-ghost small-btn" data-close>닫기</button>${Object.keys(cur).length ? '<button type="button" class="btn-ghost small-btn" data-clear>샘플 모두 빼기</button>' : ''}</div>`;
+    aggBoardEditorRow(body, tr, html, box => {
+      const commit = () => { extrasTidy(dk, company); saveOrderExtras(); renderAggTable(); try{ renderRawStockEditor(); }catch(e){} };
+      box.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('change', () => {
+        const d = dict.find(x => x.id === inp.dataset.id); if(!d) return;
+        const v = inp.value.replace(/,/g, '').trim();
+        if(v !== '' && !isFinite(Number(v))){ toast('숫자만 입력해주세요'); inp.value = ''; return; }
+        const ex = extrasEnsure(dk, company), pk = aggPk(d, Number(v) || 0);
+        if(pk > 0) ex.sample[d.id] = pk; else delete ex.sample[d.id];
+        inp.closest('.pbe-it').classList.toggle('on', pk > 0);
+        commit();
+      }));
+      box.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } }));
+      box.querySelector('[data-close]').addEventListener('click', () => { aggBoardOpen = { kind: '', company: '' }; aggBoardRender(true); });
+      const clr = box.querySelector('[data-clear]');
+      if(clr) clr.addEventListener('click', () => { const ex = extrasEnsure(dk, company); ex.sample = {}; commit(); });
+    });
+  }
+  function aggSplitEditor(body, tr, company){
+    const dk = currentDateKey, orders = ordersByDate[dk] || {}, co = orders[company] || {};
+    const items = dict.filter(d => (Number(co[d.id]) || 0) > 0);
+    const parts = splitEnsure(dk, company), al = splitAllocate(co, parts);
+    const html = `<div class="pbe-hd">➕ 추가 발주 — ${escapeHtml(company)} <span class="sub" style="margin:0 0 0 6px;">같은 업체의 두 번째 이후 발주입니다. 합계는 그대로이고 첫 발주에는 나머지가 자동으로 남습니다. 발주마다 납품담당·적재방식을 따로 적을 수 있습니다.</span></div>
+      <table class="pbe-split"><thead><tr><th>발주</th>${items.map(d => `<th>${escapeHtml(d.shortName || d.name)}</th>`).join('')}<th></th></tr></thead><tbody>
+      <tr><td><b>첫 발주</b> <span class="sub" style="margin:0;">(남은 수량)</span></td>${items.map(d => `<td class="num">${aggBx(d, al.base[d.id] || 0) || ''}</td>`).join('')}<td></td></tr>
+      ${parts.map((p, pi) => `<tr><td><b>${escapeHtml(p.label || ('추가 발주 ' + (pi + 1)))}</b></td>${items.map(d => `<td><input type="text" inputmode="decimal" data-p="${pi}" data-id="${escapeHtml(d.id)}" value="${(Number((p.items || {})[d.id]) || 0) > 0 ? aggBx(d, p.items[d.id]) : ''}"></td>`).join('')}<td><button type="button" class="btn-ghost small-btn" data-merge="${pi}" title="이 추가 발주를 없애고 수량을 첫 발주에 합칩니다(합계는 그대로)">첫 발주로 합치기</button></td></tr>`).join('')}
+      </tbody></table><div class="pbe-bar"><button type="button" class="btn-ghost small-btn" data-close>닫기</button></div>`;
+    aggBoardEditorRow(body, tr, html, box => {
+      box.querySelectorAll('input[data-p]').forEach(inp => {
+        inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+        inp.addEventListener('change', () => {
+          const part = parts[+inp.dataset.p], d = dict.find(x => x.id === inp.dataset.id); if(!part || !d) return;
+          let pk = aggPk(d, Number(inp.value.replace(/,/g, '')) || 0);
+          const others = parts.reduce((s, p) => s + (p === part ? 0 : (Number((p.items || {})[d.id]) || 0)), 0);
+          const max = Math.max(0, (Number(co[d.id]) || 0) - others);
+          if(pk > max + 0.0001){ pk = max; toast(`전체 수량을 넘을 수 없어 ${aggBx(d, max)}${aggUl(d)}로 맞췄습니다`); }
+          if(!part.items) part.items = {};
+          if(pk > 0) part.items[d.id] = pk; else delete part.items[d.id];
+          saveSplitByDate(); renderAggTable();
+        });
+      });
+      box.querySelectorAll('[data-merge]').forEach(b => b.addEventListener('click', () => {
+        parts.splice(+b.dataset.merge, 1);
+        if(!parts.length){ splitTidy(dk, company); aggBoardOpen = { kind: '', company: '' }; }
+        saveSplitByDate(); renderAggTable(); aggBoardRender(true);
+      }));
+      box.querySelector('[data-close]').addEventListener('click', () => { splitEnsure(dk, company); splitTidy(dk, company); aggBoardOpen = { kind: '', company: '' }; aggBoardRender(true); });
+    });
+  }
   // 표의 칸에 고치기 기능 달기 (고칠 수 없는 칸은 어디서 고치는지 안내)
   function aggBoardWire(body, metas){
     const dk = currentDateKey;
@@ -7696,11 +7780,11 @@ function mnShow(id, keepScroll) {
     const lock = (td, why) => { td.classList.add('pbe-lock'); td.title = why; };
     const WHY = {
       tpl: '3PL 업체 합산 줄입니다 — 수량은 3PL 출고 집계 탭에서 고쳐 주세요',
-      other: '이 줄은 전체 집계 (편집) 탭에서 고쳐 주세요',
+      other: '이 줄은 예전 표에서 고쳐 주세요',
       smp: '샘플 신청 탭에서 고쳐 주세요',
       qc: '품질 확인용 샘플(생산본부) 줄입니다 — 설정의 품질 확인용 샘플에서 바꿉니다',
-      disp: '출고일 지정 주문입니다 — 전체 집계 (편집) 탭 아래 "출고일 지정 주문"에서 고쳐 주세요',
-      split: '출고 건을 나눈 업체라 전체 집계 (편집) 탭에서 고쳐 주세요',
+      disp: '출고일 지정 주문입니다 — 이 화면 아래 "출고일 지정 주문" 목록에서 고쳐 주세요',
+      split: '추가 발주가 있는 업체입니다 — 업체명 옆 [추가 발주] 버튼에서 나눠 고쳐 주세요',
       ro: '발주 수정 권한이 없어 보기만 됩니다', roPlan: '생산 / 물류 권한이 없어 보기만 됩니다'
     };
     [...body.querySelectorAll('tr.pb-row')].forEach((tr, i) => {
@@ -7712,12 +7796,13 @@ function mnShow(id, keepScroll) {
         if(!canOrder) return lock(td, WHY.ro);
         const L = td.dataset.k.split('|')[1];
         const ids = dict.filter(d => skuColumnMap[d.id] === L);
-        if(ids.length !== 1) return lock(td, '이 열에 품목이 여러 개라 전체 집계 (편집) 탭에서 고쳐 주세요');
+        if(ids.length !== 1) return lock(td, '이 열에 품목이 여러 개라 예전 표에서 고쳐 주세요');
         const d = ids[0], unit = Number(d.boxUnitCount) || 0;
         const cur = Number(((ordersByDate[dk] || {})[mt.company] || {})[d.id]) || 0;
         const smpQ = Number((sampleOf(dk, mt.company) || {})[d.id]) || 0;
         td.classList.add('pbe-ed');
-        td.title = `눌러서 ${d.shortName || d.name} 수량 고치기 (${unit > 0 ? '박스' : '팩'})` + (smpQ ? ` · 샘플 동봉 ${Math.round((unit > 0 ? smpQ / unit : smpQ) * 100) / 100} 별도` : '');
+        td.title = `눌러서 ${d.shortName || d.name} 발주 수량 고치기 (${unit > 0 ? '박스' : '팩'})` + (smpQ ? ` · 칸의 숫자는 발주 + 샘플 동봉 ${aggBx(d, smpQ)}` : '');
+        if(smpQ) td.insertAdjacentHTML('beforeend', `<span class="pbe-smpq">+샘플 ${aggBx(d, smpQ)}</span>`);
         td.addEventListener('click', () => aggBoardEdit(td, Math.round((unit > 0 ? cur / unit : cur) * 100) / 100, { numeric: true }, v => {
           const o = ordersByDate[dk] || (ordersByDate[dk] = {}), co = o[mt.company] || (o[mt.company] = {});
           const packs = unit > 0 ? Math.round(v * unit * 100) / 100 : v;
@@ -7730,6 +7815,27 @@ function mnShow(id, keepScroll) {
       });
       // 업체 줄 지우기
       const nameTd = tr.querySelector('td.pb-name');
+      if(nameTd && mt.type === 'co'){
+        const om = (((ordersByDate[dk] || {})[mt.company]) || {})._meta || {};
+        const at = om.updatedAt ? new Date(om.updatedAt) : null;
+        if(om.enteredBy || at) nameTd.title = `입력: ${om.enteredBy || ''}${at && !isNaN(at) ? ' ' + pad2(at.getMonth() + 1) + '/' + pad2(at.getDate()) + ' ' + pad2(at.getHours()) + ':' + pad2(at.getMinutes()) : ''}`.trim();
+      }
+      if(nameTd && mt.type === 'co' && !mt.part && canOrder){
+        if(sampleAllowed(mt.company)){
+          const sb = document.createElement('button'); sb.type = 'button'; sb.className = 'pbe-chip' + (aggBoardOpen.kind === 'smp' && aggBoardOpen.company === mt.company ? ' on' : '');
+          const ns = Object.keys(sampleOf(dk, mt.company) || {}).length;
+          sb.textContent = ns ? `🎁 샘플 ${ns}` : '＋샘플'; sb.title = '이 업체에 함께 보낼 샘플(샘플 동봉) 넣기·고치기';
+          sb.addEventListener('click', ev => { ev.stopPropagation(); aggBoardOpen = aggBoardOpen.kind === 'smp' && aggBoardOpen.company === mt.company ? { kind: '', company: '' } : { kind: 'smp', company: mt.company }; aggBoardRender(true); });
+          nameTd.appendChild(sb);
+        }
+        const np = ((splitByDate[dk] || {})[mt.company] || []).length;
+        if(np){
+          const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'pbe-chip' + (aggBoardOpen.kind === 'split' && aggBoardOpen.company === mt.company ? ' on' : '');
+          pb.textContent = `➕ 추가 발주 ${np}`; pb.title = '같은 날 두 번 이상 들어온 발주 — 수량을 나누거나 첫 발주로 합치기';
+          pb.addEventListener('click', ev => { ev.stopPropagation(); aggBoardOpen = aggBoardOpen.kind === 'split' && aggBoardOpen.company === mt.company ? { kind: '', company: '' } : { kind: 'split', company: mt.company }; aggBoardRender(true); });
+          nameTd.appendChild(pb);
+        }
+      }
       if(nameTd && mt.type === 'co' && !mt.part && canOrder){
         const x = document.createElement('button'); x.type = 'button'; x.className = 'pbe-del'; x.textContent = '✕'; x.title = `${mt.company} 발주를 이 날짜에서 지우기`;
         x.addEventListener('click', ev => { ev.stopPropagation(); if(confirm(`${mt.company} 의 ${dk} 발주를 지울까요?\n(샘플 동봉·출고 건 나누기 설정도 같이 지워집니다)`)) aggDeleteCompany(dk, mt.company); });
@@ -7742,7 +7848,16 @@ function mnShow(id, keepScroll) {
       [[0, 'driver', 'sp-drivers'], [1, 'load', 'sp-loads'], [3, 'note', '']].forEach(([ix, f, list]) => {
         const td = pc[ix];
         if(mt.type === 'disp') return lock(td, WHY.disp);
-        if(mt.type === 'smp' || mt.type === 'qc') return lock(td, '샘플 줄입니다 — 생산 / 물류 → 배차·적재에서 고쳐 주세요');
+        if(mt.type === 'qc') return lock(td, '품질 확인용 샘플(생산본부) 줄입니다 — 생산 / 물류 → 배차·적재에서 고쳐 주세요');
+        if(mt.type === 'smp'){
+          if(!canPlan) return lock(td, WHY.roPlan);
+          const u = spSampleUnits(dk).find(x => x.name === mt.key);
+          if(!u) return lock(td, '생산 / 물류 → 배차·적재의 샘플 줄에서 고쳐 주세요');
+          const srow = ((shipPlanCache[dk] || {}).rows || {})[mt.key] || {};
+          td.classList.add('pbe-ed'); td.title = '눌러서 고치기 (배차·적재의 샘플 줄과 같은 값 — 비우면 신청 내용 기본값을 안 씀)';
+          td.addEventListener('click', () => aggBoardEdit(td, spSmpVal(u, srow, f), { list }, v => spCommit(dk, mt.key, rr => spSmpSet(rr, u, f, v), () => { try{ renderShipPlan(); }catch(e){} })));
+          return;
+        }
         if(!planEditable) return lock(td, WHY.other);
         if(!canPlan) return lock(td, WHY.roPlan);
         const key = mt.type === 'tpl' ? '__3pl__' : mt.key;
@@ -7758,6 +7873,13 @@ function mnShow(id, keepScroll) {
       });
       if(mt.type !== 'disp') lock(pc[2], '재고사용은 생산 / 물류 → 배차·적재의 [재고사용 입력]에서 고쳐 주세요');
     });
+    if(aggBoardOpen.company && canOrder){
+      const trs = [...body.querySelectorAll('tr.pb-row')];
+      const idx = metas.map((mt, i) => mt && mt.type === 'co' && mt.company === aggBoardOpen.company ? i : -1).filter(i => i >= 0 && trs[i]);
+      if(!idx.length) aggBoardOpen = { kind: '', company: '' };
+      else if(aggBoardOpen.kind === 'smp') aggSampleEditor(body, trs[idx[0]], aggBoardOpen.company);
+      else if(aggBoardOpen.kind === 'split') aggSplitEditor(body, trs[idx[idx.length - 1]], aggBoardOpen.company);
+    }
   }
   function aggBoardSchedule(){
     if(aggTab !== 'board') return;
