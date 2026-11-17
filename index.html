@@ -592,11 +592,29 @@
   .stock-ro-note{ display:none; margin:0 0 8px; color:var(--danger,#c0392b); }
   /* 제품 재고 입력: 칸마다 묶음. 휴대폰에서는 품목명을 한 줄 전체로, 아래에 전일·이틀 전·오늘 생산량 3칸을 나란히(칸 이름 표시) */
   #product-stock-editor .ps-f{ display:flex; align-items:center; gap:4px; }
+  #product-stock-editor table.ps-tbl{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:13px; }
+  #product-stock-editor table.ps-tbl col.ps-c-n{ width:auto; }
+  #product-stock-editor table.ps-tbl col.ps-c-v{ width:210px; }
+  #product-stock-editor table.ps-tbl col.ps-c-x{ width:70px; }
+  #product-stock-editor table.ps-tbl th{ background:var(--accent-soft, #fdecef); color:var(--text, #1f2937); font-weight:800; font-size:13px; text-align:left; padding:7px 8px; border-bottom:2px solid var(--line, #e5e7eb); white-space:nowrap; }
+  #product-stock-editor table.ps-tbl th small{ display:block; font-weight:600; font-size:11px; color:var(--muted); }
+  #product-stock-editor table.ps-tbl td{ padding:5px 8px; border-bottom:1px solid var(--line, #eee); vertical-align:middle; }
+  #product-stock-editor table.ps-tbl tbody tr:hover td{ background:var(--hover, #fafafa); }
+  #product-stock-editor table.ps-tbl td.ps-name{ font-weight:600; word-break:keep-all; }
+  #product-stock-editor table.ps-tbl td{ text-align:left; }
+  #product-stock-editor table.ps-tbl td input{ width:100px !important; border:1px solid var(--line, #d1d5db) !important; border-radius:6px; padding:5px 8px; background:#fff; font-size:13px; text-align:right; }
+  #product-stock-editor table.ps-tbl td input:focus{ border-color:var(--accent, #d6213a) !important; outline:none; }
+  #product-stock-editor table.ps-tbl td.ps-x{ text-align:right; }
+  #product-stock-editor .ps-more table.ps-tbl{ margin-top:2px; }
   #product-stock-editor .ps-l{ display:none; }
   @media (max-width: 640px){
+    #product-stock-editor table.ps-tbl, #product-stock-editor table.ps-tbl tbody{ display:block; width:100%; }
+    #product-stock-editor table.ps-tbl thead, #product-stock-editor table.ps-tbl colgroup{ display:none; }
+    #product-stock-editor table.ps-tbl td{ display:block; padding:0; border:none; }
+    #product-stock-editor table.ps-tbl td input{ width:100% !important; }
     #product-stock-editor .ps-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px 8px; align-items:start; padding:10px 0; border-bottom:1px solid var(--line); }
     #product-stock-editor .ps-name{ grid-column:1 / 3; grid-row:1; font-size:14px !important; font-weight:700; line-height:1.35; align-self:center; word-break:keep-all; }
-    #product-stock-editor .ps-clear{ grid-column:3; grid-row:1; justify-self:end; align-self:center; }
+    #product-stock-editor .ps-clear, #product-stock-editor .ps-row > td.ps-x{ grid-column:3; grid-row:1; justify-self:end; align-self:center; }
     #product-stock-editor .ps-f{ flex-direction:column; align-items:stretch; gap:2px; min-width:0; }
     #product-stock-editor .ps-l{ display:block; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #product-stock-editor .ps-f input{ width:100% !important; box-sizing:border-box; font-size:15px; padding:6px 8px; }
@@ -6445,26 +6463,34 @@ function mnShow(id, keepScroll) {
     const shipped = carryNeed(currentDateKey);   // 오늘 필요한 수량(팩, 샘플 포함): 생산 필요수량 안내에 사용
     const hint = document.createElement('div');
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
-    hint.innerHTML = '<b>전일 재고</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
-      '<b>오늘 생산량</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
-      '<b>이틀 전 재고</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
+    hint.innerHTML = '모두 <b>박스</b> 단위입니다 (박스입수가 없는 품목은 팩). <b>D-1 재고(전일 재고)</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
+      '<b>D 생산량(오늘 생산량)</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
+      '<b>D-2 재고(이틀 전 재고)</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
     // 자주 안 쓰는 품목(최근 30일 발주·오늘 필요량·재고·생산량이 모두 없음)은 아래 접힌 칸으로
     const more = document.createElement('details'); more.className = 'ps-more';
     try{ more.open = localStorage.getItem('ps-more-open') === '1'; }catch(e){}
     more.addEventListener('toggle', () => { try{ localStorage.setItem('ps-more-open', more.open ? '1' : '0'); }catch(e){} });
     const moreSum = document.createElement('summary'); more.appendChild(moreSum);
+    // 표: 품명 | D-2 재고 | D-1 재고 | D 생산량 (모두 박스, 박스입수 없는 품목은 팩)
+    const dk0 = currentDateKey || computeCurrentDateKey();
+    const md = k => { const [, m, d] = k.split('-').map(Number); return m + '/' + d; };
+    const mkTbl = head => {
+      const t = document.createElement('table'); t.className = 'ps-tbl';
+      t.innerHTML = '<colgroup><col class="ps-c-n"><col class="ps-c-v"><col class="ps-c-v"><col class="ps-c-v"><col class="ps-c-x"></colgroup>' + (head ? `<thead><tr><th>품명</th><th title="이틀 전 재고 — 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 (재고사용 배정용, 파일에는 안 들어감)">D-2 재고 <small>이틀 전 · ${md(sampleAddDays(dk0, -2))}</small></th><th title="전일 재고 — 발주취합 파일의 전일재고 칸에 들어감. 비우면 자동 계산">D-1 재고 <small>전일 · ${md(sampleAddDays(dk0, -1))}</small></th><th title="오늘 생산량 — 내일 전일 재고 자동 계산에 쓰임. 비우면 생산 필요수량만큼">D 생산량 <small>오늘 · ${md(dk0)}</small></th><th></th></tr></thead>` : '') + '<tbody></tbody>';
+      return t;
+    };
+    const mainTbl = mkTbl(true), moreTbl = mkTbl(false);
+    wrap.appendChild(mainTbl); more.appendChild(moreTbl);
     let nMore = 0;
     dict.forEach(item=>{
       const id = item.id;
-      const row = document.createElement('div');
-      row.className = 'dict-row ps-row';
+      const row = document.createElement('tr');
+      row.className = 'ps-row';
       const active = psItemActive(id, stock, shipped);
 
-      const nameSpan = document.createElement('div');
+      const nameSpan = document.createElement('td');
       nameSpan.className = 'ps-name';
-      nameSpan.style.flex = '1';
-      nameSpan.style.fontSize = '13px';
       nameSpan.textContent = item.name;
       row.appendChild(nameSpan);
 
@@ -6495,16 +6521,16 @@ function mnShow(id, keepScroll) {
       tag.title = '직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고로 자동 계산한 값입니다. 직접 입력하면 그 값이 우선합니다';
       tag.style.cssText = 'font-size:10.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:100px;padding:1px 7px;';
 
-      const s1 = mkStock(stock.product, `전일 재고(${U})`, raw => {
+      const s1 = mkStock(stock.product, U, raw => {
         if(raw === ''){ delete stock.product[id]; delete stock.auto[id]; ensureCarryOver(currentDateKey); }   // 비우면 자동 계산으로
         else { stock.product[id] = parseFloat(raw) || 0; delete stock.auto[id]; }
         savePreviousStock(); renderAggTable(); refresh();
       });
-      const s2 = mkStock(stock.product2, `이틀 전 재고(${U})`, raw => {
+      const s2 = mkStock(stock.product2, U, raw => {
         stock.product2[id] = raw === '' ? 0 : (parseFloat(raw) || 0);
         savePreviousStock(); renderAggTable();
       });
-      const s3 = mkStock(stock.made, `오늘 생산량(${U})`, raw => {
+      const s3 = mkStock(stock.made, U, raw => {
         if(raw === '') delete stock.made[id]; else stock.made[id] = Math.max(0, parseFloat(raw) || 0);
         savePreviousStock();
       });
@@ -6516,16 +6542,16 @@ function mnShow(id, keepScroll) {
         tag.style.display = isAuto ? '' : 'none';
         s1.upd(stock.product[id] ?? 0);
         const need = Math.max(0, carryRound((shipped[id] || 0) - (Number(stock.product[id]) || 0)));
-        s3.input.placeholder = need > 0 ? `필요 ${toIn(need)}${per > 0 ? '박스' : ''}` : `오늘 생산량(${U})`;
+        s3.input.placeholder = need > 0 ? `필요 ${toIn(need)}${per > 0 ? '박스' : ''}` : U;
       };
       s2.input.value = toIn(stock.product2[id] ?? ''); s2.upd(stock.product2[id] ?? 0);
       s3.input.value = toIn(stock.made[id] ?? ''); s3.upd(stock.made[id] ?? 0);
       refresh();
       // 칸마다 묶음(휴대폰에서는 이름 아래에 3칸으로 나란히, 칸 이름 표시)
-      const field = (label, parts) => { const f = document.createElement('div'); f.className = 'ps-f'; const l = document.createElement('span'); l.className = 'ps-l'; l.textContent = label; f.append(l, ...parts); return f; };
-      row.appendChild(field(`전일 재고(${U})`, [s1.input, tag, s1.span]));
-      row.appendChild(field(`이틀 전 재고(${U})`, [s2.input, s2.span]));
-      row.appendChild(field(`오늘 생산량(${U})`, [s3.input, s3.span]));
+      const field = (label, parts) => { const td = document.createElement('td'); const f = document.createElement('div'); f.className = 'ps-f'; const l = document.createElement('span'); l.className = 'ps-l'; l.textContent = label; f.append(l, ...parts); td.appendChild(f); return td; };
+      row.appendChild(field(`D-2 재고(${U})`, [s2.input, s2.span]));
+      row.appendChild(field(`D-1 재고(${U})`, [s1.input, tag, s1.span]));
+      row.appendChild(field(`D 생산량(${U})`, [s3.input, s3.span]));
 
       const clearBtn = document.createElement('button');
       clearBtn.className = 'btn-ghost small-btn ps-clear';
@@ -6539,9 +6565,9 @@ function mnShow(id, keepScroll) {
         refresh();
         renderAggTable();
       });
-      row.appendChild(clearBtn);
+      const tdX = document.createElement('td'); tdX.className = 'ps-x'; tdX.appendChild(clearBtn); row.appendChild(tdX);
 
-      if(active) wrap.appendChild(row); else { more.appendChild(row); nMore++; }
+      if(active) mainTbl.tBodies[0].appendChild(row); else { moreTbl.tBodies[0].appendChild(row); nMore++; }
     });
     if(nMore){
       moreSum.textContent = `자주 안 쓰는 품목 ${nMore}개 (최근 30일 발주·재고·생산량 없음) — 눌러서 펼치기`;
