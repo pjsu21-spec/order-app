@@ -439,6 +439,14 @@
   /* 생산 현황판 — 흰 배경, 품목별 색 구분(엑셀 발주서와 같은 색), 표가 가로 전체를 쓰고 제목·버튼은 표의 왼쪽 위 빈 칸에, 새로고침 정보는 오른쪽 아래에 */
   #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#fff; color:#1a2233; font-family:inherit; }
   #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:6px 6px 2px 6px; display:flex; justify-content:center; align-items:flex-start; }
+  @media (max-width: 759px){
+    #po-board .pb-body{ overflow:auto; -webkit-overflow-scrolling:touch; justify-content:flex-start; padding:4px; }
+    #po-board .pb-head{ position:static !important; order:-1; width:auto !important; transform:none !important; flex-direction:row; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:6px 10px; }
+    #po-board .pb-head .pb-actions{ flex-wrap:wrap; }
+    #po-board.rep .pb-body{ padding-top:4px; }
+    #po-board .pb-bottom{ padding:0 8px 4px; }
+    #po-board .pb-foot{ max-width:none; font-size:11px; }
+  }
   #po-board .pb-head{ position:absolute; left:0; top:0; width:228px; box-sizing:border-box; padding:5px 10px 6px; background:#e9eef8; transform-origin:0 0; z-index:2; display:flex; flex-direction:column; gap:3px; }
   #po-board .pb-bottom{ flex:0 0 auto; display:flex; align-items:flex-end; gap:16px; padding:0 12px 4px 10px; min-height:0; }
   #po-board .pb-head.wide{ width:340px; flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:1px 12px; }
@@ -18918,11 +18926,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!rows.length){ el.innerHTML = '<div class="sub" style="margin:0;">오늘 발주·재고가 있는 품목이 없습니다</div>'; return; }
     el.innerHTML = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>품목</th><th>재고(박스)</th><th>금일출고 박스</th><th>팩</th><th>생산박스(금일)</th></tr></thead><tbody>${rows.map(r => `<tr><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.stock}</td><td><b>${r.out}</b></td><td>${r.outPack}</td><td style="background:#fdf3dc;${r.prod > 0 ? 'color:#c0392b;' : 'color:#8a94a8;'}font-weight:700;">${r.prod}${r.left ? `<div style="font-size:11px;font-weight:500;color:#8a94a8;">재고 남음 ${r.left}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
   }
+  let prRenderPending = false;
   function prRender(){
     const card = document.getElementById('prod-report-card'); if(!card) return;
     const dk = currentDateKey;
     const badge = document.getElementById('prod-report-date'); if(badge) badge.textContent = dk ? `납품일 ${dk}` : '';
     prRenderOrder();
+    { const ae = document.activeElement; if(ae && ae !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && (ae.closest('#pr-inst') || ae.closest('#pr-etc') || ae.id === 'pr-std' || ae.id === 'pr-ctkg')){ prRenderPending = true; return; } }   // 입력 중이면 칸을 나간 뒤에 다시 그림
+    prRenderPending = false;
     const instEl = document.getElementById('pr-inst'), etcEl = document.getElementById('pr-etc');
     if(!dk) return;
     if(!prCache[dk]){ instEl.innerHTML = '<div class="sub" style="margin:0;">불러오는 중…</div>'; etcEl.innerHTML = ''; prLoad(dk); return; }
@@ -18937,8 +18948,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       h += `<tr data-id="${x.r.id}"><td><input data-f="lbl" value="${escapeHtml(x.r.lbl || '')}" placeholder="${x.i + 1}차" style="width:56px;"></td>
         <td><input data-f="raw" value="${escapeHtml(x.r.raw || '')}" placeholder="${escapeHtml(x.a.raw || '원물')}" style="width:90px;"></td>
         <td><select data-f="item" style="max-width:170px;"><option value="">품목 선택</option>${opts}</select></td>
-        <td><input data-f="kg" type="number" step="0.1" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : x.a.kg}" style="width:80px;"></td>
-        <td><input data-f="ct" type="number" step="1" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" style="width:60px;"></td>
+        <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : x.a.kg}" style="width:80px;"></td>
+        <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" style="width:60px;"></td>
         <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
         <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
     });
@@ -18969,7 +18980,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const t = ev.target, d = dk(); if(!d || !prCache[d]) return;
       if(t.closest('#pr-inst') && t.dataset.f){
         const id = rowOf(t), f = t.dataset.f; let v = t.value.trim();
-        if(f === 'kg' || f === 'ct') v = v === '' ? '' : Number(v);
+        if(f === 'kg' || f === 'ct'){
+          v = v.replace(/[,\s]/g, '').replace(/kg$/i, '');
+          if(v !== '' && !isFinite(Number(v))){ toast('숫자만 입력해주세요 (예: 240 또는 12.5)'); t.value = ''; return; }
+          v = v === '' ? '' : Number(v);
+        }
         prCommit(d, doc => { const r = doc.inst.find(x => x.id === id); if(r) r[f] = v; }, f === 'item');
         return;
       }
@@ -19022,6 +19037,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         })();
       }
     });
+    card.addEventListener('focusout', () => setTimeout(() => { if(prRenderPending && !card.contains(document.activeElement)) prRender(); }, 0));
     const fold = document.getElementById('prod-report-fold');
     if(fold){ try{ if(localStorage.getItem('pr-fold') === '1') fold.open = true; }catch(e){} fold.addEventListener('toggle', () => { try{ localStorage.setItem('pr-fold', fold.open ? '1' : '0'); }catch(e){} if(fold.open) prRender(); }); }
   })();
@@ -19148,7 +19164,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!w || !h) return;
     const cs = getComputedStyle(body);   // 안쪽 여백을 뺀 실제 표시 영역에 맞춤 (아래쪽 합계 줄이 잘리지 않게)
     const aw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-    const s = Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
+    const narrow = window.innerWidth < 760;   // 휴대폰: 가로 폭에 맞추되 글자가 너무 작아지지 않게 (넘치는 부분은 밀어서 봄)
+    const s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
     fit.style.zoom = s;
     poBoardPlaceHead();
   }
