@@ -3359,7 +3359,7 @@ async function sbRpc(name, args) {
 }
 const sessionToken = () => (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
 function buildCurrentUser(user, token) {
-  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', must_change_password: user.must_change_password === true, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files, perm_plan: user.perm_plan, perm_invoice: user.perm_invoice };   // perm_plan·perm_invoice: 생산/물류·송장/명세서 세부 권한 (없으면 발주자동화 권한을 따름)
+  return { id: user.id, username: user.username, display_name: user.display_name, department: user.department || '', must_change_password: user.must_change_password === true, role: user.role, token, access_order: user.access_order, access_sorting: user.access_sorting, sorting_master_edit: user.sorting_master_edit, access_files: user.access_files, access_cost: user.access_cost, access_sample: user.access_sample, readonly_order: user.readonly_order, readonly_sorting: user.readonly_sorting, readonly_files: user.readonly_files, perm_plan: user.perm_plan, perm_invoice: user.perm_invoice, access_shop: user.access_shop === true };   // perm_plan·perm_invoice: 생산/물류·송장/명세서 세부 권한 (없으면 발주자동화 권한을 따름)
 }
 // 로그인 → { token, user } (실패 시 예외)
 async function apiLogin(username, hash) {
@@ -3673,7 +3673,7 @@ const HOME_TILES = [
   { key: 'detail', icon: '🖼', img: 'assets/ic-detail.png', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'files', icon: '📁', img: 'assets/ic-files.png', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'shop', icon: '🛒', name: '다름달음 특가몰', desc: 'QR 행사몰', href: 'https://shop.dareumdaleum.com/shop.html' },   // 누구나, 새 창
-  { key: 'shop-admin', icon: '🛍', name: '특가몰 관리', desc: 'QR 행사몰 관리자 페이지', href: 'https://shop.dareumdaleum.com/admin.html', show: (u, admin) => admin },   // 관리자만, 새 창
+  { key: 'shop-admin', icon: '🛍', name: '특가몰 관리', desc: 'QR 행사몰 관리자 페이지', href: 'https://shop.dareumdaleum.com/admin.html', handoff: true, show: (u, admin) => admin || (u && u.access_shop === true) },   // 관리자 또는 특가몰 관리 권한, 새 창 (로그인된 채로 열림)
   { key: 'admin', icon: '🛠', img: 'assets/ic-admin.png', name: '관리자', desc: '사용자 · 권한 · 로그', nav: '#main-nav-btn-admin' },
   { key: 'manual', icon: '📖', img: 'assets/ic-manual.png', name: '사용설명서', desc: '화면별 사용 방법 · 자주 묻는 질문', nav: '#main-nav-btn-manual' },   // 권한과 무관하게 누구나
 ];
@@ -3798,6 +3798,12 @@ function renderHome() {
     el.className = 'home-tile' + (sampleAlert ? ' has-alert' : '');
     if (sampleAlert) el.dataset.key = 'sample';
     if (t.href) { el.href = t.href; if (!t.self) { el.target = '_blank'; el.rel = 'noopener'; } }
+    if (t.handoff) el.addEventListener('click', e => {   // 특가몰 관리: 같은 사용자의 새 로그인 세션을 만들어 로그인된 채로 엶 (실패하면 로그인 화면)
+      e.preventDefault();
+      const w = window.open('about:blank', '_blank');
+      sbRpc('qrshop_handoff', { p_token: sessionToken() }).then(r => r && r.token ? t.href + '#t=' + r.token : t.href).catch(() => t.href)
+        .then(url => { if (w) { try { w.opener = null; } catch (err) {} w.location.href = url; } else location.href = url; });
+    });
     else { el.type = 'button'; el.addEventListener('click', () => { if (sampleAlert) window.__samplePendingOpen = true; btn.click(); }); }   // 알림이 있으면 신청 내역(미확인)으로 바로 엶
     el.innerHTML = body;
     grid.appendChild(el);
@@ -17384,7 +17390,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       try{ await renderDeptPerms(rows); }catch(e){ console.error(e); }
       const rowsView = permsDeptFilter ? rows.filter(u => dpDeptOf(u) === permsDeptFilter) : rows;
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">발주 입력·집계/출고·실적·설정·이카운트</div></th><th>생산/물류<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>송장/명세서<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">발주 입력·집계/출고·실적·설정·이카운트</div></th><th>생산/물류<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>송장/명세서<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>특가몰 관리<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">shop 관리자 페이지</div></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rowsView.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
@@ -17509,6 +17515,21 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           });
           cells[7].appendChild(selS);
         }
+        // 특가몰 관리 (shop.dareumdaleum.com/admin.html): 관리자는 항상 허용
+        { const tdShop = document.createElement('td');
+          if(u.role === 'admin'){ const span = document.createElement('span'); span.textContent = '허용 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);'; tdShop.appendChild(span); }
+          else {
+            const on = u.access_shop === true, b = document.createElement('button');
+            b.className = on ? 'btn-primary small-btn' : 'btn-ghost small-btn'; b.textContent = on ? '✅ 허용' : '⛔ 차단';
+            b.addEventListener('click', async () => {
+              const res = await apiUpdateUser(u.id, { access_shop: !on });
+              if(!res.ok){ alert('권한 변경에 실패했습니다. Supabase SQL Editor에서 「특가몰_통합로그인_SQL.sql」을 먼저 실행해주세요.'); return; }
+              await writeLog('perm_change', `${u.username} 특가몰 관리: ${on} → ${!on}`);
+              loadAdminPerms();
+            });
+            tdShop.appendChild(b);
+          }
+          tr.appendChild(tdShop); }
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
