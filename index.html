@@ -7734,7 +7734,8 @@ function mnShow(id, keepScroll) {
     }));
     const dOrder = new Map(shipPlanOpts.drivers.map((x, i) => [x, i]));
     const ship = Object.values(shipMap).map(x => Object.assign(x, { boxes: R2(x.boxes), ggd: R2(x.ggd) })).sort((a, b) => (dOrder.has(a.name) ? dOrder.get(a.name) : 1e6) - (dOrder.has(b.name) ? dOrder.get(b.name) : 1e6) || a.name.localeCompare(b.name, 'ko'));
-    const m = { colors, dateKey: dk, cols, blocks, dispatch, disp: sum(dispatch), total, stock, stockUse, stock2: {}, notes: r.warn, hasPanel: true, ship };
+    const smpUse = Object.fromEntries(cols.map(c => [c.L, R2((r.model.smpUseByCol || {})[c.L])]));
+    const m = { smpUse, colors, dateKey: dk, cols, blocks, dispatch, disp: sum(dispatch), total, stock, stockUse, stock2: {}, notes: r.warn, hasPanel: true, ship };
     return { m, metas };
   }
   // 칸 바로 고치기 (입력칸으로 바꿨다가 Enter·칸 밖 클릭이면 저장, Esc면 취소)
@@ -16487,6 +16488,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const g = ctx.cells.get('G' + r);
       if(g && poHasFormula(g)) continue;
       if(total > 0) poSetNum(ctx, 'G' + r, Math.round(total * 100) / 100); else poClear(ctx, 'G' + r);
+      const su = Math.round(cols.reduce((s2, c) => s2 + ((input.smpUseByCol || {})[c] || 0), 0) * 100) / 100;
+      if(su > 0){   // 전날 생산한 샘플이 오늘 재고에서 나감 (발주서에는 줄로 안 나오므로 출고 후 재고 수식에 직접 반영)
+        const hc = ctx.cells.get('H' + r);
+        const fe = hc && [...hc.childNodes].find(x => x.localName === 'f');
+        if(fe && !fe.getAttribute('t')){ fe.textContent = f + '-' + su; [...hc.childNodes].forEach(x => { if(x.localName === 'v') hc.removeChild(x); }); }
+      }
     }
     // 4) 행 숨김: 발주 없는 업체 행은 숨기고, 업체가 하나도 없는 블록의 소계(와 뒤 빈 줄)도 숨김
     const hide = (row, on) => { const el = poEnsureRow(ctx, row); if(on) el.setAttribute('hidden', '1'); else el.removeAttribute('hidden'); };
@@ -17218,12 +17225,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     });
     // 샘플 신청(생산본부 생산으로 지정된 품목만): 신청자(부서)별로 묶어 서식의 샘플 행에 넣음. 영업 부서는 '영업용', 그 외는 '본사' 칸
     const sampleMap = new Map();
+    const smpUseByCol = {};   // 출고일 발주서에는 줄로 안 나오는 '전날 생산 샘플'의 열별 박스 (출고 후 재고에서만 뺌)
     (samples || []).forEach(r => {
       const who = (r.requester_name || '').trim() || '(신청자 미상)';
       const dept = (r.requester_dept || '').trim();
       const purpose = (r.purpose || '').trim();
       (r.items || []).forEach(i => {
         // 오늘 생산분과 전일 생산분(재고 사용)은 줄을 나눠 재고 사용량을 알 수 있게 함
+        if(i.fromStock){   // 발주서 반영일(생산일)에만 줄로 나옴 — 출고일에는 재고 차감만
+          const d0 = dict.find(x => x.id === i.skuId), q0 = Number(i.packs) || 0, c0 = d0 && colMap[d0.id];
+          if(c0 && q0 > 0) smpUseByCol[c0] = Math.round(((smpUseByCol[c0] || 0) + toBox(d0, q0)) * 100) / 100;
+          return;
+        }
         const fs = !!i.fromStock;
         const sg = sampleGroupOf(r, fs), key = sg.key;
         let e = sampleMap.get(key);
@@ -17269,7 +17282,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const s = Number((stockPacks || {})[d.id]) || 0;
       if(col && s > 0) stockByCol[col] = (stockByCol[col] || 0) + toBox(d, s);
     });
-    return { entries, dispatchRows, sampleNames, stockByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
+    return { entries, dispatchRows, sampleNames, stockByCol, smpUseByCol, extras, unmapped: [...unmapped], noUnit: [...noUnit] };
   }
 
   const PO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -17285,7 +17298,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261117d'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261118a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -17361,7 +17374,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const col15 = {};
     const addQ = q => Object.entries(q || {}).forEach(([c, v]) => { col15[c] = R2((col15[c] || 0) + v); });
     built.entries.forEach(e => addQ(e.colQty)); disp.forEach(x => addQ(x.qty));
-    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, sections, disp, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
+    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
   }
   async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
   function pgDownloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
@@ -17840,7 +17853,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{
       skuColumnMap = colMapU;
       await spLoad(dateKey, true);
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, smpUseByCol: built.smpUseByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
       const r = res.rep;
       if(r.planSkipped && r.planSkipped.length) add('warn', '합쳐진 칸에 못 넣는 배차·적재 항목', `${r.planSkipped.join(', ')} — 서식에서 위아래로 합쳐진 칸은 첫 줄 업체에만 들어갑니다`);
       if(r.planApplied && r.planApplied.length) add('info', '배차·적재·재고사용 반영', `입력된 ${r.planApplied.length}곳을 서식 오른쪽 칸에 채웁니다`);
@@ -17944,7 +17957,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       let draftInfo = null;   // 초안 공유본과 비교해 바뀐 업체 표시
       { const snap = await draftLoad(dateKey); if(snap) draftInfo = Object.assign(draftCompare(built, snap), { at: snap.at, by: snap.by }); }
       await spLoad(dateKey, true); // 다른 직원이 입력한 배차·적재·재고사용 최신값
-      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
+      const res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, smpUseByCol: built.smpUseByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
       const logos = await poReplaceLogos(ctx);
       const relabeled = poRelabelHeaders(ctx, res.rep.usedCols);
       const groupOverride = {};
@@ -19066,7 +19079,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!rows) rows = aggSample.date === dk ? aggSample.rows : [];
     const map = new Map();
     (rows || []).forEach(r => (r.items || []).forEach(i => {
-      const q = Number(i.packs) || 0; if(!i.skuId || q <= 0) return;
+      const q = Number(i.packs) || 0; if(!i.skuId || q <= 0 || i.fromStock) return;   // 전날 생산 샘플은 반영일(생산일) 줄에서 배차
       const fsk = !!i.fromStock, g = sampleGroupOf(r, fsk);
       let u = map.get(g.planKey);
       if(!u){ u = { name: g.planKey, display: g.name, region: g.region, fromStock: fsk, items: {}, reqs: [] }; map.set(g.planKey, u); }
@@ -19718,7 +19731,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let res;
     try{
       skuColumnMap = cm;
-      res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
+      res = poFill(ctx, { date: dateKey, stockByCol: built.stockByCol, smpUseByCol: built.smpUseByCol, entries: built.entries, dispatchRows: built.dispatchRows, extras: built.extras, plan: spPlanForFill(dateKey, sampleRows) });
       const go = {};
       dict.forEach(d => { const c = cm[d.id], g = skuGroupMap[d.id]; if(c && g) go[c] = remap(g); });
       poRelabelHeaders(ctx, res.rep.usedCols); poRegroupHeaders(ctx, res.rep.usedCols, go); poRelabelWeights(ctx, res.rep.usedCols, go);
@@ -19799,7 +19812,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     Object.entries(((previousStock[dateKey] || {}).product2) || {}).forEach(([id, packs]) => { const d = dict.find(x => x.id === id), L = skuColumnMap[id]; if(d && L) stock2[L] = (stock2[L] || 0) + toBx(d, Number(packs) || 0); });
     Object.keys(stockUse).forEach(L => { stockUse[L] = Math.round(stockUse[L] * 100) / 100; });
     const colors = await poBoardColors(ctx, cols);
-    return { colors, draft: draftInfo, dateKey, cols, blocks, dispatch, main, disp, total, stock, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, stockUse, stock2, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
+    const smpUse = Object.fromEntries(cols.map(c => [c.L, Math.round(((built.smpUseByCol || {})[c.L] || 0) * 100) / 100]));
+    return { colors, draft: draftInfo, dateKey, cols, blocks, dispatch, main, disp, total, stock, smpUse, notes, prodSeq: pp.seq, prodReq: pp.req, prodVariety: pp.variety, stockUse, stock2, hasPanel: !!(pc.driver || pc.load || pc.stock || pc.note), ship, rawUse };
   }
 
   // ── 현황판 색: 엑셀 발주서(서식)와 같은 품목별·묶음별 색 ──
@@ -20196,7 +20210,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     { const su = m.stockUse || {}, s2 = m.stock2 || {};
       html += `<tr class="pb-sum2 pb-use"><td colspan="${fixed}" class="pb-lbl" title="배차·적재에서 업체마다 적은 재고사용(전일+이틀 전) + 재고 사용 샘플">재고사용 합계 (박스)</td>${m.cols.map(c => `<td class="pb-n">${su[c.L] ? pbFmt(su[c.L]) : ''}</td>`).join('')}${pBlank}</tr>`;
     }
-    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L]) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
+    html += `<tr class="pb-sum2"><td colspan="${fixed}" class="pb-lbl">출고 후 재고</td>${m.cols.map(c => { const v = Math.round((m.stock[c.L] - m.total[c.L] - ((m.smpUse || {})[c.L] || 0)) * 100) / 100; return `<td class="pb-n${v < 0 ? ' pb-neg' : ''}">${v || m.stock[c.L] || m.total[c.L] ? (v < 0 ? '−' + pbFmt(-v) : (v ? pbFmt(v) : '0')) : ''}</td>`; }).join('')}${pBlank}</tr>`;
     // 업체별
     m.blocks.forEach(b => {
       b.rows.forEach((r, k) => {

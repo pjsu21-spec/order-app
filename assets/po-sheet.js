@@ -74,7 +74,7 @@
       let text, used;
       if(L.bottle){ const n = sumC(L.bottle); used = n; text = `□${L.label} : ${n}병   [${R2(n * 0.15)}kg]`; }
       else { const bx = sumC(L.box), pk = sumC(L.pack); used = bx + pk; text = `□${L.label} : ${bx}박스(${R2(bx * 4 + pk)}팩)   [${R2(bx * L.kg + pk * 0.15)}kg]`; }
-      dyn['B' + L.r] = text; dyn['G' + L.r] = stock || ''; dyn['H' + L.r] = R2(stock - sumC(L.box || L.bottle));
+      dyn['B' + L.r] = text; dyn['G' + L.r] = stock || ''; dyn['H' + L.r] = R2(stock - sumC(L.box || L.bottle) - sumC(L.box || L.bottle, m.smpUseByCol || {}));   // 전날 생산 샘플이 오늘 재고에서 나감
       if(!(stock > 0) && !(used > 0)) hideRows.add(L.r);
     });
     GROUPS.forEach(G => { dyn[G.cell] = `총수량 : ${sumC(G.cols)}${G.unit}`; });
