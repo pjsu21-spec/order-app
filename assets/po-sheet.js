@@ -241,7 +241,52 @@
       m.extras.forEach(e => { g.set(r, 'B', `${e.company} · ${e.item} ${e.qty}${e.unit || ''}`, Object.assign(mk(), { fc: '#000000' })); g.row(r).h = 18; r++; });
     }
     g.maxRow = r - 1;
+    autoFit(g);
     return g;
+  }
+  // 글자 길이에 맞춰 왼쪽 이름 칸(B~H열) 너비를 늘림 — 업체명·구분이 두 줄로 접히거나 잘리지 않게 (줄바꿈 글자·여러 줄 병합 머리글은 제외)
+  const FIT = ['B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  function textUnits(t, sz){
+    let em = 0;
+    for(const ch of String(t)){
+      if(/[ᄀ-ᇿ㄰-㆏가-힯]/.test(ch)) em += 1;
+      else if(ch === ' ') em += 0.32;
+      else if(/[0-9a-z.,:·]/.test(ch)) em += 0.58;
+      else em += 0.66;
+    }
+    const px = em * (sz || 10) * 96 / 72 * 1.1;   // 굵은 글씨·PC마다 다른 글꼴 여유
+    return (px + 12) / 7;                          // 엑셀 열 너비 단위(대략 7px)
+  }
+  function autoFit(g){
+    const fitIdx = new Set(FIT.map(CI));
+    const spans = new Map();   // 대표 칸 → 병합 범위
+    const inside = new Set();
+    g.merges.forEach(m => {
+      const [a, b] = m.split(':'); const p = s => { const x = /([A-Z]+)(\d+)/.exec(s); return [CI(x[1]), +x[2]]; };
+      const [c1, r1] = p(a), [c2, r2] = p(b);
+      spans.set(c1 + ',' + r1, { c1, c2, r1, r2 });
+      for(let i = r1; i <= r2; i++) for(let j = c1; j <= c2; j++) if(!(i === r1 && j === c1)) inside.add(j + ',' + i);
+    });
+    const needs = [];
+    for(let r = 1; r < g.rows.length; r++){
+      const R = g.rows[r]; if(!R || R.hidden) continue;
+      Object.entries(R.cells).forEach(([col, c]) => {
+        const n = CI(col);
+        if(!fitIdx.has(n) || typeof c.v !== 'string' || !c.v.trim() || /\n/.test(c.v) || inside.has(n + ',' + r)) return;
+        const sp = spans.get(n + ',' + r) || { c1: n, c2: n, r1: r, r2: r };
+        if(r < 19 && !spans.has(n + ',' + r)) return;   // 머리글의 병합 안 된 글자(◇토마토 등)는 옆 칸으로 넘쳐 보이는 것이라 제외
+        if(sp.r2 > sp.r1 && sp.c2 > sp.c1) return;   // 여러 줄 × 여러 칸 머리글은 그대로
+        for(let j = sp.c1; j <= sp.c2; j++) if(!fitIdx.has(j)) return;
+        needs.push({ c1: sp.c1, c2: sp.c2, u: textUnits(c.v, c.st && c.st.sz) });
+      });
+    }
+    const w = j => g.cols[j - 1].w || 9;
+    // 한 칸짜리 먼저, 그다음 여러 칸 병합(모자란 만큼 마지막 칸에 더함)
+    needs.filter(x => x.c1 === x.c2).forEach(x => { if(x.u > w(x.c1)) g.cols[x.c1 - 1].w = Math.round(x.u * 100) / 100; });
+    needs.filter(x => x.c1 !== x.c2).forEach(x => {
+      let s = 0; for(let j = x.c1; j <= x.c2; j++) if(!g.cols[j - 1].hidden) s += w(j);
+      if(x.u > s) g.cols[x.c2 - 1].w = Math.round((w(x.c2) + x.u - s) * 100) / 100;
+    });
   }
 
   // ── 숫자 표시 (엑셀 형식과 같게: 0은 안 보임) ──
