@@ -392,6 +392,11 @@
   #po-board.rep .pb-title, #po-board.rep .pb-date{ display:none; }
   #po-board.rep .pb-body{ padding-top:38px; }
   #po-board .pr-rep{ width:1040px; color:#111; font-size:17px; }
+  .pg-pr .pr-rep{ width:1040px; color:#111; font-size:17px; }
+  table.pg-rules{ border-collapse:collapse; font-size:13px; }
+  table.pg-rules th, table.pg-rules td{ border:1px solid var(--line,#e5e7eb); padding:4px 6px; text-align:left; }
+  table.pg-rules th{ background:var(--bg-soft,#f6f7f9); font-weight:700; }
+  table.pg-rules input[type=color]{ width:34px; height:24px; padding:0; border:1px solid #ccc; vertical-align:middle; }
   #po-board .pr-rep .pr-h{ display:inline-block; font-size:21px; font-weight:800; border:1px solid #7d879c; border-bottom:none; padding:2px 14px; background:#fff; }
   #po-board .pr-rep table{ border-collapse:collapse; width:100%; margin:0 0 14px; table-layout:auto; }
   #po-board .pr-rep th, #po-board .pr-rep td{ border:1px solid #7d879c; padding:5px 8px; text-align:center; line-height:1.3; }
@@ -1309,6 +1314,9 @@
     <div class="row">
       <button class="btn-primary" id="export-btn">전체 엑셀 다운로드</button>
       <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 발주취합 다운로드</button>
+      <button class="btn-ghost small-btn" id="pg-xlsx-btn" title="서식 파일 없이 프로그램이 지금 서식과 같은 모양으로 발주취합 엑셀을 만듭니다 (시험 중 — 기존 다운로드와 숫자가 같은지 비교해 주세요). 출력·공유용이라 수식 없이 값만 들어갑니다">🆕 새 방식 다운로드 (시험)</button>
+      <button class="btn-ghost small-btn" id="pg-img-btn" title="발주서를 이미지로 만들어 복사·저장·공유합니다 (단체 카톡방 공유용)">🖼 공유용 이미지</button>
+      <button class="btn-ghost small-btn" id="pg-print-btn" title="발주서를 A4 가로 한 장 폭에 맞춰 바로 인쇄합니다">🖨 인쇄</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
       <button class="btn-ghost small-btn" id="po-draft-save-btn" title="지금 상태를 초안 공유본으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명 칸이 노란색으로 표시됩니다">📌 초안 공유본으로 저장</button>
       <button class="btn-ghost small-btn" id="po-draft-clear-btn" style="display:none;" title="저장된 초안 공유본을 해제합니다">초안 해제</button>
@@ -1320,6 +1328,11 @@
     <div id="po-check-report" style="font-size:12px;margin:8px 0 0;"></div>
     <div id="po-report" style="font-size:12px;margin:8px 0 0;"></div>
 
+    <details id="pg-rules-details" style="margin-top:14px;">
+      <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">🎨 새 방식 발주서 색 규칙 (거래처 음영 · 납품담당 · 적재방식)</summary>
+      <div class="sub" style="margin:6px 0 8px;">새 방식 다운로드·공유용 이미지·인쇄에 쓰이는 색입니다. 글자가 들어가 있으면 그 색을 칠합니다 — 예) 거래처명에 <b>상장</b>이 들어가면 회색, 납품담당이 <b>박근환</b>이면 연두색. 기본값은 지금 서식의 색 규칙과 같습니다.</div>
+      <div id="pg-rules-wrap" style="overflow-x:auto;"></div>
+    </details>
     <details id="po-template-details" style="margin-top:14px;">
       <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">📊 발주취합 서식 (등록 · 교체 · 품목별 열 지정)</summary>
       <div style="margin-top:10px;">
@@ -1495,6 +1508,8 @@
     </div></details>
     <div class="row" style="margin-top:0;align-items:center;">
       <button type="button" class="btn-ghost small-btn" id="pr-board-btn" title="TV 생산 현황판을 생산일보 화면으로 엽니다">📺 생산일보 보기</button>
+      <button type="button" class="btn-ghost small-btn" id="pr-img-btn" title="생산일보를 이미지로 만들어 복사·저장·공유합니다 (단체 카톡방 공유용)">🖼 공유용 이미지</button>
+      <button type="button" class="btn-ghost small-btn" id="pr-print-btn" title="생산일보를 A4 가로로 바로 인쇄합니다">🖨 인쇄</button>
       <button type="button" class="btn-ghost small-btn" id="pr-copy-prev" title="최근 생산일보의 인원 배치·일용직·총 인원·비고를 가져옵니다">⤵ 전날 인원·비고 가져오기</button>
       <span id="pr-meta" style="font-size:12px;color:var(--muted);"></span>
       <span id="pr-ro" class="sub" style="display:none;margin:0;">👁 생산 / 물류 권한이 읽기만이라 보기만 됩니다</span>
@@ -16578,6 +16593,239 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const dow = PO_DAYS[new Date(y, m - 1, d).getDay()];
     return `투맛토 발주_${String(y).slice(2)}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}(${dow}).xlsx`;
   }
+
+  // ══════════════════ 발주취합 새 방식 (서식 파일 없이 생성) · 공유용 이미지 · 인쇄 ══════════════════
+  // assets/po-sheet.js 가 지금 서식과 같은 모양으로 표를 만든다. 여기서는 그날 자료를 모아 넘기고(poGenModel), 엑셀·이미지·인쇄로 내보낸다.
+  let pgLoading = null;
+  function pgEnsure(){
+    if(window.PoSheet && window.PO_BASE) return Promise.resolve();
+    if(pgLoading) return pgLoading;
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261117b'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
+    return pgLoading;
+  }
+  // 색 규칙 (거래처명 음영 · 납품담당 · 적재방식): kv 'po-sheet-rules' = { name: [{kw, fill}], text: [{target, kw, fill, fc, b}] }
+  let pgRulesCache = null;
+  function pgDefaultRules(){ const B = window.PO_BASE; return { name: B.nameRules.map(x => ({ target: 'name', kw: x.kw, fill: x.fill, fc: '', b: 0 })), text: B.textRules.map(x => Object.assign({}, x)) }; }
+  async function pgRules(force){
+    if(pgRulesCache && !force) return pgRulesCache;
+    try{ const r = await window.storage.get('po-sheet-rules', true); const v = r && r.value ? JSON.parse(r.value) : null; pgRulesCache = v && Array.isArray(v.text) ? v : pgDefaultRules(); }
+    catch(e){ pgRulesCache = pgRulesCache || pgDefaultRules(); }
+    (pgRulesCache.name || []).forEach(x => { x.target = 'name'; });
+    return pgRulesCache;
+  }
+  const PG_MARKETS = ['가락', '구리', '강서', '인천', '안산', '수원', '천안', '대전', '광주', '대구', '구미', '부산'];   // 서식의 도매 시장 순서
+  const PG_REGIONS = ['수도권', '지방'];
+  // 그날 자료 → 표 모델
+  async function poGenModel(dateKey){
+    await pgEnsure();
+    await spLoad(dateKey, true);
+    let sampleRows = [], warn = [];
+    if(typeof window.getSampleRequestsForDate === 'function'){ try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }catch(e){ warn.push('샘플 신청을 불러오지 못해 샘플이 빠졌습니다'); } }
+    ensureCarryOver(dateKey);
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dateKey), stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
+    addQcSampleEntry(built, skuColumnMap);
+    try{ const snap = await draftLoad(dateKey); if(snap) draftCompare(built, snap); }catch(e){ /* 초안 비교는 부가 기능 */ }
+    const plan = spPlanForFill(dateKey, sampleRows);
+    const PS = window.PoSheet, R2 = v => Math.round((Number(v) || 0) * 100) / 100;
+    const toRow = (e, extra) => {
+      const qty = {}; Object.entries(e.colQty || {}).forEach(([c, q]) => { const v = R2(q); if(v) qty[c] = v; });
+      const boxes = R2(PS.BOX_COLS.reduce((a, c) => a + (qty[c] || 0), 0)), packs = R2(boxes * 4 + PS.PACK_COLS.reduce((a, c) => a + (qty[c] || 0), 0));
+      const p = plan[e.planKey || e.name] || {};
+      const note = [p.note || '', ...(e.notes || [])].filter(Boolean).join(' / ');
+      return Object.assign({ name: e.name, qty, boxes, packs, changed: !!e.changed, plan: { driver: p.driver || '', load: p.load || '', stock: p.stockText || (e.stockAll ? '전량재고' : ''), note } }, extra || {});
+    };
+    const idx = new Map(companies.map((c, i) => [c.name, i])), ix = n => idx.has(n) ? idx.get(n) : 1e6;
+    const subs = { doma: [], jik: [], sp: [], gaein: [], smp: [], cvs: [], other: new Map() };
+    const tplRows = [], tplQty = {}; let tplAny = false, tplChanged = false;
+    built.entries.forEach((e, order) => {
+      const cat = String(e.category || '').trim();
+      if(e.isThirdParty){ tplAny = true; Object.entries(e.colQty || {}).forEach(([c, q]) => { tplQty[c] = (tplQty[c] || 0) + q; }); if(e.changed) tplChanged = true; return; }
+      if(/샘플발송/.test(cat)){ tplRows.push(toRow(e, { label: cat, qc: true })); return; }
+      if(cat === '샘플'){ subs.smp.push(toRow(e, { group: e.region || '본사', _o: e.name === QC_ENTRY_NAME ? 1e9 : order })); return; }
+      const row = toRow(e, { region: e.region || '', market: e.market || '', corp: e.corp || '', _o: order });
+      if(cat === '도매') subs.doma.push(row);
+      else if(cat === 'SP') subs.sp.push(row);
+      else if(cat === '개인구매') subs.gaein.push(row);
+      else if(cat === '편의점') subs.cvs.push(row);
+      else if(cat === '직거래') subs.jik.push(row);
+      else { const k = cat || '미분류'; if(!subs.other.has(k)) subs.other.set(k, []); subs.other.get(k).push(row); if(!cat) warn.push(`분류가 없는 업체: ${e.name} (‘미분류’ 줄로 넣었습니다 — 거래처 관리에서 분류를 정해주세요)`); }
+    });
+    if(tplAny){ const e = { name: '3PL', colQty: tplQty, planKey: '__3pl__', changed: tplChanged }; tplRows.unshift(toRow(e, { label: '3PL(제이엠로지스)', f: '금일출고' })); }
+    else if(tplRows.length) tplRows[0].f = '';
+    const byCo = (a, b) => ix(a.name) - ix(b.name) || a._o - b._o;
+    const rank = (list, v) => { const i = list.indexOf(v); return i < 0 ? list.length : i; };
+    subs.doma.sort((a, b) => rank(PG_REGIONS, a.region) - rank(PG_REGIONS, b.region) || rank(PG_MARKETS, a.market) - rank(PG_MARKETS, b.market) || String(a.market).localeCompare(String(b.market)) || byCo(a, b));
+    subs.sp.sort((a, b) => rank(PG_REGIONS, a.region) - rank(PG_REGIONS, b.region) || byCo(a, b));
+    [subs.jik, subs.gaein, subs.cvs].forEach(l => l.sort(byCo));
+    subs.smp.sort((a, b) => (a.group === '영업용' ? 0 : 1) - (b.group === '영업용' ? 0 : 1) || a._o - b._o);
+    const sections = [];
+    if(subs.cvs.length) sections.push({ subs: [{ kind: 'jik', label: '편의점', rows: subs.cvs }] });
+    sections.push({ subs: [{ kind: 'doma', label: '오프라인', rows: subs.doma }, { kind: 'jik', label: '오프라인', rows: subs.jik }, ...[...subs.other.entries()].map(([k, rows]) => ({ kind: 'jik', label: k, rows: rows.sort(byCo) }))] });
+    sections.push({ subs: [{ kind: 'sp', label: 'SP', rows: subs.sp }] });
+    sections.push({ subs: [{ kind: 'tpl', rows: tplRows }] });
+    sections.push({ subs: [{ kind: 'gaein', label: '개인구매', rows: subs.gaein }] });
+    sections.push({ subs: [{ kind: 'smp', label: '샘플', rows: subs.smp }] });
+    // 출고일 지정 업체 (쿠팡 등): 소비기한 = 출고일 + 4일 + (차수 − 1)일
+    const disp = (built.dispatchRows || []).slice().sort((a, b) => String(a.company).localeCompare(String(b.company)) || String(a.warehouse).localeCompare(String(b.warehouse)) || String(a.shipDate).localeCompare(String(b.shipDate)) || (a.seq || 1) - (b.seq || 1)).map(gr => {
+      const r = toRow({ name: gr.company, colQty: gr.colQty, planKey: '#none' });
+      const [y, m, d] = String(gr.shipDate).split('-').map(Number), ex = new Date(y, m - 1, d + 4 + (Math.max(1, Number(gr.seq) || 1) - 1));
+      return Object.assign(r, { company: /쿠팡/i.test(gr.company) ? 'coupang' : gr.company, warehouse: gr.warehouse || '', shipDate: gr.shipDate, seq: gr.seq || 1, shelf: `소비기한 : ${ex.getMonth() + 1}월 ${ex.getDate()}일까지`, plan: { driver: '명일출고', load: 'kpp', stock: '', note: '' } });
+    });
+    // 품목 열별 합계(발주 + 출고일 지정) · 전일 재고
+    const col15 = {};
+    const addQ = q => Object.entries(q || {}).forEach(([c, v]) => { col15[c] = R2((col15[c] || 0) + v); });
+    built.entries.forEach(e => addQ(e.colQty)); disp.forEach(x => addQ(x.qty));
+    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, sections, disp, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
+  }
+  async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
+  function pgDownloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
+  // 공유용 이미지: 화면 밖에 표를 그려 캡처 → 미리보기 창(복사 · 저장 · 공유)
+  async function pgFontReady(){
+    if(!document.getElementById('pg-font-css')){ const st = document.createElement('style'); st.id = 'pg-font-css'; st.textContent = window.PoSheet.fontCss; document.head.appendChild(st); }
+    try{ await Promise.race([document.fonts.load("800 12px 'PoNanumEB'"), new Promise(r => setTimeout(r, 6000))]); }catch(e){ /* 글꼴이 늦으면 기본 글꼴 */ }
+  }
+  async function pgCapture(html, width, fileBase, extraCss){
+    if(typeof html2canvas !== 'function'){ toast('캡처 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    await pgFontReady();
+    const holder = document.createElement('div');
+    holder.setAttribute('data-noico', '');
+    holder.style.cssText = `position:fixed;left:-20000px;top:0;background:#fff;padding:14px;width:${width + 28}px;`;
+    holder.innerHTML = (extraCss ? `<style>${extraCss}</style>` : '') + html;
+    document.body.appendChild(holder);
+    try{
+      const canvas = await html2canvas(holder, { backgroundColor: '#ffffff', scale: 2, useCORS: true, windowWidth: width + 60 });
+      const blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
+      pgImageDialog(blob, fileBase + '.png', canvas.toDataURL('image/png'));
+    } finally { holder.remove(); }
+  }
+  function pgImageDialog(blob, name, dataUrl){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="sub" style="margin:0 0 8px;">단체 카톡방에 올릴 때는 <b>[이미지 복사]</b> 후 카톡 대화창에 붙여넣기(Ctrl+V) 하거나, <b>[파일로 저장]</b>한 뒤 보내세요. 휴대폰에서는 <b>[공유]</b>로 카톡을 바로 고를 수 있습니다.</div><div style="max-height:60vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px;"><img alt="" style="display:block;max-width:100%;"></div>`;
+    wrap.querySelector('img').src = dataUrl;
+    const btns = [{ text: '닫기', fn: c => c() }, { text: '💾 파일로 저장', fn: () => pgDownloadBlob(blob, name) }];
+    if(navigator.clipboard && window.ClipboardItem) btns.push({ text: '📋 이미지 복사', primary: true, fn: async () => { try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast('이미지를 복사했습니다. 카톡 대화창에 붙여넣기 하세요'); }catch(e){ toast('복사하지 못했습니다. [파일로 저장]을 이용해주세요'); } } });
+    try{ const f = new File([blob], name, { type: 'image/png' }); if(navigator.canShare && navigator.canShare({ files: [f] })) btns.push({ text: '📤 공유', fn: async () => { try{ await navigator.share({ files: [f], title: name }); }catch(e){ /* 취소 */ } } }); }catch(e){ /* 공유 미지원 */ }
+    pgModal('🖼 공유용 이미지', wrap, btns);
+  }
+  function pgModal(title, body, buttons){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--card,#fff);border-radius:14px;max-width:min(1100px,96vw);width:100%;padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.25);';
+    box.innerHTML = `<div style="font-weight:800;font-size:16px;margin-bottom:10px;">${escapeHtml(title)}</div>`;
+    box.appendChild(body);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px;';
+    const close = () => ov.remove();
+    buttons.forEach(b => { const el = document.createElement('button'); el.type = 'button'; el.className = b.primary ? 'btn-primary small-btn' : 'btn-ghost small-btn'; el.textContent = b.text; el.addEventListener('click', () => b.fn(close)); row.appendChild(el); });
+    box.appendChild(row); ov.appendChild(box);
+    ov.addEventListener('click', e => { if(e.target === ov) close(); });
+    document.body.appendChild(ov);
+    return { close };
+  }
+  // 인쇄: 숨은 창(iframe)에 표를 넣고 A4 가로 한 장 폭에 맞춰 인쇄
+  async function pgPrint(html, width, extraCss, title){
+    await pgFontReady();
+    const fr = document.createElement('iframe');
+    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(fr);
+    const pageW = 1080;   // A4 가로 인쇄 영역 폭(px, 여백 제외 대략)
+    const zoom = Math.min(1, pageW / (width + 4));
+    const doc = fr.contentDocument;
+    doc.open();
+    doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title || '인쇄')}</title><style>${window.PoSheet.fontCss}@page{size:A4 landscape;margin:7mm;}html,body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.pg-z{zoom:${zoom};}${extraCss || ''}</style></head><body><div class="pg-z">${html}</div></body></html>`);
+    doc.close();
+    try{ await Promise.race([fr.contentDocument.fonts.load("800 12px 'PoNanumEB'"), new Promise(r => setTimeout(r, 6000))]); }catch(e){}
+    await new Promise(r => setTimeout(r, 200));
+    fr.contentWindow.focus(); fr.contentWindow.print();
+    setTimeout(() => fr.remove(), 60000);
+  }
+  const pgDateLabel = dk => { const [y, m, d] = dk.split('-').map(Number); return `${String(y).slice(2)}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}(${PO_DAYS[new Date(y, m - 1, d).getDay()]})`; };
+  async function pgRun(kind){
+    const dk = currentDateKey; if(!dk) return;
+    const btn = document.getElementById('pg-' + kind + '-btn'); if(btn) btn.disabled = true;
+    try{
+      toast(kind === 'xlsx' ? '새 방식으로 발주취합 만드는 중...' : '발주서를 그리는 중...');
+      const r = await poGenGrid(dk);
+      if(!r.counts.rows && !r.counts.disp){ toast('이 날짜에는 채울 주문이 없습니다'); return; }
+      if(kind === 'xlsx'){
+        const blob = await window.PoSheet.toXlsx(r.grid);
+        pgDownloadBlob(blob, poFileName(dk).replace(/\.xlsx$/, '') + ' (새 방식).xlsx');
+        const rep = document.getElementById('po-report');
+        if(rep) rep.innerHTML = `<div style="color:var(--accent);font-weight:700;">🆕 새 방식(시험)으로 만들었습니다 — 업체 ${r.counts.rows}줄${r.counts.disp ? ` · 출고일 지정 ${r.counts.disp}줄` : ''}${r.counts.extras ? ` · 품목 열이 없는 주문 ${r.counts.extras}건(파일 맨 아래)` : ''}. 기존 다운로드 파일과 숫자가 같은지 비교해 주세요.</div>` + r.warn.map(w => `<div style="color:var(--danger,#c0392b);">⚠ ${escapeHtml(w)}</div>`).join('');
+        await writeLog('po_export_new', `발주취합 새 방식 다운로드 ${dk}`);
+      } else {
+        const h = window.PoSheet.toHtml(r.grid);
+        if(kind === 'img') await pgCapture(h.html, h.width, '발주서_' + pgDateLabel(dk));
+        else await pgPrint(h.html, h.width, '', '발주서 ' + dk);
+      }
+    }catch(e){ console.error(e); toast('만들지 못했습니다: ' + (e.message || e)); }
+    finally{ if(btn) btn.disabled = false; }
+  }
+  // 생산일보: 현황판의 생산일보 화면과 같은 내용을 이미지·인쇄로
+  function pgPrCss(){
+    let css = '';
+    [...document.styleSheets].forEach(ss => { let rules; try{ rules = ss.cssRules; }catch(e){ return; } [...(rules || [])].forEach(r => { if(r.selectorText && /\.pr-rep/.test(r.selectorText)) css += r.cssText.replace(/#po-board\s+/g, '.pg-pr ') + '\n'; }); });
+    return css + `.pg-pr{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111;background:#fff;}`;
+  }
+  async function pgReport(kind){
+    const dk = currentDateKey; if(!dk) return;
+    try{
+      await pgEnsure();
+      const m = await poBoardCollect(dk);
+      const html = `<div class="pg-pr">${prReportHtml(m)}</div>`;
+      if(kind === 'img') await pgCapture(html, 1040, '생산일보_' + pgDateLabel(dk), pgPrCss());
+      else await pgPrint(html, 1040, pgPrCss(), '생산일보 ' + dk);
+    }catch(e){ console.error(e); toast('생산일보를 만들지 못했습니다: ' + (e.message || e)); }
+  }
+  // 색 규칙 편집 (설정 아래 '새 방식 발주서 색 규칙')
+  async function pgRulesRender(){
+    const wrap = document.getElementById('pg-rules-wrap'); if(!wrap) return;
+    try{ await pgEnsure(); }catch(e){ wrap.textContent = e.message; return; }
+    const rules = JSON.parse(JSON.stringify(await pgRules(true)));
+    const list = [...(rules.name || []).map(x => Object.assign({}, x, { target: 'name' })), ...(rules.text || [])];
+    const T = { name: '거래처명(음영)', driver: '납품담당', load: '적재방식' };
+    const canEdit = window.accessLevel('order') === 'full';
+    const paint = () => {
+      wrap.innerHTML = `<table class="pg-rules"><thead><tr><th>대상</th><th>이 글자가 들어가면</th><th>배경색</th><th>글자색</th><th>굵게</th><th></th></tr></thead><tbody></tbody></table>`;
+      const tb = wrap.querySelector('tbody');
+      list.forEach((x, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><select data-f="target">${Object.entries(T).map(([k, v]) => `<option value="${k}"${x.target === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td><td><input data-f="kw" type="text" value="${escapeHtml(x.kw || '')}" style="width:140px;"></td><td><input data-f="fill" type="color" value="${x.fill || '#ffffff'}"><label class="sub" style="margin:0 0 0 4px;"><input data-f="nofill" type="checkbox"${x.fill ? '' : ' checked'}> 없음</label></td><td><input data-f="fc" type="color" value="${x.fc || '#000000'}"><label class="sub" style="margin:0 0 0 4px;"><input data-f="nofc" type="checkbox"${x.fc ? '' : ' checked'}> 기본</label></td><td><input data-f="b" type="checkbox"${x.b ? ' checked' : ''}></td><td><button type="button" class="btn-ghost small-btn" data-del>삭제</button></td>`;
+        tr.querySelectorAll('input,select').forEach(el => { el.disabled = !canEdit; el.addEventListener('change', () => {
+          const f = el.dataset.f;
+          if(f === 'target' || f === 'kw') x[f] = el.value.trim();
+          else if(f === 'fill' || f === 'nofill'){ x.fill = tr.querySelector('[data-f="nofill"]').checked ? '' : tr.querySelector('[data-f="fill"]').value.toUpperCase(); }
+          else if(f === 'fc' || f === 'nofc'){ x.fc = tr.querySelector('[data-f="nofc"]').checked ? '' : tr.querySelector('[data-f="fc"]').value.toUpperCase(); }
+          else if(f === 'b') x.b = el.checked ? 1 : 0;
+        }); });
+        tr.querySelector('[data-del]').disabled = !canEdit;
+        tr.querySelector('[data-del]').addEventListener('click', () => { list.splice(i, 1); paint(); });
+        tb.appendChild(tr);
+      });
+      const bar = document.createElement('div'); bar.className = 'row'; bar.style.marginTop = '8px';
+      bar.innerHTML = `<button type="button" class="btn-ghost small-btn" data-add>+ 규칙 추가</button><button type="button" class="btn-primary small-btn" data-save>저장</button><button type="button" class="btn-ghost small-btn" data-reset>지금 서식 기본값으로</button>`;
+      bar.querySelectorAll('button').forEach(b => { b.disabled = !canEdit; });
+      bar.querySelector('[data-add]').addEventListener('click', () => { list.push({ target: 'name', kw: '', fill: '#D9D9D9', fc: '', b: 0 }); paint(); });
+      bar.querySelector('[data-reset]').addEventListener('click', () => { const d = pgDefaultRules(); list.splice(0, list.length, ...d.name, ...d.text); paint(); });
+      bar.querySelector('[data-save]').addEventListener('click', async () => {
+        const clean = list.filter(x => x.kw);
+        const v = { name: clean.filter(x => x.target === 'name').map(x => ({ target: 'name', kw: x.kw, fill: x.fill || '', fc: x.fc || '', b: x.b ? 1 : 0 })), text: clean.filter(x => x.target !== 'name').map(x => ({ target: x.target, kw: x.kw, fill: x.fill || '', fc: x.fc || '', b: x.b ? 1 : 0 })) };
+        try{ await window.storage.set('po-sheet-rules', JSON.stringify(v), true); pgRulesCache = v; toast('색 규칙을 저장했습니다'); }catch(e){ toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+      });
+      wrap.appendChild(bar);
+    };
+    paint();
+  }
+  (function wirePoGen(){
+    const $ = id => document.getElementById(id);
+    if($('pg-xlsx-btn')) $('pg-xlsx-btn').addEventListener('click', () => pgRun('xlsx'));
+    if($('pg-img-btn')) $('pg-img-btn').addEventListener('click', () => pgRun('img'));
+    if($('pg-print-btn')) $('pg-print-btn').addEventListener('click', () => pgRun('print'));
+    if($('pr-img-btn')) $('pr-img-btn').addEventListener('click', () => pgReport('img'));
+    if($('pr-print-btn')) $('pr-print-btn').addEventListener('click', () => pgReport('print'));
+    const det = $('pg-rules-details'); if(det) det.addEventListener('toggle', () => { if(det.open) pgRulesRender(); });
+  })();
 
   // 다운로드 후 결과 안내 (경고는 붉은 글씨로 남겨둠)
   function poShowReport(lines){
