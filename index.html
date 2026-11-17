@@ -3318,6 +3318,7 @@ window.storage = {
       return val !== null ? { key, value: val } : null;
     }
     if (window.kvSkip(key)) return null;   // 권한상 필요 없는 큰 자료는 받지 않음
+    if (!window.currentUser) throw new Error('로그인 전에는 공용 자료를 읽지 않습니다');   // '불러오기 실패' 경고로 잘못 표시되지 않게 (서버도 로그인 전에는 거절)
     if (kvPre.map.has(key)) {
       const v = kvPre.map.get(key);
       kvPre.map.delete(key);
@@ -3652,6 +3653,7 @@ async function writeLog(action, detail = '') {
 // ── 로그인 화면 표시/숨기기 ──
 function showLoginScreen() {
   document.getElementById('login-screen').style.display = 'flex';
+  try { window.__loadFailed.clear(); kvFailBanner(); } catch (e) {}   // 로그인 화면에서는 '불러오기 실패' 경고를 띄우지 않음
   document.getElementById('app').style.display = 'none';
 }
 function showApp() {
@@ -7933,7 +7935,7 @@ function mnShow(id, keepScroll) {
     aggBoardTimer = setTimeout(() => aggBoardRender(false), 700);
   }
   async function aggBoardRender(force){
-    if(aggTab !== 'board') return;
+    if(aggTab !== 'board' || !window.currentUser) return;
     const body = document.getElementById('agg-board-body'), meta = document.getElementById('agg-board-meta');
     if(!body) return;
     const dk = currentDateKey;
@@ -7971,7 +7973,6 @@ function mnShow(id, keepScroll) {
     // 집계 / 출고 탭을 열 때 현황판 형태가 골라져 있으면 그 화면으로
     const sub = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-agg"]');
     if(sub) sub.addEventListener('click', () => { if(aggTab === 'board') setTimeout(() => aggTabSet('board'), 0); });
-    if(aggTab === 'board') setTimeout(() => aggTabSet('board'), 0);
   })();
 
   function renderAggTable(){
