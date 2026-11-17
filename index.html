@@ -406,6 +406,8 @@
   .ib-box .ib-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   .ib-box .ib-t{ font-size:11px; color:var(--muted); white-space:nowrap; }
   .ib-box .ib-done{ font-size:11px; color:#15803d; white-space:nowrap; }
+  .ib-box .ib-it.dup{ border-color:#f59e0b; background:#fffbeb; }
+  .ib-box .ib-dup{ font-size:11px; font-weight:700; color:#b45309; white-space:nowrap; }
   .ib-box .ib-x{ border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; }
   .pb-embed td.pbe-ed{ cursor:pointer; }
   .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
@@ -1052,15 +1054,17 @@
       <img class="login-logo" src="assets/logo-red.png" alt="다름달음">
       <div style="font-size:14px; color:var(--muted); margin-top:4px; font-weight:600;">통합 오더 시스템</div>
     </div>
+    <form id="login-form" autocomplete="on" onsubmit="return false;">
     <div style="margin-bottom:12px;">
-      <label style="font-size:12px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px;">아이디</label>
-      <input type="text" id="login-username" placeholder="아이디 입력" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit;">
+      <label for="login-username" style="font-size:12px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px;">아이디</label>
+      <input type="text" id="login-username" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="아이디 입력" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit;">
     </div>
     <div style="margin-bottom:20px;">
       <label style="font-size:12px; font-weight:600; color:var(--muted); display:block; margin-bottom:4px;">비밀번호</label>
-      <input type="password" id="login-password" placeholder="비밀번호 입력" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit;">
+      <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="비밀번호 입력" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit;">
     </div>
-    <button id="login-btn" style="width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">로그인</button>
+    <button type="submit" id="login-btn" style="width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">로그인</button>
+    </form>
     <div id="login-error" style="color:#b5482e; font-size:12px; text-align:center; margin-top:10px; display:none;"></div>
   </div>
 </div>
@@ -3571,17 +3575,32 @@ async function logout() {
 
 async function restoreSession() {
   const token = localStorage.getItem('auth_token');
+  window.__sessionRetry = false;
   if (!token) return false;
-  try {
-    const user = await apiMe(token);
-    if (!user) { localStorage.removeItem('auth_token'); return false; }
-    window.currentUser = buildCurrentUser(user, token);
-    return true;
-  } catch(e) {
-    console.error('세션 복원 오류:', e);
-    localStorage.removeItem('auth_token');
-    return false;
+  // 서버가 "끝난 로그인"이라고 분명히 답할 때만 로그인 정보를 지움. 인터넷이 잠깐 불안정해 확인이 실패하면 몇 번 다시 시도하고, 그래도 안 되면 정보는 남겨 둠
+  const waits = [700, 1500, 3000];
+  for (let i = 0; i <= waits.length; i++) {
+    try {
+      const user = await apiMe(token);
+      if (!user) { localStorage.removeItem('auth_token'); return false; }
+      window.currentUser = buildCurrentUser(user, token);
+      return true;
+    } catch (e) {
+      console.warn('로그인 확인 실패 (다시 시도):', e);
+      if (i < waits.length) await new Promise(r => setTimeout(r, waits[i]));
+    }
   }
+  window.__sessionRetry = true;
+  return false;
+}
+// 연결 문제로 로그인 확인을 못 했을 때: 로그인 화면에 안내 + [다시 연결] (인터넷이 돌아오면 자동으로 다시 시도)
+function showSessionRetry() {
+  showLoginScreen();
+  const el = document.getElementById('login-error');
+  if (el) { el.innerHTML = '서버에 연결하지 못해 로그인을 확인하지 못했습니다. 로그인 정보는 그대로 있으니 인터넷 연결 후 <button type="button" id="session-retry-btn" style="margin-left:4px;padding:2px 10px;border:1px solid #b5482e;border-radius:6px;background:#fff;color:#b5482e;cursor:pointer;font-family:inherit;">다시 연결</button> 을 눌러 주세요'; el.style.display = 'block'; }
+  const go = async () => { window.removeEventListener('online', go); const ok = await restoreSession(); if (ok) { if (el) el.style.display = 'none'; if (window.__afterSessionOk) await window.__afterSessionOk(); } else if (window.__sessionRetry) showSessionRetry(); else if (el) { el.textContent = '로그인이 만료되었습니다. 다시 로그인해 주세요'; } };
+  const b = document.getElementById('session-retry-btn'); if (b) b.addEventListener('click', go);
+  window.addEventListener('online', go);
 }
 
 // ── 내 비밀번호 변경 (로그인한 본인) ──
@@ -4882,7 +4901,7 @@ function mnShow(id, keepScroll) {
   function recordFingerprint(company, fp){
     const list = uploadFingerprints[company] || (uploadFingerprints[company] = []);
     if(list.some(e=> e.h === fp)) return;
-    list.push({ h: fp, dateKey: currentDateKey, at: new Date().toISOString() });
+    list.push({ h: fp, dateKey: currentDateKey, at: new Date().toISOString(), by: (window.currentUser && window.currentUser.display_name) || getStaffName() || '' });
     const cutoff = Date.now() - 180 * 86400000;
     uploadFingerprints[company] = list.filter(e=> Date.parse(e.at) >= cutoff).slice(-300);
     saveUploadFingerprints();
@@ -8875,12 +8894,13 @@ function mnShow(id, keepScroll) {
     head += '</div>';
     let body = '';
     if(list.length){
-      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; return `<div class="ib-it${d ? ' done' : ''}"><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-primary small-btn" data-ib-load="${i}">불러오기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-primary small-btn" data-ib-load="${i}">불러오기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
     } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
     else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
     box.innerHTML = head + body;
     box.style.display = (st === 'unsupported' && !list.length && !ibInstallEvt) ? 'none' : '';
-    box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(x) ibUse(x); }));
+    box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(!x) return; if(x.dup && !confirm(`${x.name}\n\n${x.dup.company}: ${x.dup.text}\n\n다른 직원이 이미 불러왔을 수 있습니다. 그래도 열까요?`)) return; ibUse(x); }));
+    ibMarkDups(list);
     box.querySelectorAll('[data-ib-del]').forEach(b => b.addEventListener('click', async () => { const x = list[+b.dataset.ibDel]; if(x && x.remove){ await x.remove(); await ibRefresh(false); } }));
     const on = (k, fn) => { const b = box.querySelector(`[data-ib="${k}"]`); if(b) b.addEventListener('click', fn); };
     on('connect', ibPick); on('change', ibPick);
@@ -8940,6 +8960,63 @@ function mnShow(id, keepScroll) {
     window.addEventListener('focus', () => { if(ibFolderState === 'ok') ibRefresh(false); });   // 카톡에서 파일을 받고 돌아오면 목록 갱신
   })();
 
+
+  // ── 중복 방지 보강: 불러오기 직전에 다른 직원이 방금 불러온 자료까지 서버에서 다시 읽고 검사 ──
+  let udSyncAt = 0, udSyncSkip = false;
+  async function uploadSyncLatest(){
+    const read = async k => { const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; };
+    const [tp, fp] = await Promise.all([read('thirdparty-lineitems'), read('upload-fingerprints')]);
+    if(tp && typeof tp === 'object') thirdPartyLineItems = tp;
+    if(fp && typeof fp === 'object') uploadFingerprints = fp;
+    udSyncAt = Date.now();
+    try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){ /* 화면 갱신은 부가 */ }
+  }
+  // [이 매핑으로 불러오기]를 누르면 먼저 최신 자료를 맞춘 뒤 원래 처리를 그대로 진행 (capture라 가장 먼저 실행)
+  document.getElementById('upload-apply-btn').addEventListener('click', async e => {
+    if(udSyncSkip || Date.now() - udSyncAt < 4000){ udSyncSkip = false; return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    const btn = e.currentTarget, label = btn.textContent;
+    btn.disabled = true; btn.textContent = '다른 직원이 불러온 자료 확인 중…';
+    let okSync = true;
+    try{ await uploadSyncLatest(); }catch(err){ okSync = false; }
+    btn.disabled = false; btn.textContent = label;
+    if(!okSync){ udSyncSkip = true; toast('최신 자료를 확인하지 못했습니다 (인터넷 연결 확인). 그래도 불러오려면 한 번 더 누르세요'); return; }
+    btn.click();
+  }, true);
+  // 받은 발주서 목록: 이미 불러온 파일인지 표시 (주문번호가 있는 3PL은 주문번호로, 나머지는 파일 지문으로)
+  const ibReadAoa = file => new Promise(ok => { try{ readSheetFile(file, aoa => ok(aoa || [])); }catch(e){ ok([]); } setTimeout(() => ok(null), 8000); });
+  async function ibDupInfo(x){
+    const aoa = await ibReadAoa(x.file); if(!aoa || !aoa.length) return null;
+    const det = await uploadDetectCompany(x.name, aoa); if(!det) return null;
+    const co = companies.find(c => c.name === det.company), mp = (co && co.uploadMapping) || null;
+    if(!mp) return null;
+    const startRow = Number(mp.startRow) || 2;
+    if(co.isThirdParty && mp.orderNo){
+      const oi = letterToIndex(mp.orderNo); if(oi < 0) return null;
+      const mine = new Set(); for(let r = startRow - 1; r < aoa.length; r++){ const v = String(((aoa[r] || [])[oi]) ?? '').trim(); if(v) mine.add(v); }
+      if(!mine.size) return null;
+      const have = new Set(); Object.values(thirdPartyLineItems).forEach(rows => (rows || []).forEach(l => { if(l.company === co.name && l.orderNo) have.add(String(l.orderNo).trim()); }));
+      const n = [...mine].filter(v => have.has(v)).length;
+      if(!n) return null;
+      return { company: co.name, text: n === mine.size ? `이미 불러온 주문 (${n}건 모두)` : `일부 이미 불러옴 (${n}/${mine.size}건 — 불러오면 겹치는 주문은 자동으로 빠짐)`, all: n === mine.size };
+    }
+    const keep = uploadedSheetData; let fp = '';
+    try{ uploadedSheetData = aoa; fp = fileFingerprint(startRow); }finally{ uploadedSheetData = keep; }
+    const hit = (uploadFingerprints[co.name] || []).find(e => e.h === fp);
+    if(!hit) return null;
+    const at = new Date(hit.at), t = isNaN(at) ? '' : `${at.getMonth() + 1}/${at.getDate()} ${pad2(at.getHours())}:${pad2(at.getMinutes())}`;
+    return { company: co.name, text: `이미 불러옴 · ${hit.by ? hit.by + ' ' : ''}${t}`.trim(), all: true };
+  }
+  async function ibMarkDups(list){
+    if(!list.length || window.accessLevel('order') === 'none') return;
+    if(Date.now() - udSyncAt > 60000){ try{ await uploadSyncLatest(); }catch(e){ return; } }
+    for(const x of list.slice(0, 12)){
+      let info = null; try{ info = await ibDupInfo(x); }catch(e){ /* 표시는 부가 기능 */ }
+      x.dup = info;
+      const el = document.querySelector(`#inbox-box .ib-it[data-k="${CSS.escape(x.key)}"]`);
+      if(el && info){ el.classList.add('dup'); const b = document.createElement('span'); b.className = 'ib-dup'; b.textContent = '⚠ ' + info.text; b.title = `${info.company} — 다른 직원이 이미 불러왔을 수 있습니다`; el.querySelector('.ib-nm').after(b); }
+    }
+  }
   // 불러올 때 이 파일 양식·이름을 그 업체로 기억 (다음부터 자동 선택)
   document.getElementById('upload-apply-btn').addEventListener('click', () => {
     const co = document.getElementById('upload-company-select').value;
@@ -9598,7 +9675,8 @@ function mnShow(id, keepScroll) {
       if(prevLoad && dupConfirmKey !== confirmKey){
         dupConfirmKey = confirmKey;
         document.getElementById('upload-apply-btn').textContent = '그래도 불러오기';
-        showUploadDupNote(`⚠ 이 업체의 같은 내용 파일을 ${prevLoad.dateKey} 발주에 이미 불러왔습니다. 중복이 아니라면 "그래도 불러오기"를 누르세요.`);
+        { const pa = new Date(prevLoad.at), pt = isNaN(pa) ? '' : ` ${pa.getMonth() + 1}/${pa.getDate()} ${pad2(pa.getHours())}:${pad2(pa.getMinutes())}`;
+          showUploadDupNote(`⚠ 이 업체의 같은 내용 파일을 ${prevLoad.dateKey} 발주에 이미 불러왔습니다${prevLoad.by || pt ? ` (${(prevLoad.by || '') + pt})`.replace('( ', '(') : ''}. 중복이 아니라면 "그래도 불러오기"를 누르세요.`); }
         toast('이미 불러온 파일과 같은 내용입니다');
         return;
       }
@@ -17936,6 +18014,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     errEl.style.display = 'none';
     try{
       await login(username, password);
+      // 크롬·삼성 인터넷: 아이디·비밀번호를 브라우저 비밀번호 관리자에 저장하도록 제안 (저장은 브라우저가 하고 이 프로그램 서버에는 저장되지 않음)
+      try{ if(window.PasswordCredential && navigator.credentials && navigator.credentials.store) navigator.credentials.store(new PasswordCredential({ id: username, password, name: (window.currentUser && window.currentUser.display_name) || username })).catch(() => {}); }catch(err){}
+      document.getElementById('login-password').value = '';
       showApp();
       await loadState();
     }catch(e){
@@ -17944,8 +18025,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       btn.disabled = false; btn.textContent = '로그인';
     }
   }
-  document.getElementById('login-btn').addEventListener('click', doLogin);
-  document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  document.getElementById('login-form').addEventListener('submit', e => { e.preventDefault(); doLogin(); });   // 버튼·Enter 모두 (브라우저가 '비밀번호 저장'을 제안할 수 있게 form 제출로)
 
   // ── 관리자 탭 (최상단 메인 탭) ──
   function showAdminSection(sec){
@@ -20995,12 +21075,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
+  window.__afterSessionOk = async () => { showApp(); await loadState(); };   // [다시 연결]로 로그인이 확인됐을 때
   (async ()=>{
     try{
       const ok = await restoreSession();
       if(ok){
         showApp();
         await loadState();
+      } else if(window.__sessionRetry){
+        showSessionRetry();
       } else {
         showLoginScreen();
       }
