@@ -1,0 +1,39 @@
+{
+  "name": "다름달음 통합 오더 시스템",
+  "short_name": "다름달음 오더",
+  "description": "다름달음 발주취합 · 생산 · 물류 통합 시스템",
+  "id": "index.html",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#d9485b",
+  "lang": "ko",
+  "icons": [
+    { "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "index.html?share-target=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            ".xlsx", ".xls", ".csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+            "text/csv",
+            "text/comma-separated-values",
+            "application/octet-stream"
+          ]
+        }
+      ]
+    }
+  }
+}

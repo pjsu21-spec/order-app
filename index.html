@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#d9485b">
+<link rel="apple-touch-icon" href="assets/app-icon-180.png">
 <title>다름달음 통합 시스템</title>
 <meta property="og:title" content="다름달음 통합 시스템">
 <meta property="og:description" content="발주취합 · 원물선별 · 이카운트 연동 통합 관리 시스템">
@@ -394,6 +397,16 @@
   #po-board .pr-rep{ width:1040px; color:#111; font-size:17px; }
   .pg-pr .pr-rep{ width:1040px; color:#111; font-size:17px; }
   table.pg-rules{ border-collapse:collapse; font-size:13px; }
+  .ib-box{ border:1px solid var(--line, #e5e7eb); border-radius:10px; padding:8px 10px; margin:0 0 10px; background:var(--bg-soft, #fafafa); }
+  .ib-box .ib-hd{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; }
+  .ib-box .ib-list{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
+  .ib-box .ib-it{ display:flex; align-items:center; gap:8px; font-size:12.5px; background:#fff; border:1px solid var(--line, #e5e7eb); border-radius:8px; padding:4px 8px; }
+  .ib-box .ib-it.done{ opacity:.65; }
+  .ib-box .ib-src{ font-size:11px; color:var(--muted); white-space:nowrap; }
+  .ib-box .ib-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .ib-box .ib-t{ font-size:11px; color:var(--muted); white-space:nowrap; }
+  .ib-box .ib-done{ font-size:11px; color:#15803d; white-space:nowrap; }
+  .ib-box .ib-x{ border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; }
   .pb-embed td.pbe-ed{ cursor:pointer; }
   .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
   .pb-embed td .pbe-in{ width:100%; min-width:60px; box-sizing:border-box; font:inherit; padding:2px 4px; border:2px solid #3b82f6; border-radius:4px; text-align:inherit; }
@@ -1176,8 +1189,10 @@
         <label style="font-size:13px;font-weight:600;">업체 선택 :</label>
         <select id="upload-company-select" style="min-width:160px;"></select>
       </div>
+      <div id="upload-detect-note" class="sub" style="display:none;margin:2px 0 6px;color:var(--accent);font-weight:700;"></div>
+      <div id="inbox-box" class="ib-box" style="display:none;"></div>
       <div class="dropzone" id="upload-dropzone">
-        <div>주문 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요 (xlsx / xls / csv)</div>
+        <div>주문 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요 (xlsx / xls / csv) — 업체는 파일을 보고 자동으로 고릅니다</div>
         <div class="fname" id="upload-fname"></div>
         <input type="file" id="upload-file-input" accept=".xlsx,.xls,.csv" style="display:none;">
       </div>
@@ -8746,15 +8761,190 @@ function mnShow(id, keepScroll) {
   }
 
   function handleOnlineOrderFile(file){
-    const companyName = document.getElementById('upload-company-select').value;
-    if(!companyName){ toast('먼저 업체를 선택해주세요'); return; }
     document.getElementById('upload-fname').textContent = file.name;
+    uploadFileName = file.name;
     resetDupConfirm();
-    readSheetFile(file, (aoa)=>{
+    readSheetFile(file, async (aoa)=>{
       uploadedSheetData = aoa;
+      const sel = document.getElementById('upload-company-select');
+      let det = null; try{ det = await uploadDetectCompany(file.name, aoa); }catch(e){ console.error(e); }
+      if(det && det.company !== sel.value && (!sel.value || det.strong)){
+        sel.value = det.company; sel.dispatchEvent(new Event('change'));   // 업체를 바꾸면 매핑 화면을 다시 그림
+        udNote(`🔎 ${det.how}로 「${det.company}」를 골랐습니다 — 다르면 위 업체 선택에서 바꿔 주세요`);
+        return;
+      }
+      if(!sel.value){ udNote('업체를 고르면 바로 불러올 수 있습니다 (한 번 불러오면 다음부터는 이 양식·파일 이름으로 자동 선택)'); toast('업체를 선택해주세요'); return; }
+      udNote(det && det.company === sel.value ? `🔎 ${det.how}로 확인: 「${det.company}」` : '');
       renderUploadMapping();
     });
   }
+
+  // ══════════════════ 받은 발주서: 업체 자동 선택 · 휴대폰 공유 · PC 카톡 받은 파일 폴더 ══════════════════
+  // ── 업체 자동 선택: ① 예전에 같은 머리글(양식)로 불러온 업체 ② 같은 파일 이름 모양으로 불러온 업체 ③ 파일 이름에 들어 있는 업체명 ──
+  //  kv 'upload-detect-rules' = { names: { 파일이름키: 업체 }, sigs: { 업체: { row, sig } } } — [이 매핑으로 불러오기]를 누를 때마다 배움
+  let udRules = null;
+  async function udLoad(){ if(udRules) return udRules; try{ const r = await window.storage.get('upload-detect-rules', true); udRules = r && r.value ? JSON.parse(r.value) : null; }catch(e){} if(!udRules || typeof udRules !== 'object') udRules = {}; udRules.names = udRules.names || {}; udRules.sigs = udRules.sigs || {}; return udRules; }
+  const udNameKey = n => String(n || '').replace(/\.[a-z0-9]+$/i, '').replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[0-9]+/g, ' ').replace(/[\s_\-.,~·]+/g, '').toLowerCase();
+  const udNorm = t => String(t == null ? '' : t).replace(/\s+/g, '').toLowerCase();
+  const udSig = (aoa, row) => { const r = (aoa || [])[row] || []; const s = r.slice(0, 15).map(udNorm).join('|'); return s.replace(/\|+$/, ''); };
+  const udCoKey = n => String(n || '').replace(/\(주\)|㈜|주식회사|\(유\)|유한회사|\(상장\)|상장/g, '').replace(/[\s()_\-.]+/g, '').toLowerCase();
+  async function uploadDetectCompany(fileName, aoa){
+    const R = await udLoad();
+    const has = n => companies.some(c => c.name === n);
+    // ① 머리글(양식)
+    for(const [co, s] of Object.entries(R.sigs)){ if(has(co) && s && s.sig && s.sig.length >= 6 && udSig(aoa, s.row) === s.sig) return { company: co, how: '예전에 불러온 같은 양식', strong: true }; }
+    // ② 파일 이름 모양
+    const nk = udNameKey(fileName);
+    if(nk && R.names[nk] && has(R.names[nk])) return { company: R.names[nk], how: '예전에 불러온 같은 파일 이름', strong: true };
+    // ③ 파일 이름에 업체명 (긴 이름 먼저, 업로드 양식이 있는 업체 우선)
+    const fk = udCoKey(fileName);
+    const cands = companies.map(c => ({ c, k: udCoKey(c.name) })).filter(x => x.k.length >= 2 && fk.includes(x.k)).sort((a, b) => (b.c.uploadMapping ? 1 : 0) - (a.c.uploadMapping ? 1 : 0) || b.k.length - a.k.length);
+    if(cands.length) return { company: cands[0].c.name, how: '파일 이름', strong: false };
+    return null;
+  }
+  async function uploadLearn(company, fileName, startRow){
+    if(!company || !fileName || window.accessLevel('order') !== 'full') return;
+    // 파일 내용은 불러오기 처리에서 곧 비워지므로 기다리기 전에 먼저 읽어 둠
+    const nk = udNameKey(fileName), row = startRow - 2, sig = uploadedSheetData && startRow > 1 ? udSig(uploadedSheetData, row) : '';
+    const R = await udLoad();
+    if(nk) R.names[nk] = company;
+    if(sig.length >= 6) R.sigs[company] = { row, sig };
+    try{ await window.storage.set('upload-detect-rules', JSON.stringify(R), true); }catch(e){ /* 배우기는 부가 기능 */ }
+  }
+  let uploadFileName = '';
+  function udNote(t){ const el = document.getElementById('upload-detect-note'); if(el){ el.textContent = t || ''; el.style.display = t ? '' : 'none'; } }
+
+  // ── 받은 발주서 목록 (휴대폰 공유 · PC 폴더) ──
+  const IB_DONE_KEY = 'inbox-loaded';
+  const ibKeyOf = f => `${f.name}|${f.size}|${f.lastModified || 0}`;
+  const ibDone = () => { try{ return JSON.parse(localStorage.getItem(IB_DONE_KEY) || '{}'); }catch(e){ return {}; } };
+  function ibMarkDone(f){ try{ const m = ibDone(); m[ibKeyOf(f)] = Date.now(); const ks = Object.keys(m); if(ks.length > 300) ks.sort((a, b) => m[a] - m[b]).slice(0, ks.length - 300).forEach(k => delete m[k]); localStorage.setItem(IB_DONE_KEY, JSON.stringify(m)); }catch(e){} }
+  let ibShared = [], ibFolder = [], ibFolderState = '';   // ibFolderState: '' | 'none'(미연결) | 'prompt'(허용 필요) | 'ok' | 'unsupported'
+  const IB_ACCEPT = /\.(xlsx|xls|csv)$/i;
+  async function ibLoadShared(){
+    ibShared = [];
+    if(!('caches' in window)) return;
+    try{
+      const cache = await caches.open('dd-share-inbox');
+      for(const req of await cache.keys()){
+        const res = await cache.match(req); if(!res) continue;
+        const name = decodeURIComponent(res.headers.get('X-File-Name') || '공유파일');
+        const at = Number(res.headers.get('X-Received')) || Date.now();
+        const blob = await res.blob();
+        ibShared.push({ src: 'share', key: req.url, name, at, file: new File([blob], name, { type: blob.type, lastModified: at }), remove: () => cache.delete(req) });
+      }
+    }catch(e){ console.error(e); }
+  }
+  // PC 폴더: 연결한 폴더 정보는 이 브라우저(IndexedDB)에만 저장
+  function ibDb(){ return new Promise((ok, bad) => { const r = indexedDB.open('dd-inbox', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
+  async function ibDirGet(){ try{ const db = await ibDb(); return await new Promise(ok => { const q = db.transaction('h').objectStore('h').get('kakaoDir'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); }catch(e){ return null; } }
+  async function ibDirSet(h){ const db = await ibDb(); await new Promise((ok, bad) => { const t = db.transaction('h', 'readwrite'); h ? t.objectStore('h').put(h, 'kakaoDir') : t.objectStore('h').delete('kakaoDir'); t.oncomplete = ok; t.onerror = () => bad(t.error); }); }
+  async function ibScanFolder(ask){
+    ibFolder = [];
+    if(!window.showDirectoryPicker){ ibFolderState = 'unsupported'; return; }
+    const h = await ibDirGet();
+    if(!h){ ibFolderState = 'none'; return; }
+    let perm = 'denied';
+    try{ perm = await h.queryPermission({ mode: 'read' }); if(perm !== 'granted' && ask) perm = await h.requestPermission({ mode: 'read' }); }catch(e){}
+    if(perm !== 'granted'){ ibFolderState = 'prompt'; return; }
+    ibFolderState = 'ok';
+    const since = Date.now() - 3 * 86400000;
+    try{
+      for await (const [name, ent] of h.entries()){
+        if(ent.kind !== 'file' || !IB_ACCEPT.test(name) || name.startsWith('~$')) continue;
+        const f = await ent.getFile();
+        if(f.lastModified < since) continue;
+        ibFolder.push({ src: 'folder', key: 'f:' + name + ':' + f.lastModified, name, at: f.lastModified, file: f });
+      }
+    }catch(e){ console.error(e); ibFolderState = 'prompt'; }
+    ibFolder.sort((a, b) => b.at - a.at); ibFolder = ibFolder.slice(0, 20);
+    ibFolder.dirName = h.name;
+  }
+  function ibRender(){
+    const box = document.getElementById('inbox-box'); if(!box) return;
+    const list = [...ibShared, ...ibFolder].sort((a, b) => b.at - a.at);
+    const done = ibDone();
+    const t = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+    const st = ibFolderState;
+    let head = '<div class="ib-hd"><b>📥 받은 발주서</b>';
+    if(st === 'none') head += ' <button type="button" class="btn-ghost small-btn" data-ib="connect" title="카톡 PC가 파일을 저장하는 폴더(보통 문서 → 카카오톡 받은 파일)를 한 번 연결하면, 새로 받은 발주서가 여기에 뜹니다 (이 PC·이 브라우저에만 저장)">📂 카톡 받은 파일 폴더 연결</button>';
+    else if(st === 'prompt') head += ' <button type="button" class="btn-primary small-btn" data-ib="allow" title="브라우저 보안 때문에 다시 열 때 한 번 허용이 필요합니다">📂 폴더 다시 허용 (한 번)</button>';
+    else if(st === 'ok') head += ` <span class="sub" style="margin:0;">📂 ${escapeHtml(ibFolder.dirName || '')} (최근 3일)</span> <button type="button" class="btn-ghost small-btn" data-ib="rescan">🔄</button> <button type="button" class="btn-ghost small-btn" data-ib="change">폴더 바꾸기</button>`;
+    if(ibInstallEvt) head += ' <button type="button" class="btn-ghost small-btn" data-ib="install" title="휴대폰 홈 화면에 앱으로 설치하면 카톡에서 공유 → 다름달음 오더로 발주서를 바로 보낼 수 있습니다">📲 앱으로 설치</button>';
+    head += '</div>';
+    let body = '';
+    if(list.length){
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; return `<div class="ib-it${d ? ' done' : ''}"><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-primary small-btn" data-ib-load="${i}">불러오기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+    } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
+    else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
+    box.innerHTML = head + body;
+    box.style.display = (st === 'unsupported' && !list.length && !ibInstallEvt) ? 'none' : '';
+    box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(x) ibUse(x); }));
+    box.querySelectorAll('[data-ib-del]').forEach(b => b.addEventListener('click', async () => { const x = list[+b.dataset.ibDel]; if(x && x.remove){ await x.remove(); await ibRefresh(false); } }));
+    const on = (k, fn) => { const b = box.querySelector(`[data-ib="${k}"]`); if(b) b.addEventListener('click', fn); };
+    on('connect', ibPick); on('change', ibPick);
+    on('allow', () => ibRefresh(true)); on('rescan', () => ibRefresh(false));
+    on('install', async () => { try{ ibInstallEvt.prompt(); await ibInstallEvt.userChoice; }catch(e){} ibInstallEvt = null; ibRender(); });
+  }
+  async function ibPick(){
+    try{
+      const h = await window.showDirectoryPicker({ id: 'kakao-inbox', mode: 'read', startIn: 'documents' });
+      await ibDirSet(h); await ibRefresh(true);
+      toast('폴더를 연결했습니다. 새로 받은 엑셀 발주서가 목록에 뜹니다');
+    }catch(e){ if(e && e.name !== 'AbortError') toast('폴더를 연결하지 못했습니다: ' + (e.message || e)); }
+  }
+  let ibBusy = null;
+  async function ibRefresh(ask){
+    if(ibBusy){ try{ await ibBusy; }catch(e){} }   // 이미 읽는 중이면 끝난 뒤 다시 읽음
+    const tmo = p => Promise.race([p, new Promise(r => setTimeout(r, 4000))]);
+    ibBusy = Promise.all([tmo(ibLoadShared()), tmo(ibScanFolder(ask))]);
+    try{ await ibBusy; }finally{ ibBusy = null; }
+    ibRender();
+  }
+  // 받은 파일을 업로드 칸에 넣기 (업체는 자동 선택)
+  async function ibUse(x){
+    const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]');
+    if(go && !go.classList.contains('active')) go.click();
+    handleOnlineOrderFile(x.file);
+    ibMarkDone(x.file); ibRender();
+    const card = document.getElementById('upload-dropzone'); if(card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  // 휴대폰 앱 설치 (안드로이드 크롬): 설치 가능하면 버튼 표시
+  let ibInstallEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); ibInstallEvt = e; ibRender(); });
+  if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // 공유로 열렸으면(?shared=…) 로그인·자료가 준비된 뒤 발주 입력으로 가서 첫 파일을 바로 불러옴
+  (function ibOnShare(){
+    const qs = new URLSearchParams(location.search);
+    const shared = qs.get('shared');
+    if(!shared) return;
+    history.replaceState(null, '', location.pathname);
+    let tries = 0;
+    const tick = async () => {
+      tries++;
+      if(!(window.currentUser && dict && dict.length && companies && companies.length && document.getElementById('app').style.display !== 'none')){ if(tries < 240) setTimeout(tick, 500); return; }
+      if(shared === 'error'){ toast('공유받은 파일을 읽지 못했습니다. 다시 공유해 주세요'); return; }
+      const nav = document.querySelector('.main-nav-btn[data-panel="panel-order-group"]'); if(nav) nav.click();
+      await ibRefresh(false);
+      const first = ibShared.filter(x => String(x.at) === shared)[0] || ibShared[0];
+      if(first && IB_ACCEPT.test(first.name)) ibUse(first);
+      else if(first) toast('엑셀(xlsx·xls)이나 csv 파일만 불러올 수 있습니다');
+      if(ibShared.length > 1) toast(`공유받은 파일 ${ibShared.length}개 — 나머지는 받은 발주서 목록에서 불러오세요`);
+    };
+    setTimeout(tick, 300);
+  })();
+  (function wireInbox(){
+    if(!document.getElementById('inbox-box')) return;
+    setTimeout(() => ibRefresh(false), 1500);
+    window.addEventListener('focus', () => { if(ibFolderState === 'ok') ibRefresh(false); });   // 카톡에서 파일을 받고 돌아오면 목록 갱신
+  })();
+
+  // 불러올 때 이 파일 양식·이름을 그 업체로 기억 (다음부터 자동 선택)
+  document.getElementById('upload-apply-btn').addEventListener('click', () => {
+    const co = document.getElementById('upload-company-select').value;
+    const sr = parseInt(document.getElementById('upload-start-row').value, 10) || 2;
+    if(co && uploadedSheetData) uploadLearn(co, uploadFileName, sr);
+  }, true);   // 불러오기 처리(파일 내용을 비움)보다 먼저 실행되도록 capture
 
   function handleTrackingFile(file){
     document.getElementById('tracking-fname').textContent = file.name;
