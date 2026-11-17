@@ -608,19 +608,23 @@
   #product-stock-editor .ps-more table.ps-tbl{ margin-top:2px; }
   #product-stock-editor .ps-l{ display:none; }
   @media (max-width: 640px){
-    #product-stock-editor table.ps-tbl, #product-stock-editor table.ps-tbl tbody{ display:block; width:100%; }
-    #product-stock-editor table.ps-tbl thead, #product-stock-editor table.ps-tbl colgroup{ display:none; }
-    #product-stock-editor table.ps-tbl td{ display:block; padding:0; border:none; }
-    #product-stock-editor table.ps-tbl td input{ width:100% !important; }
-    #product-stock-editor .ps-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px 8px; align-items:start; padding:10px 0; border-bottom:1px solid var(--line); }
-    #product-stock-editor .ps-name{ grid-column:1 / 3; grid-row:1; font-size:14px !important; font-weight:700; line-height:1.35; align-self:center; word-break:keep-all; }
-    #product-stock-editor .ps-clear, #product-stock-editor .ps-row > td.ps-x{ grid-column:3; grid-row:1; justify-self:end; align-self:center; }
-    #product-stock-editor .ps-f{ flex-direction:column; align-items:stretch; gap:2px; min-width:0; }
-    #product-stock-editor .ps-l{ display:block; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #product-stock-editor .ps-f input{ width:100% !important; box-sizing:border-box; font-size:15px; padding:6px 8px; }
-    #product-stock-editor .ps-f .ps-conv{ min-width:0 !important; font-size:11px !important; line-height:1.3; }
-    #product-stock-editor .ps-f > span:not(.ps-l):not(.ps-conv){ align-self:flex-start; }
-    #product-stock-editor .ps-row > .ps-f:nth-child(2) input::placeholder, #product-stock-editor .ps-row > .ps-f:nth-child(3) input::placeholder{ color:transparent; }   /* 칸 이름이 위에 있으니 안내 글자는 숨김 (오늘 생산량의 "필요 N"은 보임) */
+    /* 휴대폰: 표 그대로 4칸(품명 | D-2 | D-1 | D) — 칸을 좁게, 팩 표시는 숫자 아래로 */
+    #product-stock-editor table.ps-tbl{ font-size:12px; }
+    #product-stock-editor table.ps-tbl col.ps-c-v{ width:21%; }
+    #product-stock-editor table.ps-tbl col.ps-c-x{ width:40px; }
+    #product-stock-editor table.ps-tbl th{ padding:6px 3px; font-size:12px; white-space:normal; line-height:1.2; text-align:center; }
+    #product-stock-editor table.ps-tbl th:first-child{ text-align:left; padding-left:4px; }
+    #product-stock-editor table.ps-tbl th small{ font-size:10px; }
+    #product-stock-editor table.ps-tbl td{ padding:6px 3px; }
+    #product-stock-editor table.ps-tbl td.ps-name{ font-size:12.5px; line-height:1.3; padding-left:4px; }
+    #product-stock-editor .ps-f{ flex-direction:column; align-items:stretch; gap:1px; min-width:0; }
+    #product-stock-editor .ps-l{ display:none; }
+    #product-stock-editor table.ps-tbl td input{ width:100% !important; box-sizing:border-box; font-size:15px; padding:5px 4px; }
+    #product-stock-editor table.ps-tbl td input::placeholder{ font-size:11px; }
+    #product-stock-editor .ps-f .ps-conv{ min-width:0 !important; font-size:10.5px !important; line-height:1.2; text-align:right; }
+    #product-stock-editor .ps-f > span:not(.ps-l):not(.ps-conv){ align-self:flex-end; }
+    #product-stock-editor table.ps-tbl td.ps-x{ text-align:center; padding:6px 0; }
+    #product-stock-editor .ps-clear{ font-size:11px; padding:3px 4px; white-space:nowrap; }
   }
   #app.stock-ro #stock-card .stock-ro-note{ display:block; }
   #app.stock-ro #stock-card input, #app.stock-ro #stock-card select, #app.stock-ro #stock-card button{ pointer-events:none; opacity:.55; }
