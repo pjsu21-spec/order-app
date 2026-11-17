@@ -373,6 +373,7 @@
   .pr-tbl{ border-collapse:collapse; font-size:13px; margin:2px 0 4px; }
   .pr-tbl th, .pr-tbl td{ border:1px solid var(--line); padding:3px 6px; text-align:center; white-space:nowrap; }
   .pr-tbl th{ background:var(--hover); font-weight:700; }
+  .pr-tbl input[data-f="kg"], .pr-tbl input[data-f="ct"]{ text-align:right; border:1px solid #d9c6c2 !important; }
   .pr-tbl input, .pr-tbl select{ font-size:13px; padding:3px 5px; border:1px solid var(--line); border-radius:6px; background:#fff; }
   #po-board .pb-actions{ flex-wrap:wrap; }
   #po-board.rep .pb-head{ left:auto !important; right:8px; top:6px !important; width:auto !important; transform:none !important; background:transparent; padding:2px; }
@@ -18894,14 +18895,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const need = Math.max(0, (carryNeed(dk)[id] || 0) - (carryEffective(dk, 0)[id] || 0));
     const n = Number(item.boxUnitCount) || 0, boxes = n > 0 ? need / n : need, kpb = Number(cfg.rawKgPerBox) || 0;
     const kg = kpb > 0 ? Math.round(boxes * kpb * 10) / 10 : '';
-    const ct = kg !== '' && ctKg > 0 ? Math.round(kg / ctKg) : '';
+    const ct = kg !== '' && ctKg > 0 ? Math.round(kg / ctKg * 10) / 10 : '';   // ct = 작업kg ÷ 1ct kg (기본 12), 소수 한 자리
     return { raw, kg, ct };
   }
   const prVal = (v, auto) => (v === '' || v == null) ? auto : Number(v);
   function prInstView(dk, doc){
     return doc.inst.map((r, i) => {
       const a = prAuto(dk, r.item, doc.ctKg), item = dict.find(d => d.id === r.item);
-      const kg = prVal(r.kg, a.kg), ctAuto = (r.kg !== '' && r.kg != null && doc.ctKg > 0) ? Math.round(Number(r.kg) / doc.ctKg) : a.ct;
+      const kg = prVal(r.kg, a.kg), ctAuto = (r.kg !== '' && r.kg != null && doc.ctKg > 0) ? Math.round(Number(r.kg) / doc.ctKg * 10) / 10 : a.ct;
       return { r, i, lbl: r.lbl || `${i + 1}차`, raw: r.raw || a.raw, name: item ? (item.shortName || item.name) : '', kg, ct: prVal(r.ct, ctAuto), a, ctAuto, note: r.note || '' };
     });
   }
@@ -18917,7 +18918,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 작업kg을 고치면 ct 자동값도 바뀜
     prInstView(currentDateKey, doc).forEach(x => {
       const tr = document.querySelector(`#pr-inst tr[data-id="${x.r.id}"]`); if(!tr) return;
-      const ci = tr.querySelector('input[data-f="ct"]'); if(ci) ci.placeholder = x.ctAuto === '' ? '' : String(x.ctAuto);
+      const ci = tr.querySelector('input[data-f="ct"]'); if(ci) ci.placeholder = x.ctAuto === '' ? '' : '자동 ' + x.ctAuto;
     });
   }
   function prRenderOrder(){
@@ -18948,8 +18949,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       h += `<tr data-id="${x.r.id}"><td><input data-f="lbl" value="${escapeHtml(x.r.lbl || '')}" placeholder="${x.i + 1}차" style="width:56px;"></td>
         <td><input data-f="raw" value="${escapeHtml(x.r.raw || '')}" placeholder="${escapeHtml(x.a.raw || '원물')}" style="width:90px;"></td>
         <td><select data-f="item" style="max-width:170px;"><option value="">품목 선택</option>${opts}</select></td>
-        <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : x.a.kg}" style="width:80px;"></td>
-        <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" style="width:60px;"></td>
+        <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : '자동 ' + x.a.kg}" style="width:80px;"></td>
+        <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : '자동 ' + x.ctAuto}" style="width:60px;"></td>
         <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
         <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
     });
