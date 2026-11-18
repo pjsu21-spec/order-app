@@ -415,7 +415,8 @@
   .ib-box .ib-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
   @media (max-width: 640px){ .ib-box .ib-it{ flex-wrap:wrap; } .ib-box .ib-co{ flex:1 1 120px; max-width:none; } .ib-box .ib-nm{ flex:1 1 100%; order:5; } }
   .ib-box .ib-x{ border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; }
-  .pb-embed td.pbe-ed{ cursor:pointer; }
+  .pb-embed td.pbe-ed, .pb-embed th.pbe-ed{ cursor:pointer; }
+  .pb-embed th.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
   .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
   .pb-embed td .pbe-in{ width:100%; min-width:60px; box-sizing:border-box; font:inherit; padding:2px 4px; border:2px solid #3b82f6; border-radius:4px; text-align:inherit; }
   .pb-embed .pbe-smpq{ display:block; font-size:10.5px; font-weight:700; color:#b45f00; line-height:1.1; }
@@ -7777,7 +7778,8 @@ function mnShow(id, keepScroll) {
         const hc = cellOf(r17, L), lf = hc[3] != null ? st(hc[3]).fill : (hc[1] != null ? st(hc[1]).fill : '');
         if(lf) colors.cols[L] = lf.slice(1);
         const sku = dict.find(d => skuColumnMap[d.id] === L);
-        cols.push({ L, gid: gi, group: clean(gc[2]), header: clean(hc[2]) || (sku ? sku.shortName || sku.name : L), unit: PS.PACK_COLS.includes(L) ? 0 : (sku ? Number(sku.boxUnitCount) || 0 : 0) });
+        const HT = r.model.headText || {}, gk = G.cols[0] + '3', hk = L + '17';
+        cols.push({ L, gid: gi, gk, hk, group: clean(HT[gk] != null ? HT[gk] : gc[2]), header: clean(HT[hk] != null ? HT[hk] : hc[2]) || (sku ? sku.shortName || sku.name : L), gBase: clean(gc[2]), hBase: clean(hc[2]), unit: PS.PACK_COLS.includes(L) ? 0 : (sku ? Number(sku.boxUnitCount) || 0 : 0) });
       });
     });
     const sum = rows => Object.fromEntries(cols.map(c => [c.L, R2(rows.reduce((a, x) => a + (Number(x.qty[c.L]) || 0), 0))]));
@@ -7977,9 +7979,15 @@ function mnShow(id, keepScroll) {
     });
   }
   // 표의 칸에 고치기 기능 달기 (고칠 수 없는 칸은 어디서 고치는지 안내)
-  function aggBoardWire(body, metas){
+  function aggBoardWire(body, metas, cols){
     const dk = currentDateKey;
     const canOrder = window.accessLevel('order') === 'full', canPlan = window.sectionLevel('plan') === 'full';
+    if(canOrder && cols) body.querySelectorAll('th[data-hc]').forEach(th => {
+      const c = cols[Number(th.dataset.ci)]; if(!c) return;
+      const isG = th.classList.contains('pb-g'), base = isG ? c.gBase : c.hBase, curV = isG ? c.group : c.header;
+      th.classList.add('pbe-ed'); th.title = `눌러서 ${isG ? '묶음' : '품목 열'} 이름 고치기 (서식 기본값: ${base || '없음'}) — 비우고 Enter 하면 기본값으로. 공유용 이미지·인쇄·엑셀에도 같이 나옵니다`;
+      th.addEventListener('click', () => aggBoardEdit(th, curV, {}, v => pgHeadSet(th.dataset.hc, v === base ? '' : v)));
+    });
     const lock = (td, why) => { td.classList.add('pbe-lock'); td.title = why; };
     const WHY = {
       tpl: '3PL 업체 합산 줄입니다 — 수량은 3PL 출고 집계 탭에서 고쳐 주세요',
@@ -8108,7 +8116,7 @@ function mnShow(id, keepScroll) {
     const body = document.getElementById('agg-board-body'), meta = document.getElementById('agg-board-meta');
     if(!body) return;
     const dk = currentDateKey;
-    const sig = JSON.stringify([dk, ordersByDate[dk], orderExtras[dk], dispatchByDate[dk], splitByDate[dk], previousStock[dk], aggSampleNow(), (shipPlanCache[dk] || {}).rows]);
+    const sig = JSON.stringify([dk, ordersByDate[dk], orderExtras[dk], dispatchByDate[dk], splitByDate[dk], previousStock[dk], aggSampleNow(), (shipPlanCache[dk] || {}).rows, pgHeadCache]);
     if(!force && sig === aggBoardSig) return;
     if(aggBoardBusy){ aggBoardAgain = true; return; }
     { const ae = document.activeElement; if(ae && ae.tagName === 'INPUT' && body.contains(ae)){ aggBoardSchedule(); return; } }   // 칸을 고치는 중이면 나중에
@@ -8119,7 +8127,7 @@ function mnShow(id, keepScroll) {
       const { m, metas } = await aggBoardModel(dk);
       if(dk !== currentDateKey){ aggBoardSig = ''; return; }
       body.innerHTML = m.cols.length ? '<div class="pb-zoom">' + poBoardHtml(m, null) + '</div>' : '<div class="empty">이 날짜에는 발주 데이터가 없습니다.</div>';
-      if(m.cols.length) aggBoardWire(body, metas);
+      if(m.cols.length) aggBoardWire(body, metas, m.cols);
       if(m.notes && m.notes.length) body.insertAdjacentHTML('beforeend', m.notes.map(n => `<div class="sub" style="color:var(--danger,#c0392b);margin:4px 0 0;">⚠ ${escapeHtml(n)}</div>`).join(''));
       aggBoardFit();
       if(meta){ const t = new Date(); meta.textContent = `${dk} 납품 · ${pad2(t.getHours())}:${pad2(t.getMinutes())} 기준 (발주를 입력하면 자동으로 다시 그립니다)`; }
@@ -17801,6 +17809,22 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // 색 규칙 (거래처명 음영 · 납품담당 · 적재방식): kv 'po-sheet-rules' = { name: [{kw, fill}], text: [{target, kw, fill, fc, b}] }
   let pgRulesCache = null;
   function pgDefaultRules(){ const B = window.PO_BASE; return { name: B.nameRules.map(x => ({ target: 'name', kw: x.kw, fill: x.fill, fc: '', b: 0 })), text: B.textRules.map(x => Object.assign({}, x)) }; }
+  // 품목 묶음·열 머리글 이름 직접 입력 (현황판 형태에서 머리글을 눌러 고침) — kv 'po-head-names' = { 'AJ3': '대추방울토마토 750g', 'AJ17': '…' }
+  //  3행 = 묶음 이름, 17행 = 품목 열 이름. 현황판 형태·공유용 이미지·인쇄·새 방식 엑셀이 함께 씀. 비우면 서식 기본값(+자동 용량)으로
+  let pgHeadCache = null;
+  async function pgHeadNames(force){
+    if(pgHeadCache && !force) return pgHeadCache;
+    try{ const r = await window.storage.get('po-head-names', true); const v = r && r.value ? JSON.parse(r.value) : null; pgHeadCache = v && typeof v === 'object' ? v : {}; }
+    catch(e){ pgHeadCache = pgHeadCache || {}; }
+    return pgHeadCache;
+  }
+  async function pgHeadSet(cell, v){
+    const cur = Object.assign({}, await pgHeadNames(true));
+    v = String(v || '').trim();
+    if(v) cur[cell] = v; else delete cur[cell];
+    try{ await window.storage.set('po-head-names', JSON.stringify(cur), true); pgHeadCache = cur; await writeLog('po_head_name', `발주서 머리글 ${cell}: ${v || '(기본값)'}`); toast(v ? `머리글을 "${v}"(으)로 바꿨습니다 — 공유용 이미지·인쇄·엑셀에도 같이 나옵니다` : '머리글을 서식 기본값으로 되돌렸습니다'); return true; }
+    catch(e){ console.error(e); toast('머리글을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+  }
   async function pgRules(force){
     if(pgRulesCache && !force) return pgRulesCache;
     try{ const r = await window.storage.get('po-sheet-rules', true); const v = r && r.value ? JSON.parse(r.value) : null; pgRulesCache = v && Array.isArray(v.text) ? v : pgDefaultRules(); }
@@ -17876,7 +17900,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const addQ = q => Object.entries(q || {}).forEach(([c, v]) => { col15[c] = R2((col15[c] || 0) + v); });
     built.entries.forEach(e => addQ(e.colQty)); disp.forEach(x => addQ(x.qty));
     // 묶음 머리글 용량: 한 열짜리 묶음(대추방울토마토)은 실제 1팩 용량(이름의 3kg ÷ 박스입수 = 750g)으로 표시
-    const headText = {};
+    const headText = {}, headUser = await pgHeadNames();
     (PS.GROUPS || []).filter(G => G.cols.length === 1).forEach(G => {
       const col = G.cols[0], items = dict.filter(d => skuColumnMap[d.id] === col); if(items.length !== 1) return;
       const w = poItemWeight(items[0]); if(!w) return;
@@ -17884,6 +17908,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const t = cell ? String(cell[2] || '') : '', m = /(\d+(?:\.\d+)?)\s*g\b/i.exec(t);
       if(m && Number(m[1]) !== w) headText[col + hr.r] = t.replace(m[0], w + 'g');
     });
+    Object.entries(headUser).forEach(([k, v]) => { if(v) headText[k] = v; });
     return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
   }
   async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
@@ -20713,10 +20738,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     while(i < m.cols.length){
       let j = i; while(j + 1 < m.cols.length && m.cols[j + 1].gid === m.cols[i].gid) j++;
       const gc = groupOf(m.cols[i]);
-      g1 += `<th colspan="${j - i + 1}" class="pb-g" style="background:${gc};color:${textOn(gc)}">${e(m.cols[i].group.replace(/\s*\/\s*/g, ' ') || '')}</th>`;
+      g1 += `<th colspan="${j - i + 1}" class="pb-g"${m.cols[i].gk ? ` data-hc="${e(m.cols[i].gk)}" data-ci="${i}"` : ''} style="background:${gc};color:${textOn(gc)}">${e(m.cols[i].group.replace(/\s*\/\s*/g, ' ') || '')}</th>`;
       i = j + 1;
     }
-    const heads = m.cols.map(c => `<th class="pb-h" style="background:${deepOf(baseOf(c))}">${e(c.header)}</th>`).join('');
+    const heads = m.cols.map((c, ci) => `<th class="pb-h"${c.hk ? ` data-hc="${e(c.hk)}" data-ci="${ci}"` : ''} style="background:${deepOf(baseOf(c))}">${e(c.header)}</th>`).join('');
     const fixed = 3;
     // 오른쪽 칸: 납품담당 · 적재방식 · 재고사용 · 비고 (서식에 해당 칸이 있을 때만)
     const P = m.hasPanel ? 4 : 0;
