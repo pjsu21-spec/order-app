@@ -4644,10 +4644,13 @@ function mnShow(id, keepScroll) {
   // 사내관리번호: YYYYMMDD-001, 002... 납품일(currentDateKey) 기준으로 그날 안에서 계속 이어서 발번됨.
   // 같은 원본 주문 한 줄이 박스로 쪼개져도(예: 10개->8+2) 같은 번호를 공유해야 하므로,
   // 박스 분리 전, 업로드 파일의 원래 한 줄당 한 번만 호출해서 써야 함.
-  function getNextInternalOrderNo(){
-    const datePrefix = currentDateKey.replace(/-/g, '');
-    const nextSeq = (internalOrderCounters[currentDateKey] || 0) + 1;
-    internalOrderCounters[currentDateKey] = nextSeq;
+  function getNextInternalOrderNo(dateKey){
+    dateKey = dateKey || currentDateKey;
+    const datePrefix = dateKey.replace(/-/g, '');
+    let used = 0;   // 서버에서 받은 그날 3PL 줄 중 가장 큰 번호 (내 브라우저 카운터가 뒤처져 있어도 겹치지 않게)
+    (thirdPartyLineItems[dateKey] || []).forEach(l => { const m = /^(\d{8})-(\d+)$/.exec(String((l && l.internalOrderNo) || '')); if(m && m[1] === datePrefix) used = Math.max(used, Number(m[2])); });
+    const nextSeq = Math.max(internalOrderCounters[dateKey] || 0, used) + 1;
+    internalOrderCounters[dateKey] = nextSeq;
     return `${datePrefix}-${String(nextSeq).padStart(3, '0')}`;
   }
 
@@ -9490,25 +9493,38 @@ function mnShow(id, keepScroll) {
           want.push({ key: r.id + '|' + d.id, r, p, d, packs, who, pur, fs: !!i.from_stock });
         });
       });
-      const sig = l => [l.company, l.orderNo, l.sampleKey, l.recipientName, l.recipientPhone, l.address, l.itemId, l.qty, l.boxIndex, l.boxTotal, l.note].join('|');
+      const sig = l => [l.company, l.orderNo, l.sampleKey, l.recipientName, l.recipientPhone, l.address, l.itemId, l.qty, l.boxIndex, l.boxTotal, l.note, l.enteredBy].join('|');
       const cur = (thirdPartyLineItems[dk] || []).filter(isSmpParcelLine);
-      const oldNo = new Map(cur.map(l => [l.sampleKey, l.internalOrderNo]));
-      let newNo = false;
-      const desired = [];
+      // 샘플 줄 번호가 다른 주문 줄 번호와 겹치는지 (예전에 내 브라우저 카운터가 뒤처져 같은 번호가 나간 경우)
+      const clash = list => { const other = new Set(list.filter(l => !isSmpParcelLine(l)).map(l => l.internalOrderNo).filter(Boolean)); return list.filter(isSmpParcelLine).some(l => other.has(l.internalOrderNo)); };
+      const desired = []; let newNo = false;
       want.forEach(w => {
-        let ino = oldNo.get(w.key); if(!ino){ ino = getNextInternalOrderNo(); newNo = true; }
         const boxes = splitIntoBoxes(w.packs);
         boxes.forEach((q, bi) => desired.push({
-          id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: ino, company: SMP_PARCEL_3PL_CO, orderNo: '',
+          id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: '', company: SMP_PARCEL_3PL_CO, orderNo: '',
           recipientName: w.p.name || w.who, recipientPhone: w.p.phone || '', address: w.p.addr || '',
           itemNameRaw: itemNameById(w.d.id), itemId: w.d.id, qty: q,
           note: [w.p.req, '샘플'].filter(Boolean).join(' / '),
-          trackingNo: '', enteredBy: '샘플 신청', boxIndex: bi + 1, boxTotal: boxes.length, sampleId: w.r.id, sampleKey: w.key
+          trackingNo: '', enteredBy: w.who || '샘플 신청', boxIndex: bi + 1, boxTotal: boxes.length, sampleId: w.r.id, sampleKey: w.key
         }));
       });
       const a = cur.map(sig).sort().join('\n'), b = desired.map(sig).sort().join('\n');
-      if(a === b) return false;
+      if(a === b && !clash(thirdPartyLineItems[dk] || []) && !cur.some(l => !l.internalOrderNo)) return false;
       try{ await uploadSyncLatest(); }catch(e){ return false; }   // 다른 직원이 방금 넣은 3PL 줄을 지우지 않도록 최신 자료 위에서 바꿈
+      // 사내관리번호: 최신 자료 기준 — 기존 샘플 번호는 그대로, 다른 주문과 겹치거나 새 신청이면 새 번호 (박스로 나뉜 줄은 같은 번호)
+      { const latest = thirdPartyLineItems[dk] || [];
+        const otherNo = new Set(latest.filter(l => !isSmpParcelLine(l)).map(l => l.internalOrderNo).filter(Boolean));
+        const keep = new Map(latest.filter(isSmpParcelLine).filter(l => l.internalOrderNo && !otherNo.has(l.internalOrderNo)).map(l => [l.sampleKey, l.internalOrderNo]));
+        const base = latest.filter(l => !isSmpParcelLine(l) || keep.get(l.sampleKey) === l.internalOrderNo);
+        const saved = thirdPartyLineItems[dk]; thirdPartyLineItems[dk] = base;   // 번호 계산은 남길 줄 기준
+        const given = new Map();
+        desired.forEach(l => {
+          let ino = keep.get(l.sampleKey) || given.get(l.sampleKey);
+          if(!ino){ ino = getNextInternalOrderNo(dk); newNo = true; }
+          given.set(l.sampleKey, ino); l.internalOrderNo = ino;
+        });
+        thirdPartyLineItems[dk] = saved;
+      }
       const keepTracking = new Map((thirdPartyLineItems[dk] || []).filter(l => isSmpParcelLine(l) && l.trackingNo).map(l => [l.id, l.trackingNo]));
       desired.forEach(l => { if(keepTracking.has(l.id)) l.trackingNo = keepTracking.get(l.id); });
       thirdPartyLineItems[dk] = (thirdPartyLineItems[dk] || []).filter(l => !isSmpParcelLine(l)).concat(desired);
