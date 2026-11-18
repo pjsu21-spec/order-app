@@ -880,6 +880,23 @@
   }
   /* 샘플 신청 */
   #panel-sample .sample-item-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  #panel-sample .smp-step{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:6px 0; font-size:13px; }
+  #panel-sample .smp-pick-q{ width:160px; }
+  #panel-sample .smp-pick-grid{ display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--paper,#fffaf4); max-height:260px; overflow:auto; }
+  #panel-sample .smp-pick-g{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+  #panel-sample .smp-pick-gn{ font-size:12px; font-weight:800; color:var(--muted); min-width:84px; }
+  #panel-sample .smp-chip{ border:1px solid var(--line); background:#fff; border-radius:999px; padding:3px 10px; font-size:12.5px; cursor:pointer; }
+  #panel-sample .smp-chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+  #panel-sample .smp-chip.all{ border-style:dashed; color:var(--muted); }
+  #panel-sample .smp-bulk{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:10px 0 6px; padding:8px 10px; border-radius:10px; background:#f3f8ff; border:1px solid #c7d7ee; font-size:13px; }
+  #panel-sample .smp-bulk label{ display:inline-flex; align-items:center; gap:4px; }
+  #panel-sample table.smp-tbl{ width:100%; border-collapse:collapse; font-size:13px; }
+  #panel-sample table.smp-tbl th{ background:var(--bg-soft,#f6f7f9); font-weight:700; padding:5px 6px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  #panel-sample table.smp-tbl td{ padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  #panel-sample table.smp-tbl td.smp-nm{ font-weight:600; }
+  #panel-sample table.smp-tbl tr.smp-stock td{ background:#fff7e6; }
+  #panel-sample table.smp-tbl select{ min-width:0; }
+  #panel-sample table.smp-tbl .sample-box-info{ margin-left:6px; }
   #panel-sample .sample-item-row select{ min-width:220px; flex:1 1 220px; }
   #panel-sample .sample-qty{ width:90px; }
   .sample-box-info{ font-size:12.5px; color:var(--muted); }
@@ -2270,25 +2287,18 @@
           <input type="text" id="sample-parcel-req" placeholder="배송 요청사항 (선택)" style="min-width:180px;">
         </div>
       </div>
-      <h3 style="margin-top:16px;">신청 샘플 <span class="sub" style="font-weight:400; margin:0;">(팩 단위 · SKU 등록 품목 · 품목별 생산 방식)</span></h3>
-      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
-        <label style="font-size:13px;">생산 방식 한 번에 지정 :</label>
-        <button type="button" class="btn-ghost small-btn" id="sample-bulk-hq">전체 생산본부 생산</button>
-        <button type="button" class="btn-ghost small-btn" id="sample-bulk-lab">전체 연구실 생산</button>
-        <span class="sub" style="margin:0;">품목마다 아래에서 따로 바꿀 수도 있습니다</span>
-      </div>
-      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
-        <label style="font-size:13px;">생산일 한 번에 지정 :</label>
-        <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-same">전체 출고일 당일 생산</button>
-        <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-prev">전체 전일 생산 (재고 사용)</button>
-        <span class="sub" style="margin:0;">출고일시는 그대로 두고, 생산한 날을 따로 지정합니다 · 그날의 발주취합(샘플 행)에 반영됩니다</span>
-      </div>
-      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
-        <label style="font-size:13px;display:inline-flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="sample-from-stock"> 재고에서 출고 (생산 안 함)</label>
-        <span class="sub" style="margin:0;">이미 있는 재고로 보낼 때 — 발주서 반영일(생산일) 발주서에 <b>"(재고 사용)"</b> 줄로 들어가고 재고사용 칸에 품목·수량(예: 스테비아 1)이 적힙니다</span>
+      <h3 style="margin-top:16px;">신청 샘플 <span class="sub" style="font-weight:400; margin:0;">(수량은 팩 단위)</span></h3>
+      <div class="smp-step"><b>① 품목 고르기</b> <input type="text" id="sample-pick-q" placeholder="품목 찾기" class="smp-pick-q"> <span class="sub" style="margin:0;">눌러서 여러 품목을 한 번에 고르세요 (다시 누르면 빠집니다)</span></div>
+      <div id="sample-pick-grid" class="smp-pick-grid"></div>
+      <div id="sample-bulk-bar" class="smp-bulk">
+        <b>② 체크한 품목에 한 번에</b>
+        <label>수량 <input type="number" id="sample-bulk-qty" min="1" step="1" placeholder="팩" style="width:70px;"></label>
+        <label>생산 방식 <select id="sample-bulk-pm"><option value="">그대로</option></select></label>
+        <label>생산 <select id="sample-bulk-pd"><option value="-">그대로</option></select></label>
+        <button type="button" class="btn-primary small-btn" id="sample-bulk-apply">적용</button>
       </div>
       <div id="sample-items"></div>
-      <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
+      <div class="sub" style="margin:4px 0 0;"><b>생산</b>: 출고일 당일 생산 / 전일 생산 / 생산일 직접 선택(그날 발주취합 샘플 행에 반영) / <b>재고에서 출고</b>(생산 안 함 — 발주서에 "(재고 사용)" 줄, 재고사용 칸에 품목·수량)</div>
       <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:16px;">
         <label style="font-size:13px; font-weight:600;">용도 <span style="color:var(--danger,#c0392b);">*</span> :</label>
         <input type="text" id="sample-purpose" list="sample-purpose-list" placeholder="예: 품질 확인용 / IR용 / 연구소" style="width:260px;">
@@ -2986,9 +2996,9 @@
 <h3>신청하기</h3>
 <ol>
   <li><b>생산 요청 부서</b>와 <b>출고일시</b>, <b>출고 방식</b>(직접 픽업·택배 발송 요청·퀵서비스·기타)을 입력합니다.</li>
-  <li>샘플 품목을 <b>팩 단위</b>로 넣습니다. 수량은 SKU 관리의 박스입수로 박스 수가 자동 환산됩니다(1박스 4팩이면 1팩 = 0.25박스).</li>
-  <li>품목마다 <b>생산 방식</b>(생산본부 생산 / 연구실 생산)을 고릅니다. 한 번에 정하려면 <span class="mn-b">전체 생산본부 생산</span>, <span class="mn-b">전체 연구실 생산</span>을 씁니다.</li>
-  <li>생산이 출고일과 다른 날이면 품목마다 <b>생산일</b>을 지정합니다. 발주취합과 집계에는 생산일 기준으로 반영됩니다. <span class="mn-b">전체 전일 생산 (재고 사용)</span>도 있습니다.</li>
+  <li><b>① 품목 고르기</b>: 품목 칩을 눌러 여러 품목을 한 번에 고릅니다(다시 누르면 빠짐, <span class="mn-b">전체</span>는 그 묶음 전부). 위 칸에서 이름으로 찾을 수 있습니다.</li>
+  <li><b>② 체크한 품목에 한 번에</b>: 수량(팩)·생산 방식(생산본부 생산 / 연구실 생산)·생산을 골라 <span class="mn-b">적용</span>하면 표에서 체크한 품목에 모두 들어갑니다. 품목마다 표에서 따로 고칠 수도 있습니다. 수량은 박스입수로 박스 수가 자동 환산됩니다(1박스 4팩이면 1팩 = 0.25박스).</li>
+  <li><b>생산</b>: 출고일 당일 생산 / 전일 생산 / 생산일 직접 선택(그날 발주취합에 반영) / <b>재고에서 출고</b>(생산 안 함 — 발주서에 "(재고 사용)" 줄로, 재고사용 칸에 품목·수량).</li>
   <li><b>용도</b>(필수)를 적습니다. 발주취합 파일의 샘플 줄 이름이 "신청자 용도 샘플"로 표시됩니다.</li>
   <li>비고에 포장방법, 택배 발송이면 주소·연락처를 적고 <span class="mn-b">신청하기</span>.</li>
 </ol>
@@ -12726,15 +12736,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       sampleInited = true;
       SAMPLE_SECTIONS.forEach(s => sEl('sample-tab-' + s + '-btn').addEventListener('click', async () => { await sampleLoad(); sampleShow(s); }));
       sEl('sample-ship-method').addEventListener('change', sampleMethodToggle);
-      sEl('sample-bulk-hq').addEventListener('click', () => sampleBulkPm('생산본부 생산'));
-      sEl('sample-bulk-lab').addEventListener('click', () => sampleBulkPm('연구실 생산'));
-      sEl('sample-bulk-pd-same').addEventListener('click', () => sampleBulkPd(''));
-      sEl('sample-bulk-pd-prev').addEventListener('click', () => sampleBulkPd('prev'));
+      sEl('sample-pick-q').addEventListener('input', sampleRenderPicker);
+      sEl('sample-bulk-pm').innerHTML = '<option value="">그대로</option>' + SAMPLE_PROD_METHODS.map(m => `<option value="${m}">${m}</option>`).join('');
+      sEl('sample-bulk-pd').innerHTML = '<option value="-">그대로</option>' + SAMPLE_PD_OPTS.filter(([v]) => v !== 'custom').map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+      sEl('sample-bulk-apply').addEventListener('click', sampleBulkApply);
       // 대리 신청으로 신청자를 바꾸면 그 직원의 부서를 자동으로 채운다
       sEl('sample-requester-select').addEventListener('change', () => { sEl('sample-dept').value = sampleDeptOf(sEl('sample-requester-select').value); });
       sEl('sample-ship-at').addEventListener('input', sampleUpdateWd);
       sEl('sample-ship-at').addEventListener('change', sampleUpdateWd);
-      sEl('sample-add-item').addEventListener('click', () => { sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '', pd: sampleDefaultPd, pdDate: '' }); sampleRenderItems(); });
       sEl('sample-submit').addEventListener('click', sampleSubmit);
       sEl('sample-cancel-edit').addEventListener('click', () => { sampleResetForm(); sampleShow('list'); });
       ['sample-f-status', 'sample-f-range'].forEach(id => sEl(id).addEventListener('change', sampleRenderList));
@@ -12770,19 +12779,40 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return out;
   }
   const sampleIsParcel = r => /택배/.test((r && r.ship_method) || '');
-  // 모든 품목 줄의 생산 방식을 한 번에 지정 (새로 추가하는 줄의 기본값도 같이 바뀐다)
-  // 모든 품목 줄의 생산일을 한 번에 지정: '' = 출고일 당일 생산, 'prev' = 출고일 전일 생산(어제 생산분 재고 사용)
-  function sampleBulkPd(pd){
-    sampleDefaultPd = pd;
-    sampleItems.forEach(it => { it.pd = pd; it.pdDate = ''; });
-    sampleRenderItems();
-    toast(pd === 'prev' ? '모든 품목을 출고일 전일 생산으로 지정했습니다' : '모든 품목을 출고일 당일 생산으로 지정했습니다');
+  // 생산 칸 선택지: 당일 / 전일 / 날짜 지정 / 재고에서 출고(생산 안 함 → 품목의 from_stock)
+  const SAMPLE_PD_OPTS = [['', '출고일 당일 생산'], ['prev', '전일 생산'], ['custom', '생산일 직접 선택'], ['stock', '재고에서 출고 (생산 안 함)']];
+  const sampleNewItem = skuId => ({ skuId, packs: '', pm: sampleDefaultPm, pmEtc: '', pd: sampleDefaultPd, pdDate: '', on: true });
+  // ① 품목 고르기: SKU를 단가그룹(없으면 '기타')별 칩으로 — 누르면 표에 넣고/빼기
+  function sampleRenderPicker(){
+    const grid = sEl('sample-pick-grid'); if(!grid) return;
+    const q = (sEl('sample-pick-q').value || '').trim().toLowerCase();
+    const chosen = new Set(sampleItems.map(it => it.skuId));
+    const list = dict.filter(d => !q || String(d.name + ' ' + (d.shortName || '') + ' ' + (d.priceGroup || '')).toLowerCase().includes(q));
+    const groups = new Map(); list.forEach(d => { const g = d.priceGroup || '기타'; if(!groups.has(g)) groups.set(g, []); groups.get(g).push(d); });
+    grid.innerHTML = groups.size ? [...groups.entries()].map(([g, ds]) => `<div class="smp-pick-g"><span class="smp-pick-gn">${escapeHtml(g)}</span>${ds.map(d => `<button type="button" class="smp-chip${chosen.has(d.id) ? ' on' : ''}" data-id="${escapeHtml(d.id)}">${chosen.has(d.id) ? '✓ ' : ''}${escapeHtml(d.shortName || d.name)}</button>`).join('')}${ds.length > 1 ? `<button type="button" class="smp-chip all" data-g="${escapeHtml(g)}">전체</button>` : ''}</div>`).join('') : '<div class="sub" style="margin:0;">찾는 품목이 없습니다</div>';
+    grid.querySelectorAll('.smp-chip[data-id]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.id, i = sampleItems.findIndex(it => it.skuId === id);
+      if(i >= 0) sampleItems.splice(i, 1); else sampleItems.push(sampleNewItem(id));
+      sampleRenderItems();
+    }));
+    grid.querySelectorAll('.smp-chip[data-g]').forEach(b => b.addEventListener('click', () => {
+      const ds = groups.get(b.dataset.g) || [], all = ds.every(d => chosen.has(d.id));
+      if(all) sampleItems = sampleItems.filter(it => !ds.some(d => d.id === it.skuId));
+      else ds.forEach(d => { if(!sampleItems.some(it => it.skuId === d.id)) sampleItems.push(sampleNewItem(d.id)); });
+      sampleRenderItems();
+    }));
   }
-  function sampleBulkPm(method){
-    sampleDefaultPm = method;
-    sampleItems.forEach(it => { it.pm = method; it.pmEtc = ''; });
+  // ② 체크한 품목에 수량·생산 방식·생산을 한 번에
+  function sampleBulkApply(){
+    const tg = sampleItems.filter(it => it.on !== false && it.skuId);
+    if(!tg.length){ toast('먼저 품목을 고르고 체크해 주세요'); return; }
+    const q = sEl('sample-bulk-qty').value.trim(), pm = sEl('sample-bulk-pm').value, pd = sEl('sample-bulk-pd').value;
+    if(!q && !pm && pd === '-'){ toast('넣을 수량이나 생산 방식·생산을 골라 주세요'); return; }
+    if(q && !(Number(q) > 0)){ toast('수량은 1팩 이상으로 넣어 주세요'); return; }
+    tg.forEach(it => { if(q) it.packs = q; if(pm){ it.pm = pm; it.pmEtc = ''; } if(pd !== '-'){ it.pd = pd; it.pdDate = ''; } });
+    if(pm) sampleDefaultPm = pm; if(pd !== '-') sampleDefaultPd = pd;
     sampleRenderItems();
-    toast(`모든 품목을 '${method}'으로 지정했습니다`);
+    toast(`체크한 ${tg.length}개 품목에 적용했습니다`);
   }
   // 직원의 부서 (로그인 계정에 지정된 부서) — 본인은 로그인 정보, 다른 직원은 직원 목록에서 찾는다
   function sampleDeptOf(userId){
@@ -12825,8 +12855,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sel.style.display = ''; fixed.style.display = 'none';
   }
   function sampleResetForm(){
-    if(sEl('sample-from-stock')) sEl('sample-from-stock').checked = false;
-    sampleEditId = null; sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '', pd: '', pdDate: '' }];
+    sampleEditId = null; sampleItems = [];
+    if(sEl('sample-pick-q')) sEl('sample-pick-q').value = '';
+    ['sample-bulk-qty'].forEach(id => { if(sEl(id)) sEl(id).value = ''; });
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
     sEl('sample-ship-method').value = '직접 픽업'; sEl('sample-ship-method-etc').value = ''; sampleMethodToggle();
@@ -12840,41 +12871,42 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
   function sampleRenderItems(){
     const wrap = sEl('sample-items'); wrap.innerHTML = '';
+    sampleRenderPicker();
+    const bar = sEl('sample-bulk-bar'); if(bar) bar.style.display = sampleItems.length ? '' : 'none';
+    if(!sampleItems.length){ wrap.innerHTML = '<div class="sub" style="margin:6px 0 0;">위에서 품목을 골라 주세요.</div>'; return; }
+    const tbl = document.createElement('table'); tbl.className = 'smp-tbl';
+    const allOn = sampleItems.every(it => it.on !== false);
+    tbl.innerHTML = `<thead><tr><th><input type="checkbox" class="smp-all" ${allOn ? 'checked' : ''} title="모두 체크/해제"></th><th>품목</th><th>수량(팩)</th><th>생산 방식</th><th>생산</th><th></th></tr></thead>`;
+    const tb = document.createElement('tbody');
     sampleItems.forEach((it, i) => {
-      const row = document.createElement('div'); row.className = 'sample-item-row';
-      const sel = document.createElement('select');
-      sel.innerHTML = '<option value="">품목 선택</option>' + dict.map(d => `<option value="${escapeHtml(d.id)}" ${d.id === it.skuId ? 'selected' : ''}>${escapeHtml(d.name)}${Number(d.boxUnitCount) > 0 ? ` (1박스 ${Number(d.boxUnitCount)}팩)` : ''}</option>`).join('');
-      const qty = document.createElement('input'); qty.type = 'number'; qty.min = '1'; qty.step = '1'; qty.placeholder = '팩'; qty.value = it.packs; qty.className = 'sample-qty';
-      const pmSel = document.createElement('select'); pmSel.className = 'sample-pm-sel';
+      const d = dict.find(x => x.id === it.skuId);
+      const tr = document.createElement('tr'); if(it.pd === 'stock') tr.className = 'smp-stock';
+      const td = () => { const c = document.createElement('td'); tr.appendChild(c); return c; };
+      const cbTd = td(), cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = it.on !== false; cb.addEventListener('change', () => { it.on = cb.checked; }); cbTd.appendChild(cb);
+      const nmTd = td(); nmTd.className = 'smp-nm'; nmTd.textContent = d ? d.name : '(삭제된 품목)';
+      const qTd = td(), qty = document.createElement('input'); qty.type = 'number'; qty.min = '1'; qty.step = '1'; qty.placeholder = '팩'; qty.value = it.packs; qty.className = 'sample-qty';
+      const info = document.createElement('span'); info.className = 'sample-box-info';
+      const upd = () => { const u = sampleUnit(it.skuId); info.textContent = !u ? '' : (Number(it.packs) > 0 ? `= ${sampleFmtNum(sampleBoxes(it.skuId, it.packs))}박스` : `1박스 ${u}팩`); };
+      qty.addEventListener('input', () => { it.packs = qty.value; upd(); }); upd(); qTd.append(qty, info);
+      const pmTd = td(), pmSel = document.createElement('select'); pmSel.className = 'sample-pm-sel';
       pmSel.innerHTML = SAMPLE_PROD_METHODS.map(m => `<option value="${m}" ${it.pm === m ? 'selected' : ''}>${m}</option>`).join('') + `<option value="기타" ${it.pm === '기타' ? 'selected' : ''}>기타 (직접 입력)</option>`;
-      const pmEtc = document.createElement('input'); pmEtc.type = 'text'; pmEtc.className = 'sample-pm-etc'; pmEtc.placeholder = '생산 방식 입력'; pmEtc.value = it.pmEtc || '';
-      pmEtc.style.display = it.pm === '기타' ? '' : 'none';
+      const pmEtc = document.createElement('input'); pmEtc.type = 'text'; pmEtc.className = 'sample-pm-etc'; pmEtc.placeholder = '생산 방식 입력'; pmEtc.value = it.pmEtc || ''; pmEtc.style.display = it.pm === '기타' ? '' : 'none';
       pmSel.addEventListener('change', () => { it.pm = pmSel.value; pmEtc.style.display = it.pm === '기타' ? '' : 'none'; if(it.pm !== '기타') it.pmEtc = ''; });
-      pmEtc.addEventListener('input', () => { it.pmEtc = pmEtc.value; });
-      // 생산일: 출고일 당일 / 전일(재고 사용) / 직접 선택
-      const pdSel = document.createElement('select'); pdSel.className = 'sample-pd-sel'; pdSel.title = '샘플을 생산하는 날 (출고일시와 별개). 발주취합·집계에는 이 생산일 기준으로 반영됩니다';
-      pdSel.innerHTML = [['', '출고일 당일 생산'], ['prev', '전일 생산 (재고 사용)'], ['custom', '생산일 직접 선택']].map(([v, t]) => `<option value="${v}" ${(it.pd || '') === v ? 'selected' : ''}>${t}</option>`).join('');
-      const pdDate = document.createElement('input'); pdDate.type = 'date'; pdDate.className = 'sample-pd-date'; pdDate.value = it.pdDate || '';
-      pdDate.style.display = it.pd === 'custom' ? '' : 'none';
+      pmEtc.addEventListener('input', () => { it.pmEtc = pmEtc.value; }); pmTd.append(pmSel, pmEtc);
+      const pdTd = td(), pdSel = document.createElement('select'); pdSel.className = 'sample-pd-sel'; pdSel.title = '샘플을 생산하는 날 (출고일시와 별개) 또는 재고에서 출고. 발주취합·집계에는 이 기준으로 반영됩니다';
+      pdSel.innerHTML = SAMPLE_PD_OPTS.map(([v, t]) => `<option value="${v}" ${(it.pd || '') === v ? 'selected' : ''}>${t}</option>`).join('');
+      const pdDate = document.createElement('input'); pdDate.type = 'date'; pdDate.className = 'sample-pd-date'; pdDate.value = it.pdDate || ''; pdDate.style.display = it.pd === 'custom' ? '' : 'none';
       const pdHint = document.createElement('span'); pdHint.className = 'sample-pd-hint sub'; pdHint.dataset.idx = i; pdHint.style.margin = '0';
-      pdSel.addEventListener('change', () => { it.pd = pdSel.value; pdDate.style.display = it.pd === 'custom' ? '' : 'none'; if(it.pd !== 'custom') it.pdDate = ''; sampleUpdatePdHints(); });
+      pdSel.addEventListener('change', () => { it.pd = pdSel.value; pdDate.style.display = it.pd === 'custom' ? '' : 'none'; if(it.pd !== 'custom' && it.pd !== 'stock') it.pdDate = ''; tr.className = it.pd === 'stock' ? 'smp-stock' : ''; sampleUpdatePdHints(); });
       pdDate.addEventListener('input', () => { it.pdDate = pdDate.value; sampleUpdatePdHints(); });
       pdDate.addEventListener('change', () => { it.pdDate = pdDate.value; sampleUpdatePdHints(); });
-      const info = document.createElement('span'); info.className = 'sample-box-info';
-      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '삭제';
-      const upd = () => {
-        if(!it.skuId){ info.textContent = ''; return; }
-        const u = sampleUnit(it.skuId);
-        if(!u){ info.textContent = '박스입수 미설정 (박스 환산 불가)'; return; }
-        const b = sampleBoxes(it.skuId, it.packs || 0);
-        info.textContent = `= ${sampleFmtNum(b)}박스 (1박스 ${u}팩)`;
-      };
-      sel.addEventListener('change', () => { it.skuId = sel.value; upd(); });
-      qty.addEventListener('input', () => { it.packs = qty.value; upd(); });
-      del.addEventListener('click', () => { sampleItems.splice(i, 1); if(!sampleItems.length) sampleItems.push({ skuId: '', packs: '', pm: sampleDefaultPm, pmEtc: '', pd: sampleDefaultPd, pdDate: '' }); sampleRenderItems(); });
-      upd();
-      row.append(sel, qty, pmSel, pmEtc, pdSel, pdDate, pdHint, info, del); wrap.appendChild(row);
+      pdTd.append(pdSel, pdDate, pdHint);
+      const delTd = td(), del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '빼기';
+      del.addEventListener('click', () => { sampleItems.splice(i, 1); sampleRenderItems(); }); delTd.appendChild(del);
+      tb.appendChild(tr);
     });
+    tbl.appendChild(tb); wrap.appendChild(tbl);
+    tbl.querySelector('.smp-all').addEventListener('change', e => { sampleItems.forEach(it => { it.on = e.target.checked; }); tbl.querySelectorAll('tbody input[type=checkbox]').forEach(c => { c.checked = e.target.checked; }); });
     sampleUpdatePdHints();
   }
   // 품목 줄 → 저장할 품목 목록. 같은 품목+같은 생산 방식은 수량을 합치고, 방식이 다르면 별도 줄로 둔다.
@@ -12890,7 +12922,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(!pm) return { error: '생산 방식을 입력해주세요 (기타 선택 시 내용 필수)' };
       // 생산일: 당일이면 저장하지 않음(출고일과 같다는 뜻이라 출고일시를 나중에 바꿔도 맞음), 전일/직접 선택은 날짜로 저장
       let pdate = '';
-      if(it.pd === 'prev') pdate = sampleAddDays(shipDay, -1);
+      const fs = it.pd === 'stock';
+      if(fs) pdate = it.pdDate && it.pdDate !== shipDay ? it.pdDate : '';   // 재고에서 출고: 반영일을 따로 정해 둔 신청이면 유지
+      else if(it.pd === 'prev') pdate = sampleAddDays(shipDay, -1);
       else if(it.pd === 'custom'){
         pdate = it.pdDate || '';
         if(!pdate) return { error: '생산일을 선택해주세요 (생산일 직접 선택 시 날짜 필수)' };
@@ -12898,13 +12932,13 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(pdate < sampleAddDays(shipDay, -SAMPLE_PROD_DAYS_BACK)) return { error: `생산일은 출고일 ${SAMPLE_PROD_DAYS_BACK}일 전까지만 지정할 수 있습니다` };
         if(pdate === shipDay) pdate = '';
       }
-      const key = it.skuId + '|' + pm + '|' + pdate;
-      const cur = m.get(key) || { skuId: it.skuId, pm, pdate, packs: 0 };
+      const key = it.skuId + '|' + pm + '|' + pdate + '|' + (fs ? 1 : 0);
+      const cur = m.get(key) || { skuId: it.skuId, pm, pdate, fs, packs: 0 };
       cur.packs += p; m.set(key, cur);
     }
-    return [...m.values()].map(({ skuId, pm, pdate, packs }) => {
+    return [...m.values()].map(({ skuId, pm, pdate, fs, packs }) => {
       const u = sampleUnit(skuId), b = u ? packs / u : null;
-      return Object.assign({ skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000, production_method: pm }, pdate ? { production_date: pdate } : {});
+      return Object.assign({ skuId, name: sampleSkuName(skuId), packs, boxUnit: u || null, boxes: b == null ? null : Math.round(b * 10000) / 10000, production_method: pm }, pdate ? { production_date: pdate } : {}, fs ? { from_stock: true } : {});
     });
   }
   async function sampleSubmit(){
@@ -12916,7 +12950,6 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const dept = sEl('sample-dept').value.trim();
     const items = sampleCollectItems();
     if(items.error){ toast(items.error); return; }
-    { const fsOn = !!(sEl('sample-from-stock') && sEl('sample-from-stock').checked); if(Array.isArray(items)) items.forEach(i => { if(fsOn) i.from_stock = true; else delete i.from_stock; }); }
     if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
     const prod = sampleSummaryPm(items);   // 신청 전체 요약(모두 같으면 그 방식, 섞이면 '혼합')
     const purpose = sEl('sample-purpose').value.trim();
@@ -12968,17 +13001,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sampleMethodToggle();
     sEl('sample-dept').value = r.requester_dept || '';
     sEl('sample-purpose').value = samplePurposeOf(r);
-    if(sEl('sample-from-stock')) sEl('sample-from-stock').checked = (r.items || []).some(i => i.from_stock);
     sEl('sample-note').value = String(r.note || '').split(/\r?\n/).filter(l => !smpParcelLineRe.test(l)).join('\n').trim();
     { const p = sampleParcelOf(r); SMP_PARCEL_KEYS.forEach(([k]) => { const el = sEl('sample-parcel-' + k); if(el) el.value = p[k] || ''; }); }
     const shipDay0 = sampleDayKey(r.ship_at);
     sampleItems = (r.items || []).map(i => {
       const m = sampleItemPm(r, i) || SAMPLE_PROD_METHODS[0];
       const pdk = sampleItemProdDay(r, i);
-      const pdf = pdk === shipDay0 ? { pd: '', pdDate: '' } : (pdk === sampleAddDays(shipDay0, -1) ? { pd: 'prev', pdDate: '' } : { pd: 'custom', pdDate: pdk });
-      return Object.assign(SAMPLE_PROD_METHODS.includes(m) ? { skuId: i.skuId, packs: i.packs, pm: m, pmEtc: '' } : { skuId: i.skuId, packs: i.packs, pm: '기타', pmEtc: m }, pdf);
+      const pdf = i.from_stock ? { pd: 'stock', pdDate: i.production_date || '' } : pdk === shipDay0 ? { pd: '', pdDate: '' } : (pdk === sampleAddDays(shipDay0, -1) ? { pd: 'prev', pdDate: '' } : { pd: 'custom', pdDate: pdk });
+      return Object.assign(SAMPLE_PROD_METHODS.includes(m) ? { skuId: i.skuId, packs: i.packs, pm: m, pmEtc: '' } : { skuId: i.skuId, packs: i.packs, pm: '기타', pmEtc: m }, pdf, { on: true });
     });
-    if(!sampleItems.length) sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '', pd: '', pdDate: '' }];
     if(sampleItems.length) sampleDefaultPm = sampleItems[0].pm === '기타' ? SAMPLE_PROD_METHODS[0] : sampleItems[0].pm;
     sampleRenderItems();
   }
