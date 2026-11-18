@@ -2122,7 +2122,7 @@
     <details open>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
       <div style="margin-top:10px;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다).</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다). 발주 입력의 <b>샘플 동봉</b>도 들어가며(적요 '거래처명 샘플 동봉'), <b>대분류가 SP인 거래처</b>의 샘플 동봉은 별도 정산을 위해 자가사용 대신 <b>매출 엑셀에 단가 0원 줄</b>(적요 '샘플 n팩')로 들어갑니다.</div></details>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;">다운로드 일자 :</label>
       <select id="ecount-date-select" style="min-width:230px;"></select>
@@ -2143,7 +2143,7 @@
     </div>
     <div class="row">
       <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
-      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
+      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
     <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
@@ -2996,7 +2996,7 @@
 </ul>
 <div class="mn-tip"><b>팁</b>관리자와 주문 취합 권한이 있는 사람은 홈 화면의 <b>샘플 신청</b> 타일에 미확인 건수가 빨간 숫자로 뜹니다. 타일을 누르면 신청 내역의 미확인 건만 바로 열립니다.</div>
 <div class="mn-note"><b>규칙</b>확인되기 전에는 신청자가 직접 수정·취소할 수 있고, <b>확인된 뒤에는 취합 담당자만</b> 바꿀 수 있습니다. 취소한 신청은 어디에도 반영되지 않습니다.</div>
-<div class="mn-tip"><b>팁</b>거래처 발주와 함께 보내는 샘플(예: 스테비아 10박스 + 샘플 2박스)은 영업 담당자가 발주 입력의 <b>🎁 샘플 동봉</b>으로 넣을 수도 있습니다. 매출에는 잡히지 않고 송품장·적재 수량에만 들어갑니다. → 발주 · 영업</div>
+<div class="mn-tip"><b>팁</b>거래처 발주와 함께 보내는 샘플(예: 스테비아 10박스 + 샘플 2박스)은 영업 담당자가 발주 입력의 <b>🎁 샘플 동봉</b>으로 넣을 수도 있습니다. 매출 금액에는 잡히지 않고 송품장·적재 수량에 들어갑니다. 이카운트에는 <b>SP 거래처는 매출 엑셀에 단가 0원 줄</b>로, 나머지 거래처는 <b>자가사용 엑셀</b>로 들어갑니다. → 발주 · 영업</div>
 <div class="mn-tip"><b>팁</b>집계 / 출고의 집계표에서 "샘플" 줄을 펼치면 신청 건마다 <b>비고</b>를 적을 수 있고, 발주취합 파일·생산 현황판의 샘플 행 비고에 나옵니다.</div>
 </section>
 
@@ -5115,6 +5115,14 @@ function mnShow(id, keepScroll) {
     walk(tree || companyClassTree, []);
     return out;
   }
+  // 대분류가 SP인 거래처인지 (분류가 없으면 발주 구분으로)
+  function ccIsSpCompany(c){
+    if(!c) return false;
+    const l = c.classId ? ccLeafById(c.classId) : null;
+    return l ? /^SP\b/i.test(String(l.top || '').trim()) : String(c.category || '').trim().toUpperCase() === 'SP';
+  }
+  // 샘플 동봉이 매출 엑셀(0원)로 가는지 — SP 거래처는 별도 정산이라 매출 내역에 같이, 나머지는 자가사용으로
+  const encToSales = name => ccIsSpCompany(companies.find(c => c.name === name));
   function ccLeafById(id, tree){ return id ? ccLeaves(tree).find(l => l.id === id) || null : null; }
   function ccLabel(id){ const l = ccLeafById(id); return l ? l.label : ''; }
   async function saveCompanyClassTree(){
@@ -10506,7 +10514,7 @@ function mnShow(id, keepScroll) {
   async function ecountSelfUseRows(dateKey, warehouse, manager){
     const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
     const reqs = await sbQuery('sample_requests', `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`);
-    const rows = [], warn = { noCode: new Set(), noTrack: [], unconfirmed: 0 };
+    const rows = [], warn = { noCode: new Set(), noTrack: [], unconfirmed: 0, enc: 0 };
     const merged = new Map();   // '신청자|품목' → { who, item, packs }
     reqs.forEach(r => {
       if(r.status !== '확인') warn.unconfirmed++;
@@ -10522,6 +10530,12 @@ function mnShow(id, keepScroll) {
       if(!item.code) warn.noCode.add(item.name);
       rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', packs, 0, '', who]);
     });
+    // 발주 입력의 샘플 동봉 (SP 거래처는 매출 엑셀에 0원으로 들어가므로 제외) — 적요 = '거래처명 샘플 동봉'
+    { const ords = ordersByDate[dateKey] || {};
+      Object.keys(orderExtras[dateKey] || {}).filter(c => ords[c] && sampleAllowed(c) && !encToSales(c)).sort((a, b) => a.localeCompare(b, 'ko')).forEach(c => {
+        const sm = sampleOf(dateKey, c);
+        dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', Math.round(packs * 100) / 100, 0, '', c + ' 샘플 동봉']); warn.enc++; });
+      }); }
     // 택배비: 샘플 택배 줄(모든 날짜의 3PL 개별 주문 중 이 신청들)의 운송장번호별 → 규격별 건수
     const parcelIds = new Map(reqs.filter(sampleIsParcel).map(r => [String(r.id), String(r.requester_name || '').trim()]));
     if(parcelIds.size){
@@ -10554,7 +10568,7 @@ function mnShow(id, keepScroll) {
     try{
       try{ await uploadSyncLatest(); }catch(e){}   // 다른 직원이 넣은 운송장번호까지
       const { rows, warn } = await ecountSelfUseRows(dateKey, warehouse, manager);
-      if(!rows.length){ toast(`${ecountDateText(dateKey)}에 출고하는 샘플 신청이 없습니다`); return; }
+      if(!rows.length){ toast(`${ecountDateText(dateKey)}에 출고하는 샘플 신청·샘플 동봉이 없습니다`); return; }
       const header = ['일자','순번','거래처코드','거래처명','출하창고','담당자','품목코드','품목명','규격','수량','금액1','사용유형','적요'];
       const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
       ws['!cols'] = header.map(() => ({ wch: 15 }));
@@ -10624,6 +10638,11 @@ function mnShow(id, keepScroll) {
         });
         return sl;
       };
+      const addSmp = sl => {   // SP 샘플 동봉: 단가 0으로 같은 전표에
+        if(!encToSales(companyName) || !sampleAllowed(companyName)) return;
+        const sm = sampleOf(dateKey, companyName);
+        dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; const ik = `${item.id}|0|smp`; const cur = sl.items.get(ik) || { item, packs: 0, price: 0, smp: true }; cur.packs += packs; sl.items.set(ik, cur); });
+      };
       const disp = (dispatchByDate[dateKey] || []).filter(e => e.company === companyName);
       if(isDispatchCompany(companyName) && disp.length){
         const byDate = {};
@@ -10631,6 +10650,7 @@ function mnShow(id, keepScroll) {
         Object.entries(byDate).forEach(([d, items]) => add(d, items, true));
       } else {
         const sl = add(dateLabel, orders[companyName]);
+        addSmp(sl);
         Object.entries(feeCountByCompany[companyName] || {}).forEach(([size, n]) => { sl.fees[size] = (sl.fees[size] || 0) + n; });
       }
     });
@@ -10661,6 +10681,16 @@ function mnShow(id, keepScroll) {
         ]);
       });
 
+      // SP 거래처 샘플 동봉: 단가 0원 줄 (별도 정산 내역에 샘플 수량도 같이 보이도록)
+      if(encToSales(companyName) && sampleAllowed(companyName)){
+        const sm = sampleOf(dateKey, companyName);
+        dict.forEach(item => {
+          const packs = sm[item.id] || 0; if(!packs) return;
+          const n = Number(item.boxUnitCount) || 0;
+          const qty = n > 0 ? parseFloat((packs / n).toFixed(2)) : packs;
+          companyRows.push([dateLabel, companySeq, companyCode, nameCell, manager, warehouse, tradeType, '', '', '', department, item.code || '', item.name, '', qty, 0, '', 0, '', `샘플 ${Math.round(packs * 100) / 100}팩`, '', '']);
+        });
+      }
       // 택배비 행 처리 — 과세 업체는 거래유형 11, VAT 역산
       const sizeCounts = feeCountByCompany[companyName] || {};
       Object.entries(sizeCounts).forEach(([size, count])=>{
@@ -10705,11 +10735,12 @@ function mnShow(id, keepScroll) {
       const shareKey = sl.disp ? '' : `${sl.date}|${sl.code}`;
       const seqNo = shareKey && offSeq.has(shareKey) ? offSeq.get(shareKey) : companySeq;
       const rows = [];
-      [...sl.items.values()].sort((a, b) => dict.indexOf(a.item) - dict.indexOf(b.item) || (Number(a.price) || 0) - (Number(b.price) || 0)).forEach(({ item, packs, price }) => {
+      [...sl.items.values()].sort((a, b) => dict.indexOf(a.item) - dict.indexOf(b.item) || (a.smp ? 1 : 0) - (b.smp ? 1 : 0) || (Number(a.price) || 0) - (Number(b.price) || 0)).forEach(({ item, packs, price, smp }) => {
         const n = Number(item.boxUnitCount) || 0;
         const qty = n > 0 ? parseFloat((packs / n).toFixed(2)) : packs;
-        const supply = (price !== '' && qty > 0) ? parseFloat((price * qty).toFixed(0)) : '';
-        rows.push([sl.date, seqNo, sl.code, '', manager, warehouse, tradeType, '', '', '', department, item.code || '', item.name, sl.spec, qty, price, '', supply, '', n > 0 ? `${Math.round(packs * 100) / 100}팩` : '', '', '']);
+        const supply = smp ? 0 : (price !== '' && qty > 0) ? parseFloat((price * qty).toFixed(0)) : '';
+        const pk = `${Math.round(packs * 100) / 100}팩`;
+        rows.push([sl.date, seqNo, sl.code, '', manager, warehouse, tradeType, '', '', '', department, item.code || '', item.name, sl.spec, qty, smp ? 0 : price, '', supply, '', smp ? `샘플 ${pk}` : n > 0 ? pk : '', '', '']);
       });
       Object.entries(sl.fees).forEach(([size, count]) => {
         const fi = feeItemsBySize[size]; if(!fi || !fi.name) return;
@@ -10755,6 +10786,7 @@ function mnShow(id, keepScroll) {
         const supplyAmt = Number(row[17]) || 0;
         const note = row[19]; // 적요(팩수량)
         if(!companyName || !itemName || !qty) return;
+        if(Number(unitPrice) === 0 && /^샘플 /.test(String(note || ''))) return;   // SP 샘플 동봉(0원 줄)은 월간 매출 수량·단가에 안 넣음
         const m = fresh[companyName] = fresh[companyName] || {};
         const cur = m[itemName];
         if(!cur) m[itemName] = { itemName, qty, unitPrice: unitPrice||0, supplyAmt, note: note||'' };
