@@ -5564,7 +5564,8 @@ function mnShow(id, keepScroll) {
     if(!el) return;
     const list = (dispatchByDate[currentDateKey] || []).slice().sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate)) || dispSeqOf(a) - dispSeqOf(b));
     if(!list.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.style.display = 'block';
+    let on3pl = false; try{ on3pl = aggTab === '3pl'; }catch(e){}
+    el.style.display = on3pl ? 'none' : 'block';   // 3PL 출고 집계 탭에서는 안 보임
     el.innerHTML = '';
     const h = document.createElement('div');
     h.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:6px;';
@@ -7672,6 +7673,7 @@ function mnShow(id, keepScroll) {
   let aggBoardSig = '', aggBoardTimer = null, aggBoardBusy = false, aggBoardAgain = false;
   function aggTabSet(t){
     aggTab = t; try{ localStorage.setItem('agg-tab', t); }catch(e){}
+    try{ renderDispatchList(); }catch(e){}
     const on = t === 'board';
     const bw = document.getElementById('agg-board-wrap'); if(bw) bw.style.display = on ? 'block' : 'none';
     const bb = document.getElementById('tab-board-btn'); if(bb) bb.classList.toggle('active', on);
@@ -8577,6 +8579,9 @@ function mnShow(id, keepScroll) {
     }
     const filtered = {};
     threePlNames.forEach(name=>{ if(orders[name]) filtered[name] = orders[name]; });
+    // 샘플 택배 발송 → 3PL 개별 주문으로 들어간 줄도 합계에 (업체명 '다름달음(샘플)')
+    { const sm = {}; (currentLineItems() || []).filter(l => l && l.sampleKey && l.itemId).forEach(l => { sm[l.itemId] = Math.round(((sm[l.itemId] || 0) + (Number(l.qty) || 0)) * 100) / 100; });
+      if(Object.keys(sm).length) filtered['다름달음(샘플)'] = sm; }
     const table = buildReadonlyAggTable(filtered, '택배 출고 합계', { boxRow: true });
     if(!table){
       wrap.innerHTML = '<div class="empty">3PL 업체 중 아직 확정된 발주가 없습니다.</div>';
@@ -9496,7 +9501,7 @@ function mnShow(id, keepScroll) {
           id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: ino, company: SMP_PARCEL_3PL_CO, orderNo: '',
           recipientName: w.p.name || w.who, recipientPhone: w.p.phone || '', address: w.p.addr || '',
           itemNameRaw: itemNameById(w.d.id), itemId: w.d.id, qty: q,
-          note: [w.p.req, `샘플: ${w.who}${w.pur ? ' ' + w.pur : ''}${w.fs ? ' (재고 사용)' : ''}`, (!w.p.phone || !w.p.addr) ? '⚠ 연락처·주소 확인 필요' : ''].filter(Boolean).join(' / '),
+          note: [w.p.req, '샘플'].filter(Boolean).join(' / '),
           trackingNo: '', enteredBy: '샘플 신청', boxIndex: bi + 1, boxTotal: boxes.length, sampleId: w.r.id, sampleKey: w.key
         }));
       });
