@@ -2876,7 +2876,7 @@
 <ul>
   <li><b>들어가는 것</b>: 다운로드 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외) + 발주 입력의 샘플 동봉(SP 거래처 제외).</li>
   <li><b>칸</b>: 거래처코드 00031 고정 · 수량은 <b>박스</b>(박스입수 없는 품목은 팩) · 금액 0 · 적요는 신청자 이름(샘플 동봉은 "거래처명 샘플 동봉") · 출하창고·담당자는 위 칸 값 · 한 전표(순번 1).</li>
-  <li><b>택배비</b>: 택배 샘플이 있으면 3PL 개별 주문에 적힌 <b>운송장번호 기준</b>으로 규격별 건수 줄이 붙습니다(금액 0). 운송장번호가 아직 없는 건은 빠지고 다운로드할 때 알려 줍니다.</li>
+  <li><b>택배비</b>: 택배 샘플이 있으면 규격별 건수 줄이 <b>택배비 품목코드</b>와 함께 붙습니다(금액 0, 코드는 3PL 택배비 품목 설정). 운송장번호가 적힌 건은 운송장 기준, 아직 없으면 상자 수(8팩 단위)로 셉니다.</li>
   <li>확인 안 된 신청이 섞여 있거나 품목코드가 없는 품목이 있으면 다운로드할 때 알려 줍니다.</li>
 </ul>
 
@@ -10713,24 +10713,38 @@ function mnShow(id, keepScroll) {
         const sm = sampleOf(dateKey, c);
         dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', selfUseBoxes(item, packs), 0, '', c + ' 샘플 동봉']); warn.enc++; });
       }); }
-    // 택배비: 샘플 택배 줄(모든 날짜의 3PL 개별 주문 중 이 신청들)의 운송장번호별 → 규격별 건수
-    const parcelIds = new Map(reqs.filter(sampleIsParcel).map(r => [String(r.id), String(r.requester_name || '').trim()]));
-    if(parcelIds.size){
-      const lines = Object.values(thirdPartyLineItems || {}).flat().filter(l => l && l.sampleKey && parcelIds.has(String(l.sampleId)));
-      const tracked = new Set(lines.filter(l => l.trackingNo && l.trackingNo.trim()).map(l => String(l.sampleId)));
-      parcelIds.forEach((who, id) => { if(!tracked.has(id)) warn.noTrack.push(who); });
-      const byTrack = new Map();   // 운송장 → { qty, names }
-      lines.filter(l => l.trackingNo && l.trackingNo.trim()).forEach(l => {
-        const t = l.trackingNo.trim(), e = byTrack.get(t) || { qty: 0, names: new Set() };
-        e.qty += Number(l.qty) || 0; e.names.add(parcelIds.get(String(l.sampleId))); byTrack.set(t, e);
+    // 택배비: 택배 발송 샘플이 있으면 규격별 건수 줄 (품목코드 = 3PL 택배비 품목 설정의 코드)
+    //  운송장번호가 적힌 줄은 운송장별로 합쳐 1건, 아직 운송장이 없으면 상자(3PL 개별 주문 줄 / 아직 줄이 없으면 8팩 단위로 나눈 상자)마다 1건
+    const parcelReqs = reqs.filter(sampleIsParcel);
+    if(parcelReqs.length){
+      const allLines = Object.values(thirdPartyLineItems || {}).flat().filter(l => l && l.sampleKey);
+      const parcels = [];   // { qty, who }
+      const byTrack = new Map();
+      parcelReqs.forEach(r => {
+        const who = String(r.requester_name || '').trim(), lines = allLines.filter(l => String(l.sampleId) === String(r.id));
+        let est = false;
+        if(lines.length){
+          lines.forEach(l => {
+            const t = String(l.trackingNo || '').trim();
+            if(t){ const e = byTrack.get(t) || { qty: 0, who }; e.qty += Number(l.qty) || 0; byTrack.set(t, e); }
+            else { parcels.push({ qty: Number(l.qty) || 0, who }); est = true; }
+          });
+        } else {
+          (r.items || []).forEach(i => { const p = Number(i.packs) || 0; if(p > 0) splitIntoBoxes(p).forEach(q => parcels.push({ qty: q, who })); });
+          est = true;
+        }
+        if(est) warn.noTrack.push(who);
       });
+      byTrack.forEach(e => parcels.push(e));
       const bySize = new Map();
-      byTrack.forEach(e => { const sz = getBoxSize(e.qty) || '소', b = bySize.get(sz) || { n: 0, names: new Set() }; b.n++; e.names.forEach(n => b.names.add(n)); bySize.set(sz, b); });
+      parcels.forEach(p => { const sz = getBoxSize(p.qty) || '소', b = bySize.get(sz) || { n: 0, names: new Set() }; b.n++; if(p.who) b.names.add(p.who); bySize.set(sz, b); });
       const feeOf = {}; deliveryFeeItems.forEach(fi => { feeOf[fi.size] = fi; });
       deliveryFeeItems.map(fi => fi.size).concat([...bySize.keys()]).filter((v, i, a) => a.indexOf(v) === i && bySize.has(v)).forEach(sz => {
         const fi = feeOf[sz] || {}, b = bySize.get(sz);
-        if(!fi.code) warn.noCode.add('택배비(' + sz + ')');
-        rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, fi.code || '', fi.name || ('택배비(' + sz + ')'), '', b.n, 0, '', `택배비(${sz}) ${[...b.names].filter(Boolean).join('·')}`]);
+        // 품목코드: 택배비 품목 설정의 코드 → 없으면 같은 이름의 SKU 코드
+        const code = String(fi.code || '').trim() || ((fi.name && (dict.find(d => d.name === fi.name || d.shortName === fi.name) || {}).code) || '');
+        if(!code) warn.noCode.add('택배비(' + sz + ')');
+        rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, code, fi.name || ('택배비(' + sz + ')'), '', b.n, 0, '', `택배비(${sz}) ${[...b.names].filter(Boolean).join('·')}`]);
       });
     }
     return { rows, warn, count: reqs.length };
@@ -10753,8 +10767,8 @@ function mnShow(id, keepScroll) {
       XLSX.writeFile(wb, `이카운트_자가사용_${dateKey.replace(/-/g, '')}.xlsx`);
       const msgs = [];
       if(warn.unconfirmed) msgs.push(`아직 확인 안 된 신청 ${warn.unconfirmed}건 포함`);
-      if(warn.noTrack.length) msgs.push(`운송장번호가 없는 택배 샘플은 택배비에서 빠졌습니다: ${warn.noTrack.slice(0, 3).join(', ')}${warn.noTrack.length > 3 ? ' 외 ' + (warn.noTrack.length - 3) + '건' : ''}`);
-      if(warn.noCode.size) msgs.push(`품목코드 없음: ${[...warn.noCode].slice(0, 3).join(', ')}`);
+      if(warn.noTrack.length) msgs.push(`운송장번호가 아직 없는 택배 샘플은 상자 수로 택배비를 셌습니다: ${warn.noTrack.slice(0, 3).join(', ')}${warn.noTrack.length > 3 ? ' 외 ' + (warn.noTrack.length - 3) + '건' : ''}`);
+      if(warn.noCode.size) msgs.push(`품목코드 없음: ${[...warn.noCode].slice(0, 3).join(', ')}${[...warn.noCode].some(x => /^택배비/.test(x)) ? ' (택배비는 3PL 택배비 품목 설정에서 코드를 넣어 주세요)' : ''}`);
       toast('이카운트 자가사용 엑셀이 다운로드되었습니다' + (msgs.length ? ' — ' + msgs.join(' / ') : ''));
     }catch(e){ toast('자가사용 엑셀을 만들지 못했습니다: ' + e.message); }
     finally{ btn.disabled = false; }
