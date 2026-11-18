@@ -8820,6 +8820,10 @@ function mnShow(id, keepScroll) {
   const udNameKey = n => String(n || '').replace(/\.[a-z0-9]+$/i, '').replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[0-9]+/g, ' ').replace(/[\s_\-.,~·]+/g, '').toLowerCase();
   const udNorm = t => String(t == null ? '' : t).replace(/\s+/g, '').toLowerCase();
   const udSig = (aoa, row) => { const r = (aoa || [])[row] || []; const s = r.slice(0, 15).map(udNorm).join('|'); return s.replace(/\|+$/, ''); };
+  const UD_LEGAL = /농업회사법인|영농조합법인|어업회사법인|농업법인|주식회사|유한회사|합자회사|합명회사|사단법인|재단법인|\(주\)|㈜|\(유\)|\(상장\)|상장/g;
+  const UD_OWN = new Set(['다름달음']);   // 우리 회사 이름
+  // 업체 이름 → 비교용 키 여러 개 (그대로 / 법인 형태 뺌 / 괄호 안 글자도 뺌)
+  const udCoKeys = n => { const b = String(n || ''); return [...new Set([udCoKey(b), udCoKey(b.replace(UD_LEGAL, ' ')), udCoKey(b.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(UD_LEGAL, ' '))])].filter(k => k.length >= 2); };
   const udCoKey = n => String(n || '').replace(/\(주\)|㈜|주식회사|\(유\)|유한회사|\(상장\)|상장/g, '').replace(/[\s()_\-.]+/g, '').toLowerCase();
   async function uploadDetectCompany(fileName, aoa){
     const R = await udLoad();
@@ -8831,9 +8835,11 @@ function mnShow(id, keepScroll) {
     // ② 파일 이름 모양
     const nk = udNameKey(fileName);
     if(nk && R.names[nk] && has(R.names[nk])) return { company: R.names[nk], how: '예전에 불러온 같은 파일 이름', strong: true };
-    // ③ 파일 이름에 업체명 (긴 이름 먼저, 업로드 양식이 있는 업체 우선)
+    // ③ 파일 이름에 업체명 — 법인 형태(농업회사법인·주식회사·(주) 등)와 괄호 안 글자를 뺀 이름으로도 비교
+    //    우리 회사 이름(다름달음)은 받는 쪽으로 파일 이름에 자주 붙으므로 다른 후보가 없을 때만, 그 밖에는 업로드 양식이 있는 업체 · 긴 이름 우선
     const fk = udCoKey(fileName);
-    const cands = companies.map(c => ({ c, k: udCoKey(c.name) })).filter(x => x.k.length >= 2 && fk.includes(x.k)).sort((a, b) => (b.c.uploadMapping ? 1 : 0) - (a.c.uploadMapping ? 1 : 0) || b.k.length - a.k.length);
+    const cands = companies.map(c => { const ks = udCoKeys(c.name).filter(k => fk.includes(k)).sort((a, b) => b.length - a.length); return ks.length ? { c, k: ks[0] } : null; }).filter(Boolean)
+      .sort((a, b) => (UD_OWN.has(a.k) ? 1 : 0) - (UD_OWN.has(b.k) ? 1 : 0) || (b.c.uploadMapping ? 1 : 0) - (a.c.uploadMapping ? 1 : 0) || b.k.length - a.k.length);
     if(cands.length) return { company: cands[0].c.name, how: '파일 이름', strong: false };
     return null;
   }
