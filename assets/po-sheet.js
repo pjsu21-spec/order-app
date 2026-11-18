@@ -86,6 +86,7 @@
         const addr = col + row.r;
         let val = v;
         if(dyn[addr] !== undefined) val = dyn[addr];
+        if(m.headText && m.headText[addr] != null) val = m.headText[addr];   // 묶음 머리글 용량(예: 대추방울토마토 750g)
         const s = on != null ? style((ref ? Number(vals[ref]) > 0 : Number(typeof val === 'object' ? 0 : val) > 0) ? on : st) : style(st);
         g.set(row.r, col, val, s);
       });

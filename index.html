@@ -6987,19 +6987,44 @@ function mnShow(id, keepScroll) {
     if(ungrouped.length){ h1 += `<th colspan="${ungrouped.length}">개별 품목</th>`; h2 += ungrouped.map(d => `<th style="font-size:10px;">${escapeHtml(d.name)}</th>`).join(''); }
     table.innerHTML = '<thead>' + h1 + '</tr>' + h2 + '</tr></thead>';
     const tb = document.createElement('tbody');
-    const commit = async () => { try{ await saveClassPrices(); }catch(e){ return; } renderPriceMapEditor(); };
+    // 저장 후: 표를 다시 그리고(일괄 칸에 넣은 값이 품목 칸에도 보이게), 이 분류 업체 중 업체별 예외 단가가 있어 안 바뀌는 곳이 있으면 맞출지 물음
+    const commit = async (leafId, itemIds, v) => {
+      try{ await saveClassPrices(); }catch(e){ return; }
+      renderClassPriceEditor(); renderPriceMapEditor();
+      if(!leafId || !itemIds || !itemIds.length || v == null) return;
+      const hits = [];
+      companies.filter(c => c.classId === leafId).forEach(c => {
+        const its = itemIds.filter(id => { const x = cpNum((c.priceMap || {})[id]); return x != null && x !== v; });
+        if(its.length) hits.push({ c, its });
+      });
+      if(!hits.length){ const n = companies.filter(c => c.classId === leafId).length; toast(`${ccLabel(leafId)} 거래처 ${n}곳에 ${Number(v).toLocaleString()}원이 적용됩니다`); return; }
+      const body = document.createElement('div');
+      const nm = id => { const d = dict.find(x => x.id === id); return d ? (d.shortName || d.name) : id; };
+      body.innerHTML = `<div style="margin:0 0 8px;">이 분류(<b>${escapeHtml(ccLabel(leafId))}</b>) 거래처 중 <b>${hits.length}곳</b>은 <b>업체별 예외 단가</b>가 들어 있어 새 단가(<b>${Number(v).toLocaleString()}원</b>)로 바뀌지 않습니다. 예외 단가를 지우고 새 단가로 맞출까요?</div>` +
+        '<div style="max-height:240px;overflow:auto;font-size:12.5px;">' + hits.map(h => `<div>· <b>${escapeHtml(h.c.name)}</b> — ${h.its.map(id => escapeHtml(nm(id)) + ' ' + Number(h.c.priceMap[id]).toLocaleString() + '원').join(', ')}</div>`).join('') + '</div>';
+      ccModal('업체별 예외 단가', body, [
+        { text: '예외 단가 그대로 두기', fn: close => close() },
+        { text: '모두 새 단가로 맞추기', cls: 'btn-primary', fn: async close => {
+          hits.forEach(h => { h.its.forEach(id => { delete h.c.priceMap[id]; }); });
+          try{ await saveCompanies(); }catch(e){ toast('저장하지 못했습니다'); return; }
+          close(); renderPriceMapEditor();
+          try{ await writeLog('class_price_override_clear', `거래 방식 단가 일괄: ${ccLabel(leafId)} 예외 단가 ${hits.length}곳 해제 → ${v}원`); }catch(e){}
+          toast(`${hits.length}곳의 예외 단가를 지웠습니다 — 새 단가 ${Number(v).toLocaleString()}원이 적용됩니다`);
+        } }
+      ]);
+    };
     const setP = (leafId, itemId, v) => { const m = classPrices[leafId] = classPrices[leafId] || {}; if(v == null) delete m[itemId]; else m[itemId] = v; if(!Object.keys(m).length) delete classPrices[leafId]; };
     leaves.forEach(l => {
       const tr = document.createElement('tr'); tr.dataset.leaf = l.id;
       tr.innerHTML = `<td class="cp-leaf" title="${escapeHtml(l.label)}">${escapeHtml(l.label)}</td><td class="cp-n">${cnt(l.id) || ''}</td>`;
       const m = classPrices[l.id] || {};
       const itemTd = d => { const td = document.createElement('td'); const inp = document.createElement('input'); inp.type = 'number'; inp.min = '0'; inp.step = '1'; inp.placeholder = '단가'; inp.className = 'cp-in'; inp.dataset.item = d.id; inp.value = cpNum(m[d.id]) != null ? m[d.id] : '';
-        inp.addEventListener('change', () => { const v = parseFloat(inp.value); setP(l.id, d.id, isNaN(v) || inp.value.trim() === '' ? null : v); commit(); }); td.appendChild(inp); return td; };
+        inp.addEventListener('change', () => { const v = parseFloat(inp.value), nv = isNaN(v) || inp.value.trim() === '' ? null : v; setP(l.id, d.id, nv); commit(l.id, [d.id], nv); }); td.appendChild(inp); return td; };
       Object.entries(groups).forEach(([g, its]) => {
         const td = document.createElement('td'); const gi = document.createElement('input'); gi.type = 'number'; gi.min = '0'; gi.step = '1'; gi.className = 'cp-grp'; gi.placeholder = '그룹';
         const vals = its.map(d => cpNum(m[d.id])); if(vals.length && vals.every(v => v != null && v === vals[0])) gi.value = vals[0];
         gi.title = `${g} 그룹 전체 품목(${its.length}개)에 같은 단가`;
-        gi.addEventListener('change', () => { const v = parseFloat(gi.value); its.forEach(d => setP(l.id, d.id, isNaN(v) || gi.value.trim() === '' ? null : v)); commit(); });
+        gi.addEventListener('change', () => { const v = parseFloat(gi.value), nv = isNaN(v) || gi.value.trim() === '' ? null : v; its.forEach(d => setP(l.id, d.id, nv)); commit(l.id, its.map(d => d.id), nv); });
         td.appendChild(gi); tr.appendChild(td);
         its.forEach(d => tr.appendChild(itemTd(d)));
       });
@@ -17663,7 +17688,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261118b'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261119a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -17744,7 +17769,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const col15 = {};
     const addQ = q => Object.entries(q || {}).forEach(([c, v]) => { col15[c] = R2((col15[c] || 0) + v); });
     built.entries.forEach(e => addQ(e.colQty)); disp.forEach(x => addQ(x.qty));
-    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
+    // 묶음 머리글 용량: 한 열짜리 묶음(대추방울토마토)은 실제 1팩 용량(이름의 3kg ÷ 박스입수 = 750g)으로 표시
+    const headText = {};
+    (PS.GROUPS || []).filter(G => G.cols.length === 1).forEach(G => {
+      const col = G.cols[0], items = dict.filter(d => skuColumnMap[d.id] === col); if(items.length !== 1) return;
+      const w = poItemWeight(items[0]); if(!w) return;
+      const hr = (window.PO_BASE.header.rows || []).find(r => r.cells.some(c => c[0] === col && /\d\s*g/i.test(String(c[2] || '')))), cell = hr && hr.cells.find(c => c[0] === col);
+      const t = cell ? String(cell[2] || '') : '', m = /(\d+(?:\.\d+)?)\s*g\b/i.exec(t);
+      if(m && Number(m[1]) !== w) headText[col + hr.r] = t.replace(m[0], w + 'g');
+    });
+    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
   }
   async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
   function pgDownloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
