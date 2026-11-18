@@ -1260,35 +1260,6 @@
     </div>
   </div>
 
-  <div class="card" id="personal-card">
-    <details id="personal-details">
-    <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">직원 개인구매 <span class="fold-hint" style="font-size:12px;font-weight:400;color:var(--muted);">(눌러서 펼치기)</span></summary>
-    <div class="row" style="margin-top:10px;">
-      <label style="font-size:13px;font-weight:600;">구매자 :</label>
-      <input type="text" id="pp-buyer" list="pp-buyer-list" placeholder="이름 + 직급 (예: 박준수 과장)" style="min-width:220px;">
-      <datalist id="pp-buyer-list"></datalist>
-      <label style="font-size:13px;font-weight:600;margin-left:12px;">수령 방식 :</label>
-      <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="pickup" checked> 직접 수령</label>
-      <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="parcel"> 택배 발송</label>
-    </div>
-    <div id="pp-items" style="margin-top:10px;"></div>
-    <div class="row" style="margin-top:4px;"><button class="btn-ghost small-btn" id="pp-add-item-btn">+ 품목 추가</button></div>
-    <div id="pp-parcel-box" style="display:none; margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:8px;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">택배 발송 정보 (3PL 개별 주문으로 추가됩니다)</div>
-      <div class="row" style="margin-top:0;">
-        <input type="text" id="pp-recv-name" placeholder="받는 분 (비우면 구매자)" style="min-width:160px;">
-        <input type="text" id="pp-recv-phone" placeholder="연락처" style="min-width:140px;">
-        <input type="text" id="pp-recv-addr" placeholder="배송지 주소" style="min-width:300px; flex:1;">
-        <input type="text" id="pp-recv-note" placeholder="배송 요청사항 (선택)" style="min-width:180px;">
-      </div>
-    </div>
-    <div class="row">
-      <button class="btn-primary" id="pp-submit-btn">개인구매 추가</button>
-      <span class="sub" style="margin:0;">직접 수령은 "OOO 과장 개인 구매" 업체로 집계표에 들어가고, 택배 발송은 3PL 출고에 추가됩니다.</span>
-    </div>
-    </details>
-  </div>
-
   </div><!-- /panel-order -->
 
   <!-- ───────────── 패널 2: 집계 / 출고 ───────────── -->
@@ -2254,6 +2225,7 @@
       <button class="tab-btn active" id="sample-tab-form-btn">신청하기</button>
       <button class="tab-btn" id="sample-tab-list-btn">신청 내역</button>
       <button class="tab-btn" id="sample-tab-sum-btn">샘플 취합</button>
+      <button class="tab-btn" id="sample-tab-pp-btn" title="직원 개인구매 (직접 수령 · 택배 발송)">개인구매</button>
     </div>
     <div id="sample-msg" class="sub" style="margin-top:8px;"></div>
 
@@ -2356,6 +2328,40 @@
         <span id="sample-sum-count" class="sub" style="margin:0;"></span>
       </div>
       <div id="sample-sum-wrap" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="sample-section-pp" style="display:none;">
+      <h3 style="margin-top:0;">직원 개인구매</h3>
+      <div id="pp-ro-note" class="sub" style="display:none;margin:0 0 8px;color:var(--danger,#c0392b);font-weight:700;">발주취합(발주 입력) 권한이 있는 직원만 개인구매를 추가할 수 있습니다. 담당자에게 요청해 주세요.</div>
+      <div class="row" style="margin-top:0;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:600;">납품일 :</label>
+        <input type="date" id="pp-date">
+        <span class="sub" style="margin:0;">이 날짜 발주취합(집계표 · 3PL 출고)에 들어갑니다</span>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <label style="font-size:13px;font-weight:600;">구매자 :</label>
+        <input type="text" id="pp-buyer" list="pp-buyer-list" placeholder="이름 + 직급 (예: 박준수 과장)" style="min-width:220px;">
+        <datalist id="pp-buyer-list"></datalist>
+        <label style="font-size:13px;font-weight:600;margin-left:12px;">수령 방식 :</label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="pickup" checked> 직접 수령</label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="parcel"> 택배 발송</label>
+      </div>
+      <div id="pp-items" style="margin-top:10px;"></div>
+      <div class="row" style="margin-top:4px;"><button class="btn-ghost small-btn" id="pp-add-item-btn">+ 품목 추가</button></div>
+      <div id="pp-parcel-box" style="display:none; margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:8px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">택배 발송 정보 (3PL 개별 주문으로 추가됩니다)</div>
+        <div class="row" style="margin-top:0;">
+          <input type="text" id="pp-recv-name" placeholder="받는 분 (비우면 구매자)" style="min-width:160px;">
+          <input type="text" id="pp-recv-phone" placeholder="연락처" style="min-width:140px;">
+          <input type="text" id="pp-recv-addr" placeholder="배송지 주소" style="min-width:300px; flex:1;">
+          <input type="text" id="pp-recv-note" placeholder="배송 요청사항 (선택)" style="min-width:180px;">
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn-primary" id="pp-submit-btn">개인구매 추가</button>
+        <span class="sub" style="margin:0;">직접 수령은 "OOO 과장 개인 구매" 업체로 집계표에 들어가고, 택배 발송은 3PL 출고에 추가됩니다.</span>
+      </div>
+      <div id="pp-list" style="margin-top:12px;"></div>
     </div>
   </div>
   </div><!-- /panel-sample -->
@@ -2600,7 +2606,7 @@
 <div class="mn-tip"><b>팁</b>발주와 함께 샘플을 보낼 때는 확정하기 전에 <b>🎁 샘플 동봉</b>을 펼쳐 품목과 수량을 넣으세요(선택). 예: 스테비아 10박스 + 샘플 2박스 → 매출은 10박스, 송품장에는 10박스와 샘플 2박스가 따로 나옵니다. 출고일을 따로 지정하는 업체와 3PL 업체는 쓸 수 없습니다.</div>
 
 <h3>4. 직원 개인구매</h3>
-<p><b>직원 개인구매</b>를 눌러 펼친 뒤 구매자(이름+직급), 수령 방식, 품목을 넣고 <span class="mn-b">개인구매 추가</span>를 누릅니다.</p>
+<p><b>샘플 신청 → 개인구매</b> 탭으로 옮겼습니다. 납품일을 고르고 구매자(이름+직급), 수령 방식, 품목을 넣은 뒤 <span class="mn-b">개인구매 추가</span>를 누릅니다. (발주 입력 권한이 있는 직원만 추가할 수 있습니다)</p>
 <ul>
   <li><b>직접 수령</b>: "OOO 과장 개인 구매" 업체로 집계표에 들어갑니다.</li>
   <li><b>택배 발송</b>: 받는 분·연락처·주소를 적으면 3PL 출고에 추가됩니다.</li>
@@ -3771,7 +3777,7 @@ function applyUserUI() {
 //  - 타일 순서: 마스터 계정(admin)만 '타일 순서 편집'으로 바꿀 수 있고, kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
 const HOME_TILES = [
   { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20261117a' },
-  { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합', nav: '#main-nav-btn-sample' },
+  { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'ecount', icon: '🧾', img: 'assets/ic-ecount.png', name: '이카운트·기준정보', desc: '품목·거래처 관리 · 이카운트 양식', nav: '#main-nav-btn-ecount' },
@@ -9591,7 +9597,10 @@ function mnShow(id, keepScroll) {
       if(packs == null){ toast(`${itemNameById(it.itemId)}: 박스입수가 없어 박스를 팩으로 바꿀 수 없습니다. SKU 관리에서 박스입수를 입력하거나 단위를 팩으로 바꿔주세요`); return; }
       lines.push({ itemId: it.itemId, packs });
     }
-    const orders = currentOrders();
+    if(window.accessLevel('order') !== 'full'){ toast('발주취합(발주 입력) 권한이 있어야 개인구매를 추가할 수 있습니다'); return; }
+    const dk = ppDateKey();
+    if(!ordersByDate[dk]) ordersByDate[dk] = {};
+    const orders = ordersByDate[dk];
     if(ppMethod() === 'pickup'){
       const company = buyer + PP_PICKUP_SUFFIX;
       ppEnsureCompany(company, false);
@@ -9600,7 +9609,7 @@ function mnShow(id, keepScroll) {
       orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
       saveOrdersByDate();
       renderAggTable(); renderThirdPartyAggTable(); renderRawStockEditor();
-      toast(`${company}: 직접 수령으로 집계표에 추가했습니다`);
+      toast(`${company}: ${dk} 집계표에 직접 수령으로 추가했습니다`);
     } else {
       const recvName = (document.getElementById('pp-recv-name').value || '').trim() || buyer;
       const phone = (document.getElementById('pp-recv-phone').value || '').trim();
@@ -9611,7 +9620,8 @@ function mnShow(id, keepScroll) {
       const company = PP_PARCEL_COMPANY;
       ppEnsureCompany(company, true);
       if(!orders[company]) orders[company] = {};
-      const bucket = currentLineItems();
+      if(!thirdPartyLineItems[dk]) thirdPartyLineItems[dk] = [];
+      const bucket = thirdPartyLineItems[dk];
       lines.forEach(l => {
         const internalOrderNo = getNextInternalOrderNo();
         const boxQtys = splitIntoBoxes(l.packs);
@@ -9627,13 +9637,38 @@ function mnShow(id, keepScroll) {
       orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
       saveInternalOrderCounters(); saveLineItems(); saveOrdersByDate();
       renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems(); renderRawStockEditor();
-      toast(`${buyer} 개인구매를 택배 발송으로 3PL에 추가했습니다`);
+      toast(`${buyer} 개인구매를 ${dk} 3PL 출고에 택배 발송으로 추가했습니다`);
     }
     ppResetForm();
+    ppRenderList();
+  }
+  // 샘플 신청 → 개인구매 탭
+  const ppDateKey = () => { const v = (document.getElementById('pp-date') || {}).value; return parseDateKey(v) ? v : currentDateKey; };
+  function ppShow(){
+    const d = document.getElementById('pp-date'); if(d && !parseDateKey(d.value)) d.value = currentDateKey;
+    const can = window.accessLevel('order') === 'full';
+    const note = document.getElementById('pp-ro-note'); if(note) note.style.display = can ? 'none' : 'block';
+    document.querySelectorAll('#sample-section-pp input, #sample-section-pp button, #sample-section-pp select').forEach(el => { if(el.id !== 'pp-date') el.disabled = !can; });
+    ppRenderItems(); ppRenderList();
+  }
+  // 고른 날짜의 개인구매 목록 (직접 수령 업체 · 택배 개별 주문)
+  function ppRenderList(){
+    const wrap = document.getElementById('pp-list'); if(!wrap) return;
+    const dk = ppDateKey(), orders = ordersByDate[dk] || {};
+    const unitOf = d => Number(d.boxUnitCount) || 0, toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
+    const fmtItems = items => dict.filter(d => Number((items || {})[d.id]) > 0).map(d => `${d.shortName || d.name} ${Math.round(toBox(d, items[d.id]) * 100) / 100}${unitOf(d) > 0 ? '박스' : '팩'}`).join(', ');
+    const pick = Object.keys(orders).filter(n => n !== '_meta' && n.endsWith(PP_PICKUP_SUFFIX));
+    const parcel = (thirdPartyLineItems[dk] || []).filter(l => l.company === PP_PARCEL_COMPANY);
+    if(!pick.length && !parcel.length){ wrap.innerHTML = `<div class="sub" style="margin:0;">${escapeHtml(dk)} 개인구매가 아직 없습니다.</div>`; return; }
+    wrap.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">${escapeHtml(dk)} 개인구매</div>` +
+      pick.map(n => `<div class="sub" style="margin:0 0 2px;">🙋 <b>${escapeHtml(n)}</b> (직접 수령) — ${escapeHtml(fmtItems(orders[n]))}</div>`).join('') +
+      parcel.map(l => `<div class="sub" style="margin:0 0 2px;">📦 <b>${escapeHtml(l.recipientName || '')}</b> (택배) — ${escapeHtml(l.itemNameRaw || '')} ${escapeHtml(String(l.qty || ''))} · ${escapeHtml(l.note || '')}</div>`).join('') +
+      '<div class="sub" style="margin:4px 0 0;">고치거나 지우려면 발주취합 → 집계 / 출고(직접 수령) 또는 3PL 출고 집계(택배)에서 합니다.</div>';
   }
 
   document.getElementById('pp-add-item-btn').addEventListener('click', ()=>{ ppItems.push({ itemId: '', qty: '', unit: '팩' }); ppRenderItems(); });
   document.getElementById('pp-submit-btn').addEventListener('click', ppSubmit);
+  document.getElementById('pp-date').addEventListener('change', ppRenderList);
   document.querySelectorAll('input[name="pp-method"]').forEach(r => r.addEventListener('change', ()=>{
     document.getElementById('pp-parcel-box').style.display = ppMethod() === 'parcel' ? 'block' : 'none';
   }));
@@ -12372,7 +12407,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   }
 
   // ── 화면 전환 ──
-  const SAMPLE_SECTIONS = ['form', 'list', 'sum'];
+  const SAMPLE_SECTIONS = ['form', 'list', 'sum', 'pp'];
   function sampleShow(sec){
     if(sec === 'form' && !sampleCan('request')) sec = 'list';
     if(sec === 'sum' && !(sampleCan('view') && sampleLevel() !== 'request')) sec = sampleCan('request') ? 'form' : 'list';
@@ -12382,6 +12417,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     });
     if(sec === 'list') sampleRenderList();
     if(sec === 'sum') sampleRenderSummary();
+    if(sec === 'pp') ppShow();
   }
   async function initSamplePanel(){
     if(!sampleCan('view')) return;
