@@ -2122,7 +2122,7 @@
     <details open>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
       <div style="margin-top:10px;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다). 발주 입력의 <b>샘플 동봉</b>도 들어가며(적요 '거래처명 샘플 동봉'), <b>대분류가 SP인 거래처</b>의 샘플 동봉은 별도 정산을 위해 자가사용 대신 <b>매출 엑셀에 단가 0원 줄</b>(적요 '샘플 n팩')로 들어갑니다.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다). 발주 입력의 <b>샘플 동봉</b>도 들어가며(적요 '거래처명 샘플 동봉'), <b>대분류가 SP인 거래처</b>의 샘플 동봉은 별도 정산을 위해 자가사용 대신 <b>매출 엑셀에 단가 0원 줄</b>(적요 '샘플 n팩')로 들어갑니다.</div></details>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;">다운로드 일자 :</label>
       <select id="ecount-date-select" style="min-width:230px;"></select>
@@ -2143,7 +2143,7 @@
     </div>
     <div class="row">
       <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
-      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
+      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
     <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
@@ -10508,9 +10508,10 @@ function mnShow(id, keepScroll) {
   }
   setTimeout(() => { try{ renderEcountGroupNote(); }catch(e){} }, 0);
   // ── 이카운트 자가사용 엑셀: 그날 출고(출고일시 기준)하는 샘플 신청 → 자가사용입력 양식 ──
-  //  거래처 00031 고정 · 수량 = 팩(낱개) · 금액 0 · 적요 = 신청자 이름 · 한 전표(순번 1)
+  //  거래처 00031 고정 · 수량 = 박스(박스입수 기준) · 금액 0 · 적요 = 신청자 이름 · 한 전표(순번 1)
   //  택배 발송 샘플은 3PL 개별 주문(샘플 줄)에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄을 붙임
   const SELFUSE_CUST = '00031';
+  const selfUseBoxes = (item, packs) => { const n = Number(item.boxUnitCount) || 0; return Math.round((n > 0 ? packs / n : packs) * 100) / 100; };   // 수량 = 박스 (박스입수 없는 품목은 팩)
   async function ecountSelfUseRows(dateKey, warehouse, manager){
     const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
     const reqs = await sbQuery('sample_requests', `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`);
@@ -10528,13 +10529,13 @@ function mnShow(id, keepScroll) {
     });
     [...merged.values()].sort((a, b) => a.who.localeCompare(b.who, 'ko') || dict.indexOf(a.item) - dict.indexOf(b.item)).forEach(({ who, item, packs }) => {
       if(!item.code) warn.noCode.add(item.name);
-      rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', packs, 0, '', who]);
+      rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', selfUseBoxes(item, packs), 0, '', who]);
     });
     // 발주 입력의 샘플 동봉 (SP 거래처는 매출 엑셀에 0원으로 들어가므로 제외) — 적요 = '거래처명 샘플 동봉'
     { const ords = ordersByDate[dateKey] || {};
       Object.keys(orderExtras[dateKey] || {}).filter(c => ords[c] && sampleAllowed(c) && !encToSales(c)).sort((a, b) => a.localeCompare(b, 'ko')).forEach(c => {
         const sm = sampleOf(dateKey, c);
-        dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', Math.round(packs * 100) / 100, 0, '', c + ' 샘플 동봉']); warn.enc++; });
+        dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', selfUseBoxes(item, packs), 0, '', c + ' 샘플 동봉']); warn.enc++; });
       }); }
     // 택배비: 샘플 택배 줄(모든 날짜의 3PL 개별 주문 중 이 신청들)의 운송장번호별 → 규격별 건수
     const parcelIds = new Map(reqs.filter(sampleIsParcel).map(r => [String(r.id), String(r.requester_name || '').trim()]));
