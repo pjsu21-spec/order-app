@@ -1416,7 +1416,7 @@
           <label style="font-size:13px;">품목당 <input type="number" id="qc-boxes" min="0" step="0.25" style="width:70px;"> 박스</label>
           <span class="sub" id="qc-note" style="margin:0;"></span>
         </div>
-        <div class="sub" style="margin:0 0 8px;">생산하는 품목(오늘 출고 합계가 전일 재고보다 많은 품목)은 품질 확인용으로 따로 빼 두어야 하므로, 발주취합 파일의 <b>샘플</b> 구분에 <b>"생산본부"</b> 줄이 자동으로 들어가고 총 수량에도 포함됩니다. 박스입수가 있는 품목에만 기본 적용되며, 품목별로 다르게 하려면 SKU 관리의 <b>품질샘플(박스)</b>에 숫자를 적으세요(0이면 그 품목은 제외).</div>
+        <div class="sub" style="margin:0 0 8px;">생산하는 품목(오늘 출고 합계가 전일 재고보다 많은 품목)은 품질 확인용으로 따로 빼 두어야 하므로, 발주취합 파일의 <b>샘플</b> 구분에 <b>"생산본부"</b> 줄이 자동으로 들어가고 총 수량에도 포함됩니다. 박스입수가 있는 품목에만 기본 적용되며(왓더프레시처럼 제조하지 않는 품목은 제외), 품목별로 다르게 하려면 SKU 관리의 <b>품질샘플(박스)</b>에 숫자를 적으세요(0이면 그 품목은 제외).</div>
         <h3 style="margin:14px 0 6px;">품목 → 서식 열 지정</h3>
         <div class="row" style="margin:0 0 8px;">
           <button class="btn-ghost small-btn" id="po-suggest-btn" title="품목 이름·용량과 서식 머리글을 비교해, 미지정이거나 종이/스티로폼 열이 어긋난 품목만 알맞은 열로 지정합니다">🔎 열 자동 추천 (미지정·어긋난 품목만)</button>
@@ -6080,7 +6080,8 @@ function mnShow(id, keepScroll) {
       qcInput.type = 'number'; qcInput.min = '0'; qcInput.step = '0.25';
       qcInput.placeholder = '품질샘플(박스)';
       qcInput.style.maxWidth = '110px';
-      qcInput.title = '생산하는 날 발주취합에 자동으로 넣는 품질 확인용 샘플 수량(박스). 비우면 기본값(발주취합 서식 설정, 0.5박스), 0이면 이 품목은 넣지 않습니다';
+      qcInput.title = '생산하는 날 발주취합에 자동으로 넣는 품질 확인용 샘플 수량(박스). 비우면 기본값(발주취합 서식 설정, 0.5박스 — 왓더프레시 같은 제조하지 않는 품목은 0), 0이면 이 품목은 넣지 않습니다';
+      if(qcNotMade(item)) qcInput.placeholder = '품질샘플 0 (제조 안 함)';
       qcInput.value = item.qcSample === undefined || item.qcSample === null ? '' : item.qcSample;
       qcInput.addEventListener('change', (e)=>{
         item.qcSample = e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0);
@@ -17615,12 +17616,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // ── 품질 확인용 샘플 ──
   // 생산하는 품목(오늘 출고 합계 > 전일 재고)은 품질 확인을 위해 품목마다 0.5박스(설정값)를 따로 빼 두어야 하므로,
   // 발주취합 서식의 샘플 구분에 '생산본부' 줄로 자동 추가한다. (실제 샘플 신청과 별개의 줄이며, 총 수량·합계에도 포함됨)
-  //  - 박스입수가 있는 품목에만 기본 적용. SKU 관리의 '품질샘플(박스)'에 숫자를 적으면 그 품목만 그 값(0이면 제외)으로 바꿈.
+  //  - 박스입수가 있는 품목에만 기본 적용(왓더프레시 등 제조하지 않는 품목 제외). SKU 관리의 '품질샘플(박스)'에 숫자를 적으면 그 품목만 그 값(0이면 제외)으로 바꿈.
   let qcSettings = { enabled: true, boxes: 0.5 };
   const QC_ENTRY_NAME = '생산본부';
+  // 제조하지 않고 사서 파는 품목(왓더프레시 등)은 기본으로 품질 확인용 샘플을 넣지 않음 (SKU 관리에서 숫자를 적으면 그 값이 우선)
+  function qcNotMade(d){ return /왓더\s*프레시/i.test(String((d && d.name) || '') + ' ' + String((d && d.shortName) || '') + ' ' + String((d && d.priceGroup) || '')); }
   function qcBoxesOf(d){
     const v = d.qcSample;
     if(v !== undefined && v !== null && v !== '') return Math.max(0, Number(v) || 0);
+    if(qcNotMade(d)) return 0;
     return (Number(d.boxUnitCount) || 0) > 0 ? (Number(qcSettings.boxes) || 0) : 0;
   }
   // built.entries에 '생산본부' 줄을 추가하고, 추가한 품목 이름 목록을 돌려줌 (이미 있으면 다시 추가하지 않음)
