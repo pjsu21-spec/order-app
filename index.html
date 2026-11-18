@@ -2122,7 +2122,7 @@
     <details open>
       <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
       <div style="margin-top:10px;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 거래처 관리에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다).</div></details>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;">다운로드 일자 :</label>
       <select id="ecount-date-select" style="min-width:230px;"></select>
@@ -2143,6 +2143,7 @@
     </div>
     <div class="row">
       <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
+      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 팩(낱개) · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
     <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
@@ -10467,6 +10468,7 @@ function mnShow(id, keepScroll) {
     const key = ecountDateKey();
     const n = ecountCompanyCount(key);
     document.getElementById('export-ecount-btn').textContent = `${ecountDateText(key)} 매출 엑셀 다운로드`;
+    { const b = document.getElementById('export-selfuse-btn'); if(b) b.textContent = `${ecountDateText(key)} 이카운트 자가사용 엑셀 다운로드`; }
     document.getElementById('ecount-date-warn').textContent = n === 0 ? '※ 이 일자에는 집계된 발주가 없습니다' : (key !== currentDateKey ? '※ 과거 일자 — 현재 설정된 단가·택배비로 계산됩니다' : '');
   }
   document.getElementById('ecount-date-select').addEventListener('mousedown', renderEcountDateSelect);
@@ -10481,6 +10483,75 @@ function mnShow(id, keepScroll) {
     el.innerHTML = keys.length ? '📦 묶어서 판매 입력: ' + keys.map(k => `<b>${escapeHtml(k)}</b> → ${[...specs[k]].map(escapeHtml).join(' · ')}`).join(' / ') + ' (거래처명은 비우고 코드로 입력, 쿠팡 등 출고일 지정 업체는 납품일을 일자로)' : '거래처 분류표에서 "묶어서 판매 입력"을 켜면 SP처럼 거래 방식별로 묶어 한 전표로 내려받습니다.';
   }
   setTimeout(() => { try{ renderEcountGroupNote(); }catch(e){} }, 0);
+  // ── 이카운트 자가사용 엑셀: 그날 출고(출고일시 기준)하는 샘플 신청 → 자가사용입력 양식 ──
+  //  거래처 00031 고정 · 수량 = 팩(낱개) · 금액 0 · 적요 = 신청자 이름 · 한 전표(순번 1)
+  //  택배 발송 샘플은 3PL 개별 주문(샘플 줄)에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄을 붙임
+  const SELFUSE_CUST = '00031';
+  async function ecountSelfUseRows(dateKey, warehouse, manager){
+    const start = new Date(dateKey + 'T00:00:00'), end = new Date(start.getTime() + 86400000);
+    const reqs = await sbQuery('sample_requests', `?ship_at=gte.${encodeURIComponent(start.toISOString())}&ship_at=lt.${encodeURIComponent(end.toISOString())}&status=neq.${encodeURIComponent('취소')}&order=ship_at.asc`);
+    const rows = [], warn = { noCode: new Set(), noTrack: [], unconfirmed: 0 };
+    const merged = new Map();   // '신청자|품목' → { who, item, packs }
+    reqs.forEach(r => {
+      if(r.status !== '확인') warn.unconfirmed++;
+      const who = String(r.requester_name || '').trim() || '이름 없음';
+      (r.items || []).forEach(i => {
+        const item = dict.find(d => d.id === i.skuId), packs = Number(i.packs) || 0;
+        if(!item || packs <= 0) return;
+        const k = who + '|' + item.id, cur = merged.get(k) || { who, item, packs: 0 };
+        cur.packs = Math.round((cur.packs + packs) * 100) / 100; merged.set(k, cur);
+      });
+    });
+    [...merged.values()].sort((a, b) => a.who.localeCompare(b.who, 'ko') || dict.indexOf(a.item) - dict.indexOf(b.item)).forEach(({ who, item, packs }) => {
+      if(!item.code) warn.noCode.add(item.name);
+      rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', packs, 0, '', who]);
+    });
+    // 택배비: 샘플 택배 줄(모든 날짜의 3PL 개별 주문 중 이 신청들)의 운송장번호별 → 규격별 건수
+    const parcelIds = new Map(reqs.filter(sampleIsParcel).map(r => [String(r.id), String(r.requester_name || '').trim()]));
+    if(parcelIds.size){
+      const lines = Object.values(thirdPartyLineItems || {}).flat().filter(l => l && l.sampleKey && parcelIds.has(String(l.sampleId)));
+      const tracked = new Set(lines.filter(l => l.trackingNo && l.trackingNo.trim()).map(l => String(l.sampleId)));
+      parcelIds.forEach((who, id) => { if(!tracked.has(id)) warn.noTrack.push(who); });
+      const byTrack = new Map();   // 운송장 → { qty, names }
+      lines.filter(l => l.trackingNo && l.trackingNo.trim()).forEach(l => {
+        const t = l.trackingNo.trim(), e = byTrack.get(t) || { qty: 0, names: new Set() };
+        e.qty += Number(l.qty) || 0; e.names.add(parcelIds.get(String(l.sampleId))); byTrack.set(t, e);
+      });
+      const bySize = new Map();
+      byTrack.forEach(e => { const sz = getBoxSize(e.qty) || '소', b = bySize.get(sz) || { n: 0, names: new Set() }; b.n++; e.names.forEach(n => b.names.add(n)); bySize.set(sz, b); });
+      const feeOf = {}; deliveryFeeItems.forEach(fi => { feeOf[fi.size] = fi; });
+      deliveryFeeItems.map(fi => fi.size).concat([...bySize.keys()]).filter((v, i, a) => a.indexOf(v) === i && bySize.has(v)).forEach(sz => {
+        const fi = feeOf[sz] || {}, b = bySize.get(sz);
+        if(!fi.code) warn.noCode.add('택배비(' + sz + ')');
+        rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, fi.code || '', fi.name || ('택배비(' + sz + ')'), '', b.n, 0, '', `택배비(${sz}) ${[...b.names].filter(Boolean).join('·')}`]);
+      });
+    }
+    return { rows, warn, count: reqs.length };
+  }
+  document.getElementById('export-selfuse-btn').addEventListener('click', async () => {
+    renderEcountDateSelect();
+    const dateKey = ecountDateKey();
+    const warehouse = document.getElementById('ecount-warehouse').value.trim();
+    const manager = document.getElementById('ecount-manager').value.trim();
+    if(!warehouse){ toast('출하창고를 입력해주세요'); return; }
+    const btn = document.getElementById('export-selfuse-btn'); btn.disabled = true;
+    try{
+      try{ await uploadSyncLatest(); }catch(e){}   // 다른 직원이 넣은 운송장번호까지
+      const { rows, warn } = await ecountSelfUseRows(dateKey, warehouse, manager);
+      if(!rows.length){ toast(`${ecountDateText(dateKey)}에 출고하는 샘플 신청이 없습니다`); return; }
+      const header = ['일자','순번','거래처코드','거래처명','출하창고','담당자','품목코드','품목명','규격','수량','금액1','사용유형','적요'];
+      const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+      ws['!cols'] = header.map(() => ({ wch: 15 }));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '자가사용입력');
+      XLSX.writeFile(wb, `이카운트_자가사용_${dateKey.replace(/-/g, '')}.xlsx`);
+      const msgs = [];
+      if(warn.unconfirmed) msgs.push(`아직 확인 안 된 신청 ${warn.unconfirmed}건 포함`);
+      if(warn.noTrack.length) msgs.push(`운송장번호가 없는 택배 샘플은 택배비에서 빠졌습니다: ${warn.noTrack.slice(0, 3).join(', ')}${warn.noTrack.length > 3 ? ' 외 ' + (warn.noTrack.length - 3) + '건' : ''}`);
+      if(warn.noCode.size) msgs.push(`품목코드 없음: ${[...warn.noCode].slice(0, 3).join(', ')}`);
+      toast('이카운트 자가사용 엑셀이 다운로드되었습니다' + (msgs.length ? ' — ' + msgs.join(' / ') : ''));
+    }catch(e){ toast('자가사용 엑셀을 만들지 못했습니다: ' + e.message); }
+    finally{ btn.disabled = false; }
+  });
   document.getElementById('export-ecount-btn').addEventListener('click', async ()=>{
     renderEcountDateSelect();
     const dateKey = ecountDateKey();
@@ -10498,7 +10569,7 @@ function mnShow(id, keepScroll) {
     const lineItems = thirdPartyLineItems[dateKey] || [];
     const feeItemsBySize = {};
     deliveryFeeItems.forEach(fi=>{ feeItemsBySize[fi.size] = fi; });
-    const trackingSet = buildTrackingSetByCompany(lineItems.filter(r=> r.trackingNo && r.trackingNo.trim()));
+    const trackingSet = buildTrackingSetByCompany(lineItems.filter(r=> r.trackingNo && r.trackingNo.trim() && !r.sampleKey));   // 샘플 택배비는 자가사용 엑셀로
     const feeCountByCompany = {};
     Object.entries(trackingSet).forEach(([companyName, trackMap])=>{
       feeCountByCompany[companyName] = {};
