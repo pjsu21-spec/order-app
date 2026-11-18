@@ -1901,12 +1901,14 @@
         <input type="date" id="inbound-date">
         <label style="font-size:13px;">무게(kg) :</label>
         <input type="number" id="inbound-weight" style="width:90px;">
+        <label style="font-size:13px;" title="이카운트 구매입력 엑셀에 들어가는 kg당 구매 단가 (자재 마스터의 단가가 기본으로 채워짐)">단가(원/kg) :</label>
+        <input type="text" id="inbound-price" inputmode="decimal" placeholder="구매 단가" style="width:90px;">
         <label style="font-size:13px;">A1콘테이너 :</label>
         <input type="number" id="inbound-a1" style="width:70px;" value="0">
         <label style="font-size:13px;">KPP팔레트 :</label>
         <input type="number" id="inbound-kpp" style="width:70px;" value="0">
       </div>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">원물입고 한 건에 <b>사입처(필수)</b>와 <b>농가(선택)</b>를 함께 기록합니다. 농가를 고르지 않으면 사입처만 기록·표시됩니다. <b>원물</b>은 이카운트 자재 마스터(원자재)에 등록된 <b>품목코드·품목명</b> 중에서 고르며, 고른 원물의 입고 kg은 자재 재고에 자동으로 더해집니다. 선별전재고와 선별산출(선입선출)은 사입처 기준으로 계산됩니다.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">원물입고 한 건에 <b>사입처(필수)</b>와 <b>농가(선택)</b>를 함께 기록합니다. 농가를 고르지 않으면 사입처만 기록·표시됩니다. <b>원물</b>은 이카운트 자재 마스터(원자재)에 등록된 <b>품목코드·품목명</b> 중에서 고르며, 고른 원물의 입고 kg은 자재 재고에 자동으로 더해집니다. <b>단가(원/kg)</b>를 넣으면 이카운트·기준정보 → 자재·재고 관리 → 입고·수불의 <b>구매입력 엑셀</b>에 사입처를 거래처로 같이 들어갑니다(자재·재고 관리의 입고(구매)로 또 넣지 마세요). 선별전재고와 선별산출(선입선출)은 사입처 기준으로 계산됩니다.</div></details>
       <div class="row" style="flex-wrap:wrap;">
         <input type="text" id="inbound-note" placeholder="메모" style="flex:0 1 380px; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="inbound-add-btn">+ 원물입고 등록</button>
@@ -2933,6 +2935,7 @@
   <li><span class="mn-b">구매입력 엑셀 다운로드</span>를 눌러 받은 파일을 이카운트 구매입력에 올립니다.</li>
 </ol>
 <ul>
+  <li><b>원물선별 원물입고 포함</b>(기본 켜짐)을 켜 두면 원물선별 → 원물입고에 등록한 원물도 같이 들어갑니다. 거래처 = 사입처, 수량 = kg, 단가 = 원물입고의 단가이고, 원물(자재 코드)을 고르지 않은 입고는 빠집니다. 사입처 이름을 <b>매입 거래처</b> 표에 같은 이름으로 등록하면 거래처코드가 들어갑니다. 원물은 입고·수불의 입고(구매)로 또 넣지 마세요(재고가 두 번 더해집니다).</li>
   <li>품목코드는 자재 마스터, 거래처코드는 매입 거래처 표에서 가져옵니다. 코드가 없으면 이름만 들어가고 이카운트가 이름으로 찾습니다. 품목코드가 없는 자재는 다운로드 후 안내에 표시됩니다.</li>
   <li>부가세 별도로 체크한 자재는 공급가액의 10%가 부가세로 들어가고 거래유형이 21이 됩니다.</li>
   <li>내려받은 입고 기록에는 <b>"엑셀 ✓"</b>가 붙고, 기본적으로 <b>이미 내려받은 기록은 제외</b>되어 같은 입고를 두 번 올리는 일을 막습니다.</li>
@@ -2974,7 +2977,7 @@
   <li><b>사입처</b>를 고릅니다. <b>필수</b>입니다.</li>
   <li><b>농가</b>는 선택입니다. 고르지 않으면 농가 없이 사입처만 기록·표시됩니다.</li>
   <li><b>원물(자재 코드)</b>에서 이카운트 자재 마스터에 등록된 원물을 <b>코드 · 품목명</b>으로 고릅니다. 고르면 이 입고 kg이 자재 재고에 자동 반영됩니다. 선택 안 해도 등록은 됩니다.</li>
-  <li>품종, 날짜, 무게(kg), A1 콘테이너 수, KPP 팔레트 수, 메모를 넣고 <span class="mn-b">+ 원물입고 등록</span>.</li>
+  <li>품종, 날짜, 무게(kg), <b>단가(원/kg)</b>, A1 콘테이너 수, KPP 팔레트 수, 메모를 넣고 <span class="mn-b">+ 원물입고 등록</span>. 단가는 자재 마스터의 단가가 기본으로 채워지며, 넣으면 <b>이카운트 구매입력 엑셀</b>에 사입처를 거래처로 같이 들어갑니다(→ 구매 · 자재 탭).</li>
 </ol>
 <ul>
   <li>사입처를 고르면 아래에 그 사입처의 <b>선별전재고</b>(입고 누계 − 선별산출 누계)가 나옵니다.</li>
@@ -14736,7 +14739,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
 ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS item_code text;
 ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS item_name text;
 ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS variety text;
-ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
+ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;
+ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
+  const SORTING_INBOUND_PRICE_SQL = 'ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;';
   let inboundMatItems = [];   // 이카운트 자재 마스터의 원자재 (코드·품목명 드롭다운)
   function inboundFillMatSelect(){
     const sel = document.getElementById('inbound-item-select');
@@ -14746,6 +14751,19 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     sel.innerHTML = '<option value="">(원물 선택 안 함)</option>' + items.map(i => `<option value="${escapeHtml(i.id)}">${i.code ? escapeHtml(i.code) + ' · ' : ''}${escapeHtml(i.name)}${i.code ? '' : ' (코드 미입력)'}</option>`).join('');
     if(prev && items.some(i => String(i.id) === prev)) sel.value = prev;
   }
+  // 지금 고른 원물(맨 위 원물 구분을 쓰면 그 원물) → 자재 마스터 항목
+  function inboundCurItem(){
+    const raw = srActive();
+    if(raw) return inboundMatItems.find(i => String(i.code) === raw.code) || null;
+    return inboundMatItems.find(i => String(i.id) === document.getElementById('inbound-item-select').value) || null;
+  }
+  // 단가 칸이 비어 있으면 자재 마스터의 단가로 채움
+  function inboundPrefillPrice(force){
+    const el = document.getElementById('inbound-price'); if(!el) return;
+    if(el.value && !force) return;
+    const it = inboundCurItem();
+    el.value = (it && Number(it.price) > 0) ? String(it.price) : (force ? '' : el.value);
+  }
   async function inboundLoadMatItems(){
     try{
       const r = await window.storage.get('mat-master', true);
@@ -14754,6 +14772,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     }catch(e){ inboundMatItems = []; }
     inboundFillMatSelect();
     await srLoad(); srApplyInboundItem();
+    inboundPrefillPrice(false);
   }
 
   async function initSortingInboundUI(){
@@ -14773,6 +14792,7 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     ['mousedown', 'focus'].forEach(ev => document.getElementById('inbound-item-select').addEventListener(ev, inboundLoadMatItems));
 
     vendorSel.addEventListener('change', ()=> loadSortingStock());
+    document.getElementById('inbound-item-select').addEventListener('change', ()=> inboundPrefillPrice(true));
     document.getElementById('inbound-add-btn').addEventListener('click', ()=> submitSortingInbound());
 
     loadSortingStock();
@@ -14826,17 +14846,25 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
     const kpp = Number(document.getElementById('inbound-kpp').value || 0);
     const note = document.getElementById('inbound-note').value.trim();
     const variety = (document.getElementById('inbound-variety') || { value: '' }).value.trim();
+    const priceTxt = (document.getElementById('inbound-price') || { value: '' }).value.replace(/,/g, '').trim();
+    const price = priceTxt === '' ? 0 : Number(priceTxt);
     if(!vendorId){ toast('사입처를 선택해주세요 (필수)'); return; }
+    if(priceTxt !== '' && !(price >= 0)){ toast('단가는 숫자로 입력해주세요'); return; }
     if(!date){ toast('날짜를 입력해주세요'); return; }
     if(!weight){ toast('무게를 입력해주세요'); return; }
     const data = { work_date: date, weight_kg: weight, a1_count: a1, kpp_count: kpp, note, created_by: window.currentUser?.id, vendor_id: Number(vendorId) };
     if(farmId) data.farm_id = Number(farmId);
     if(variety) data.variety = variety;
     if(item){ data.item_code = item.code || ''; data.item_name = item.name; }
+    if(price > 0) data.unit_price = price;
     try{
       try{ await sbInsert('sorting_inbound', data); }
       catch(e){
         const msg = e.message || '';
+        if(/unit_price/i.test(msg)){
+          alert('입고 테이블에 단가(unit_price) 칸이 아직 없습니다.\nSupabase SQL Editor에서 아래 한 줄을 실행한 뒤 다시 등록해주세요.\n\n' + SORTING_INBOUND_PRICE_SQL);
+          return;
+        }
         if(/vendor_id|item_code|item_name|farm_id/i.test(msg)){
           alert('입고 테이블이 아직 새 방식(사입처·원물 코드)으로 바뀌지 않았습니다.\nSupabase SQL Editor에서 「원물선별_입고통합_SQL.sql」(또는 아래)을 한 번 실행한 뒤 다시 등록해주세요.\n\n' + SORTING_INBOUND_SQL);
           return;
@@ -14848,12 +14876,13 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
           await sbInsert('sorting_inbound', d2);
         } else throw e;
       }
-      await writeLog('sorting_inbound_add', `사입처${farmId ? '·농가' : ''} ${weight}kg 입고 등록${variety ? ' (' + variety + ')' : ''}${item ? ' [' + (item.code || item.name) + ']' : ''}`);
+      await writeLog('sorting_inbound_add', `사입처${farmId ? '·농가' : ''} ${weight}kg 입고 등록${price > 0 ? ' @' + price + '원' : ''}${variety ? ' (' + variety + ')' : ''}${item ? ' [' + (item.code || item.name) + ']' : ''}`);
       document.getElementById('inbound-weight').value = '';
       document.getElementById('inbound-a1').value = '0';
       document.getElementById('inbound-kpp').value = '0';
       document.getElementById('inbound-note').value = '';
       const vEl = document.getElementById('inbound-variety'); if(vEl) vEl.value = '';
+      inboundPrefillPrice(true);
       if(typeof ppVarLoad === 'function') ppVarInfo.at = 0;   // 생산 화면의 입고 품종 목록을 다음에 다시 읽음
       if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;   // 자재 재고(원물 입고 반영)는 다음에 열 때 다시 계산
       loadSortingStock();
@@ -14874,14 +14903,14 @@ ALTER TABLE sorting_inbound ALTER COLUMN farm_id DROP NOT NULL;`;
       const vendorMap = Object.fromEntries(vendorRows.map(o=>[o.id, o.name]));
       const farmMap = Object.fromEntries(farmRows.map(o=>[o.id, o.name]));
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>날짜</th><th>사입처</th><th>농가</th><th>원물(코드)</th><th>품종</th><th>무게(kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>날짜</th><th>사입처</th><th>농가</th><th>원물(코드)</th><th>품종</th><th>무게(kg)</th><th>단가(원/kg)</th><th>A1</th><th>KPP</th><th>담당자</th><th>메모</th><th></th></tr></thead>`;
       const vdl = document.getElementById('inbound-variety-list');
       if(vdl) vdl.innerHTML = [...new Set(rows.map(r => r.variety).filter(Boolean))].map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
       const tbody = document.createElement('tbody');
       rows.forEach(r=>{
         const tr = document.createElement('tr');
         const itemText = r.item_name ? (r.item_code ? r.item_code + ' · ' : '') + r.item_name : '';
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(vendorMap[r.vendor_id]||'')}</td><td>${escapeHtml(r.farm_id ? (farmMap[r.farm_id]||'') : '')}</td><td>${escapeHtml(itemText)}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(vendorMap[r.vendor_id]||'')}</td><td>${escapeHtml(r.farm_id ? (farmMap[r.farm_id]||'') : '')}</td><td>${escapeHtml(itemText)}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${Number(r.unit_price) > 0 ? Number(r.unit_price).toLocaleString() : ''}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
         delBtn.textContent = '삭제';
@@ -21430,9 +21459,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <label style="font-size:12.5px;">거래유형 (미적용)<br><input type="text" id="mat-x-t22" style="width:70px;" placeholder="22"></label>
         <label style="font-size:12.5px;">담당자 코드<br><input type="text" id="mat-x-mgr" style="width:110px;" placeholder="본인 코드"></label>
         <label style="font-size:12.5px;"><input type="checkbox" id="mat-x-new"> 이미 내려받은 입고 기록 제외</label>
+        <label style="font-size:12.5px;" title="원물선별 → 원물입고에 등록한 원물(방울토마토 등)을 사입처 = 거래처, kg = 수량으로 같이 넣습니다"><input type="checkbox" id="mat-x-raw"> 원물선별 원물입고 포함</label>
         <button type="button" class="btn-primary small-btn" id="mat-x-btn">구매입력 엑셀 다운로드</button>
       </div>
-      <div class="sub" id="mat-x-info" style="margin:0;">입고창고·거래유형은 모두 같이 쓰도록 저장되고(기본 입고창고 00019 = 안성공장(생산)), 담당자 코드는 내 브라우저에만 저장됩니다.</div>`;
+      <div class="sub" id="mat-x-info" style="margin:0;">입고창고·거래유형은 모두 같이 쓰도록 저장되고(기본 입고창고 00019 = 안성공장(생산)), 담당자 코드는 내 브라우저에만 저장됩니다. <b>원물선별 원물입고 포함</b>을 켜면 원물입고(사입처 = 거래처, kg = 수량, 원물입고의 단가)도 같이 들어갑니다 — 사입처 이름을 자재 마스터의 <b>매입 거래처</b>에 같은 이름으로 등록하면 거래처코드가 들어갑니다.</div>`;
     matEl('mat-lf-days').value = String(MAT.ledDays);
     const sign = t => (t === 'in' ? 1 : (t === 'adj' ? 0 : -1));
     const typeUI = () => { const t = matEl('mat-l-type').value; document.querySelectorAll('.mat-l-in').forEach(e => { e.style.display = t === 'in' ? '' : 'none'; }); };
@@ -21452,6 +21482,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(!id){ matMsg('자재를 선택하세요', true); return; }
       if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ matMsg('날짜를 입력하세요', true); return; }
       if(v == null || v === 0 || (t !== 'adj' && v < 0)){ matMsg(t === 'adj' ? '조정 수량을 입력하세요 (줄일 때는 -5처럼)' : '수량을 0보다 큰 숫자로 입력하세요', true); return; }
+      if(t === 'in'){ const it0 = matById(id); if(it0 && matIsProduce(it0) && !confirm(`「${it0.name}」은(는) 원물입니다.\n원물은 원물선별 → 원물입고에 단가와 함께 넣으면 재고와 구매입력 엑셀에 모두 들어갑니다.\n같은 입고를 여기에도 넣으면 재고가 두 번 더해집니다.\n\n그래도 여기에 입고로 저장할까요?`)) return; }
       const q = t === 'adj' ? v : sign(t) * Math.abs(v);
       const e = { id: matRid('e'), d, m: id, t, q, note: matEl('mat-l-note').value.trim(), by: matUser(), ts: Date.now() };
       if(t === 'in'){ const p = matParseQty(matEl('mat-l-price').value); if(p > 0) e.price = p; const vn = matEl('mat-l-vendor').value.trim(); if(vn) e.vendor = vn; }
@@ -21477,10 +21508,24 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 구매입력 엑셀
     { const t0 = getTodayKey(); if(!MAT.xTo) MAT.xTo = t0; if(!MAT.xFrom) MAT.xFrom = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       matEl('mat-x-from').value = MAT.xFrom; matEl('mat-x-to').value = MAT.xTo; matEl('mat-x-wh').value = MAT.ec.warehouse; matEl('mat-x-t21').value = MAT.ec.tt21; matEl('mat-x-t22').value = MAT.ec.tt22; matEl('mat-x-mgr').value = MAT.ecMgr; matEl('mat-x-new').checked = MAT.xNew;
+      if(MAT.xRaw == null) MAT.xRaw = true;
+      matEl('mat-x-raw').checked = MAT.xRaw;
       const targets = () => MAT.led.filter(e => !e.void && e.t === 'in' && e.d >= matEl('mat-x-from').value && e.d <= matEl('mat-x-to').value && (!matEl('mat-x-new').checked || !e.xl));
-      const info = () => { const n = targets().length; matEl('mat-x-btn').textContent = `구매입력 엑셀 다운로드 (${n}건)`; };
+      let rawRes = null, infoGen = 0;
+      const rawTargets = () => (rawRes && rawRes.rows || []).filter(e => !matEl('mat-x-new').checked || !e.xl);
+      const info = async () => {
+        const g = ++infoGen, n = targets().length;
+        matEl('mat-x-btn').textContent = `구매입력 엑셀 다운로드 (${n}건)`;
+        if(!matEl('mat-x-raw').checked){ rawRes = null; return; }
+        const from = matEl('mat-x-from').value, to = matEl('mat-x-to').value;
+        if(!from || !to || from > to){ rawRes = null; return; }
+        const r = await matRawPurchaseRows(from, to);
+        if(g !== infoGen || !document.body.contains(matEl('mat-x-btn'))) return;
+        rawRes = r;
+        matEl('mat-x-btn').textContent = `구매입력 엑셀 다운로드 (${n + rawTargets().length}건${rawTargets().length ? ' · 원물입고 ' + rawTargets().length + '건 포함' : ''})`;
+      };
       info();
-      ['mat-x-from', 'mat-x-to', 'mat-x-new'].forEach(id => matEl(id).addEventListener('change', () => { MAT.xFrom = matEl('mat-x-from').value; MAT.xTo = matEl('mat-x-to').value; MAT.xNew = matEl('mat-x-new').checked; info(); }));
+      ['mat-x-from', 'mat-x-to', 'mat-x-new', 'mat-x-raw'].forEach(id => matEl(id).addEventListener('change', () => { MAT.xFrom = matEl('mat-x-from').value; MAT.xTo = matEl('mat-x-to').value; MAT.xNew = matEl('mat-x-new').checked; MAT.xRaw = matEl('mat-x-raw').checked; info(); }));
       const saveSet = async () => {
         MAT.ec = { warehouse: matEl('mat-x-wh').value.trim(), tt21: matEl('mat-x-t21').value.trim(), tt22: matEl('mat-x-t22').value.trim() };
         try{ await window.storage.set('mat-ecount-settings', JSON.stringify(MAT.ec), true); }catch(e){ console.error(e); }
@@ -21494,8 +21539,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         if(!from || !to || from > to){ matMsg('입고 기간을 확인하세요', true); return; }
         await saveSet(); MAT.ecMgr = matEl('mat-x-mgr').value.trim();
         const rows = targets();
-        if(!rows.length){ matMsg('내려받을 입고 기록이 없습니다', true); return; }
-        const r = matBuildPurchaseSheet(rows, { warehouse: wh, tt21: MAT.ec.tt21, tt22: MAT.ec.tt22, manager: MAT.ecMgr });
+        if(matEl('mat-x-raw').checked){ ++infoGen; rawRes = await matRawPurchaseRows(from, to); }
+        const raws = matEl('mat-x-raw').checked ? rawTargets() : [];
+        if(rawRes && rawRes.err){ matMsg(rawRes.err, true); return; }
+        if(!rows.length && !raws.length){ matMsg('내려받을 입고 기록이 없습니다', true); return; }
+        const r = matBuildPurchaseSheet(rows.concat(raws), { warehouse: wh, tt21: MAT.ec.tt21, tt22: MAT.ec.tt22, manager: MAT.ecMgr });
         const ws = XLSX.utils.aoa_to_sheet([r.header, ...r.data]);
         ws['!cols'] = r.header.map(h => ({ wch: ['일자', '순번', '거래유형', '통화', '환율'].includes(h) ? 9 : (['품목명', '거래처명'].includes(h) ? 20 : 12) }));
         const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '구매입력');
@@ -21503,7 +21551,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         let warn = '';
         if(r.noCode.length) warn += ` · 품목코드가 없는 자재 ${r.noCode.length}종(이름으로 인식): ${r.noCode.join(', ')}`;
         if(!MAT.ecMgr) warn += ' · 담당자 코드가 비어 있습니다';
-        try{ await matLedAdd(rows.map(e => Object.assign({}, e, { xl: Date.now() }))); }catch(err){ matMsg('엑셀은 내려받았지만 내려받음 표시를 저장하지 못했습니다: ' + ((err && err.message) || err), true); return; }
+        if(raws.length){
+          const np = raws.filter(e => !(Number(e.price) > 0)).length;
+          if(np) warn += ` · 단가 없는 원물입고 ${np}건(금액 빈칸)`;
+          const nv = [...new Set(raws.filter(e => e.vendor && !MAT.master.vendors.some(v => v.name === e.vendor && v.code)).map(e => e.vendor))];
+          if(nv.length) warn += ` · 매입 거래처 코드가 없는 사입처(이름으로 인식): ${nv.join(', ')}`;
+        }
+        if(rawRes && rawRes.noItem) warn += ` · 원물(자재 코드)을 고르지 않은 원물입고 ${rawRes.noItem}건은 빠졌습니다`;
+        if(rawRes && rawRes.noPriceCol) warn += ' · 원물입고 단가 칸(unit_price)이 아직 없어 단가 없이 넣었습니다 — SQL을 실행해주세요';
+        if(raws.length){
+          try{ await matRawMarkXl(raws.map(e => e.rawId)); }catch(err){ matMsg('엑셀은 내려받았지만 원물입고 내려받음 표시를 저장하지 못했습니다: ' + ((err && err.message) || err), true); return; }
+        }
+        try{ if(rows.length) await matLedAdd(rows.map(e => Object.assign({}, e, { xl: Date.now() }))); }catch(err){ matMsg('엑셀은 내려받았지만 내려받음 표시를 저장하지 못했습니다: ' + ((err && err.message) || err), true); return; }
         matMsg(`구매입력 엑셀 ${r.data.length}행을 내려받았습니다${warn}`, !!warn); toast('구매입력 엑셀 다운로드 완료');
         matRender();
       });
@@ -21570,12 +21629,49 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
 
   // 구매입력 엑셀 행 만들기 (이카운트 구매입력 양식 21열: 일자 순번 거래처코드 거래처명 담당자 입고창고 거래유형 통화 환율 프로젝트 부서 품목코드 품목명 규격명 수량 단가 외화금액 공급가액 부가세 적요 시리얼/로트)
+  // 원물선별 원물입고 → 구매입력 줄 (사입처 = 거래처, kg = 수량, unit_price = 단가). 내려받음 표시는 kv 'mat-raw-xl' { 입고 id: 시각 }
+  const MAT_K_RAWXL = 'mat-raw-xl';
+  async function matRawXlMap(){ try{ const r = await window.storage.get(MAT_K_RAWXL, true); const v = r ? JSON.parse(r.value) : {}; return (v && typeof v === 'object') ? v : {}; }catch(e){ return {}; } }
+  async function matRawMarkXl(ids){
+    const m = await matRawXlMap(), t = Date.now();
+    ids.forEach(id => { m[String(id)] = t; });
+    await window.storage.set(MAT_K_RAWXL, JSON.stringify(m), true);
+  }
+  async function matRawPurchaseRows(from, to){
+    const out = { rows: [], noItem: 0, noPriceCol: false, err: '' };
+    try{
+      const base = `?work_date=gte.${from}&work_date=lte.${to}&order=work_date.asc,id.asc&limit=1000`;
+      let cols = 'id,work_date,vendor_id,item_code,item_name,weight_kg,unit_price,variety', list = [];
+      for(let off = 0; off <= 100000; off += 1000){
+        let a;
+        try{ a = await sbQuery('sorting_inbound', base + '&select=' + cols + '&offset=' + off); }
+        catch(e){
+          if(cols.includes('unit_price') && /unit_price/i.test((e && e.message) || '')){ out.noPriceCol = true; cols = cols.replace(',unit_price', ''); off -= 1000; continue; }
+          throw e;
+        }
+        list = list.concat(a || []);
+        if(!a || a.length < 1000) break;
+      }
+      if(!list.length) return out;
+      const [vendors, xl] = await Promise.all([sbQuery('sorting_vendors', '?select=id,name'), matRawXlMap()]);
+      const vName = Object.fromEntries((vendors || []).map(v => [String(v.id), v.name]));
+      list.forEach(r => {
+        const code = String(r.item_code || '').trim(), name = String(r.item_name || '').trim();
+        if(!code && !name){ out.noItem++; return; }
+        const m = MAT.master.items.find(i => code && String(i.code || '').trim() === code) || MAT.master.items.find(i => name && i.name === name) || null;
+        const it = m ? { code: m.code || code, name: m.name, vat: !!m.vat } : { code, name: name || code, vat: false };
+        out.rows.push({ rawId: r.id, d: r.work_date, m: m ? m.id : '', it, t: 'in', q: Number(r.weight_kg) || 0, price: Number(r.unit_price) > 0 ? Number(r.unit_price) : 0,
+          vendor: vName[String(r.vendor_id)] || '', note: '원물입고' + (r.variety ? ' ' + r.variety : ''), ts: Number(r.id) || 0, xl: xl[String(r.id)] || 0 });
+      });
+    }catch(e){ out.err = '원물선별 원물입고를 불러오지 못했습니다: ' + ((e && e.message) || e); }
+    return out;
+  }
   function matBuildPurchaseSheet(rows, o){
     const header = ['일자', '순번', '거래처코드', '거래처명', '담당자', '입고창고', '거래유형', '통화', '환율', '프로젝트', '부서', '품목코드', '품목명', '규격명', '수량', '단가', '외화금액', '공급가액', '부가세', '적요', '시리얼/로트'];
     const sorted = rows.slice().sort((a, b) => a.d.localeCompare(b.d) || String(a.vendor || '').localeCompare(String(b.vendor || ''), 'ko') || (a.ts || 0) - (b.ts || 0));
     const seqOf = new Map(); let seq = 0; const noCode = new Set();
     const data = sorted.map(e => {
-      const it = matById(e.m) || { name: matLabel(e.m), code: '' }, vd = MAT.master.vendors.find(v => v.name === e.vendor);
+      const it = e.it || matById(e.m) || { name: matLabel(e.m), code: '' }, vd = MAT.master.vendors.find(v => v.name === e.vendor);
       const key = e.d + '|' + (e.vendor || '');
       if(!seqOf.has(key)) seqOf.set(key, ++seq);
       if(!it.code) noCode.add(it.name);
