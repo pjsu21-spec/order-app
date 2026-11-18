@@ -2256,7 +2256,7 @@
         <input type="text" id="sample-ship-method-etc" placeholder="출고 방식 입력" style="display:none; width:200px;">
       </div>
       <div id="sample-parcel-box" style="display:none; margin-top:6px; padding:10px 12px; border:1px dashed var(--line); border-radius:8px;">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">📦 택배 발송 정보 — 발주서 반영일의 <b>3PL 출고(제이엠로지스 발주서)</b>에 "샘플(택배)" 주문으로 자동으로 들어갑니다. 매출에는 잡히지 않습니다.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">📦 택배 발송 정보 — 발주서 반영일의 <b>3PL 출고(제이엠로지스 발주서)</b>에 업체 "다름달음" 주문(업체 주문번호 비움)으로 자동으로 들어갑니다. 매출에는 잡히지 않습니다.</div>
         <div class="row" style="margin-top:0;flex-wrap:wrap;">
           <input type="text" id="sample-parcel-name" placeholder="받는 분 *" style="min-width:140px;">
           <input type="text" id="sample-parcel-phone" placeholder="연락처 *" style="min-width:140px;">
@@ -9467,7 +9467,9 @@ function mnShow(id, keepScroll) {
   // ── 택배 발송 샘플 → 3PL 개별 주문 '샘플(택배)' 자동 반영 ──
   //  발주서 반영일(품목 생산일)이 그날인 택배 샘플마다 품목별로 3PL 줄을 만들어 thirdPartyLineItems 에 넣음 (주문번호 'S-신청번호'로 묶음).
   //  매출과는 무관(발주 수량에는 넣지 않음). 신청을 고치거나 취소하면 다음 동기화 때 그 날짜의 샘플(택배) 줄을 다시 맞춤.
-  const SMP_PARCEL_CO = '샘플(택배)';
+  const SMP_PARCEL_CO = '샘플(택배)';          // 발주서(3PL 안 샘플 줄) 구분용 이름
+  const SMP_PARCEL_3PL_CO = '다름달음';         // 3PL 개별 주문(택배사 발주서)에 들어가는 업체명
+  const isSmpParcelLine = l => !!(l && (l.sampleKey || l.company === SMP_PARCEL_CO));   // 샘플에서 자동으로 만든 3PL 줄 (예전 '샘플(택배)' 줄 포함)
   let smpParcelBusy = null;
   async function sampleParcelSync(dk){
     if(!dk || window.accessLevel('order') !== 'full' || typeof sampleRowsForProdDay !== 'function') return false;
@@ -9482,8 +9484,8 @@ function mnShow(id, keepScroll) {
           want.push({ key: r.id + '|' + d.id, r, p, d, packs, who, pur, fs: !!i.from_stock });
         });
       });
-      const sig = l => [l.sampleKey, l.recipientName, l.recipientPhone, l.address, l.itemId, l.qty, l.boxIndex, l.boxTotal, l.note].join('|');
-      const cur = (thirdPartyLineItems[dk] || []).filter(l => l.company === SMP_PARCEL_CO);
+      const sig = l => [l.company, l.orderNo, l.sampleKey, l.recipientName, l.recipientPhone, l.address, l.itemId, l.qty, l.boxIndex, l.boxTotal, l.note].join('|');
+      const cur = (thirdPartyLineItems[dk] || []).filter(isSmpParcelLine);
       const oldNo = new Map(cur.map(l => [l.sampleKey, l.internalOrderNo]));
       let newNo = false;
       const desired = [];
@@ -9491,7 +9493,7 @@ function mnShow(id, keepScroll) {
         let ino = oldNo.get(w.key); if(!ino){ ino = getNextInternalOrderNo(); newNo = true; }
         const boxes = splitIntoBoxes(w.packs);
         boxes.forEach((q, bi) => desired.push({
-          id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: ino, company: SMP_PARCEL_CO, orderNo: 'S-' + w.r.id,
+          id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: ino, company: SMP_PARCEL_3PL_CO, orderNo: '',
           recipientName: w.p.name || w.who, recipientPhone: w.p.phone || '', address: w.p.addr || '',
           itemNameRaw: itemNameById(w.d.id), itemId: w.d.id, qty: q,
           note: [w.p.req, `샘플: ${w.who}${w.pur ? ' ' + w.pur : ''}${w.fs ? ' (재고 사용)' : ''}`, (!w.p.phone || !w.p.addr) ? '⚠ 연락처·주소 확인 필요' : ''].filter(Boolean).join(' / '),
@@ -9501,10 +9503,10 @@ function mnShow(id, keepScroll) {
       const a = cur.map(sig).sort().join('\n'), b = desired.map(sig).sort().join('\n');
       if(a === b) return false;
       try{ await uploadSyncLatest(); }catch(e){ return false; }   // 다른 직원이 방금 넣은 3PL 줄을 지우지 않도록 최신 자료 위에서 바꿈
-      const keepTracking = new Map((thirdPartyLineItems[dk] || []).filter(l => l.company === SMP_PARCEL_CO && l.trackingNo).map(l => [l.id, l.trackingNo]));
+      const keepTracking = new Map((thirdPartyLineItems[dk] || []).filter(l => isSmpParcelLine(l) && l.trackingNo).map(l => [l.id, l.trackingNo]));
       desired.forEach(l => { if(keepTracking.has(l.id)) l.trackingNo = keepTracking.get(l.id); });
-      thirdPartyLineItems[dk] = (thirdPartyLineItems[dk] || []).filter(l => l.company !== SMP_PARCEL_CO).concat(desired);
-      if(desired.length){ const c = ppEnsureCompany(SMP_PARCEL_CO, true); if(c.category !== '샘플'){ c.category = '샘플'; saveCompanies(); } }
+      thirdPartyLineItems[dk] = (thirdPartyLineItems[dk] || []).filter(l => !isSmpParcelLine(l)).concat(desired);
+      if(desired.length && !companies.some(c => c.name === SMP_PARCEL_3PL_CO)) ppEnsureCompany(SMP_PARCEL_3PL_CO, true);
       if(newNo) saveInternalOrderCounters();
       saveLineItems();
       try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){}
