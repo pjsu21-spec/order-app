@@ -7728,9 +7728,9 @@ function mnShow(id, keepScroll) {
       sec.subs.forEach(sb => sb.rows.forEach(x => {
         const kind = sb.kind;
         const cat = kind === 'doma' || (kind === 'jik' && sb.label === '오프라인') ? '오프라인' : kind === 'tpl' ? '3PL' : (sb.label || '');
-        const name = kind === 'tpl' ? (x.label || '') : x.name;
+        const name = kind === 'tpl' ? (x.parcel ? x.name : (x.label || '')) : x.name;
         rows.push({ key: 'g' + (n++), cat, region: kind === 'smp' ? (x.group || '') : (x.region || ''), name, qty: x.qty, boxes: x.boxes, changed: x.changed, market: x.market || '', p: x.plan, raw: { driver: x.plan.driver || '', load: x.plan.load || '' } });
-        const type = kind === 'tpl' ? (x.qc ? 'other' : 'tpl') : kind === 'smp' ? (x.name === QC_ENTRY_NAME ? 'qc' : 'smp') : 'co';
+        const type = kind === 'tpl' ? (x.parcel ? 'psmp' : x.qc ? 'other' : 'tpl') : kind === 'smp' ? (x.name === QC_ENTRY_NAME ? 'qc' : 'smp') : 'co';
         metas.push({ type, company: x.name, key: x._key || x.name, part: !!x._part, split: !!((splitByDate[dk] || {})[x.name] || []).length });
       }));
       if(rows.length) blocks.push({ rows, sub: sum(rows) });
@@ -7871,6 +7871,7 @@ function mnShow(id, keepScroll) {
       tpl: '3PL 업체 합산 줄입니다 — 수량은 3PL 출고 집계 탭에서 고쳐 주세요',
       other: '이 줄은 예전 표에서 고쳐 주세요',
       smp: '샘플 신청 탭에서 고쳐 주세요',
+      psmp: '택배 발송 샘플입니다 — 샘플 신청 탭에서 고쳐 주세요 (3PL 출고에는 자동으로 들어갑니다)',
       qc: '품질 확인용 샘플(생산본부) 줄입니다 — 설정의 품질 확인용 샘플에서 바꿉니다',
       disp: '출고일 지정 주문입니다 — 이 화면 아래 "출고일 지정 주문" 목록에서 고쳐 주세요',
       split: '추가 발주가 있는 업체입니다 — 업체명 옆 [추가 발주] 버튼에서 나눠 고쳐 주세요',
@@ -7938,6 +7939,7 @@ function mnShow(id, keepScroll) {
         const td = pc[ix];
         if(mt.type === 'disp') return lock(td, WHY.disp);
         if(mt.type === 'qc') return lock(td, '품질 확인용 샘플(생산본부) 줄입니다 — 생산 / 물류 → 배차·적재에서 고쳐 주세요');
+        if(mt.type === 'psmp') return lock(td, '택배 발송 샘플은 3PL 출고로 나갑니다 — 납품담당·적재방식은 3PL 줄에서 적어 주세요');
         if(mt.type === 'smp'){
           if(!canPlan) return lock(td, WHY.roPlan);
           const u = spSampleUnits(dk).find(x => x.name === mt.key);
@@ -17429,8 +17431,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         // 오늘 생산분과 전일 생산분(재고 사용)은 줄을 나눠 재고 사용량을 알 수 있게 함
         if(/택배/.test(r.ship_method || '') && !i.fromStock){   // 택배 발송 샘플 → 3PL 줄에 합침 (3PL 출고 집계·택배사 발주서에도 '샘플(택배)'로 들어감)
           const d1 = dict.find(x => x.id === i.skuId), q1 = Number(i.packs) || 0; if(!d1 || q1 <= 0) return;
-          let te = entries.find(e => e.name === SMP_PARCEL_CO);
-          if(!te){ te = { name: SMP_PARCEL_CO, registered: true, category: '3PL', region: '', market: '', corp: '', isThirdParty: true, colQty: {}, src: {}, srcKey: SMP_PARCEL_CO, planKey: SMP_PARCEL_CO }; entries.push(te); }
+          const sgp = sampleGroupOf(r, false), pkey = '#smpp:' + sgp.key;
+          let te = entries.find(e => e.parcel && e.planKey === pkey);
+          if(!te){ te = { name: sgp.name + ' (택배)', dispName: sgp.name, registered: true, category: '3PL', region: sgp.region, market: '', corp: '', isThirdParty: true, parcel: true, colQty: {}, src: {}, srcKey: 'P:' + sgp.name, planKey: pkey }; entries.push(te); }
           te.src[d1.id] = Math.round(((te.src[d1.id] || 0) + q1) * 100) / 100;
           const c1 = colMap[d1.id];
           if(!c1){ unmapped.add(label(d1)); extras.push({ company: SMP_PARCEL_CO, item: label(d1), qty: Math.round(toBox(d1, q1) * 100) / 100, unit: unitOf(d1) > 0 ? '박스' : '팩' }); return; }
@@ -17540,9 +17543,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     };
     const idx = new Map(companies.map((c, i) => [c.name, i])), ix = n => idx.has(n) ? idx.get(n) : 1e6;
     const subs = { doma: [], jik: [], sp: [], gaein: [], smp: [], cvs: [], other: new Map() };
-    const tplRows = [], tplQty = {}; let tplAny = false, tplChanged = false;
+    const tplRows = [], tplQty = {}, tplParcel = []; let tplAny = false, tplChanged = false;
     built.entries.forEach((e, order) => {
       const cat = String(e.category || '').trim();
+      if(e.isThirdParty && e.parcel){ tplParcel.push(toRow(e, { name: e.dispName || e.name, region: e.region || '', label: (e.region ? e.region + ' / ' : '') + (e.dispName || e.name), qc: true, parcel: true })); return; }   // 택배 샘플: 3PL 안에 신청 건별 줄
       if(e.isThirdParty){ tplAny = true; Object.entries(e.colQty || {}).forEach(([c, q]) => { tplQty[c] = (tplQty[c] || 0) + q; }); if(e.changed) tplChanged = true; return; }
       if(/샘플발송/.test(cat)){ tplRows.push(toRow(e, { label: cat, qc: true })); return; }
       if(cat === '샘플'){ subs.smp.push(toRow(e, { group: e.region || '본사', _o: e.name === QC_ENTRY_NAME ? 1e9 : order })); return; }
@@ -17556,6 +17560,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     });
     if(tplAny){ const e = { name: '3PL', colQty: tplQty, planKey: '__3pl__', changed: tplChanged }; tplRows.unshift(toRow(e, { label: '3PL(제이엠로지스)', f: '금일출고' })); }
     else if(tplRows.length) tplRows[0].f = '';
+    tplRows.push(...tplParcel);
+    if(!tplAny && tplRows.length && tplRows[0].parcel) tplRows[0].f = '금일출고';
     const byCo = (a, b) => ix(a.name) - ix(b.name) || a._o - b._o;
     const rank = (list, v) => { const i = list.indexOf(v); return i < 0 ? list.length : i; };
     subs.doma.sort((a, b) => rank(PG_REGIONS, a.region) - rank(PG_REGIONS, b.region) || rank(PG_MARKETS, a.market) - rank(PG_MARKETS, b.market) || String(a.market).localeCompare(String(b.market)) || byCo(a, b));
@@ -19979,6 +19985,20 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     });
     const rest = scan.companyRows.filter(r => !used.has(r.row) && shown(r.row));
     if(rest.length) blocks.push({ rows: rest.map(mkRow), sub: null });
+    // 택배 발송 샘플: 서식의 3PL 줄에 합쳐져 있으므로 빼서 같은 블록에 신청 건별 줄로 보여 줌 (소계는 그대로)
+    { const parcels = built.entries.filter(e => e.parcel);
+      if(parcels.length){
+        const bi = blocks.findIndex(b => b.rows.some(r => /^3pl/i.test(r.cat)));
+        if(bi >= 0){
+          const rows = blocks[bi].rows, ti = rows.findIndex(r => /^3pl/i.test(r.cat)), t = rows[ti];
+          const prow = parcels.map((e, i) => { const qty = Object.fromEntries(cols.map(c => [c.L, Math.round(((e.colQty || {})[c.L] || 0) * 100) / 100])); return { key: 'p' + i, cat: t.cat, region: e.region || '', name: e.dispName || e.name, qty, boxes: cols.reduce((a, c) => a + qty[c.L], 0), p: {}, raw: { driver: '', load: '' } }; });
+          prow.forEach(p => cols.forEach(c => { t.qty[c.L] = Math.round(((t.qty[c.L] || 0) - p.qty[c.L]) * 100) / 100; }));
+          t.boxes = cols.reduce((a, c) => a + (t.qty[c.L] || 0), 0);
+          rows.splice(ti + 1, 0, ...prow);
+          if(!(t.boxes > 0.001)) rows.splice(ti, 1);   // 3PL 주문이 없고 택배 샘플만 있으면 3PL 줄은 뺌
+        }
+      }
+    }
     blocks.forEach(b => { b.sub = sum(b.rows); });
     // 출고일을 따로 지정한 주문(쿠팡 등)
     const dRowOf = (res.rep.dispatch && res.rep.dispatch.rowOf) || new Map();
