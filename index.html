@@ -397,6 +397,7 @@
   #po-board .pr-rep{ width:1040px; color:#111; font-size:17px; }
   .pg-pr .pr-rep{ width:1040px; color:#111; font-size:17px; }
   table.pg-rules{ border-collapse:collapse; font-size:13px; }
+  .sample-fs-quick{ display:flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; color:#9a5300; margin-top:3px; white-space:nowrap; cursor:pointer; }
   .ib-box{ border:1px solid var(--line, #e5e7eb); border-radius:10px; padding:8px 10px; margin:0 0 10px; background:var(--bg-soft, #fafafa); }
   .ib-box .ib-hd{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; }
   .ib-box .ib-list{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
@@ -2275,6 +2276,10 @@
         <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-same">전체 출고일 당일 생산</button>
         <button type="button" class="btn-ghost small-btn" id="sample-bulk-pd-prev">전체 전일 생산 (재고 사용)</button>
         <span class="sub" style="margin:0;">출고일시는 그대로 두고, 생산한 날을 따로 지정합니다 · 그날의 발주취합(샘플 행)에 반영됩니다</span>
+      </div>
+      <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
+        <label style="font-size:13px;display:inline-flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="sample-from-stock"> 재고에서 출고 (생산 안 함)</label>
+        <span class="sub" style="margin:0;">이미 있는 재고로 보낼 때 — 발주서 반영일(생산일) 발주서에 <b>"(재고 사용)"</b> 줄로 들어가고 재고사용 칸에 "전량재고"가 붙습니다</span>
       </div>
       <div id="sample-items"></div>
       <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
@@ -9474,7 +9479,7 @@ function mnShow(id, keepScroll) {
         const p = sampleParcelOf(r), who = (r.requester_name || '').trim(), pur = samplePurposeOf(r);
         (r.items || []).forEach(i => {
           const d = dict.find(x => x.id === i.skuId), packs = Number(i.packs) || 0; if(!d || packs <= 0) return;
-          want.push({ key: r.id + '|' + d.id, r, p, d, packs, who, pur });
+          want.push({ key: r.id + '|' + d.id, r, p, d, packs, who, pur, fs: !!i.from_stock });
         });
       });
       const sig = l => [l.sampleKey, l.recipientName, l.recipientPhone, l.address, l.itemId, l.qty, l.boxIndex, l.boxTotal, l.note].join('|');
@@ -9489,7 +9494,7 @@ function mnShow(id, keepScroll) {
           id: 'smp-' + w.r.id + '-' + w.d.id + '-' + (bi + 1), internalOrderNo: ino, company: SMP_PARCEL_CO, orderNo: 'S-' + w.r.id,
           recipientName: w.p.name || w.who, recipientPhone: w.p.phone || '', address: w.p.addr || '',
           itemNameRaw: itemNameById(w.d.id), itemId: w.d.id, qty: q,
-          note: [w.p.req, `샘플: ${w.who}${w.pur ? ' ' + w.pur : ''}`, (!w.p.phone || !w.p.addr) ? '⚠ 연락처·주소 확인 필요' : ''].filter(Boolean).join(' / '),
+          note: [w.p.req, `샘플: ${w.who}${w.pur ? ' ' + w.pur : ''}${w.fs ? ' (재고 사용)' : ''}`, (!w.p.phone || !w.p.addr) ? '⚠ 연락처·주소 확인 필요' : ''].filter(Boolean).join(' / '),
           trackingNo: '', enteredBy: '샘플 신청', boxIndex: bi + 1, boxTotal: boxes.length, sampleId: w.r.id, sampleKey: w.key
         }));
       });
@@ -12419,6 +12424,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 출고일과 다른 생산일이면 "생산 11/4(전일)" 같은 글, 같으면 ''
   function sampleProdDayText(r, it){
     const pd = sampleItemProdDay(r, it), sd = sampleDayKey(r.ship_at);
+    if(it && it.from_stock) return `재고 사용 ${Number(pd.slice(5, 7))}/${Number(pd.slice(8))}`;
     if(pd === sd) return '';
     const n = sampleDayDiff(sd, pd);
     return `생산 ${Number(pd.slice(5, 7))}/${Number(pd.slice(8))}${n === 1 ? '(전일)' : n > 1 ? `(${n}일 전)` : ''}`;
@@ -12596,6 +12602,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sel.style.display = ''; fixed.style.display = 'none';
   }
   function sampleResetForm(){
+    if(sEl('sample-from-stock')) sEl('sample-from-stock').checked = false;
     sampleEditId = null; sampleItems = [{ skuId: '', packs: '', pm: SAMPLE_PROD_METHODS[0], pmEtc: '', pd: '', pdDate: '' }];
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
     sEl('sample-ship-at').value = sampleLocalInput(d); sampleUpdateWd();
@@ -12686,6 +12693,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const dept = sEl('sample-dept').value.trim();
     const items = sampleCollectItems();
     if(items.error){ toast(items.error); return; }
+    { const fsOn = !!(sEl('sample-from-stock') && sEl('sample-from-stock').checked); if(Array.isArray(items)) items.forEach(i => { if(fsOn) i.from_stock = true; else delete i.from_stock; }); }
     if(!items.length){ toast('샘플 품목과 수량(팩)을 입력해주세요'); return; }
     const prod = sampleSummaryPm(items);   // 신청 전체 요약(모두 같으면 그 방식, 섞이면 '혼합')
     const purpose = sEl('sample-purpose').value.trim();
@@ -12737,6 +12745,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     sampleMethodToggle();
     sEl('sample-dept').value = r.requester_dept || '';
     sEl('sample-purpose').value = samplePurposeOf(r);
+    if(sEl('sample-from-stock')) sEl('sample-from-stock').checked = (r.items || []).some(i => i.from_stock);
     sEl('sample-note').value = String(r.note || '').split(/\r?\n/).filter(l => !smpParcelLineRe.test(l)).join('\n').trim();
     { const p = sampleParcelOf(r); SMP_PARCEL_KEYS.forEach(([k]) => { const el = sEl('sample-parcel-' + k); if(el) el.value = p[k] || ''; }); }
     const shipDay0 = sampleDayKey(r.ship_at);
@@ -12855,6 +12864,18 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     await sampleLoad(); sampleRenderList();
     return done;
   }
+  // 신청 전체를 '재고에서 출고(생산 안 함)'로 표시/해제
+  async function sampleSetFromStock(r, on){
+    const items = (r.items || []).map(i => { const o = Object.assign({}, i); if(on) o.from_stock = true; else delete o.from_stock; return o; });
+    let done = false;
+    try{
+      const out = await samplePatch(r.id, { items }, sampleCan('collect') ? '&status=neq.취소' : '&status=eq.신청');
+      if(!out.length) toast('이미 확인되었거나 취소된 신청이라 바꿀 수 없습니다');
+      else { done = true; await writeLog('sample_from_stock', `샘플 재고에서 출고 ${on ? '표시' : '해제'}: ${r.requester_name} ${sampleFmtShip(r.ship_at)}`); toast(on ? '재고에서 출고로 표시했습니다 — 반영일 발주서에 (재고 사용) 줄로 들어갑니다' : '재고에서 출고 표시를 뺐습니다 — 반영일에 생산하는 것으로 들어갑니다'); }
+    }catch(e){ toast(e.message); }
+    await sampleLoad(); sampleRenderList();
+    return done;
+  }
   // 목록의 발주서 반영일 칸: 바꿀 수 있는 사람에게는 날짜 입력, 아니면 글자로
   function sampleProdDayControl(r){
     const box = document.createElement('div');
@@ -12878,6 +12899,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       t.textContent = mixed ? '' : sampleFmtDay(cur);
       box.appendChild(t);
     }
+    const fsAll = (r.items || []).length && (r.items || []).every(i => i.from_stock);
+    if(sampleCanEditRow(r)){
+      const lb = document.createElement('label'); lb.className = 'sample-fs-quick'; lb.title = '이미 있는 재고로 보낼 때 — 반영일 발주서에 (재고 사용) 줄로, 재고사용 칸에 전량재고 (생산 지시에는 안 들어감)';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!fsAll;
+      cb.addEventListener('change', async () => { cb.disabled = true; const ok = await sampleSetFromStock(r, cb.checked); if(!ok){ cb.checked = !cb.checked; cb.disabled = false; } });
+      lb.append(cb, document.createTextNode(' 재고에서 출고'));
+      box.appendChild(lb);
+    } else if(fsAll){ const t = document.createElement('div'); t.className = 'sample-pd-quick-note'; t.textContent = '재고에서 출고'; box.appendChild(t); }
     const n = cur ? sampleDayDiff(shipDay, cur) : 0;
     const note = mixed ? '품목별로 다름 (' + days.map(sampleFmtDay).join(', ') + ')' : n === 1 ? '출고 전일' : n > 1 ? `출고 ${n}일 전` : '';
     if(note){ const nd = document.createElement('div'); nd.className = 'sample-pd-quick-note'; nd.textContent = note; box.appendChild(nd); }
@@ -13125,7 +13154,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(confirmedOnly) q += `&status=eq.${encodeURIComponent('확인')}`;
     const rows = await sbQuery('sample_requests', q);
     return rows.map(r => Object.assign({}, r, { items: (r.items || []).map(i => {
-      if(sampleItemProdDay(r, i) === dateKey) return i;
+      if(sampleItemProdDay(r, i) === dateKey) return i.from_stock ? Object.assign({}, i, { _fromStock: true, _shown: true }) : i;   // 재고에서 출고: 반영일 발주서에 (재고 사용) 줄로
       if(withStockUse && sampleDayKey(r.ship_at) === dateKey) return Object.assign({}, i, { _fromStock: true });
       return null;
     }).filter(Boolean) })).filter(r => r.items.length);
@@ -13153,7 +13182,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     return rows.map(r => ({
       id: r.id, requester_name: r.requester_name || '', requester_dept: r.requester_dept || '', ship_method: r.ship_method || '', ship_at: r.ship_at || '', status: r.status || '', purpose: samplePurposeOf(r),
       aggNote: { 0: sampleAggNote(dateKey, r.id, false), 1: sampleAggNote(dateKey, r.id, true) },   // 집계표에서 적은 샘플 비고 (오늘 생산분 / 재고 사용분)
-      items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0, fromStock: !!i._fromStock })).filter(i => i.skuId && i.packs > 0)
+      items: (r.items || []).filter(i => !(opts && opts.productionMethod) || sampleItemPm(r, i) === opts.productionMethod).map(i => ({ skuId: i.skuId, packs: Number(i.packs) || 0, fromStock: !!i._fromStock, shown: !!i._shown })).filter(i => i.skuId && i.packs > 0)
     })).filter(r => r.items.length);
   };
 
@@ -17429,18 +17458,19 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const purpose = (r.purpose || '').trim();
       (r.items || []).forEach(i => {
         // 오늘 생산분과 전일 생산분(재고 사용)은 줄을 나눠 재고 사용량을 알 수 있게 함
-        if(/택배/.test(r.ship_method || '') && !i.fromStock){   // 택배 발송 샘플 → 3PL 줄에 합침 (3PL 출고 집계·택배사 발주서에도 '샘플(택배)'로 들어감)
+        if(/택배/.test(r.ship_method || '') && (!i.fromStock || i.shown)){   // 택배 발송 샘플 → 3PL 줄에 합침 (3PL 출고 집계·택배사 발주서에도 '샘플(택배)'로 들어감)
           const d1 = dict.find(x => x.id === i.skuId), q1 = Number(i.packs) || 0; if(!d1 || q1 <= 0) return;
           const sgp = sampleGroupOf(r, false), pkey = '#smpp:' + sgp.key;
           let te = entries.find(e => e.parcel && e.planKey === pkey);
           if(!te){ te = { name: sgp.name + ' (택배)', dispName: sgp.name, registered: true, category: '3PL', region: sgp.region, market: '', corp: '', isThirdParty: true, parcel: true, colQty: {}, src: {}, srcKey: 'P:' + sgp.name, planKey: pkey }; entries.push(te); }
+          if(i.fromStock) te.stockAll = true;   // 재고에서 출고 → 재고사용 칸에 '전량재고'
           te.src[d1.id] = Math.round(((te.src[d1.id] || 0) + q1) * 100) / 100;
           const c1 = colMap[d1.id];
           if(!c1){ unmapped.add(label(d1)); extras.push({ company: SMP_PARCEL_CO, item: label(d1), qty: Math.round(toBox(d1, q1) * 100) / 100, unit: unitOf(d1) > 0 ? '박스' : '팩' }); return; }
           te.colQty[c1] = (te.colQty[c1] || 0) + toBox(d1, q1);
           return;
         }
-        if(i.fromStock){   // 발주서 반영일(생산일)에만 줄로 나옴 — 출고일에는 재고 차감만
+        if(i.fromStock && !i.shown){   // 발주서 반영일(생산일)에만 줄로 나옴 — 출고일에는 재고 차감만
           const d0 = dict.find(x => x.id === i.skuId), q0 = Number(i.packs) || 0, c0 = d0 && colMap[d0.id];
           if(c0 && q0 > 0) smpUseByCol[c0] = Math.round(((smpUseByCol[c0] || 0) + toBox(d0, q0)) * 100) / 100;
           return;
@@ -19290,7 +19320,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!rows) rows = aggSample.date === dk ? aggSample.rows : [];
     const map = new Map();
     (rows || []).forEach(r => (r.items || []).forEach(i => {
-      const q = Number(i.packs) || 0; if(!i.skuId || q <= 0 || i.fromStock || /택배/.test(r.ship_method || '')) return;   // 전날 생산 샘플은 반영일 줄에서, 택배 샘플은 3PL 줄로 배차
+      const q = Number(i.packs) || 0; if(!i.skuId || q <= 0 || (i.fromStock && !i.shown) || /택배/.test(r.ship_method || '')) return;   // 전날 생산 샘플은 반영일 줄에서, 택배 샘플은 3PL 줄로 배차
       const fsk = !!i.fromStock, g = sampleGroupOf(r, fsk);
       let u = map.get(g.planKey);
       if(!u){ u = { name: g.planKey, display: g.name, region: g.region, fromStock: fsk, items: {}, reqs: [] }; map.set(g.planKey, u); }
