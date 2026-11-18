@@ -408,6 +408,11 @@
   .ib-box .ib-done{ font-size:11px; color:#15803d; white-space:nowrap; }
   .ib-box .ib-it.dup{ border-color:#f59e0b; background:#fffbeb; }
   .ib-box .ib-dup{ font-size:11px; font-weight:700; color:#b45309; white-space:nowrap; }
+  .ib-box .ib-chk{ margin:0; flex:0 0 auto; }
+  .ib-box .ib-co{ flex:0 0 150px; max-width:150px; font-size:12px; padding:2px 4px; }
+  .ib-box .ib-co.auto{ border-color:#16a34a; background:#f0fdf4; }
+  .ib-box .ib-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  @media (max-width: 640px){ .ib-box .ib-it{ flex-wrap:wrap; } .ib-box .ib-co{ flex:1 1 120px; max-width:none; } .ib-box .ib-nm{ flex:1 1 100%; order:5; } }
   .ib-box .ib-x{ border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; }
   .pb-embed td.pbe-ed{ cursor:pointer; }
   .pb-embed td.pbe-ed:hover{ outline:2px solid #3b82f6; outline-offset:-2px; }
@@ -8781,13 +8786,14 @@ function mnShow(id, keepScroll) {
     });
   }
 
-  function handleOnlineOrderFile(file){
+  function handleOnlineOrderFile(file, forceCo){
     document.getElementById('upload-fname').textContent = file.name;
     uploadFileName = file.name;
     resetDupConfirm();
     readSheetFile(file, async (aoa)=>{
       uploadedSheetData = aoa;
       const sel = document.getElementById('upload-company-select');
+      if(forceCo && companies.some(c => c.name === forceCo)){ sel.value = forceCo; sel.dispatchEvent(new Event('change')); udNote(`📥 받은 발주서에서 고른 업체: 「${forceCo}」`); return; }
       let det = null; try{ det = await uploadDetectCompany(file.name, aoa); }catch(e){ console.error(e); }
       if(det && det.company !== sel.value && (!sel.value || det.strong)){
         sel.value = det.company; sel.dispatchEvent(new Event('change'));   // 업체를 바꾸면 매핑 화면을 다시 그림
@@ -8813,7 +8819,9 @@ function mnShow(id, keepScroll) {
     const R = await udLoad();
     const has = n => companies.some(c => c.name === n);
     // ① 머리글(양식)
-    for(const [co, s] of Object.entries(R.sigs)){ if(has(co) && s && s.sig && s.sig.length >= 6 && udSig(aoa, s.row) === s.sig) return { company: co, how: '예전에 불러온 같은 양식', strong: true }; }
+    // 같은 양식을 쓰는 업체가 하나일 때만 (여러 업체가 같은 쇼핑몰 양식을 쓰면 양식으로는 고르지 않음)
+    const sigHits = Object.entries(R.sigs).filter(([co, sg]) => has(co) && sg && sg.sig && sg.sig.length >= 6 && udSig(aoa, sg.row) === sg.sig).map(([co]) => co);
+    if(sigHits.length === 1) return { company: sigHits[0], how: '예전에 불러온 같은 양식', strong: true };
     // ② 파일 이름 모양
     const nk = udNameKey(fileName);
     if(nk && R.names[nk] && has(R.names[nk])) return { company: R.names[nk], how: '예전에 불러온 같은 파일 이름', strong: true };
@@ -8840,7 +8848,7 @@ function mnShow(id, keepScroll) {
   const ibKeyOf = f => `${f.name}|${f.size}|${f.lastModified || 0}`;
   const ibDone = () => { try{ return JSON.parse(localStorage.getItem(IB_DONE_KEY) || '{}'); }catch(e){ return {}; } };
   function ibMarkDone(f){ try{ const m = ibDone(); m[ibKeyOf(f)] = Date.now(); const ks = Object.keys(m); if(ks.length > 300) ks.sort((a, b) => m[a] - m[b]).slice(0, ks.length - 300).forEach(k => delete m[k]); localStorage.setItem(IB_DONE_KEY, JSON.stringify(m)); }catch(e){} }
-  let ibShared = [], ibFolder = [], ibFolderState = '';   // ibFolderState: '' | 'none'(미연결) | 'prompt'(허용 필요) | 'ok' | 'unsupported'
+  let ibShared = [], ibFolder = [], ibFolderState = '';   // ibFolderState: '' | 'none'(미연결) | 'prompt'(허용 필요) | 'missing'(폴더를 찾을 수 없음) | 'ok' | 'unsupported'
   const IB_ACCEPT = /\.(xlsx|xls|csv)$/i;
   async function ibLoadShared(){
     ibShared = [];
@@ -8866,7 +8874,8 @@ function mnShow(id, keepScroll) {
     const h = await ibDirGet();
     if(!h){ ibFolderState = 'none'; return; }
     let perm = 'denied';
-    try{ perm = await h.queryPermission({ mode: 'read' }); if(perm !== 'granted' && ask) perm = await h.requestPermission({ mode: 'read' }); }catch(e){}
+    ibFolder.dirName = h.name;
+    try{ perm = await h.queryPermission({ mode: 'read' }); if(perm !== 'granted' && ask) perm = await h.requestPermission({ mode: 'read' }); }catch(e){ if(e && e.name === 'NotFoundError'){ ibFolderState = 'missing'; return; } }
     if(perm !== 'granted'){ ibFolderState = 'prompt'; return; }
     ibFolderState = 'ok';
     const since = Date.now() - 3 * 86400000;
@@ -8877,36 +8886,47 @@ function mnShow(id, keepScroll) {
         if(f.lastModified < since) continue;
         ibFolder.push({ src: 'folder', key: 'f:' + name + ':' + f.lastModified, name, at: f.lastModified, file: f });
       }
-    }catch(e){ console.error(e); ibFolderState = 'prompt'; }
+    }catch(e){ console.error(e); ibFolderState = (e && (e.name === 'NotFoundError' || e.name === 'NotReadableError')) ? 'missing' : 'prompt'; }
+    const dn = h.name;
     ibFolder.sort((a, b) => b.at - a.at); ibFolder = ibFolder.slice(0, 20);
-    ibFolder.dirName = h.name;
+    ibFolder.dirName = dn;
   }
+  // 목록 줄마다: 체크 · 업체(주문 파일 양식이 저장된 업체만) · 파일 — 업체는 파일 이름·양식으로 미리 골라 둠, 바꾼 값은 기억
+  const ibCo = new Map(), ibChk = new Map(), ibCoUser = new Set();   // 파일 키 → 고른 업체 / 체크 여부 / 사람이 직접 고른 파일 (자동 선택은 볼 때마다 다시 판단)
+  const ibMapped = () => companies.filter(c => c.uploadMapping && Object.keys(c.uploadMapping).length);
   function ibRender(){
     const box = document.getElementById('inbox-box'); if(!box) return;
     const list = [...ibShared, ...ibFolder].sort((a, b) => b.at - a.at);
     const done = ibDone();
     const t = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
-    const st = ibFolderState;
+    const st = ibFolderState, canOrder = window.accessLevel('order') === 'full';
     let head = '<div class="ib-hd"><b>📥 받은 발주서</b>';
     if(st === 'none') head += ' <button type="button" class="btn-ghost small-btn" data-ib="connect" title="카톡 PC가 파일을 저장하는 폴더(보통 문서 → 카카오톡 받은 파일)를 한 번 연결하면, 새로 받은 발주서가 여기에 뜹니다 (이 PC·이 브라우저에만 저장)">📂 카톡 받은 파일 폴더 연결</button>';
-    else if(st === 'prompt') head += ' <button type="button" class="btn-primary small-btn" data-ib="allow" title="브라우저 보안 때문에 다시 열 때 한 번 허용이 필요합니다">📂 폴더 다시 허용 (한 번)</button>';
+    else if(st === 'prompt') head += ' <button type="button" class="btn-primary small-btn" data-ib="allow" title="브라우저 보안 때문에 다시 열 때 한 번 허용이 필요합니다">📂 폴더 다시 허용 (한 번)</button> <button type="button" class="btn-ghost small-btn" data-ib="change">폴더 다시 고르기</button>';
+    else if(st === 'missing') head += ` <span class="sub" style="margin:0;color:var(--danger,#c0392b);">연결한 폴더${ibFolder.dirName ? '(' + escapeHtml(ibFolder.dirName) + ')' : ''}를 찾을 수 없습니다 — 이름이 바뀌었거나 옮겨졌습니다</span> <button type="button" class="btn-primary small-btn" data-ib="change">📂 폴더 다시 고르기</button>`;
     else if(st === 'ok') head += ` <span class="sub" style="margin:0;">📂 ${escapeHtml(ibFolder.dirName || '')} (최근 3일)</span> <button type="button" class="btn-ghost small-btn" data-ib="rescan">🔄</button> <button type="button" class="btn-ghost small-btn" data-ib="change">폴더 바꾸기</button>`;
     if(ibInstallEvt) head += ' <button type="button" class="btn-ghost small-btn" data-ib="install" title="휴대폰 홈 화면에 앱으로 설치하면 카톡에서 공유 → 다름달음 오더로 발주서를 바로 보낼 수 있습니다">📲 앱으로 설치</button>';
     head += '</div>';
     let body = '';
     if(list.length){
-      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-primary small-btn" data-ib-load="${i}">불러오기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      const opts = '<option value="">(업체 선택)</option>' + ibMapped().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(companyDisplayName(c))}</option>`).join('');
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const chk = ibChk.has(x.key) ? ibChk.get(x.key) : !d; return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder ? '' : ' disabled'} title="한 번에 불러오기에 넣기"><select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      if(canOrder) body += `<div class="ib-bar"><button type="button" class="btn-primary small-btn" data-ib="batch">✅ 체크한 파일 한 번에 불러오기</button><span class="sub" style="margin:0;">업체가 골라진 파일은 저장된 양식(매핑)으로 바로 불러옵니다. 겹치는 주문은 자동으로 빠집니다</span></div>`;
     } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
     else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
     box.innerHTML = head + body;
     box.style.display = (st === 'unsupported' && !list.length && !ibInstallEvt) ? 'none' : '';
+    box.querySelectorAll('[data-ib-co]').forEach(s => { const x = list[+s.dataset.ibCo]; if(ibCo.has(x.key)) s.value = ibCo.get(x.key); s.addEventListener('change', () => { ibCo.set(x.key, s.value); ibCoUser.add(x.key); s.classList.remove('auto'); }); });
+    box.querySelectorAll('[data-ib-chk]').forEach(c => { const x = list[+c.dataset.ibChk]; c.addEventListener('change', () => ibChk.set(x.key, c.checked)); });
     box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(!x) return; if(x.dup && !confirm(`${x.name}\n\n${x.dup.company}: ${x.dup.text}\n\n다른 직원이 이미 불러왔을 수 있습니다. 그래도 열까요?`)) return; ibUse(x); }));
-    ibMarkDups(list);
     box.querySelectorAll('[data-ib-del]').forEach(b => b.addEventListener('click', async () => { const x = list[+b.dataset.ibDel]; if(x && x.remove){ await x.remove(); await ibRefresh(false); } }));
     const on = (k, fn) => { const b = box.querySelector(`[data-ib="${k}"]`); if(b) b.addEventListener('click', fn); };
     on('connect', ibPick); on('change', ibPick);
-    on('allow', () => ibRefresh(true)); on('rescan', () => ibRefresh(false));
+    on('allow', async () => { await ibRefresh(true); if(ibFolderState === 'prompt') toast('폴더 사용이 허용되지 않았습니다. [폴더 다시 고르기]로 폴더를 다시 골라 주세요'); });
+    on('rescan', () => ibRefresh(false));
     on('install', async () => { try{ ibInstallEvt.prompt(); await ibInstallEvt.userChoice; }catch(e){} ibInstallEvt = null; ibRender(); });
+    on('batch', () => ibBatch(list));
+    ibMarkDups(list);
   }
   async function ibPick(){
     try{
@@ -8927,7 +8947,7 @@ function mnShow(id, keepScroll) {
   async function ibUse(x){
     const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]');
     if(go && !go.classList.contains('active')) go.click();
-    handleOnlineOrderFile(x.file);
+    handleOnlineOrderFile(x.file, ibCo.get(x.key) || '');
     ibMarkDone(x.file); ibRender();
     const card = document.getElementById('upload-dropzone'); if(card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -9008,15 +9028,70 @@ function mnShow(id, keepScroll) {
     const at = new Date(hit.at), t = isNaN(at) ? '' : `${at.getMonth() + 1}/${at.getDate()} ${pad2(at.getHours())}:${pad2(at.getMinutes())}`;
     return { company: co.name, text: `이미 불러옴 · ${hit.by ? hit.by + ' ' : ''}${t}`.trim(), all: true };
   }
+  // 목록의 파일마다: 업체 미리 고르기(파일 이름·양식 — 저장된 양식이 있는 업체만) + 이미 불러온 파일 표시
   async function ibMarkDups(list){
     if(!list.length || window.accessLevel('order') === 'none') return;
-    if(Date.now() - udSyncAt > 60000){ try{ await uploadSyncLatest(); }catch(e){ return; } }
-    for(const x of list.slice(0, 12)){
-      let info = null; try{ info = await ibDupInfo(x); }catch(e){ /* 표시는 부가 기능 */ }
-      x.dup = info;
+    if(Date.now() - udSyncAt > 60000){ try{ await uploadSyncLatest(); }catch(e){ /* 표시는 부가 기능 */ } }
+    for(const x of list.slice(0, 20)){
+      if(!x.aoa) x.aoa = await ibReadAoa(x.file);
       const el = document.querySelector(`#inbox-box .ib-it[data-k="${CSS.escape(x.key)}"]`);
-      if(el && info){ el.classList.add('dup'); const b = document.createElement('span'); b.className = 'ib-dup'; b.textContent = '⚠ ' + info.text; b.title = `${info.company} — 다른 직원이 이미 불러왔을 수 있습니다`; el.querySelector('.ib-nm').after(b); }
+      if(!ibCoUser.has(x.key) && x.aoa){
+        let det = null; try{ det = await uploadDetectCompany(x.name, x.aoa); }catch(e){}
+        const co = det && companies.find(c => c.name === det.company && c.uploadMapping);
+        if(co){ ibCo.set(x.key, co.name); x.coHow = det.how; } else { ibCo.delete(x.key); x.coHow = ''; }
+      }
+      if(el){
+        const s = el.querySelector('.ib-co');
+        if(s && !ibCoUser.has(x.key)){ s.value = ibCo.get(x.key) || ''; s.classList.toggle('auto', !!x.coHow); s.title = x.coHow ? `${x.coHow}로 자동 선택 — 다르면 바꿔 주세요` : '이 파일의 업체 (주문 파일 양식이 저장된 업체만)'; }
+      }
+      let info = null; try{ info = await ibDupInfo(x); }catch(e){}
+      x.dup = info;
+      if(el && info && !el.querySelector('.ib-dup')){
+        el.classList.add('dup');
+        const b = document.createElement('span'); b.className = 'ib-dup'; b.textContent = '⚠ ' + info.text; b.title = `${info.company} — 다른 직원이 이미 불러왔을 수 있습니다`;
+        el.querySelector('.ib-nm').after(b);
+        if(info.all && !ibChk.has(x.key)){ ibChk.set(x.key, false); const c = el.querySelector('.ib-chk'); if(c) c.checked = false; }   // 이미 모두 불러온 파일은 한 번에 불러오기에서 빼 둠
+      }
     }
+  }
+  // 체크한 파일을 골라 둔 업체의 저장된 양식(매핑)으로 차례로 불러오기 — 업체가 안 골라진 파일은 알려 줌
+  async function ibBatch(list){
+    const box = document.getElementById('inbox-box');
+    const checked = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked; });
+    if(!checked.length){ toast('불러올 파일을 체크해 주세요'); return; }
+    const go = checked.filter(x => ibCo.get(x.key) && companies.some(c => c.name === ibCo.get(x.key) && c.uploadMapping));
+    const miss = checked.filter(x => !go.includes(x));
+    if(!go.length){ alert(`업체가 매칭되지 않은 파일입니다 (${miss.length}개)\n\n${miss.map(x => '· ' + x.name).join('\n')}\n\n파일 왼쪽에서 업체를 고르거나, 처음 받는 양식이면 [열기]로 한 번 매핑을 정해 불러와 주세요.`); return; }
+    if(!confirm(`${go.length}개 파일을 저장된 양식으로 불러올까요?\n\n${go.map(x => `· ${x.name}  →  ${ibCo.get(x.key)}`).join('\n')}${miss.length ? `\n\n업체가 매칭되지 않아 건너뛰는 파일 ${miss.length}개:\n${miss.map(x => '· ' + x.name).join('\n')}` : ''}`)) return;
+    const btn = box.querySelector('[data-ib="batch"]'); if(btn){ btn.disabled = true; btn.textContent = '불러오는 중…'; }
+    const res = [];
+    try{
+      try{ await uploadSyncLatest(); }catch(e){ toast('다른 직원이 불러온 자료를 확인하지 못했습니다 (인터넷 연결 확인)'); return; }
+      const go2 = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]'); if(go2 && !go2.classList.contains('active')) go2.click();
+      const sel = document.getElementById('upload-company-select'), apply = document.getElementById('upload-apply-btn');
+      const toast0 = window.toast; let lastToast = '';
+      window.toast = m => { lastToast = String(m || ''); };
+      try{
+        for(const x of go){
+          const co = ibCo.get(x.key);
+          const aoa = x.aoa || await ibReadAoa(x.file);
+          if(!aoa || !aoa.length){ res.push({ x, co, ok: false, why: '파일을 읽지 못함' }); continue; }
+          sel.value = co; sel.dispatchEvent(new Event('change'));
+          document.getElementById('upload-fname').textContent = x.name; uploadFileName = x.name; resetDupConfirm();
+          uploadedSheetData = aoa; renderUploadMapping();
+          lastToast = ''; udSyncAt = Date.now();   // 방금 최신 자료로 맞췄으므로 그대로 진행
+          apply.click();
+          if(apply.textContent === '그래도 불러오기'){ resetDupConfirm(); res.push({ x, co, ok: false, why: '같은 내용 파일을 이미 불러옴 (건너뜀)' }); continue; }
+          ibMarkDone(x.file); ibChk.set(x.key, false);
+          res.push({ x, co, ok: true, why: lastToast });
+          await new Promise(r => setTimeout(r, 150));
+        }
+      }finally{ window.toast = toast0; }
+    }finally{ if(btn){ btn.disabled = false; btn.textContent = '✅ 체크한 파일 한 번에 불러오기'; } }
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div style="font-size:13px;line-height:1.7;">${res.map(r => `<div>${r.ok ? '✅' : '⚠'} <b>${escapeHtml(r.x.name)}</b> → ${escapeHtml(r.co)}${r.why ? ` <span class="sub" style="margin:0;">${escapeHtml(r.why)}</span>` : ''}</div>`).join('')}${miss.length ? `<div style="margin-top:8px;color:var(--danger,#c0392b);font-weight:700;">업체가 매칭되지 않은 파일 ${miss.length}개 (불러오지 않음)</div>${miss.map(x => `<div>· ${escapeHtml(x.name)}</div>`).join('')}` : ''}</div>`;
+    pgModal(`📥 한 번에 불러오기 결과 — ${res.filter(r => r.ok).length}/${go.length}개`, wrap, [{ text: '확인', primary: true, fn: c => c() }]);
+    ibRender();
   }
   // 불러올 때 이 파일 양식·이름을 그 업체로 기억 (다음부터 자동 선택)
   document.getElementById('upload-apply-btn').addEventListener('click', () => {
