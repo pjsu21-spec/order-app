@@ -136,6 +136,8 @@
       const secRows = [];
       subs.forEach(sb => {
         const kind = sb.kind, vec = B.tpl[kind === 'smp' ? 'smp' : kind] || B.tpl.jik;
+        // 3PL: 구분(B)='3PL' 세로 병합(배경색 없음, SP 칸 모양), 지역~법인(C:E) 비움, 업체명(F)에 줄 이름
+        const tplVec = v0 => Object.assign({}, v0, { B: B.tpl.sp.B, C: B.tpl.sp.C, D: B.tpl.sp.D, E: B.tpl.sp.E, F: B.tpl.sp.F });
         const rows = sb.rows;
         const start = r;
         // 줄 묶음(가로 굵은 선) 기준: 도매=시장, 샘플=영업용/본사, 나머지=블록 전체
@@ -144,7 +146,7 @@
         rows.forEach((x, i) => {
           const prev = rows[i - 1], next = rows[i + 1];
           const pos = {
-            lines: true, noB: kind === 'tpl',
+            lines: true,
             blockStart: i === 0, blockEnd: i === rows.length - 1,
             top: !prev || lineKey(prev) !== lineKey(x), bottom: !next || lineKey(next) !== lineKey(x),
             cGroup: cKey(x) != null, cStart: !prev || cKey(prev) !== cKey(x), cEnd: !next || cKey(next) !== cKey(x)
@@ -160,13 +162,14 @@
             v._name = 1; v._nameText = (x.corp || '') + ' ' + x.name;
           } else if(kind === 'sp'){ v.C = x.region || ''; v.D = x.market || ''; v.E = x.corp || ''; v.F = x.name; v._name = 1; v._nameText = (x.corp || '') + ' ' + x.name; }
           else if(kind === 'smp'){ if(pos.cStart) v.C = x.group || ''; v.D = x.name; }
-          else if(kind === 'tpl'){ v.B = x.label || ''; if(i === 0) v.F = x.f || ''; }
+          else if(kind === 'tpl'){ v.F = x.label || x.name || ''; v._name = 1; v._nameText = v.F; v._nameCols = ['F']; }
           else { v.C = x.name; v._name = 1; v._nameText = x.name; v._nameCols = ['C', 'D', 'E', 'F']; }
-          emitRow(kind === 'smp' && x.group && x.group !== (rows[0].group || '') ? (B.tpl.smp2 || vec) : (kind === 'tpl' && x.qc ? B.tpl.qc : vec), pos, v, rowH(x));
+          emitRow(kind === 'smp' && x.group && x.group !== (rows[0].group || '') ? (B.tpl.smp2 || vec) : (kind === 'tpl' ? tplVec(x.qc ? B.tpl.qc : vec) : vec), pos, v, rowH(x));
         });
         const end = r - 1;
         // 병합
-        if(kind !== 'tpl') g.merge('B' + start, 'B' + end);
+        g.merge('B' + start, 'B' + end);
+        if(kind === 'tpl') g.merge('C' + start, 'E' + end);
         for(let i = 0; i < rows.length; i++){
           const R0 = start + i, x = rows[i];
           if(kind === 'doma'){
@@ -178,10 +181,9 @@
           } else if(kind === 'smp'){
             if(i === 0 || cKey(rows[i - 1]) !== cKey(x)){ let j = i; while(j + 1 < rows.length && cKey(rows[j + 1]) === cKey(x)) j++; g.merge('C' + R0, 'C' + (start + j)); }
             g.merge('D' + R0, 'F' + R0);
-          } else if(kind === 'tpl'){ g.merge('B' + R0, 'E' + R0); }
+          } else if(kind === 'tpl'){ /* C:E 는 위에서 한 번에 */ }
           else if(kind !== 'sp') g.merge('C' + R0, 'F' + R0);
         }
-        if(kind === 'tpl' && rows.length) g.merge('F' + start, 'F' + end);
         secRows.push(...rows);
       });
       // 소계 + 사이 줄

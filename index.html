@@ -17662,7 +17662,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261118a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261118b'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -17714,7 +17714,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       else if(cat === '직거래') subs.jik.push(row);
       else { const k = cat || '미분류'; if(!subs.other.has(k)) subs.other.set(k, []); subs.other.get(k).push(row); if(!cat) warn.push(`분류가 없는 업체: ${e.name} (‘미분류’ 줄로 넣었습니다 — 거래처 관리에서 분류를 정해주세요)`); }
     });
-    if(tplAny){ const e = { name: '3PL', colQty: tplQty, planKey: '__3pl__', changed: tplChanged }; tplRows.unshift(toRow(e, { label: '3PL(제이엠로지스)', f: '금일출고' })); }
+    // 3PL 업체 이름: 발주 구분 '3PL(제이엠로지스)'처럼 괄호 안의 3PL사 이름 → '온라인발주(제이엠로지스)' (다른 3PL사를 쓰면 그 이름으로)
+    const tplProv = [...new Set(built.entries.filter(e => e.isThirdParty && !e.parcel).map(e => { const c = companies.find(x => x.name === e.name); const m = /\(([^)]+)\)/.exec(String((c && c.category) || e.category || '')); return m ? m[1].trim() : ''; }).filter(Boolean))];
+    if(tplAny){ const e = { name: '3PL', colQty: tplQty, planKey: '__3pl__', changed: tplChanged }; tplRows.unshift(toRow(e, { label: '온라인발주(' + (tplProv.length ? tplProv.join('·') : '제이엠로지스') + ')', f: '금일출고' })); }
     else if(tplRows.length) tplRows[0].f = '';
     tplRows.push(...tplParcel);
     if(!tplAny && tplRows.length && tplRows[0].parcel) tplRows[0].f = '금일출고';
@@ -17728,7 +17730,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(subs.cvs.length) sections.push({ subs: [{ kind: 'jik', label: '편의점', rows: subs.cvs }] });
     sections.push({ subs: [{ kind: 'doma', label: '오프라인', rows: subs.doma }, { kind: 'jik', label: '오프라인', rows: subs.jik }, ...[...subs.other.entries()].map(([k, rows]) => ({ kind: 'jik', label: k, rows: rows.sort(byCo) }))] });
     sections.push({ subs: [{ kind: 'sp', label: 'SP', rows: subs.sp }] });
-    sections.push({ subs: [{ kind: 'tpl', rows: tplRows }] });
+    sections.push({ subs: [{ kind: 'tpl', label: '3PL', rows: tplRows }] });
     sections.push({ subs: [{ kind: 'gaein', label: '개인구매', rows: subs.gaein }] });
     sections.push({ subs: [{ kind: 'smp', label: '샘플', rows: subs.smp }] });
     // 출고일 지정 업체 (쿠팡 등): 소비기한 = 출고일 + 4일 + (차수 − 1)일
