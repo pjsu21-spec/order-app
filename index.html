@@ -428,7 +428,12 @@
   .pb-embed .pbe-it.on{ border-color:#f59e0b; background:#fff3dc; }
   .pb-embed .pbe-it input, .pb-embed .pbe-split input{ width:62px; font:inherit; padding:2px 4px; border:1px solid #cbd5e1; border-radius:4px; text-align:right; }
   .pb-embed .pbe-it em{ font-style:normal; color:#64748b; font-size:12px; }
-  .pb-embed .pbe-bar{ display:flex; gap:8px; margin-top:8px; }
+  .pb-embed .pbe-bar{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .pb-embed .pbe-bar select, .pb-embed .pbe-bar input{ font:inherit; font-size:13px; padding:3px 6px; border:1px solid #cbd5e1; border-radius:6px; }
+  .pb-embed .pbe-stks{ display:flex; flex-wrap:wrap; gap:4px 8px; margin:0 0 8px; }
+  .pb-embed .pbe-stk{ font-size:12px; border:1px solid #c7d7ee; background:#f3f8ff; border-radius:999px; padding:1px 8px; }
+  .pb-embed .pbe-stk.bad{ border-color:#f5a3a3; background:#fff1f1; color:#b91c1c; }
+  .pb-embed td.pbe-on{ outline:2px solid #f59e0b; outline-offset:-2px; }
   .pb-embed table.pbe-split{ border-collapse:collapse; font-size:13px; }
   .pb-embed table.pbe-split th, .pb-embed table.pbe-split td{ border:1px solid #e5d3b8; padding:3px 6px; text-align:center; }
   .pb-embed .pbe-del{ margin-left:6px; border:none; background:transparent; color:#b91c1c; cursor:pointer; font-size:13px; opacity:.35; padding:0 3px; }
@@ -1581,7 +1586,7 @@
       발주가 있는 업체마다 <b>납품담당(기사)</b> · <b>적재방식</b> · <b>재고사용</b> · <b>출고일(당일/명일)</b> · <b>비고</b>를 입력하면 <b>발주취합 파일의 오른쪽 칸과 생산 현황판</b>에 그대로 들어갑니다. 영업·생산 누구나 입력할 수 있고, 칸을 고칠 때마다 바로 저장됩니다(다른 사람이 다른 업체를 동시에 입력해도 서로 덮어쓰지 않습니다). 다른 사람이 입력한 내용을 보려면 [새로고침]을 누르세요.<br>
       · 비워 둔 칸은 서식에 적혀 있던 값을 그대로 씁니다. 기사·적재방식은 목록에서 고르거나 직접 입력(예: 용차1)할 수 있습니다.<br>
       · <b>적재방식</b>에 <b>일회용*2</b>, <b>KPP*3</b>처럼 *숫자를 붙이면 배차정보의 파렛트 수량이 그 숫자만큼 계산됩니다. <b>까대기</b>는 까대기 수량으로 계산됩니다.<br>
-      · <b>재고사용</b>은 박스 단위로 입력합니다. 파일의 재고사용 칸에는 품목마다 한 줄씩("망고 3.25" / "자몽 9") 전일+이틀 전 재고 사용량이 합쳐 빨간 글씨로 들어갑니다. 오늘 출고하면서 전일 생산분을 쓰는 샘플은 "전량재고"로 표시됩니다. 이틀 전 재고는 위쪽 <b>전일 재고 / 생산량 입력</b>의 전일 재고 옆 칸에 입력하세요.<br>
+      · <b>재고사용</b>은 박스 단위로 입력합니다. 파일의 재고사용 칸에는 품목마다 한 줄씩("망고 3.25" / "자몽 9") 전일+이틀 전 재고 사용량이 합쳐 빨간 글씨로 들어갑니다. 재고에서 출고하는 샘플은 품목·수량(예: "스테비아 1")으로 자동 표시됩니다. 이틀 전 재고는 위쪽 <b>전일 재고 / 생산량 입력</b>의 전일 재고 옆 칸에 입력하세요.<br>
       · <b>명일</b>을 고르면 비고에 "명일 출고"가 자동으로 적히고 현황판에 표시됩니다. 수량 계산은 오늘 발주 그대로입니다.<br>
       · 3PL 업체는 파일에서 한 줄로 합쳐지고, 쿠팡처럼 출고일을 따로 지정한 업체는 별도 블록이라 여기서 입력하지 않습니다.
     </div></details>
@@ -2280,7 +2285,7 @@
       </div>
       <div class="row" style="align-items:center; flex-wrap:wrap; margin-top:4px;">
         <label style="font-size:13px;display:inline-flex;align-items:center;gap:6px;font-weight:600;"><input type="checkbox" id="sample-from-stock"> 재고에서 출고 (생산 안 함)</label>
-        <span class="sub" style="margin:0;">이미 있는 재고로 보낼 때 — 발주서 반영일(생산일) 발주서에 <b>"(재고 사용)"</b> 줄로 들어가고 재고사용 칸에 "전량재고"가 붙습니다</span>
+        <span class="sub" style="margin:0;">이미 있는 재고로 보낼 때 — 발주서 반영일(생산일) 발주서에 <b>"(재고 사용)"</b> 줄로 들어가고 재고사용 칸에 품목·수량(예: 스테비아 1)이 적힙니다</span>
       </div>
       <div id="sample-items"></div>
       <div class="row"><button type="button" class="btn-ghost small-btn" id="sample-add-item">+ 품목 추가</button></div>
@@ -7775,7 +7780,7 @@ function mnShow(id, keepScroll) {
         const name = kind === 'tpl' ? (x.parcel ? x.name : (x.label || '')) : x.name;
         rows.push({ key: 'g' + (n++), cat, region: kind === 'smp' ? (x.group || '') : (x.region || ''), name, qty: x.qty, boxes: x.boxes, changed: x.changed, market: x.market || '', p: x.plan, raw: { driver: x.plan.driver || '', load: x.plan.load || '' } });
         const type = kind === 'tpl' ? (x.parcel ? 'psmp' : x.qc ? 'other' : 'tpl') : kind === 'smp' ? (x.name === QC_ENTRY_NAME ? 'qc' : 'smp') : 'co';
-        metas.push({ type, company: x.name, key: x._key || x.name, part: !!x._part, split: !!((splitByDate[dk] || {})[x.name] || []).length });
+        metas.push({ type, company: x.name, key: x._key || x.name, part: !!x._part, split: !!((splitByDate[dk] || {})[x.name] || []).length, cq: x.qty || {} });
       }));
       if(rows.length) blocks.push({ rows, sub: sum(rows) });
     });
@@ -7873,6 +7878,60 @@ function mnShow(id, keepScroll) {
       box.querySelector('[data-close]').addEventListener('click', () => { aggBoardOpen = { kind: '', company: '' }; aggBoardRender(true); });
       const clr = box.querySelector('[data-clear]');
       if(clr) clr.addEventListener('click', () => { const ex = extrasEnsure(dk, company); ex.sample = {}; commit(); });
+    });
+  }
+  // 현황판 형태 재고사용 입력줄: 남은 재고를 보면서 품목을 골라(드롭다운) 이 출고 건에 배정 — 저장은 배차·적재 재고사용(ship-plan rows[key].stock[품목] = { d1, d2 }, 박스)
+  function aggStockEditor(body, tr, key, mt){
+    const dk = currentDateKey;
+    const row = ((shipPlanCache[dk] || {}).rows || {})[key] || {}, cur = row.stock || {};
+    const state = spStockState(dk), byId = new Map(state.map(x => [x.d.id, x]));
+    const ordBx = d => { const c = skuColumnMap[d.id]; return c && dict.filter(x => skuColumnMap[x.id] === c).length === 1 ? spRound(Number((mt.cq || {})[c]) || 0) : 0; };
+    const left = (x, f) => x ? spRound(f === 'd1' ? x.a1 - x.u1 : x.a2 - x.u2) : 0;
+    const name = key === '__3pl__' ? '3PL' : (mt.company || key);
+    const strip = state.length ? state.map(x => { const l1 = left(x, 'd1'), l2 = left(x, 'd2'); return `<span class="pbe-stk${l1 < 0 || l2 < 0 ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(x.d))}</b> 전일 남음 ${l1}/${x.a1}${x.a2 > 0 || x.u2 ? ` · 이틀전 남음 ${l2}/${x.a2}` : ''}</span>`; }).join('')
+      : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다 — 발주 입력의 <b>전일 재고 / 생산량 입력</b>에서 먼저 넣어 주세요.</span>';
+    const curIds = dict.filter(d => cur[d.id]).map(d => d.id);
+    const opts = state.map(x => x.d).map((d, i) => ({ d, i, o: ordBx(d) > 0 ? 0 : 1 })).sort((a, b) => a.o - b.o || a.i - b.i)
+      .map(({ d }) => { const x = byId.get(d.id), ob = ordBx(d); return `<option value="${escapeHtml(d.id)}">${escapeHtml(spStockLabel(d))}${ob ? ` (발주 ${ob})` : ''} — 전일 남음 ${left(x, 'd1')}${x.a2 > 0 ? ` · 이틀전 ${left(x, 'd2')}` : ''}</option>`; }).join('');
+    const html = `<div class="pbe-hd">📦 재고사용 — ${escapeHtml(name)} <span class="sub" style="margin:0 0 0 6px;">전일·이틀 전 재고 중 이 출고 건에 쓸 양(박스)을 고릅니다. 배차·적재의 재고사용과 같은 값이고, 발주서 재고사용 칸에 "스테비아 1"처럼 들어갑니다.</span></div>
+      <div class="pbe-stks">${strip}</div>
+      ${curIds.length ? `<table class="pbe-split"><thead><tr><th>품목</th><th>발주</th><th>전일 재고 사용</th><th>이틀 전 재고 사용</th><th></th></tr></thead><tbody>${curIds.map(id => { const d = dict.find(x => x.id === id), q = cur[id] || {}; return `<tr><td>${escapeHtml(spStockLabel(d))}</td><td class="num">${ordBx(d) || '-'}</td><td><input type="text" inputmode="decimal" data-id="${escapeHtml(id)}" data-f="d1" value="${q.d1 > 0 ? q.d1 : ''}"></td><td><input type="text" inputmode="decimal" data-id="${escapeHtml(id)}" data-f="d2" value="${q.d2 > 0 ? q.d2 : ''}"></td><td><button type="button" class="btn-ghost small-btn" data-del="${escapeHtml(id)}">빼기</button></td></tr>`; }).join('')}</tbody></table>` : ''}
+      <div class="pbe-bar">${state.length ? `<select data-add-item><option value="">품목 선택</option>${opts}</select><select data-add-f><option value="d1">전일 재고</option><option value="d2">이틀 전 재고</option></select><input type="text" inputmode="decimal" data-add-q placeholder="박스" style="width:70px;"><button type="button" class="btn-primary small-btn" data-add>추가</button><button type="button" class="btn-ghost small-btn" data-fill title="이 출고 건의 발주 품목을 남은 재고(전일 → 이틀 전 순)로 발주 수량만큼 채웁니다">발주 품목 재고로 채우기</button>` : ''}<button type="button" class="btn-ghost small-btn" data-close>닫기</button></div>`;
+    aggBoardEditorRow(body, tr, html, box => {
+      const after = () => { try{ renderShipPlan(); }catch(e){} aggBoardRender(true); };
+      const save = mut => spCommit(dk, key, rr => { rr.stock = rr.stock || {}; mut(rr.stock); Object.keys(rr.stock).forEach(id => { const q = rr.stock[id]; if(!(q && (q.d1 > 0 || q.d2 > 0))) delete rr.stock[id]; else { q.d1 = q.d1 || 0; q.d2 = q.d2 || 0; } }); if(!Object.keys(rr.stock).length) delete rr.stock; }, after);
+      const num = v => { const n = parseFloat(String(v || '').replace(/,/g, '')); return isFinite(n) && n > 0 ? spRound(n) : 0; };
+      const sel = box.querySelector('[data-add-item]'), fsel = box.querySelector('[data-add-f]'), qin = box.querySelector('[data-add-q]');
+      const suggest = () => { if(!sel || !sel.value) return; const d = dict.find(x => x.id === sel.value), x = byId.get(sel.value); const have = spRound((Number((cur[sel.value] || {}).d1) || 0) + (Number((cur[sel.value] || {}).d2) || 0)); const need = Math.max(0, spRound(ordBx(d) - have)); const l = Math.max(0, left(x, fsel.value)); qin.value = need > 0 ? Math.min(need, l) || '' : (l || ''); };
+      if(sel){ sel.addEventListener('change', suggest); fsel.addEventListener('change', suggest); }
+      const add = () => {
+        if(!sel.value){ toast('품목을 골라 주세요'); return; }
+        const v = num(qin.value); if(!v){ toast('수량(박스)을 넣어 주세요'); return; }
+        const id = sel.value, f = fsel.value, x = byId.get(id);
+        if(v > left(x, f) + 0.0001) toast(`남은 ${f === 'd1' ? '전일' : '이틀 전'} 재고(${left(x, f)})보다 많습니다 — 그대로 넣었습니다`);
+        save(st => { const q = st[id] = st[id] || { d1: 0, d2: 0 }; q[f] = spRound((Number(q[f]) || 0) + v); });
+      };
+      const ab = box.querySelector('[data-add]'); if(ab) ab.addEventListener('click', add);
+      if(qin) qin.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); add(); } });
+      const fb = box.querySelector('[data-fill]');
+      if(fb) fb.addEventListener('click', () => {
+        const plan = [];
+        state.forEach(x => {
+          const ob = ordBx(x.d); if(!(ob > 0)) return;
+          const q = cur[x.d.id] || {}; let need = spRound(ob - (Number(q.d1) || 0) - (Number(q.d2) || 0)); if(need <= 0) return;
+          const t1 = Math.min(need, Math.max(0, left(x, 'd1'))); need = spRound(need - t1);
+          const t2 = Math.min(need, Math.max(0, left(x, 'd2')));
+          if(t1 > 0 || t2 > 0) plan.push({ id: x.d.id, t1: spRound(t1), t2: spRound(t2) });
+        });
+        if(!plan.length){ toast('채울 수 있는 남은 재고가 없거나 이미 발주 수량만큼 배정되어 있습니다'); return; }
+        save(st => plan.forEach(p => { const q = st[p.id] = st[p.id] || { d1: 0, d2: 0 }; q.d1 = spRound((Number(q.d1) || 0) + p.t1); q.d2 = spRound((Number(q.d2) || 0) + p.t2); }));
+      });
+      box.querySelectorAll('input[data-f]').forEach(inp => {
+        inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+        inp.addEventListener('change', () => { const id = inp.dataset.id, f = inp.dataset.f, v = num(inp.value); save(st => { const q = st[id] = st[id] || { d1: 0, d2: 0 }; q[f] = v; }); });
+      });
+      box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.del; save(st => { delete st[id]; }); }));
+      box.querySelector('[data-close]').addEventListener('click', () => { aggBoardOpen = { kind: '', company: '' }; aggBoardRender(true); });
     });
   }
   function aggSplitEditor(body, tr, company){
@@ -8006,9 +8065,21 @@ function mnShow(id, keepScroll) {
           return spCommit(dk, key, rr => { if(v) rr[f] = v; else delete rr[f]; }, () => { try{ renderShipPlan(); }catch(e){} });
         }));
       });
-      if(mt.type !== 'disp') lock(pc[2], '재고사용은 생산 / 물류 → 배차·적재의 [재고사용 입력]에서 고쳐 주세요');
+      if(mt.type === 'co' || mt.type === 'tpl'){
+        const td = pc[2], key = mt.type === 'tpl' ? '__3pl__' : mt.key;
+        if(!canPlan) lock(td, WHY.roPlan);
+        else {
+          td.classList.add('pbe-ed'); td.title = '눌러서 재고사용 고르기 (전일·이틀 전 재고에서 품목·수량 — 배차·적재의 재고사용과 같은 값)';
+          if(aggBoardOpen.kind === 'stock' && aggBoardOpen.company === key) td.classList.add('pbe-on');
+          td.addEventListener('click', () => { aggBoardOpen = aggBoardOpen.kind === 'stock' && aggBoardOpen.company === key ? { kind: '', company: '' } : { kind: 'stock', company: key }; aggBoardRender(true); });
+        }
+      } else if(mt.type !== 'disp') lock(pc[2], mt.type === 'smp' || mt.type === 'psmp' ? '재고에서 출고하는 샘플은 품목·수량이 자동으로 들어갑니다 (샘플 신청의 "재고에서 출고")' : '재고사용은 생산 / 물류 → 배차·적재의 [재고사용 입력]에서 고쳐 주세요');
     });
-    if(aggBoardOpen.company && canOrder){
+    if(aggBoardOpen.kind === 'stock' && canPlan){
+      const trs = [...body.querySelectorAll('tr.pb-row')];
+      const ix = metas.map((mt, i) => mt && ((mt.type === 'co' && mt.key === aggBoardOpen.company) || (mt.type === 'tpl' && aggBoardOpen.company === '__3pl__')) ? i : -1).filter(i => i >= 0 && trs[i]);
+      if(ix.length) aggStockEditor(body, trs[ix[0]], aggBoardOpen.company, metas[ix[0]]); else aggBoardOpen = { kind: '', company: '' };
+    } else if(aggBoardOpen.company && canOrder){
       const trs = [...body.querySelectorAll('tr.pb-row')];
       const idx = metas.map((mt, i) => mt && mt.type === 'co' && mt.company === aggBoardOpen.company ? i : -1).filter(i => i >= 0 && trs[i]);
       if(!idx.length) aggBoardOpen = { kind: '', company: '' };
@@ -13053,7 +13124,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }
     const fsAll = (r.items || []).length && (r.items || []).every(i => i.from_stock);
     if(sampleCanEditRow(r)){
-      const lb = document.createElement('label'); lb.className = 'sample-fs-quick'; lb.title = '이미 있는 재고로 보낼 때 — 반영일 발주서에 (재고 사용) 줄로, 재고사용 칸에 전량재고 (생산 지시에는 안 들어감)';
+      const lb = document.createElement('label'); lb.className = 'sample-fs-quick'; lb.title = '이미 있는 재고로 보낼 때 — 반영일 발주서에 (재고 사용) 줄로, 재고사용 칸에 품목·수량 (생산 지시에는 안 들어감)';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!fsAll;
       cb.addEventListener('change', async () => { cb.disabled = true; const ok = await sampleSetFromStock(r, cb.checked); if(!ok){ cb.checked = !cb.checked; cb.disabled = false; } });
       lb.append(cb, document.createTextNode(' 재고에서 출고'));
@@ -16842,7 +16913,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const isTplRow = !!(rowInfo && /^3pl/.test(rowInfo.category));
       const peKey = isTplRow ? '__3pl__' : (list.length === 1 ? (list[0].planKey || list[0].name) : '');
       let pe = input.plan && peKey ? input.plan[peKey] : null;
-      if(list.some(e => e.stockAll)){ pe = Object.assign({}, pe || {}); if(!pe.stockText) pe.stockText = '전량재고'; }   // 오늘 출고하면서 전일 생산분을 쓰는 샘플
+      if(list.some(e => e.stockAll)){ pe = Object.assign({}, pe || {}); if(!pe.stockText) pe.stockText = stockAllText(list.filter(e => e.stockAll)) || '전량재고'; }   // 오늘 출고하면서 전일 생산분을 쓰는 샘플
       { const sn = [...new Set(list.flatMap(e => e.notes || []))]; if(sn.length){ pe = Object.assign({}, pe || {}); pe.note = [pe.note, ...sn].filter(Boolean).join(' / '); } }   // 집계표에서 적은 샘플 비고
       if(list.some(e => e.changed)) rep.changedRows.add(row);
       if(pe && (pe.driver || pe.load || pe.stockText || pe.note)){
@@ -17615,7 +17686,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           const sgp = sampleGroupOf(r, false), pkey = '#smpp:' + sgp.key;
           let te = entries.find(e => e.parcel && e.planKey === pkey);
           if(!te){ te = { name: sgp.name + ' (택배)', dispName: sgp.name, registered: true, category: '3PL', region: sgp.region, market: '', corp: '', isThirdParty: true, parcel: true, colQty: {}, src: {}, srcKey: 'P:' + sgp.name, planKey: pkey }; entries.push(te); }
-          if(i.fromStock) te.stockAll = true;   // 재고에서 출고 → 재고사용 칸에 '전량재고'
+          if(i.fromStock) te.stockAll = true;   // 재고에서 출고 → 재고사용 칸에 품목·수량
           te.src[d1.id] = Math.round(((te.src[d1.id] || 0) + q1) * 100) / 100;
           const c1 = colMap[d1.id];
           if(!c1){ unmapped.add(label(d1)); extras.push({ company: SMP_PARCEL_CO, item: label(d1), qty: Math.round(toBox(d1, q1) * 100) / 100, unit: unitOf(d1) > 0 ? '박스' : '팩' }); return; }
@@ -17721,7 +17792,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const boxes = R2(PS.BOX_COLS.reduce((a, c) => a + (qty[c] || 0), 0)), packs = R2(boxes * 4 + PS.PACK_COLS.reduce((a, c) => a + (qty[c] || 0), 0));
       const p = plan[e.planKey || e.name] || {};
       const note = [p.note || '', ...(e.notes || [])].filter(Boolean).join(' / ');
-      return Object.assign({ name: e.name, _key: e.planKey || e.name, _part: !!e.partOf, qty, boxes, packs, changed: !!e.changed, plan: { driver: p.driver || '', load: p.load || '', stock: p.stockText || (e.stockAll ? '전량재고' : ''), note } }, extra || {});
+      return Object.assign({ name: e.name, _key: e.planKey || e.name, _part: !!e.partOf, qty, boxes, packs, changed: !!e.changed, plan: { driver: p.driver || '', load: p.load || '', stock: p.stockText || (e.stockAll ? (stockAllText([e]) || '전량재고') : ''), note } }, extra || {});
     };
     const idx = new Map(companies.map((c, i) => [c.name, i])), ix = n => idx.has(n) ? idx.get(n) : 1e6;
     const subs = { doma: [], jik: [], sp: [], gaein: [], smp: [], cvs: [], other: new Map() };
@@ -19067,6 +19138,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   const spHM = t => { const x = new Date(t); return `${pad2(x.getHours())}:${pad2(x.getMinutes())}`; };
 
   // 발주취합 파일의 재고사용 칸에 쓰는 짧은 품목 이름 (화면에는 SKU 품목명을 씀): 투맛토(스테비아) → 스테비아, 투맛토(망고향) → 망고, 150g 같은 다른 용량은 용량을 붙임
+  // 재고로 전량 출고하는 줄(재고에서 출고 샘플 등)의 재고사용 칸: '전량재고' 대신 품목별 '스테비아 1' (박스, 줄바꿈으로)
+  function stockAllText(list){
+    const sum = {};
+    (list || []).forEach(e => Object.entries((e && e.colQty) || {}).forEach(([c, q]) => { sum[c] = (sum[c] || 0) + (Number(q) || 0); }));
+    const byCol = {}; dict.forEach(d => { const c = skuColumnMap[d.id]; if(c && !byCol[c]) byCol[c] = d; });
+    return Object.entries(sum).filter(([c, q]) => q > 0.001 && byCol[c]).sort((a, b) => dict.indexOf(byCol[a[0]]) - dict.indexOf(byCol[b[0]]))
+      .map(([c, q]) => `${spStockLabel(byCol[c])} ${Math.round(q * 100) / 100}`).join('\n');
+  }
   function spStockLabel(d){
     const m = String(d.name || '').match(/\(([^)]+)\)/) || String(d.shortName || '').match(/\(([^)]+)\)/);
     let base = m ? m[1].replace(/향$/, '').trim() : String(d.shortName || d.name || '').trim();
@@ -19893,7 +19972,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const tdStock = document.createElement('td');
       const btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'btn-ghost small-btn sp-stock-btn';
-      if(smp && smp.fromStock){ tdStock.innerHTML = '<span class="sub" style="margin:0;" title="전일 이전에 생산해 둔 샘플이라 전일 재고에서 자동으로 빠지고, 파일에는 \'전량재고\'로 들어갑니다">전량재고 (자동)</span>'; }
+      if(smp && smp.fromStock){ tdStock.innerHTML = '<span class="sub" style="margin:0;" title="재고에서 출고하는 샘플이라 재고사용 칸에 품목·수량(예: 스테비아 1)이 자동으로 들어갑니다">재고 사용 (자동)</span>'; }
       else tdStock.appendChild(btn);
       tr.appendChild(tdStock);
 
