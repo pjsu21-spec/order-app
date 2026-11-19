@@ -786,6 +786,10 @@
   #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]):not([data-panel="panel-sample"]):not([data-panel="panel-manual"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
+  /* 테스트 모드 띠 */
+  #test-banner{ position:sticky; top:0; z-index:2000; display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:#5b2bb5; color:#fff; padding:7px 14px; font-size:13px; line-height:1.45; }
+  #test-banner button{ background:#fff; color:#5b2bb5; border:none; border-radius:6px; padding:4px 10px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  body.test-mode .topbar{ box-shadow: inset 0 -4px 0 #5b2bb5; }
   /* 자재·재고 탭 = 생산/물류 권한, 구매관리 탭 = 발주자동화 권한. 두 탭이 같은 자재 화면(#mat-card)을 옮겨 가며 씀 */
   #app.no-mat-access #main-nav-btn-mat, #app.no-mat-access #panel-mat{ display:none !important; }
   #app.no-buy-access #main-nav-btn-buy, #app.no-buy-access #panel-buy{ display:none !important; }
@@ -1106,6 +1110,12 @@
 </div>
 
 <div id="app" style="display:none;">
+  <div id="test-banner" style="display:none;">
+    <span>🧪 <b>테스트 모드</b> — 여기서 저장한 내용은 <b>운영에 반영되지 않습니다</b>. 발주 데이터는 운영 데이터를 날짜별로 그대로 보여 주고, 고친 날짜만 테스트 사본이 됩니다. 원물선별·샘플 신청 등 표 자료는 저장되지 않습니다.</span>
+    <button type="button" id="test-reset-date">이 날짜 운영 데이터로 되돌리기</button>
+    <button type="button" id="test-reset-all">테스트 데이터 모두 지우기</button>
+    <button type="button" id="test-exit">운영 화면으로 나가기</button>
+  </div>
   <!-- 상단 사용자 정보 바 -->
   <div class="topbar">
     <img class="topbar-fruit" src="assets/fruit-top.png" alt="">
@@ -1147,6 +1157,7 @@
   <div id="home-screen">
     <div id="home-hello"></div>
     <div id="home-tools"></div>
+    <div id="home-test-link" style="text-align:center; margin:14px 0 0; font-size:13px;"><a href="?test=1" target="_blank" rel="noopener">🧪 테스트 모드로 열기</a> <span style="color:var(--muted);">— 새 창에서 운영 데이터를 그대로 보며 연습 (저장해도 운영은 바뀌지 않음)</span></div>
     <div id="home-grid"></div>
     <div class="home-deco" aria-hidden="true"><img src="assets/logo-red.png" alt=""></div>
   </div>
@@ -2640,6 +2651,17 @@
 </table></div>
 <p>오른쪽 위의 <span class="mn-b">비밀번호 변경</span>, <span class="mn-b">로그아웃</span>으로 내 계정을 관리합니다. 화면 왼쪽 위 <span class="mn-b">← 홈</span>을 누르면 처음 화면으로 돌아갑니다.</p>
 
+<h2>🧪 테스트 모드</h2>
+<p class="mn-lead">운영 데이터를 건드리지 않고 기능을 연습하거나 시험해 보는 화면입니다. 홈 화면 아래 <b>🧪 테스트 모드로 열기</b>를 누르거나 주소 뒤에 <b>?test=1</b>을 붙여 엽니다(order.dareumdaleum.com/?test=1). 같은 계정으로 그대로 들어가고, 화면 맨 위에 보라색 띠가 보이면 테스트 모드입니다.</p>
+<ul>
+  <li><b>발주 데이터는 운영 것을 날짜별로 그대로</b> 보여 줍니다. 테스트에서 고친 날짜만 테스트 사본이 되고, 고치지 않은 날짜는 운영에서 바뀌는 대로 계속 따라옵니다.</li>
+  <li>생산/물류(재고·배차·적재·생산 계획), 자재·재고, 발주 입력·현황판 등에서 저장한 내용은 <b>테스트 사본에만</b> 저장되고 운영에는 반영되지 않습니다.</li>
+  <li><b>원물선별 · 샘플 신청</b> 같은 표 자료와 <b>사용자 관리</b>는 테스트 모드에서 저장되지 않습니다(저장하면 안내가 뜸). 활동 기록도 남지 않습니다.</li>
+  <li><span class="mn-b">이 날짜 운영 데이터로 되돌리기</span>: 지금 고른 날짜의 테스트 사본을 지우고 운영 데이터로 다시 시작합니다. <span class="mn-b">테스트 데이터 모두 지우기</span>: 모든 테스트 사본을 지웁니다(다른 직원이 테스트한 내용도 함께 지워짐).</li>
+  <li>테스트 사본은 직원끼리 함께 씁니다. 같은 날짜를 여럿이 테스트하면 서로의 테스트 내용이 보입니다.</li>
+  <li>끝나면 띠의 <span class="mn-b">운영 화면으로 나가기</span>. 테스트 모드는 그 창(탭)에서만 유지되고, 새 창으로 열면 운영 화면입니다.</li>
+</ul>
+
 <h3>권한: 차단, 읽기만, 전체</h3>
 <ul>
   <li><b>전체</b>: 입력·수정·삭제까지 모두 할 수 있습니다.</li>
@@ -3297,6 +3319,14 @@
 // Supabase 어댑터 + 인증 시스템
 // ══════════════════════════════════════════════════════════════════
 const SB_URL = 'https://rsgbqlrxtexknhsvkroc.supabase.co';
+// ── 테스트 모드: 운영 자료를 그대로 읽되, 저장은 'test:' 사본에만 (발주 같은 날짜별 묶음은 고친 날짜만 사본) ──
+window.TEST_MODE = (function(){
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('test')) { if (q.get('test') === '0') sessionStorage.removeItem('dd_test'); else sessionStorage.setItem('dd_test', '1'); }
+    return sessionStorage.getItem('dd_test') === '1';
+  } catch (e) { return false; }
+})();
 const SB_KEY = 'sb_publishable_Es6Y1pOe1friYzEnvT0iSw_gqQQvFvJ';
 
 const sbHeaders = {
@@ -3387,6 +3417,17 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
   function writeBlocked(url, init, method){
     if (method === 'GET' || method === 'HEAD' || !url.startsWith(REST)) return false;
     const table = url.slice(REST.length).split(/[?\/]/)[0];
+    if (window.TEST_MODE) {
+      if (table === 'rpc') return /\/rpc\/app_admin_/.test(url) ? 'test' : false;   // 로그인·비밀번호 변경은 그대로, 사용자 관리는 막음
+      if (table === 'sessions') return false;
+      if (table === 'activity_log') return 'testlog';
+      if (table === 'kv_store') {
+        let key = ''; const m = /[?&]key=eq\.([^&]+)/.exec(url);
+        try { if (m) key = decodeURIComponent(m[1]); else if (init && typeof init.body === 'string') { const b = JSON.parse(init.body); key = String((Array.isArray(b) ? b[0] : b).key || ''); } } catch (e) {}
+        return /^test:/.test(key) ? false : 'test';
+      }
+      return 'test';
+    }
     const prog = programFor(table);
     let lvl = prog ? window.accessLevel(prog) : null;
     if (table === 'kv_store') {
@@ -3432,6 +3473,11 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
       url = typeof input === 'string' ? input : (input && input.url) || '';
       const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
       const blocked = writeBlocked(url, init, method);
+      if (blocked === 'testlog') return Promise.resolve(new Response('[]', { status: 201, headers: { 'Content-Type': 'application/json' } }));
+      if (blocked === 'test') {
+        window.showToast('🧪 테스트 모드 — 원물선별·샘플 신청 같은 표 자료와 사용자 관리는 저장하지 않습니다', { ms: 3200 });
+        return Promise.resolve(new Response(JSON.stringify({ message: '테스트 모드에서는 저장하지 않습니다' }), { status: 403, headers: { 'Content-Type': 'application/json', 'X-Readonly-Guard': '1' } }));
+      }
       if (blocked) {
         notice(blocked);
         return Promise.resolve(new Response(
@@ -3581,9 +3627,123 @@ window.storage = {
     const filter = prefix ? `?key=like.${encodeURIComponent(prefix + '%')}&select=key` : '?select=key';
     const res = await fetch(`${SB_URL}/rest/v1/kv_store${filter}`, { headers: sbHeaders });
     const rows = await res.json();
-    return { keys: rows.map(r => r.key) };
+    return { keys: rows.map(r => r.key).filter(k => !k.startsWith('test:')) };
   }
 };
+
+// ── 테스트 모드 저장소: 읽기 = 운영 + test: 사본을 합침 / 쓰기 = test: 사본에만 ──
+//  · 날짜별 묶음(키가 모두 YYYY-MM-DD 인 객체: orders-by-date, previous-stock 등)은 운영과 다른 날짜만 { __testDates: { 날짜: 값 | null(지움) } } 로 저장
+//    → 고치지 않은 날짜는 계속 운영 데이터가 그대로 보임
+//  · 그 밖의 키는 처음 저장할 때 통째로 사본, 지우면 '__TEST_DELETED__' 표시
+if (window.TEST_MODE) (function(){
+  const S = window.storage, TP = 'test:', DEL = '__TEST_DELETED__', KV = SB_URL + '/rest/v1/kv_store';
+  const jp = v => { try { return JSON.parse(v); } catch (e) { return undefined; } };
+  const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
+  const dateish = o => isObj(o) && Object.keys(o).every(k => /^\d{4}-\d{2}-\d{2}/.test(k));
+  const isDates = t => isObj(t) && isObj(t.__testDates) && Object.keys(t).length === 1;
+  function compose(lv, tv){
+    if (tv == null) return lv;
+    if (tv === DEL) return null;
+    const t = jp(tv);
+    if (!isDates(t)) return tv;
+    const L = lv == null ? {} : jp(lv), base = isObj(L) ? L : {};
+    Object.entries(t.__testDates).forEach(([d, v]) => { if (v === null) delete base[d]; else base[d] = v; });
+    return JSON.stringify(base);
+  }
+  async function rows(keys){
+    const list = keys.map(k => '"' + k + '"').join(',');
+    const res = await kvFetchRead(`${KV}?key=in.(${encodeURIComponent(list)})&select=key,value`);
+    return new Map((await res.json()).map(r => [r.key, r.value]));
+  }
+  async function put(tkey, value){
+    let res;
+    try { res = await fetch(KV, { method: 'POST', headers: sbHeaders, body: JSON.stringify({ key: tkey, value, updated_at: new Date().toISOString() }) }); }
+    catch (e) { kvSaveFailNotice(); throw e; }
+    if (!res.ok) { if (!res.headers.get('X-Readonly-Guard')) kvSaveFailNotice(`⚠ 테스트 저장 실패 (${res.status}) — 서버에 테스트모드 SQL을 실행했는지 확인하세요`); throw new Error('storage.set failed: ' + res.status); }
+  }
+  const delRow = async tkey => { const r = await fetch(`${KV}?key=eq.${encodeURIComponent(tkey)}`, { method: 'DELETE', headers: sbHeaders }); if (!r.ok) throw new Error('삭제 실패 (' + r.status + ')'); };
+  const local = { get: S.get, set: S.set, delete: S.delete, list: S.list };
+  S.get = async function(key, shared = false){
+    if (!shared) return local.get.call(S, key, false);
+    if (window.kvSkip(key)) return null;
+    if (!window.currentUser) throw new Error('로그인 전에는 공용 자료를 읽지 않습니다');
+    if (kvPre.map.has(key)) {
+      const v = kvPre.map.get(key); kvPre.map.delete(key);
+      if (Date.now() - kvPre.at < 60000) {
+        if (v === KV_PRE_FAIL) { kvMarkFail(key); throw new Error('storage.get failed: 서버 연결 실패'); }
+        kvMarkOk(key); return v === undefined ? null : { key, value: v };
+      }
+    }
+    let m; try { m = await rows([key, TP + key]); } catch (e) { kvMarkFail(key); throw e; }
+    kvMarkOk(key);
+    const v = compose(m.has(key) ? m.get(key) : null, m.has(TP + key) ? m.get(TP + key) : null);
+    return v == null ? null : { key, value: v };
+  };
+  S.prefetch = async function(keys, soft = false){
+    kvPre.map.clear();
+    keys = keys.filter(k => !window.kvSkip(k));
+    if (!keys.length) return true;
+    try {
+      const m = await rows(keys.concat(keys.map(k => TP + k)));
+      keys.forEach(k => { const v = compose(m.has(k) ? m.get(k) : null, m.has(TP + k) ? m.get(TP + k) : null); kvPre.map.set(k, v == null ? undefined : v); });
+      kvPre.at = Date.now(); return true;
+    } catch (e) {
+      if (!soft) { keys.forEach(k => kvPre.map.set(k, KV_PRE_FAIL)); kvPre.at = Date.now(); }
+      return false;
+    }
+  };
+  S.set = async function(key, value, shared = false){
+    if (!shared) return local.set.call(S, key, value, false);
+    if (window.kvSkip(key)) return { key, value, skipped: true };
+    if (window.__loadFailed.has(key)) { kvFailBanner(); kvSaveFailNotice('⚠ 저장하지 않았습니다 — 이 항목을 서버에서 불러오지 못한 상태입니다. 새로고침 후 다시 해 주세요'); throw new Error(`storage.set blocked (load failed): ${key}`); }
+    kvPre.map.delete(key);
+    let store = value;
+    const nv = jp(value);
+    if (dateish(nv)) {
+      let lv; try { lv = (await rows([key])).get(key); } catch (e) { kvSaveFailNotice(); throw e; }
+      const L = lv == null ? {} : jp(lv);
+      if (dateish(L)) {
+        const o = {};
+        Object.keys(nv).forEach(d => { if (JSON.stringify(nv[d]) !== JSON.stringify(L[d])) o[d] = nv[d]; });
+        Object.keys(L).forEach(d => { if (!(d in nv)) o[d] = null; });
+        store = JSON.stringify({ __testDates: o });
+      }
+    }
+    await put(TP + key, store);
+    return { key, value };
+  };
+  S.delete = async function(key, shared = false){
+    if (!shared) return local.delete.call(S, key, false);
+    if (window.kvSkip(key)) return { key, deleted: false, skipped: true };
+    await put(TP + key, DEL);
+    return { key, deleted: true };
+  };
+  S.list = async function(prefix = '', shared = false){
+    if (!shared) return local.list.call(S, prefix, false);
+    const q = p => `${KV}?key=like.${encodeURIComponent(p + '%')}&select=key`;
+    const [a, b, c] = await Promise.all([fetch(q(prefix)), fetch(q(TP + prefix)), fetch(`${KV}?key=like.${encodeURIComponent(TP + prefix + '%')}&value=eq.${DEL}&select=key`)].map(p => p.then(r => r.json())));
+    const del = new Set(c.map(r => r.key.slice(TP.length)));
+    const keys = [...new Set(a.map(r => r.key).filter(k => !k.startsWith(TP)).concat(b.map(r => r.key.slice(TP.length))))].filter(k => !del.has(k));
+    return { keys };
+  };
+  // 테스트 사본 지우기: 날짜 하나(키 이름에 그 날짜가 들어간 사본 + 날짜별 묶음의 그 날짜) / 전부
+  window.testReset = async function(dk){
+    const res = await fetch(`${KV}?key=like.${encodeURIComponent(TP + '%')}&select=key,value`, { headers: sbHeaders });
+    if (!res.ok) throw new Error('테스트 사본 목록을 불러오지 못했습니다 (' + res.status + ')');
+    let n = 0;
+    for (const r of await res.json()) {
+      if (!dk || r.key.includes(dk)) { await delRow(r.key); n++; continue; }
+      const t = jp(r.value);
+      if (isDates(t) && Object.prototype.hasOwnProperty.call(t.__testDates, dk)) {
+        delete t.__testDates[dk];
+        if (Object.keys(t.__testDates).length) await put(r.key, JSON.stringify(t)); else await delRow(r.key);
+        n++;
+      }
+    }
+    kvPre.map.clear();
+    return n;
+  };
+})();
 
 // ── 인증 함수 ──
 async function sbQuery(table, params = '') {
@@ -22313,6 +22473,30 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const df = matEl('mat-ded-fold');
     if(df){ df.addEventListener('toggle', () => { if(df.open){ if(!MAT.loaded) matLoad(false); matRenderDedCard(); } }); matEl('mat-d-reload').addEventListener('click', () => { MAT.ded = null; matLoad(true); }); }
     window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster, matBuildPurchaseSheet, matComputeDeduct, matExplodeGross, matShipPacks };
+  })();
+
+  // ── 테스트 모드 띠: 이 날짜 되돌리기 / 모두 지우기 / 나가기 ──
+  (function wireTestMode(){
+    const link = document.getElementById('home-test-link');
+    if(!window.TEST_MODE){ return; }
+    if(link) link.innerHTML = '🧪 지금 <b>테스트 모드</b>입니다 — <a href="?test=0">운영 화면으로 나가기</a>';
+    document.body.classList.add('test-mode');
+    document.title = '[테스트] ' + document.title;
+    document.getElementById('test-banner').style.display = 'flex';
+    const run = async (dk, btn) => {
+      btn.disabled = true;
+      try{ const n = await window.testReset(dk); toast(`테스트 사본 ${n}건을 지웠습니다 — 다시 불러옵니다`); setTimeout(() => location.reload(), 600); }
+      catch(e){ btn.disabled = false; toast('지우지 못했습니다: ' + ((e && e.message) || e)); }
+    };
+    document.getElementById('test-reset-date').addEventListener('click', e => {
+      const dk = currentDateKey;
+      if(!dk) return;
+      if(confirm(`${dk} 날짜에서 테스트로 고친 내용을 지우고 운영 데이터로 되돌릴까요?`)) run(dk, e.currentTarget);
+    });
+    document.getElementById('test-reset-all').addEventListener('click', e => {
+      if(confirm('테스트 모드에서 저장한 내용을 모두 지울까요? (다른 직원이 테스트한 내용도 함께 지워집니다)')) run('', e.currentTarget);
+    });
+    document.getElementById('test-exit').addEventListener('click', () => { try{ sessionStorage.removeItem('dd_test'); }catch(e){} location.href = location.pathname; });
   })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
