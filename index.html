@@ -1564,17 +1564,6 @@
       <div class="sub stock-ro-note">🔒 전일 재고·원물 입력은 <b>생산 / 물류 전체 권한</b>이 있어야 저장됩니다. (지금은 보기만 가능)</div>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">전일 재고를 넣어두면 <b>집계 / 출고</b> 탭의 집계표에서 오늘 필요한 생산 수량을, 아래 <b>배차 · 적재 · 재고사용</b>에서 업체별 재고 사용과 남은 재고를 바로 확인할 수 있습니다. 원물사용량은 원물 소요량 계산에 사용됩니다.</div></details>
 
-      <!-- 예전 원물 재고·당일 사용량 입력: 지금은 원물선별·자재 재고·단가 확인이 대신해 화면에서 숨김 (저장된 자료와 백업은 그대로) -->
-      <div id="raw-stock-legacy" style="display:none;">
-      <h3>원물 재고 &amp; 당일 사용량(kg)</h3>
-      <div style="font-size:11.5px; color:var(--muted); margin-bottom:6px;">전일재고(단위), 팩당kg, 당일사용량(kg) — 당일사용량은 직접 입력하거나 팩당kg×오늘출고수량으로 자동계산</div>
-      <div id="raw-stock-editor"></div>
-      <div class="row">
-        <input type="text" id="new-raw-material-input" placeholder="원물명 입력 (예: 토마토, 망고, 자몽)" style="min-width:180px;">
-        <button class="btn-ghost small-btn" id="add-raw-material-btn">+ 원물 추가</button>
-      </div>
-      </div>
-
       <h3>제품 재고</h3>
       <div id="product-stock-editor"></div>
       </div>
@@ -1662,8 +1651,9 @@
     <div id="ship-plan-body"></div>
     <details style="margin-top:12px;">
       <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">기사 · 적재방식 목록 편집</summary>
+      <div class="sub" style="margin:6px 0 0;">기사 목록은 <b>송품장 설정 › 운송자 목록</b>과 하나입니다(운송자 목록에만 있는 기사도 여기에 나옴). 차량번호·연락처는 송품장 설정에서 넣습니다.</div>
       <div class="row" style="margin-top:8px;">
-        <label style="font-size:13px;">기사 :</label>
+        <label style="font-size:13px;" title="송품장 설정의 운송자 목록과 같은 목록">기사(납품담당) :</label>
         <input type="text" id="sp-opt-drivers" style="min-width:420px; flex:1;" placeholder="쉼표(,)로 구분">
       </div>
       <div class="row" style="margin-top:6px;">
@@ -1743,13 +1733,7 @@
             <h3 style="margin:0 0 6px;">공급자 정보</h3>
             <div class="sub" id="stm-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
             <div id="stm-supplier" style="display:grid;grid-template-columns:110px 1fr;gap:6px 8px;max-width:560px;align-items:center;"></div>
-            <div class="row" style="margin-top:8px;">
-              <label style="font-size:13px;">인감 도장 이미지 :</label>
-              <input type="file" id="stm-stamp-file" accept="image/png,image/jpeg">
-              <button class="btn-ghost small-btn" id="stm-stamp-clear">제거</button>
-              <img id="stm-stamp-thumb" alt="" style="height:44px;display:none;">
-            </div>
-            <div class="sub" style="margin:2px 0 0;">※ 인감 이미지는 서버에 저장되어 <b>송장/명세서 권한이 있는 직원만</b> 받을 수 있습니다(그 밖의 직원·외부에는 내려가지 않음). 한 번 등록하면 모든 PC에서 쓰고, 등록·제거는 송장/명세서 전체 권한자만 할 수 있습니다. (배경이 투명한 PNG 권장)</div>
+            <div class="sub" style="margin:8px 0 0;">상호·주소 등 공급자 정보와 <b>인감</b>은 <b>🗂 기준정보 › 우리 회사 정보</b>에서 고칩니다. <button type="button" class="btn-ghost small-btn master-goto" data-fold="our-co-fold">→ 우리 회사 정보</button></div>
 
             <h3 style="margin:16px 0 6px;">업체 정보 (이카운트 거래처 엑셀로 불러오기)</h3>
             <div class="sub" style="margin:0 0 6px;">이카운트 거래처 리스트 엑셀(거래처코드·거래처명·전화번호 열 포함)을 올리면, 거래처 코드(없으면 이름)가 같은 업체에 상호·전화번호가 채워집니다. 업체 주소는 명세서에 넣지 않습니다.</div>
@@ -1784,7 +1768,7 @@
     <div id="sd-preview" style="margin-top:12px;overflow-x:auto;"></div>
 
     <details id="sd-setup" style="margin-top:14px;">
-      <summary style="cursor:pointer;font-size:14px;font-weight:700;">송품장 설정 (엑셀에서 불러오기 · 출하자 정보 · 로고 · 운송자 목록 · 업체별 설정)</summary>
+      <summary style="cursor:pointer;font-size:14px;font-weight:700;">송품장 설정 (엑셀에서 불러오기 · 송품장 공통 칸 · 운송자 목록 · 업체별 설정)</summary>
       <div style="margin-top:10px;">
         <div class="sub" id="sd-admin-note" style="margin:0 0 6px;display:none;">※ 관리자만 수정할 수 있습니다.</div>
         <h3 style="margin:0 0 6px;">표준송품장 엑셀에서 한 번에 불러오기</h3>
@@ -1794,25 +1778,18 @@
           <span id="sd-import-msg" style="font-size:12px;color:var(--muted);"></span>
         </div>
 
-        <h3 style="margin:16px 0 6px;">출하자 정보 · 공통</h3>
+        <h3 style="margin:16px 0 6px;">송품장 공통 칸</h3>
+        <div class="sub" style="margin:0 0 6px;">출하자 단체명·주소·신고번호·계좌와 <b>로고</b>는 <b>🗂 기준정보 › 우리 회사 정보</b>에서 고칩니다(거래명세서 공급자 정보와 한 곳). <button type="button" class="btn-ghost small-btn master-goto" data-fold="our-co-fold">→ 우리 회사 정보</button></div>
         <div id="sd-shipper" style="display:grid;grid-template-columns:140px 1fr;gap:6px 8px;max-width:600px;align-items:center;"></div>
-        <div class="row" style="margin-top:8px;">
-          <label style="font-size:13px;">로고 이미지 :</label>
-          <input type="file" id="sd-logo-file" accept="image/png,image/jpeg">
-          <button class="btn-ghost small-btn" id="sd-logo-clear">제거</button>
-          <img id="sd-logo-thumb" alt="" style="height:44px;display:none;">
-        </div>
+
 
         <h3 style="margin:16px 0 6px;">운송자(기사) 목록</h3>
-        <div class="sub" style="margin:0 0 6px;">생산 / 물류 탭의 납품담당 이름과 같은 성함으로 등록하면 송품장에 차량번호·전화번호가 자동으로 들어갑니다.</div>
+        <div class="sub" style="margin:0 0 6px;"><b>생산 / 물류 › 배차·적재의 납품담당(기사) 목록과 같은 목록</b>입니다. 여기서 기사를 추가하면 납품담당 목록에도 나오고, 배차 목록에만 있는 기사는 '배차 목록에만 있음'으로 보여 차량번호·연락처를 넣을 수 있습니다. 차량번호·연락처는 송품장에 자동으로 들어갑니다.</div>
         <div id="sd-drivers" style="max-height:300px;overflow:auto;"></div>
         <div class="row"><button class="btn-ghost small-btn" id="sd-driver-add">+ 기사 추가</button></div>
 
         <h3 style="margin:16px 0 6px;">SP 송장 (대분류 SP 거래처)</h3>
-        <div class="sub" style="margin:0 0 6px;">대분류가 <b>SP</b>인 거래처는 에스피프레시 <b>SP 송장</b> 양식으로 만들어집니다(출고일 지정 업체·3PL은 표준송품장 · 아래 업체별 설정의 '양식'에서 바꿀 수 있음). 받은 SP 송장 엑셀(예: 송장(다름달음).xlsx)을 올리면 <b>SP 정보 · 로고 · 직인</b>과 거래처별 <b>도착지 회사명 · 주소 · 전화</b>(관리자)를 한 번에 불러옵니다. 운반자 소속은 운송자 목록의 '소속' 칸(비우면 출하자 단체명).</div>
-        <div class="row" style="margin-top:0;"><input type="file" id="sd-sp-import" accept=".xlsx"><span id="sd-sp-import-msg" style="font-size:12px;color:var(--muted);"></span></div>
-        <div id="sd-sp-fields" style="display:grid;grid-template-columns:140px 1fr;gap:6px 8px;max-width:760px;align-items:center;margin-top:6px;"></div>
-        <div id="sd-sp-imgs" style="display:flex;flex-wrap:wrap;margin-top:6px;"></div>
+        <div class="sub" style="margin:0 0 6px;">SP 송장의 본사·창고·연락처·계좌·로고·직인은 <b>🗂 기준정보 › 관계사 정보</b>로 옮겼습니다. <button type="button" class="btn-ghost small-btn master-goto" data-fold="sp-co-fold">→ 관계사 정보</button></div>
 
         <h3 style="margin:16px 0 6px;">업체별 송품장 설정</h3>
         <div class="row" style="margin-top:0;"><input type="search" id="sd-company-q" placeholder="업체 검색" style="min-width:200px;"></div>
@@ -2217,6 +2194,43 @@
     </details>
   </div>
 
+
+  <div class="card" id="our-co-card">
+    <details id="our-co-fold">
+      <summary>🏢 우리 회사 정보 (거래명세서 공급자 · 송품장 출하자 · 로고 · 인감)</summary>
+      <div style="margin-top:8px;">
+        <div class="sub" style="margin:0 0 8px;">거래명세서의 <b>공급자 정보</b>와 송품장의 <b>출하자 정보</b>를 한 곳에서 고칩니다. 두 서류 값이 다른 칸은 아래에 둘 다 보여 드리니 하나로 맞추세요(맞추기 전에는 각 서류에 원래 값이 그대로 들어갑니다). 관리자 · 송장/명세서 전체 권한이면 고칠 수 있습니다.</div>
+        <div id="our-co-body"></div>
+        <div class="row" style="margin-top:8px;">
+          <label style="font-size:13px;">로고 이미지 :</label>
+          <input type="file" id="sd-logo-file" accept="image/png,image/jpeg">
+          <button class="btn-ghost small-btn" id="sd-logo-clear">제거</button>
+          <img id="sd-logo-thumb" alt="" style="height:44px;display:none;">
+        </div>
+            <div class="row" style="margin-top:8px;">
+              <label style="font-size:13px;">인감 도장 이미지 :</label>
+              <input type="file" id="stm-stamp-file" accept="image/png,image/jpeg">
+              <button class="btn-ghost small-btn" id="stm-stamp-clear">제거</button>
+              <img id="stm-stamp-thumb" alt="" style="height:44px;display:none;">
+            </div>
+            <div class="sub" style="margin:2px 0 0;">※ 인감 이미지는 서버에 저장되어 <b>송장/명세서 권한이 있는 직원만</b> 받을 수 있습니다(그 밖의 직원·외부에는 내려가지 않음). 한 번 등록하면 모든 PC에서 쓰고, 등록·제거는 송장/명세서 전체 권한자만 할 수 있습니다. (배경이 투명한 PNG 권장)</div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" id="sp-co-card">
+    <details id="sp-co-fold">
+      <summary>🤝 관계사 정보 — 에스피프레시 (SP 송장)</summary>
+      <div style="margin-top:8px;">
+        
+        <div class="sub" style="margin:0 0 6px;">대분류가 <b>SP</b>인 거래처는 에스피프레시 <b>SP 송장</b> 양식으로 만들어집니다(출고일 지정 업체·3PL은 표준송품장 · 아래 업체별 설정의 '양식'에서 바꿀 수 있음). 받은 SP 송장 엑셀(예: 송장(다름달음).xlsx)을 올리면 <b>SP 정보 · 로고 · 직인</b>과 거래처별 <b>도착지 회사명 · 주소 · 전화</b>(관리자)를 한 번에 불러옵니다. 운반자 소속은 운송자 목록의 '소속' 칸(비우면 출하자 단체명).</div>
+        <div class="row" style="margin-top:0;"><input type="file" id="sd-sp-import" accept=".xlsx"><span id="sd-sp-import-msg" style="font-size:12px;color:var(--muted);"></span></div>
+        <div id="sd-sp-fields" style="display:grid;grid-template-columns:140px 1fr;gap:6px 8px;max-width:760px;align-items:center;margin-top:6px;"></div>
+        <div id="sd-sp-imgs" style="display:flex;flex-wrap:wrap;margin-top:6px;"></div>
+      </div>
+    </details>
+  </div>
+
   <div class="card">
     <details id="price-manage-details" open>
       <summary>단가 설정 (거래 방식별 단가 · 업체별 예외 단가)</summary>
@@ -2256,7 +2270,7 @@
 
   <div class="card">
     <details id="fee-manage-details">
-      <summary>3PL 택배비 품목 · 택배사</summary>
+      <summary>서비스 품목 — 3PL 택배비 · 택배사</summary>
       <div style="margin-top:6px;">
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div></details>
@@ -3026,7 +3040,7 @@
 <!-- ───────────── 구매 · 자재 ───────────── -->
 <section class="mn-pane" id="mn-p-buy">
 <h2>기준정보</h2>
-<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. 거래처도 여기 두 곳뿐입니다: 원물선별 <b>출고 거래처</b>는 <b>매출처 정보</b>의 업체(원물선별 › 마스터관리 › 거래처에서는 수수료율 등만 고치고 [🔗 매출처와 맞추기]로 예전 거래처를 연결), 원물선별 <b>사입처</b>는 <b>구매처 정보</b>에서만 등록·수정합니다. 원물선별 <b>농가</b>는 원물선별에서 등록하고, 구매처 정보 목록에 '🌱 농가'로 함께 나와 이카운트 거래처코드를 넣을 수 있습니다(농가에서 바로 산 원물입고의 구매입력 엑셀 거래처코드).</p><p class="mn-lead"> <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
+<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. <b>🏢 우리 회사 정보</b>에서 거래명세서 공급자 정보와 송품장 출하자 정보·로고·인감을 한 번에 고치고(두 서류 값이 다르면 둘 다 보여 주니 하나로 맞추세요), <b>🤝 관계사 정보</b>에서 에스피프레시 SP 송장 정보·로고·직인을 고칩니다. 3PL 택배비는 <b>서비스 품목</b> 카드에 있습니다. 기사(운송자)는 생산/물류 쪽에 그대로 두되 <b>배차 납품담당 목록과 송품장 운송자 목록이 한 목록</b>으로 보입니다.</p><p class="mn-lead"> 거래처도 여기 두 곳뿐입니다: 원물선별 <b>출고 거래처</b>는 <b>매출처 정보</b>의 업체(원물선별 › 마스터관리 › 거래처에서는 수수료율 등만 고치고 [🔗 매출처와 맞추기]로 예전 거래처를 연결), 원물선별 <b>사입처</b>는 <b>구매처 정보</b>에서만 등록·수정합니다. 원물선별 <b>농가</b>는 원물선별에서 등록하고, 구매처 정보 목록에 '🌱 농가'로 함께 나와 이카운트 거래처코드를 넣을 수 있습니다(농가에서 바로 산 원물입고의 구매입력 엑셀 거래처코드).</p><p class="mn-lead"> <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
 
 <h3>품목(SKU) 관리</h3>
 <p>발주취합, 샘플 신청, 단가 확인이 같은 품목 목록을 씁니다. 품목마다 이름, 별칭, <b>박스입수</b>(박스당 팩 수), 단가그룹, 이카운트 품목코드 등을 둡니다. 박스입수가 있어야 박스 수가 자동으로 계산됩니다. 새 상품이 나오면 여기서 먼저 등록합니다.</p>
@@ -7013,118 +7027,8 @@ function mnShow(id, keepScroll) {
     }
   }
 
-  function renderRawStockEditor(){
-    const wrap = document.getElementById('raw-stock-editor');
-    wrap.innerHTML = '';
-    if(rawMaterials.length === 0){
-      wrap.innerHTML = '<div class="empty" style="padding:10px 0;">등록된 원물이 없습니다. 아래에서 추가해주세요.</div>';
-      return;
-    }
-    const stock = currentPreviousStock();
-    const usage = currentRawMaterialUsage();
+  function renderRawStockEditor(){}   // 예전 원물 재고 목록 화면은 지움 (기준정보 정리 4단계 — 'raw-materials' 자료·백업은 그대로)
 
-    // compute today's total units dispatched per item across all companies (샘플 동봉 포함 — 실물 기준)
-    const orders = ordersPhys(currentDateKey);
-    const todayUnitsByItemId = {};
-    Object.values(orders).forEach(co=>{
-      Object.keys(co).forEach(itemId=>{
-        if(itemId === '_meta') return;
-        todayUnitsByItemId[itemId] = (todayUnitsByItemId[itemId] || 0) + (Number(co[itemId]) || 0);
-      });
-    });
-
-    rawMaterials.forEach(mat=>{
-      const row = document.createElement('div');
-      row.className = 'dict-row';
-      row.style.flexWrap = 'wrap';
-
-      const nameSpan = document.createElement('div');
-      nameSpan.style.flex = '0 0 80px';
-      nameSpan.style.fontSize = '13px';
-      nameSpan.style.fontWeight = '600';
-      nameSpan.textContent = mat.name;
-      row.appendChild(nameSpan);
-
-      const prevLabel = document.createElement('label');
-      prevLabel.style.fontSize = '11.5px'; prevLabel.style.color = 'var(--muted)'; prevLabel.textContent = '전일재고:';
-      row.appendChild(prevLabel);
-      const qtyInput = document.createElement('input');
-      qtyInput.type = 'number';
-      qtyInput.style.width = '75px';
-      qtyInput.placeholder = '단위';
-      qtyInput.value = stock.raw[mat.id] ?? '';
-      qtyInput.addEventListener('change', (e)=>{
-        stock.raw[mat.id] = e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0);
-        savePreviousStock();
-      });
-      row.appendChild(qtyInput);
-
-      const kgLabel = document.createElement('label');
-      kgLabel.style.fontSize = '11.5px'; kgLabel.style.color = 'var(--muted)'; kgLabel.textContent = '팩당kg:';
-      row.appendChild(kgLabel);
-      const kgInput = document.createElement('input');
-      kgInput.type = 'number';
-      kgInput.step = '0.01';
-      kgInput.style.width = '65px';
-      kgInput.placeholder = 'kg/팩';
-      kgInput.value = mat.kgPerUnit ?? '';
-      kgInput.addEventListener('change', (e)=>{
-        mat.kgPerUnit = e.target.value === '' ? '' : (parseFloat(e.target.value) || '');
-        saveRawMaterials();
-        renderRawStockEditor(); // refresh auto-calc
-      });
-      row.appendChild(kgInput);
-
-      // auto-compute usage from today's total dispatched units × kgPerUnit
-      const autoKg = (mat.kgPerUnit && mat.kgPerUnit > 0)
-        ? Object.keys(todayUnitsByItemId).reduce((sum, itemId)=>{
-            // each item that uses this raw material contributes itemId units × kgPerUnit
-            // (simple model: all items use the same raw material equally by kgPerUnit;
-            //  for different raw materials per SKU, the user can override manually below)
-            return sum + (todayUnitsByItemId[itemId] * mat.kgPerUnit);
-          }, 0)
-        : null;
-
-      const usageLabel = document.createElement('label');
-      usageLabel.style.fontSize = '11.5px'; usageLabel.style.color = 'var(--muted)'; usageLabel.textContent = '당일사용(kg):';
-      row.appendChild(usageLabel);
-      const usageInput = document.createElement('input');
-      usageInput.type = 'number';
-      usageInput.step = '0.1';
-      usageInput.style.width = '75px';
-      usageInput.placeholder = 'kg';
-      usageInput.value = usage[mat.id] ?? (autoKg !== null ? autoKg : '');
-      usageInput.title = autoKg !== null ? `자동계산: ${autoKg}kg (팩당kg×오늘출고수량). 직접 입력 시 덮어씌워집니다.` : '직접 입력';
-      usageInput.addEventListener('change', (e)=>{
-        usage[mat.id] = e.target.value === '' ? null : (parseFloat(e.target.value) || 0);
-        saveRawMaterialUsage();
-      });
-      row.appendChild(usageInput);
-
-      if(autoKg !== null && usage[mat.id] == null){
-        const autoTag = document.createElement('span');
-        autoTag.style.fontSize = '10.5px'; autoTag.style.color = 'var(--accent)'; autoTag.textContent = '(자동)';
-        row.appendChild(autoTag);
-      }
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-danger small-btn';
-      delBtn.textContent = '삭제';
-      armConfirmButton(delBtn, ()=>{
-        rawMaterials = rawMaterials.filter(m=>m.id!==mat.id);
-        Object.keys(previousStock).forEach(dateKey=>{
-          if(previousStock[dateKey].raw) delete previousStock[dateKey].raw[mat.id];
-        });
-        Object.keys(rawMaterialUsage).forEach(dateKey=>{
-          delete rawMaterialUsage[dateKey][mat.id];
-        });
-        saveRawMaterials(); savePreviousStock(); saveRawMaterialUsage(); renderRawStockEditor();
-      });
-      row.appendChild(delBtn);
-
-      wrap.appendChild(row);
-    });
-  }
 
   function renderProductStockEditor(){
     const wrap = document.getElementById('product-stock-editor');
@@ -10476,15 +10380,6 @@ function mnShow(id, keepScroll) {
     saveDict(); renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); ppRenderItems(); renderPriceMapEditor();
   });
 
-  document.getElementById('add-raw-material-btn').addEventListener('click', ()=>{
-    const input = document.getElementById('new-raw-material-input');
-    const val = input.value.trim();
-    if(!val){ toast('원물명을 입력해주세요'); return; }
-    if(rawMaterials.some(m=>m.name===val)){ toast('이미 등록된 원물입니다'); return; }
-    rawMaterials.push({ id: cryptoId(), name: val });
-    saveRawMaterials(); renderRawStockEditor();
-    input.value = '';
-  });
 
   document.getElementById('cc-tree-btn').addEventListener('click', ccOpenTree);   // 거래처 분류표 보기·편집
   document.getElementById('cc-auto-btn').addEventListener('click', ccOpenAuto);   // 기존 거래처 자동 분류 (검토 후 적용)
@@ -11804,9 +11699,10 @@ function mnShow(id, keepScroll) {
     const admin = stmIsAdmin();
     document.getElementById('stm-admin-note').style.display = admin ? 'none' : '';
     const box = document.getElementById('stm-supplier'); box.innerHTML = '';
-    STM_SUPPLIER_FIELDS.forEach(([k, label]) => {
+    document.getElementById('stm-admin-note').style.display = 'none';
+    STM_SUPPLIER_FIELDS.forEach(([k, label]) => {   // 고치기는 🗂 기준정보 › 우리 회사 정보 (기준정보 정리 4단계)
       const l = document.createElement('label'); l.style.fontSize = '13px'; l.textContent = label;
-      const inp = document.createElement('input'); inp.type = 'text'; inp.value = stmSettings[k] || ''; inp.disabled = !admin;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = stmSettings[k] || ''; inp.disabled = true; inp.title = '🗂 기준정보 › 우리 회사 정보에서 고칩니다';
       inp.addEventListener('change', async () => {
         stmSettings[k] = inp.value.trim();
         try{ await window.storage.set('statement-settings', JSON.stringify(stmSettings), true); toast('공급자 정보를 저장했습니다'); }catch(e){ console.error(e); }
@@ -11919,6 +11815,69 @@ function mnShow(id, keepScroll) {
     const f = e.target.files[0]; if(f) stmImportCompanyInfo(f); e.target.value = '';
   });
 
+  // ══════════════════ 우리 회사 정보 (기준정보 정리 4단계) ══════════════════
+  //  저장은 그대로 두 곳: 거래명세서 'statement-settings'(공급자) · 송품장 'shipdoc-settings'.shipper(출하자). 이 화면이 둘을 함께 고침
+  //  두 서류 값이 다르면 둘 다 보여 주고 [명세서 값으로] / [송품장 값으로] 맞추게 함 (맞추기 전에는 각자 원래 값)
+  const OUR_CO = [   // [라벨, 명세서 키, 송품장 키]
+    ['상호', 'name', 'name'], ['대표자', 'rep', null], ['사업자등록번호', 'bizNo', null], ['주소', 'address', 'addr'], ['전화', 'tel', null],
+    ['출하자 신고번호', null, 'reportNo'], ['은행명', null, 'bank'], ['계좌번호', null, 'account'], ['예금주', null, 'holder']
+  ];
+  const ourCoCan = () => !!(window.currentUser && window.currentUser.role === 'admin') || window.sectionLevel('invoice') === 'full';
+  const ourCoBankLine = () => { const sh = sdSettings.shipper || {}; return [sh.bank, sh.account].filter(Boolean).join(' ') + (sh.holder ? '  ' + sh.holder : ''); };
+  const ourCoNorm = x => String(x || '').replace(/\s+/g, '');
+  async function ourCoSave(which){
+    try{
+      if(which.stm) await window.storage.set('statement-settings', JSON.stringify(stmSettings), true);
+      if(which.sd && !(await sdSave())) throw new Error('송품장 설정');
+      toast('우리 회사 정보를 저장했습니다'); return true;
+    }catch(e){ toast('저장하지 못했습니다: ' + ((e && e.message) || e)); return false; }
+  }
+  async function ourCoRender(){
+    const box = document.getElementById('our-co-body'); if(!box) return;
+    await Promise.all([stmLoad(), sdLoad()]);
+    const can = ourCoCan(), e = escapeHtml, sh = sdSettings.shipper;
+    let h = '<div style="display:grid;grid-template-columns:130px 1fr;gap:6px 8px;max-width:720px;align-items:start;">';
+    OUR_CO.forEach(([label, sk, dk], idx) => {
+      const sv = sk ? (stmSettings[sk] || '') : null, dv = dk ? (sh[dk] || '') : null, val = sv != null ? sv : dv;
+      const diff = sk && dk && ourCoNorm(sv) !== ourCoNorm(dv);
+      const where = sk && dk ? '명세서 · 송품장' : sk ? '명세서' : '송품장';
+      h += `<label style="font-size:13px;padding-top:6px;">${label}<div class="sub" style="margin:0;font-size:11px;">${where}</div></label><div><input type="text" class="our-co-f" data-i="${idx}" value="${e(val)}" style="width:100%;max-width:460px;"${can ? '' : ' disabled'}>`
+        + (diff ? `<div class="sub" style="margin:3px 0 0;color:var(--warn,#9a6a00);">두 서류 값이 다릅니다 — 명세서: <b>${e(sv || '(비어 있음)')}</b> · 송품장: <b>${e(dv || '(비어 있음)')}</b>${can ? ` <button type="button" class="btn-ghost small-btn our-co-pick" data-i="${idx}" data-from="stm">명세서 값으로</button><button type="button" class="btn-ghost small-btn our-co-pick" data-i="${idx}" data-from="sd">송품장 값으로</button>` : ''}</div>` : '') + '</div>';
+    });
+    const bl = ourCoBankLine(), bdiff = ourCoNorm(bl) !== ourCoNorm(stmSettings.bank);
+    h += `<label style="font-size:13px;padding-top:6px;">명세서 계좌 칸</label><div><div class="sub" style="margin:6px 0 0;">${e(stmSettings.bank || '(비어 있음)')}</div>${bdiff ? `<div class="sub" style="margin:3px 0 0;color:var(--warn,#9a6a00);">위 은행명·계좌번호·예금주(송품장)와 다릅니다 → <b>${e(bl)}</b>${can ? ' <button type="button" class="btn-ghost small-btn" id="our-co-bank">이 값으로 명세서 계좌 칸 맞추기</button>' : ''}</div>` : ''}</div>`;
+    h += '</div>';
+    if(!can) h += '<div class="sub" style="margin:6px 0 0;">👁 관리자 · 송장/명세서 전체 권한이 있어야 고칠 수 있습니다 (보기만 가능)</div>';
+    box.innerHTML = h;
+    box.querySelectorAll('.our-co-f').forEach(inp => inp.addEventListener('change', async () => {
+      const [, sk, dk] = OUR_CO[Number(inp.dataset.i)], v = inp.value.trim();
+      if(sk) stmSettings[sk] = v; if(dk) sh[dk] = v;
+      await ourCoSave({ stm: !!sk, sd: !!dk }); ourCoRender();
+    }));
+    box.querySelectorAll('.our-co-pick').forEach(b => b.addEventListener('click', async () => {
+      const [, sk, dk] = OUR_CO[Number(b.dataset.i)], v = b.dataset.from === 'stm' ? (stmSettings[sk] || '') : (sh[dk] || '');
+      stmSettings[sk] = v; sh[dk] = v; await ourCoSave({ stm: true, sd: true }); ourCoRender();
+    }));
+    const bb = document.getElementById('our-co-bank'); if(bb) bb.addEventListener('click', async () => { stmSettings.bank = ourCoBankLine(); await ourCoSave({ stm: true }); ourCoRender(); });
+    // 로고(송품장) · 인감(명세서)
+    const th = document.getElementById('sd-logo-thumb'); if(th){ th.style.display = sdSettings.logo ? '' : 'none'; if(sdSettings.logo) th.src = sdSettings.logo; }
+    ['sd-logo-file', 'sd-logo-clear'].forEach(id => { const x = document.getElementById(id); if(x) x.disabled = !can; });
+    try{ stmRenderStampThumb(); }catch(err){}
+  }
+  window.ourCoRender = ourCoRender;
+  async function spCoRender(){ await sdLoad(); sdRenderSpSetup(ourCoCan()); }
+  function masterGoto(foldId){
+    const b = document.getElementById('main-nav-btn-master'); if(b) b.click();
+    const f = document.getElementById(foldId); if(f && !f.open){ f.open = true; f.dispatchEvent(new Event('toggle')); }
+    setTimeout(() => { if(f) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+  }
+  window.masterGoto = masterGoto;
+  (function wireOurCo(){
+    const f = document.getElementById('our-co-fold'); if(f) f.addEventListener('toggle', () => { if(f.open) ourCoRender(); });
+    const g = document.getElementById('sp-co-fold'); if(g) g.addEventListener('toggle', () => { if(g.open) spCoRender(); });
+    document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('.master-goto'); if(b) masterGoto(b.dataset.fold); });
+  })();
+
   // ══════════════════ 송품장 (JPG) ══════════════════
   // 물건을 출고할 때 동봉하는 「표준송품장」을 업체별 1장으로 만들어 JPG로 저장한다 (다름달음_표준송품장(거래처별).xlsx 양식과 같은 칸 구성).
   //  - 수신: 업체별 표기(설정) → 없으면 업체명. 3PL 업체는 한 장으로 합쳐 3PL 수신처(예: 제이엠로지스) 앞으로.
@@ -11937,6 +11896,7 @@ function mnShow(id, keepScroll) {
   async function sdLoad(){
     if(sdLoaded) return;
     sdLoaded = true;
+    if(typeof spOptsLoaded !== 'undefined' && !spOptsLoaded) spOptsLoad().catch(() => {});   // 납품담당(배차) 기사 이름도 함께
     try{
       const r = await window.storage.get('shipdoc-settings', true);
       if(r && r.value){
@@ -12498,7 +12458,7 @@ function mnShow(id, keepScroll) {
     const list = sdCandidates();
     wrap.innerHTML = '';
     if(!list.length){ wrap.innerHTML = '<div class="empty" style="padding:8px 0;">이 날짜에 송품장을 만들 발주가 없습니다.</div>'; document.getElementById('sd-preview').innerHTML = ''; return; }
-    const driverNames = () => sdSettings.drivers.map(d => d.name);
+    const driverNames = () => drvAllNames();   // 운송자 목록 + 배차 목록(납품담당)
     list.forEach(c => {
       const doc = sdDoc(c);
       const row = document.createElement('div'); row.className = 'stm-row sd-row';
@@ -12592,7 +12552,7 @@ function mnShow(id, keepScroll) {
       inp.addEventListener('change', async () => { set(inp.value.trim()); if(await sdSave()) toast('송품장 설정을 저장했습니다'); if(sdPreviewKey) sdPreview(sdPreviewKey); });
       box.append(l, inp);
     };
-    SD_SHIPPER_FIELDS.forEach(([k, label]) => addField('출하자 · ' + label, () => sdSettings.shipper[k], v => { sdSettings.shipper[k] = v; }));
+    addField('연락처 칸 (비우면 상호 / 전화)', () => sdSettings.shipper.contact, v => { sdSettings.shipper.contact = v; });   // 상호·주소·신고번호·계좌는 기준정보 › 우리 회사 정보
     addField('발신', () => sdSettings.sender, v => { sdSettings.sender = v; });
     addField('생산자 칸', () => sdSettings.producer, v => { sdSettings.producer = v; });
     addField('3PL 수신처', () => sdSettings.threePlRecv, v => { sdSettings.threePlRecv = v; });
@@ -12607,17 +12567,51 @@ function mnShow(id, keepScroll) {
     tbl.innerHTML = '<thead><tr><th>성함(납품담당 이름과 같게)</th><th>차량번호</th><th>연락처</th><th>차종</th><th title="SP 송장의 운반자 소속 (비우면 출하자 단체명)">소속(SP 송장)</th><th></th></tr></thead>';
     const tb = document.createElement('tbody');
     sdSettings.drivers.forEach((d, i) => {
-      const tr = document.createElement('tr');
+      const tr = document.createElement('tr'); tr.dataset.n = d.name || '';
       ['name', 'plate', 'phone', 'type', 'org'].forEach(k => {
         const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k] || ''; inp.disabled = !can;
-        inp.addEventListener('change', async () => { d[k] = inp.value.trim(); await sdSave(); sdRenderList(); });
+        inp.addEventListener('change', async () => {
+          const old = d[k]; d[k] = inp.value.trim(); await sdSave();
+          if(k === 'name' && old && old !== d[k] && shipPlanOpts.drivers.includes(old)){   // 이름을 바꾸면 배차 목록의 이름도
+            if(drvCanPlan()){ try{ await drvSavePlanNames(shipPlanOpts.drivers.map(n => n === old ? d[k] : n).filter((n, j, arr) => n && arr.indexOf(n) === j)); }catch(e){ toast('배차 목록의 이름은 바꾸지 못했습니다'); } }
+            else toast(`배차 목록에는 「${old}」이(가) 남아 있습니다 (생산/물류 권한으로 바꾸기)`);
+          }
+          sdRenderSetup(); sdRenderList();
+        });
         td.appendChild(inp); tr.appendChild(td);
       });
       const td = document.createElement('td'), del = document.createElement('button');
       del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제'; del.disabled = !can;
-      del.addEventListener('click', async () => { sdSettings.drivers.splice(i, 1); await sdSave(); sdRenderSetup(); sdRenderList(); });
+      del.addEventListener('click', async () => {
+        const nm = d.name; sdSettings.drivers.splice(i, 1); await sdSave();
+        if(nm && shipPlanOpts.drivers.includes(nm)){
+          if(drvCanPlan() && confirm(`「${nm}」을(를) 배차(납품담당) 목록에서도 뺄까요?`)){ try{ await drvSavePlanNames(shipPlanOpts.drivers.filter(n => n !== nm)); }catch(e){ toast('배차 목록에서는 빼지 못했습니다'); } }
+        }
+        sdRenderSetup(); sdRenderList();
+      });
       td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
     });
+    // 배차(납품담당) 목록에만 있는 기사: 차량번호·연락처를 넣으면 운송자로 저장
+    shipPlanOpts.drivers.filter(n => !sdSettings.drivers.some(d => d.name === n)).forEach(n => {
+      const tr = document.createElement('tr'); tr.style.opacity = '.8'; tr.dataset.n = n;
+      const d = { name: n, plate: '', phone: '', type: '', org: '' };
+      ['name', 'plate', 'phone', 'type', 'org'].forEach(k => {
+        const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k];
+        if(k === 'name'){ inp.readOnly = true; inp.title = '배차(납품담당) 목록에만 있는 기사 — 이름은 배차·적재 › 목록 편집에서'; }
+        else { inp.placeholder = k === 'plate' ? '차량번호 입력' : ''; inp.disabled = !can; inp.addEventListener('change', async () => { d[k] = inp.value.trim(); sdSettings.drivers.push(d); await sdSave(); sdRenderSetup(); sdRenderList(); }); }
+        td.appendChild(inp); if(k === 'name'){ const sm = document.createElement('div'); sm.className = 'sub'; sm.style.cssText = 'margin:0;font-size:11px;'; sm.textContent = '배차 목록에만 있음'; td.appendChild(sm); }
+        tr.appendChild(td);
+      });
+      const td = document.createElement('td');
+      if(drvCanPlan()){
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '목록에서 빼기';
+        del.addEventListener('click', async () => { if(!confirm(`「${n}」을(를) 배차(납품담당) 목록에서 뺄까요?`)) return; try{ await drvSavePlanNames(shipPlanOpts.drivers.filter(x => x !== n)); }catch(e){ toast('빼지 못했습니다'); } sdRenderSetup(); sdRenderList(); });
+        td.appendChild(del);
+      }
+      tr.appendChild(td); tb.appendChild(tr);
+    });
+    { const ord = drvAllNames(), pos = t => { const n = t.dataset.n || '', k = ord.indexOf(n); return n ? (k < 0 ? 1e5 : k) : 1e6; };   // 배차 목록 순서, 새로 추가한 빈 줄은 맨 아래
+      [...tb.children].sort((x, y) => pos(x) - pos(y)).forEach(t => tb.appendChild(t)); }
     tbl.appendChild(tb); dw.appendChild(tbl);
     document.getElementById('sd-driver-add').disabled = !can;
     sdRenderSpSetup(can);
@@ -12754,11 +12748,11 @@ function mnShow(id, keepScroll) {
       const fr = new FileReader();
       fr.onload = async () => {
         if(String(fr.result).length > 400000){ toast('로고 이미지가 너무 큽니다. 더 작은 파일(약 300KB 이하)을 사용해주세요'); return; }
-        sdSettings.logo = fr.result; if(await sdSave()) toast('로고를 등록했습니다'); sdRenderSetup(); if(sdPreviewKey) sdPreview(sdPreviewKey);
+        sdSettings.logo = fr.result; if(await sdSave()) toast('로고를 등록했습니다'); sdRenderSetup(); if(window.ourCoRender) window.ourCoRender(); if(sdPreviewKey) sdPreview(sdPreviewKey);
       };
       fr.readAsDataURL(f); e.target.value = '';
     });
-    $('sd-logo-clear').addEventListener('click', async () => { sdSettings.logo = ''; await sdSave(); sdRenderSetup(); if(sdPreviewKey) sdPreview(sdPreviewKey); });
+    $('sd-logo-clear').addEventListener('click', async () => { sdSettings.logo = ''; await sdSave(); sdRenderSetup(); if(window.ourCoRender) window.ourCoRender(); if(sdPreviewKey) sdPreview(sdPreviewKey); });
     $('sd-import-file').addEventListener('change', e => { const f = e.target.files[0]; if(f) sdImportWorkbook(f); e.target.value = ''; });
   })();
 
@@ -20400,6 +20394,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   };
   let shipPlanOpts = { drivers: SP_DEFAULT_OPTS.drivers.slice(), loads: SP_DEFAULT_OPTS.loads.slice() };
   let spOptsLoaded = false;
+  // 납품담당(기사) 목록 = 배차 목록('ship-plan-options') + 송품장 운송자 목록('shipdoc-settings') — 기준정보 정리 4단계: 한 목록으로 보임
+  //  저장은 각 권한대로: 이름 순서·배차 목록은 생산/물류 전체, 차량번호·연락처(운송자)는 송장/명세서 전체
+  async function spOptsLoad(force){
+    try{
+      const o = await window.storage.get('ship-plan-options', true);
+      if(o && o.value){ const v = JSON.parse(o.value); if(Array.isArray(v.drivers) && v.drivers.length) shipPlanOpts.drivers = v.drivers; if(Array.isArray(v.loads) && v.loads.length) shipPlanOpts.loads = v.loads; }
+      spOptsLoaded = true;
+    }catch(e){ /* 기본 목록 사용 */ }
+    try{ await sdLoad(); }catch(e){}
+  }
+  function drvAllNames(){
+    const a = shipPlanOpts.drivers.slice();
+    ((typeof sdSettings !== 'undefined' && sdSettings.drivers) || []).forEach(d => { const n = String(d.name || '').trim(); if(n && !a.includes(n)) a.push(n); });
+    return a;
+  }
+  const drvCanPlan = () => !!(window.currentUser && window.currentUser.role === 'admin') || window.sectionLevel('plan') === 'full';
+  const drvCanSd = () => !!(window.currentUser && window.currentUser.role === 'admin') || window.sectionLevel('invoice') === 'full';
+  async function drvSavePlanNames(drivers){
+    await window.storage.set('ship-plan-options', JSON.stringify({ drivers, loads: shipPlanOpts.loads }), true);
+    shipPlanOpts = { drivers, loads: shipPlanOpts.loads }; spFillOptionLists();
+  }
   const shipPlanCache = {};    // { 'YYYY-MM-DD': { rows: { 업체명: { driver, load, stock: { 품목id: { d1, d2 } }, next, note, by, at } } } }
   const spLoading = {};
   let spQueue = Promise.resolve();
@@ -20441,13 +20456,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(shipPlanCache[dk] && !force) return;
     spLoading[dk] = (async () => {
       try{
-        if(!spOptsLoaded || force){
-          try{
-            const o = await window.storage.get('ship-plan-options', true);
-            if(o && o.value){ const v = JSON.parse(o.value); if(Array.isArray(v.drivers) && v.drivers.length) shipPlanOpts.drivers = v.drivers; if(Array.isArray(v.loads) && v.loads.length) shipPlanOpts.loads = v.loads; }
-            spOptsLoaded = true;
-          }catch(e){ /* 기본 목록 사용 */ }
-        }
+        if(!spOptsLoaded || force) await spOptsLoad(force);
         const r = await window.storage.get('ship-plan-' + dk, true);
         let doc = { rows: {} };
         if(r && r.value){ try{ doc = JSON.parse(r.value) || doc; }catch(e){ /* 빈 값 */ } }
@@ -20898,9 +20907,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
   function spFillOptionLists(){
     const fill = (id, arr) => { const el = document.getElementById(id); if(!el) return; el.innerHTML = ''; arr.forEach(v => { const o = document.createElement('option'); o.value = v; el.appendChild(o); }); };
-    fill('sp-drivers', shipPlanOpts.drivers); fill('sp-loads', shipPlanOpts.loads);
+    fill('sp-drivers', drvAllNames()); fill('sp-loads', shipPlanOpts.loads);
     const di = document.getElementById('sp-opt-drivers'), li = document.getElementById('sp-opt-loads');
-    if(di && document.activeElement !== di) di.value = shipPlanOpts.drivers.join(', ');
+    if(di && document.activeElement !== di) di.value = drvAllNames().join(', ');
     if(li && document.activeElement !== li) li.value = shipPlanOpts.loads.join(', ');
   }
   // 재고 현황 띠 + 열려 있는 재고사용 입력창의 '남은 재고' 문구를 다시 계산
@@ -21374,8 +21383,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const split = s => [...new Set(String(s).split(/[,\n]/).map(x => x.trim()).filter(Boolean))];
       const drivers = split($('sp-opt-drivers').value), loads = split($('sp-opt-loads').value);
       if(!drivers.length || !loads.length){ toast('기사와 적재방식을 한 개 이상 입력해주세요'); return; }
-      try{ await window.storage.set('ship-plan-options', JSON.stringify({ drivers, loads }), true); shipPlanOpts = { drivers, loads }; spFillOptionLists(); toast('목록을 저장했습니다'); }
-      catch(e){ toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
+      const gone = drvAllNames().filter(n => !drivers.includes(n)), sdGone = gone.filter(n => (sdSettings.drivers || []).some(d => d.name === n));
+      try{ await window.storage.set('ship-plan-options', JSON.stringify({ drivers, loads }), true); shipPlanOpts = { drivers, loads }; }
+      catch(e){ toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); return; }
+      let note = '';
+      if(sdGone.length){   // 뺀 기사가 송품장 운송자 목록에도 있으면 거기서도 뺌 (권한이 있을 때)
+        if(drvCanSd()){ sdSettings.drivers = sdSettings.drivers.filter(d => !sdGone.includes(d.name)); if(!(await sdSave())) note = ' — 운송자 목록에서는 빼지 못했습니다'; }
+        else note = ` — ${sdGone.join(', ')}은(는) 송품장 운송자 목록에 있어 계속 보입니다(송장/명세서 권한으로 지우기)`;
+      }
+      spFillOptionLists(); toast('목록을 저장했습니다' + note);
     });
     $('sp-opt-reset').addEventListener('click', () => { $('sp-opt-drivers').value = SP_DEFAULT_OPTS.drivers.join(', '); $('sp-opt-loads').value = SP_DEFAULT_OPTS.loads.join(', '); });
   })();
