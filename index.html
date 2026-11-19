@@ -389,6 +389,7 @@
   .pr-tbl th, .pr-tbl td{ border:1px solid var(--line); padding:3px 6px; text-align:center; white-space:nowrap; }
   .pr-tbl th{ background:var(--hover); font-weight:700; }
   .pr-tbl input[data-f="kg"], .pr-tbl input[data-f="ct"]{ text-align:right; border:1px solid #d9c6c2 !important; }
+  .pr-tbl input[data-f="kg"]::placeholder, .pr-tbl input[data-f="ct"]::placeholder{ color:#1f5fbf; opacity:1; font-weight:700; }   /* 자동 계산값은 파란 숫자로 (비어 보이지 않게) */
   .pr-tbl input, .pr-tbl select{ font-size:13px; padding:3px 5px; border:1px solid var(--line); border-radius:6px; background:#fff; }
   #po-board .pb-actions{ flex-wrap:wrap; }
   #po-board.rep .pb-head{ left:auto !important; right:8px; top:6px !important; width:auto !important; transform:none !important; background:transparent; padding:2px; }
@@ -1615,6 +1616,7 @@
       <button type="button" class="btn-ghost small-btn" id="pr-inst-seq" title="① 생산 순서에 적은 품목을 순서대로 생산지시 줄로 넣습니다">⤵ 생산 순서에서 가져오기</button>
       <label class="sub" style="margin:0;">1ct = <input id="pr-ctkg" type="number" min="0" step="0.1" style="width:64px;"> kg (ct 자동 계산용)</label>
       <label class="sub" style="margin:0;" title="생산지시 줄에서 비워 둔 불량율·로스율에 쓰이는 기본값 (매일 같이 씀)">기본 불량율 <input id="pr-bad" type="text" inputmode="decimal" style="width:52px;">% · 로스율 <input id="pr-loss" type="text" inputmode="decimal" style="width:52px;">%</label>
+      <span class="sub" style="margin:0;">작업kg·ct의 <b style="color:#1f5fbf;">파란 숫자</b> = 자동 계산 (직접 적으면 그 값이 우선 · 지우면 다시 자동)</span>
     </div>
     <h3 style="margin:14px 0 4px;">③ 비고 · 인원</h3>
     <div id="pr-etc"></div>
@@ -21117,8 +21119,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 작업kg을 고치면 ct 자동값도 바뀜
     prInstView(currentDateKey, doc).forEach(x => {
       const tr = document.querySelector(`#pr-inst tr[data-id="${x.r.id}"]`); if(!tr) return;
-      const ci = tr.querySelector('input[data-f="ct"]'); if(ci) ci.placeholder = x.ctAuto === '' ? '' : '자동 ' + x.ctAuto;
-      const ki = tr.querySelector('input[data-f="kg"]'); if(ki) ki.placeholder = x.a.kg === '' ? '' : '자동 ' + x.a.kg;
+      const ci = tr.querySelector('input[data-f="ct"]'); if(ci) ci.placeholder = x.ctAuto === '' ? '' : String(x.ctAuto);
+      const ki = tr.querySelector('input[data-f="kg"]'); if(ki) ki.placeholder = x.a.kg === '' ? '' : String(x.a.kg);
       const bi = tr.querySelector('input[data-f="bad"]'); if(bi) bi.placeholder = prRates.bad ? String(prRates.bad) : '0';
       const li = tr.querySelector('input[data-f="loss"]'); if(li) li.placeholder = prRates.loss ? String(prRates.loss) : '0';
       const bc = tr.querySelector('.pr-base'); if(bc) bc.textContent = x.base === '' ? '' : Number(x.base).toLocaleString();
@@ -21156,8 +21158,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <td class="pr-base" style="color:var(--muted);text-align:right;">${x.base === '' ? '' : Number(x.base).toLocaleString()}</td>
         <td><input data-f="bad" type="text" inputmode="decimal" autocomplete="off" value="${x.r.bad == null ? '' : escapeHtml(String(x.r.bad))}" placeholder="${prRates.bad ? prRates.bad : 0}" style="width:48px;"></td>
         <td><input data-f="loss" type="text" inputmode="decimal" autocomplete="off" value="${x.r.loss == null ? '' : escapeHtml(String(x.r.loss))}" placeholder="${prRates.loss ? prRates.loss : 0}" style="width:48px;"></td>
-        <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : '자동 ' + x.a.kg}" style="width:80px;"></td>
-        <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : '자동 ' + x.ctAuto}" style="width:60px;"></td>
+        <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.a.kg === '' ? '' : x.a.kg}" title="파란 숫자 = 자동 계산 (필요kg ÷ (1−불량) ÷ (1−로스)). 직접 적으면 그 값이 우선, 지우면 다시 자동" style="width:80px;"></td>
+        <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" style="width:60px;"></td>
         <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
         <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
     });
