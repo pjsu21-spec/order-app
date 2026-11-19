@@ -736,6 +736,22 @@
   .sd-sheet .sd-tbl td.tot{ font-weight:800; font-size:14px; }
   .sd-sheet .sd-tbl td.note{ font-weight:700; font-size:12px; }
   .sd-sheet .sd-tbl td.end{ font-weight:700; }
+  /* SP 송장 (에스피프레시 양식) */
+  .sp-sheet{ position:relative; width:794px; box-sizing:border-box; background:#fff; color:#000; font-family:'Malgun Gothic','맑은 고딕',sans-serif; padding:8px 12px 12px; line-height:1.25; }
+  .sp-sheet .sp-title{ text-align:center; font-size:34px; font-weight:800; height:50px; line-height:50px; }
+  .sp-sheet .sp-logos{ height:44px; display:flex; align-items:center; gap:16px; padding-left:10px; }
+  .sp-sheet .sp-logo{ height:32px; width:auto; } .sp-sheet .sp-name{ height:21px; width:auto; }
+  .sp-sheet .sp-tbl{ width:100%; table-layout:fixed; border-collapse:collapse; border:2px solid #000; }
+  .sp-sheet .sp-tbl tr{ height:24px; }
+  .sp-sheet .sp-tbl td{ border:1px solid #000; height:24px; padding:0 5px; font-size:13px; vertical-align:middle; overflow:hidden; box-sizing:border-box; white-space:nowrap; }
+  .sp-sheet .sp-tbl td.lab{ background:#FFFF99; font-weight:700; text-align:center; }
+  .sp-sheet .sp-tbl td.l{ text-align:left; } .sp-sheet .sp-tbl td.c{ text-align:center; } .sp-sheet .sp-tbl td.b{ font-weight:700; }
+  .sp-sheet .sp-tbl td.sm{ font-size:11.5px; white-space:normal; line-height:1.15; } .sp-sheet .sp-tbl td.nm{ font-size:14px; white-space:normal; }
+  .sp-sheet .sp-tbl tr.hd td{ height:30px; }
+  .sp-sheet .sp-tbl tr.it td{ font-size:13.5px; height:23px; }
+  .sp-sheet .sp-tbl tr.tot td{ font-size:15px; height:28px; }
+  .sp-sheet .sp-tbl td.stamp img{ height:44px; width:auto; vertical-align:middle; }
+  .sp-sheet .sp-notes{ font-size:10.5px; line-height:1.55; padding:6px 4px 0; white-space:pre-wrap; }
   .sd-sheet .sd-tbl tr.sum td{ height:24px; border-top:2px solid #000; }
   .sd-sheet .sd-tbl td.b{ font-size:14px; font-weight:700; letter-spacing:6px; }
   .sd-sheet .sd-tbl tr.last td{ border-bottom:2px solid #000; }
@@ -1758,6 +1774,7 @@
     <div id="sd-list" style="margin-top:4px;"></div>
     <div class="row" style="margin-top:8px;">
       <button class="btn-primary small-btn" id="sd-zip-btn">선택한 송품장 JPG 다운받기</button>
+      <button class="btn-ghost small-btn" id="sd-xlsx-btn" title="선택한 송품장을 엑셀 파일 하나로 — 업체마다 탭(시트)으로 나눔">선택한 송품장 엑셀 받기 (업체별 탭)</button>
       <span id="sd-zip-msg" style="font-size:12px;color:var(--muted);"></span>
     </div>
     <div id="sd-preview" style="margin-top:12px;overflow-x:auto;"></div>
@@ -1786,6 +1803,12 @@
         <div class="sub" style="margin:0 0 6px;">생산 / 물류 탭의 납품담당 이름과 같은 성함으로 등록하면 송품장에 차량번호·전화번호가 자동으로 들어갑니다.</div>
         <div id="sd-drivers" style="max-height:300px;overflow:auto;"></div>
         <div class="row"><button class="btn-ghost small-btn" id="sd-driver-add">+ 기사 추가</button></div>
+
+        <h3 style="margin:16px 0 6px;">SP 송장 (대분류 SP 거래처)</h3>
+        <div class="sub" style="margin:0 0 6px;">대분류가 <b>SP</b>인 거래처는 에스피프레시 <b>SP 송장</b> 양식으로 만들어집니다(출고일 지정 업체·3PL은 표준송품장 · 아래 업체별 설정의 '양식'에서 바꿀 수 있음). 받은 SP 송장 엑셀(예: 송장(다름달음).xlsx)을 올리면 <b>SP 정보 · 로고 · 직인</b>과 거래처별 <b>도착지 회사명 · 주소 · 전화</b>(관리자)를 한 번에 불러옵니다. 운반자 소속은 운송자 목록의 '소속' 칸(비우면 출하자 단체명).</div>
+        <div class="row" style="margin-top:0;"><input type="file" id="sd-sp-import" accept=".xlsx"><span id="sd-sp-import-msg" style="font-size:12px;color:var(--muted);"></span></div>
+        <div id="sd-sp-fields" style="display:grid;grid-template-columns:140px 1fr;gap:6px 8px;max-width:760px;align-items:center;margin-top:6px;"></div>
+        <div id="sd-sp-imgs" style="display:flex;flex-wrap:wrap;margin-top:6px;"></div>
 
         <h3 style="margin:16px 0 6px;">업체별 송품장 설정</h3>
         <div class="row" style="margin-top:0;"><input type="search" id="sd-company-q" placeholder="업체 검색" style="min-width:200px;"></div>
@@ -2828,7 +2851,7 @@
 </ul>
 
 <h3>송품장 (JPG)</h3>
-<p>출고할 때 동봉하는 표준송품장을 업체별로 만듭니다. 사용법은 명세서와 같고, <b>운송자(기사)</b>는 생산 / 물류 탭의 납품담당을 따릅니다. 기사 이름은 송품장 설정의 운송자 목록에 있어야 차량번호·전화번호가 자동으로 채워집니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. <b>도착일시</b>는 업체명에 "(상장)"이 붙은 곳은 다음 날 경매라 출하일 <b>+1일</b>, 그 밖은 출하일 <b>당일</b>로 자동으로 들어갑니다. 예외 업체는 송품장 설정 → 업체별 설정의 "도착"에서 익일·당일을 직접 고르고, 이 화면의 업체 줄에서도 그때그때 바꿀 수 있습니다.</p>
+<p>출고할 때 동봉하는 표준송품장을 업체별로 만듭니다. <b>대분류가 SP인 거래처는 에스피프레시 SP 송장 양식</b>으로 만들어지고(설정에서 받은 SP 송장 엑셀을 한 번 올려 SP 정보·로고·직인·거래처별 도착지를 불러옴), <span class="mn-b">선택한 송품장 엑셀 받기 (업체별 탭)</span>을 누르면 고른 송품장이 엑셀 파일 하나에 업체마다 탭으로 나뉘어 저장됩니다. 쿠팡 같은 출고일 지정 업체는 등급·수량 칸에 <b>쿠팡(소비기한 : M/D)</b>만 들어갑니다(소비기한 = 출고일 + 4일, 2차 출고는 하루씩 더). 사용법은 명세서와 같고, <b>운송자(기사)</b>는 생산 / 물류 탭의 납품담당을 따릅니다. 기사 이름은 송품장 설정의 운송자 목록에 있어야 차량번호·전화번호가 자동으로 채워집니다. 명일 출고로 표시한 업체는 출하일이 하루 뒤로 찍힙니다. <b>도착일시</b>는 업체명에 "(상장)"이 붙은 곳은 다음 날 경매라 출하일 <b>+1일</b>, 그 밖은 출하일 <b>당일</b>로 자동으로 들어갑니다. 예외 업체는 송품장 설정 → 업체별 설정의 "도착"에서 익일·당일을 직접 고르고, 이 화면의 업체 줄에서도 그때그때 바꿀 수 있습니다.</p>
 
 <h2>실적 / 매출 · 설정</h2>
 <ul>
@@ -11826,7 +11849,8 @@ function mnShow(id, keepScroll) {
   //  - 설정(출하자 정보·운송자 목록·로고)은 'shipdoc-settings'(공용)에 저장. 엑셀 송품장 파일에서 한 번에 불러올 수 있음.
   const SD_DEFAULTS = {
     shipper: { name: '㈜ 다름달음', addr: '경기도 안성시 공도읍 신두만곡로 134', contact: '', reportNo: '', bank: 'IBK기업은행', account: '954-032148-04-012', holder: '㈜ 다름달음' },
-    sender: '㈜ 다름달음', producer: '다름달음', threePlRecv: '제이엠로지스', threePlArrive: 0, drivers: [], logo: ''
+    sender: '㈜ 다름달음', producer: '다름달음', threePlRecv: '제이엠로지스', threePlArrive: 0, drivers: [], logo: '',
+    sp: { hq: '', wh: '', tel1: '', tel2: '', sender: '', freight: '착불 / 후불', account: '', holder: '', biz: '', reportNo: '', notes: '', logo: '', nameImg: '', stamp: '' }   // SP 송장 (엑셀에서 불러오기)
   };
   const SD_SHIPPER_FIELDS = [['name', '단체명(성명)'], ['addr', '주소'], ['contact', '연락처'], ['reportNo', '출하자 신고번호'], ['bank', '은행명'], ['account', '계좌번호'], ['holder', '예금주']];
   let sdSettings = JSON.parse(JSON.stringify(SD_DEFAULTS)), sdLoaded = false, sdPreviewKey = '';
@@ -11839,7 +11863,7 @@ function mnShow(id, keepScroll) {
       const r = await window.storage.get('shipdoc-settings', true);
       if(r && r.value){
         const v = JSON.parse(r.value) || {};
-        sdSettings = Object.assign({}, SD_DEFAULTS, v, { shipper: Object.assign({}, SD_DEFAULTS.shipper, v.shipper || {}), drivers: Array.isArray(v.drivers) ? v.drivers : [] });
+        sdSettings = Object.assign({}, SD_DEFAULTS, v, { shipper: Object.assign({}, SD_DEFAULTS.shipper, v.shipper || {}), drivers: Array.isArray(v.drivers) ? v.drivers : [], sp: Object.assign({}, SD_DEFAULTS.sp, v.sp || {}) });
       }
     }catch(e){ /* 기본값 사용 */ }
   }
@@ -11898,10 +11922,13 @@ function mnShow(id, keepScroll) {
             Object.entries(e.items || {}).forEach(([id, q]) => { g.packs[id] = (g.packs[id] || 0) + (Number(q) || 0); });
             groups.set(k, g);
           });
-          [...groups.values()].sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate)) || a.seq - b.seq).forEach(g => {
-            const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(g.shipDate || '');
-            const note = `${g.warehouse ? g.warehouse + ' ' : ''}(${m ? Number(m[1]) + '/' + Number(m[2]) : ''} 출고${g.seq > 1 ? ' · ' + g.seq + '차' : ''})`;
-            dict.forEach(d => { const q = g.packs[d.id] || 0; if(q > 0) lines.push(sdLine(d, q, note)); });
+          // 등급·수량 칸에는 소비기한만: '쿠팡(소비기한 : M/D)' (소비기한 = 출고일 + 4일 + (차수 − 1)일, 발주서와 같은 기준), 출고 묶음마다 한 칸으로 합침
+          const shelfLabel = /쿠팡|coupang/i.test(name) ? '쿠팡' : name;
+          [...groups.values()].sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate)) || a.seq - b.seq).forEach((g, gi) => {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(g.shipDate || '');
+            const ex = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 4 + (Math.max(1, Number(g.seq) || 1) - 1)) : null;
+            const grpText = ex ? `${shelfLabel}(소비기한 : ${ex.getMonth() + 1}/${ex.getDate()})` : shelfLabel;
+            dict.forEach(d => { const q = g.packs[d.id] || 0; if(q > 0) lines.push(Object.assign(sdLine(d, q, ''), { grp: gi, grpText })); });
             if(g.shipDate) dates.push(g.shipDate);
           });
         } else {
@@ -11954,7 +11981,7 @@ function mnShow(id, keepScroll) {
       shipDate, arriveDate: sdAddDays(shipDate, arriveOff),
       trade: is3pl ? '' : (c.co.invTrade || ''), sale: is3pl ? '' : (c.co.invSale || ''),
       lines: c.lines, total: sdTotalText(c.lines), note: st.note || '',
-      driver: { name: driverName, plate: drv ? drv.plate || '' : '', phone: drv ? drv.phone || '' : '' },
+      driver: { name: driverName, plate: drv ? drv.plate || '' : '', phone: drv ? drv.phone || '' : '', org: drv ? drv.org || '' : '' },
       S: sdSettings
     };
   }
@@ -11971,7 +11998,14 @@ function mnShow(id, keepScroll) {
     for(let i = 0; i < slots; i++){
       const l = doc.lines[i];
       if(l){
-        body += `<tr class="it"><td rowspan="2"></td><td rowspan="2" class="c">${e(S.producer)}</td><td rowspan="2"></td><td rowspan="2" class="c nm">${e(l.parts[0])}${l.parts[1] ? '<br>' + e(l.parts[1]) : ''}</td><td rowspan="2"></td><td class="h"></td><td rowspan="2" class="c">${e(l.spec)}</td><td rowspan="2" class="c q">${sdNum(l.qty)}</td><td rowspan="2" colspan="4" class="c note">${e(l.note)}</td></tr><tr class="it"><td class="h"></td></tr>`;
+        // 출고 묶음(쿠팡 등): 등급·수량 칸을 묶음의 줄 수만큼 합쳐 소비기한 한 번만
+        let noteTd = `<td rowspan="2" colspan="4" class="c note">${e(l.note)}</td>`;
+        if(l.grp != null){
+          const prev = doc.lines[i - 1];
+          if(prev && prev.grp === l.grp) noteTd = '';
+          else { let n = 1; while(doc.lines[i + n] && doc.lines[i + n].grp === l.grp) n++; noteTd = `<td rowspan="${2 * n}" colspan="4" class="c note">${e(l.grpText || '')}</td>`; }
+        }
+        body += `<tr class="it"><td rowspan="2"></td><td rowspan="2" class="c">${e(S.producer)}</td><td rowspan="2"></td><td rowspan="2" class="c nm">${e(l.parts[0])}${l.parts[1] ? '<br>' + e(l.parts[1]) : ''}</td><td rowspan="2"></td><td class="h"></td><td rowspan="2" class="c">${e(l.spec)}</td><td rowspan="2" class="c q">${sdNum(l.qty)}</td>${noteTd}</tr><tr class="it"><td class="h"></td></tr>`;
       } else if(i === doc.lines.length){
         body += `<tr class="it"><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td class="h"></td><td rowspan="2"></td><td rowspan="2" class="c tot">${e(doc.total)}</td><td rowspan="2" colspan="4" class="c note">${e(doc.note)}</td></tr><tr class="it"><td class="h"></td></tr>`;
       } else if(i === doc.lines.length + 1){
@@ -12012,6 +12046,367 @@ function mnShow(id, keepScroll) {
     </div>`;
   }
 
+  // ══════════════════ SP 송장 (대분류 SP 거래처) · 송품장 엑셀(업체별 탭) ══════════════════
+  //  SP 송장: 에스피프레시 명의 송장 (받은 '송장(다름달음).xlsx' 양식). 고정 정보·로고·회사명 그림·직인은 송품장 설정(sdSettings.sp, 공용 저장값)에,
+  //   거래처별 도착지 회사명·주소·전화는 매출처 정보(co.spRecv · co.spAddr · co.spTel)에 — 그 엑셀을 올리면 한 번에 불러옴 (공개 코드에는 넣지 않음)
+  //  양식 고르기: 업체별 송품장 설정(co.sdForm 'std' | 'sp') → 없으면 대분류 SP 거래처는 SP 송장 (출고일 지정 업체·3PL 은 표준송품장)
+  const SD_SP_FIELDS = [['hq', '본사 (주소·전화)'], ['wh', '평택창고 (주소·전화)'], ['tel1', '비상연락처(영업부)'], ['tel2', '비상연락처(물류센터)'], ['sender', '발송자성명'], ['freight', '운임구분'], ['account', '물품대금 송금계좌'], ['holder', '예금주'], ['biz', '사업자등록번호'], ['reportNo', '출하자 신고번호']];
+  const SD_SP_IMGS = [['logo', 'SP 로고'], ['nameImg', '회사명 그림'], ['stamp', '직인']];
+  const sdSp = () => Object.assign({}, SD_DEFAULTS.sp, sdSettings.sp || {});
+  function sdFormOf(c){
+    if(!c || c.kind === '3pl') return 'std';
+    const f = c.co && c.co.sdForm;
+    if(f === 'std' || f === 'sp') return f;
+    if(c.kind === 'dispatch') return 'std';
+    return (c.co && c.co.name && typeof ccIsSpCompany === 'function' && ccIsSpCompany(c.co)) ? 'sp' : 'std';
+  }
+  function sdSpSheetHtml(doc, c){
+    const e = escapeHtml, P = sdSp(), co = (c && c.co) || {};
+    const recv = co.spRecv || doc.recv, drv = doc.driver;
+    const org = drv.org || (drv.name ? (doc.S.shipper && doc.S.shipper.name) || '' : '');
+    const slots = Math.max(19, doc.lines.length);
+    let items = '';
+    for(let i = 0; i < slots; i++){
+      const l = doc.lines[i];
+      items += `<tr class="it"><td colspan="4" class="l">${l ? e(l.parts[0] + (l.parts[1] || '')) : ''}</td><td colspan="2" class="c">${l ? e(l.note || '') : ''}</td><td class="c q">${l ? e(sdNum(l.qty) + (l.unit === '팩' ? '팩' : '')) : ''}</td></tr>`;
+    }
+    const total = doc.lines.length ? sdTotalText(doc.lines).replace(/^총\s*/, '') : '';
+    const lab = (t, a) => `<td class="lab"${a || ''}>${e(t)}</td>`;
+    const notes = String(P.notes || '').split('\n').filter(x => x.trim());
+    return `<div class="sp-sheet">
+      <div class="sp-title">송&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;장</div>
+      <div class="sp-logos">${P.logo ? `<img class="sp-logo" src="${P.logo}" alt="">` : ''}${P.nameImg ? `<img class="sp-name" src="${P.nameImg}" alt="">` : ''}</div>
+      <table class="sp-tbl"><colgroup>${[27.3, 16.7, 7.9, 10.7, 10.8, 13.4, 13.2].map(w => `<col style="width:${w}%">`).join('')}</colgroup>
+        <tr>${lab('본 사')}<td colspan="6" class="l b sm">${e(P.hq)}</td></tr>
+        <tr>${lab('평 택 창 고')}<td colspan="6" class="l b sm">${e(P.wh)}</td></tr>
+        <tr>${lab('비상연락처(영업부)')}<td colspan="6" class="l b">${e(P.tel1)}</td></tr>
+        <tr>${lab('비상연락처(물류센터)')}<td colspan="6" class="l b">${e(P.tel2)}</td></tr>
+        <tr class="hd">${lab('품 명', ' colspan="4"')}${lab('비고', ' colspan="2"')}${lab('수량')}</tr>
+        ${items}
+        <tr class="tot">${lab('총 계')}<td colspan="6" class="lab">${e(total)}</td></tr>
+        <tr>${lab('발 송 일')}<td colspan="6" class="c b">${e(sdKo(doc.shipDate))}</td></tr>
+        <tr>${lab('도 착 일')}<td colspan="6" class="c b">${e(sdKo(doc.arriveDate))}</td></tr>
+        <tr>${lab('도착지 주소')}<td colspan="6" class="l">${e(co.spAddr || '')}</td></tr>
+        <tr>${lab('도착지 및 회사명', ' rowspan="2"')}<td colspan="2" rowspan="2" class="c b nm">${e(recv)}</td>${lab('전화번호', ' colspan="2" rowspan="2"')}<td colspan="2" rowspan="2" class="c b">${e(co.spTel || '')}</td></tr><tr></tr>
+        <tr>${lab('발송자성명')}<td colspan="2" class="c">${e(P.sender)}</td>${lab('운반자성명', ' colspan="2"')}<td colspan="2" class="c">${e(drv.name)}</td></tr>
+        <tr>${lab('차 량 NO.')}<td colspan="2" class="c">${e(drv.plate)}</td>${lab('소 속', ' colspan="2"')}<td colspan="2" class="c">${e(org)}</td></tr>
+        <tr>${lab('운 임')}<td colspan="2"></td>${lab('운 임 구 분', ' colspan="2"')}<td colspan="2" class="c b">${e(P.freight)}</td></tr>
+        <tr>${lab('물 품 대 금')}<td colspan="2" rowspan="2" class="c b sm">${e(P.account)}</td>${lab('예 금 주', ' colspan="2" rowspan="2"')}<td colspan="2" rowspan="2" class="c b sm">${e(P.holder)}</td></tr>
+        <tr>${lab('송 금 계 좌')}</tr>
+        <tr>${lab('사 업 자')}<td colspan="2" rowspan="2" class="c b sm">${e(P.biz)}</td>${lab('직 인', ' colspan="2" rowspan="2"')}<td colspan="2" rowspan="2" class="c stamp">${P.stamp ? `<img src="${P.stamp}" alt="">` : ''}</td></tr>
+        <tr>${lab('등 록 번 호')}</tr>
+        <tr>${lab('출하자 신고번호')}<td colspan="6" class="c b sm">${e(P.reportNo)}</td></tr>
+      </table>
+      ${notes.length ? `<div class="sp-notes">${notes.map(t => e(t)).join('<br>')}</div>` : ''}
+    </div>`;
+  }
+  const sdHtmlOf = (c, doc) => sdFormOf(c) === 'sp' ? sdSpSheetHtml(doc || sdDoc(c), c) : sdSheetHtml(doc || sdDoc(c));
+
+  // ── 화면 양식(HTML 표) → 엑셀 시트: 열 너비·행 높이·병합·글꼴·색·정렬·테두리·그림을 화면 그대로 ──
+  function sdDomToSheet(root){
+    const tbl = root.querySelector('table'), TB = tbl.getBoundingClientRect();
+    const cols = [...tbl.querySelectorAll('colgroup col')].map(c => parseFloat(c.style.width) / 100 * TB.width);
+    const nC = cols.length, rows = [], merges = [], tops = [];
+    const pt = px => Math.round(px * 0.75 * 10) / 10;
+    const bw = (w, s) => { const n = parseFloat(w) || 0; if(!n || s === 'none' || s === 'hidden') return ''; return n >= 2.5 ? 'thick' : n >= 1.5 ? 'medium' : 'thin'; };
+    const rgb = s => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(s || ''); if(!m || (m[4] !== undefined && +m[4] === 0)) return ''; return [m[1], m[2], m[3]].map(x => (+x).toString(16).padStart(2, '0')).join('').toUpperCase(); };
+    const styleOf = (el, borders) => {
+      const cs = getComputedStyle(el), fill = rgb(cs.backgroundColor), ta = cs.textAlign;
+      return { sz: pt(parseFloat(cs.fontSize)), b: (parseInt(cs.fontWeight, 10) || 400) >= 600, u: false, fc: rgb(cs.color) || '000000', fill: fill === 'FFFFFF' ? '' : fill,
+        h: ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left',
+        bd: borders ? [bw(cs.borderLeftWidth, cs.borderLeftStyle), bw(cs.borderRightWidth, cs.borderRightStyle), bw(cs.borderTopWidth, cs.borderTopStyle), bw(cs.borderBottomWidth, cs.borderBottomStyle)] : ['', '', '', ''] };
+    };
+    const cellOf = (el, borders) => {
+      const st = styleOf(el, borders);
+      const text = String(el.innerText || '').replace(/ /g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').trim();
+      let runs = null;
+      if(text){
+        const rs = [];
+        const walk = n => n.childNodes.forEach(ch => {
+          if(ch.nodeType === 3){
+            const t = ch.textContent.replace(/ /g, ' ').replace(/\s+/g, ' '); if(!t) return;
+            const pe = ch.parentElement, cs = getComputedStyle(pe);
+            rs.push({ t, b: (parseInt(cs.fontWeight, 10) || 400) >= 600, fc: rgb(cs.color) || '000000', sz: pt(parseFloat(cs.fontSize)), u: pe !== el && (parseFloat(cs.borderBottomWidth) || 0) > 0 });
+          } else if(ch.nodeName === 'BR') rs.push({ t: '\n', br: 1 });
+          else if(ch.nodeType === 1 && ch.nodeName !== 'IMG') walk(ch);
+        });
+        walk(el);
+        while(rs.length && !rs[0].br && !rs[0].t.trim()) rs.shift();
+        while(rs.length && !rs[rs.length - 1].br && !rs[rs.length - 1].t.trim()) rs.pop();
+        if(rs.length){ if(!rs[0].br) rs[0].t = rs[0].t.replace(/^\s+/, ''); const L = rs[rs.length - 1]; if(!L.br) L.t = L.t.replace(/\s+$/, ''); }
+        const txt = rs.filter(q => !q.br), sig = q => [q.b, q.fc, q.sz, q.u].join('|');
+        if(txt.length && txt.every(q => sig(q) === sig(txt[0]))){ Object.assign(st, { b: txt[0].b, fc: txt[0].fc, sz: txt[0].sz, u: txt[0].u }); }
+        else if(txt.length) runs = rs.map(q => q.br ? Object.assign({}, txt[0], { t: '\n' }) : q);
+      }
+      return { text, st, runs };
+    };
+    const kids = [...root.children].filter(el => el.tagName !== 'IMG' && getComputedStyle(el).position !== 'absolute');
+    const ti = kids.indexOf(tbl);
+    const addBlock = el => {
+      const r = rows.length, b = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      tops[r] = b.top - (parseFloat(cs.marginTop) || 0);
+      const cell = cellOf(el, false);
+      rows.push({ h: b.height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0), cells: { 0: cell } });
+      for(let c = 1; c < nC; c++) rows[r].cells[c] = { text: '', st: cell.st };
+      if(nC > 1) merges.push([r, 0, r, nC - 1]);
+    };
+    kids.slice(0, ti).forEach(addBlock);
+    const r0 = rows.length, occ = [];
+    [...tbl.rows].forEach((tr, i) => {
+      const r = r0 + i, b = tr.getBoundingClientRect();
+      tops[r] = b.top;
+      rows[r] = rows[r] || { h: 0, cells: {} }; rows[r].h = b.height;
+      let c = 0;
+      [...tr.cells].forEach(td => {
+        while(occ[r] && occ[r][c]) c++;
+        const cs = td.colSpan || 1, rs = td.rowSpan || 1, cell = cellOf(td, true);
+        for(let y = r; y < r + rs; y++){
+          occ[y] = occ[y] || [];
+          rows[y] = rows[y] || { h: 0, cells: {} };
+          for(let x = c; x < Math.min(nC, c + cs); x++){ occ[y][x] = 1; rows[y].cells[x] = (y === r && x === c) ? cell : { text: '', st: cell.st }; }
+        }
+        if(cs > 1 || rs > 1) merges.push([r, c, r + rs - 1, Math.min(nC, c + cs) - 1]);
+        c += cs;
+      });
+    });
+    kids.slice(ti + 1).forEach(addBlock);
+    // 그림 (로고·직인): 화면 위치 → 칸 + 칸 안 위치
+    const top0 = tops[0] != null ? tops[0] : TB.top, imgs = [];
+    root.querySelectorAll('img').forEach(im => {
+      const m = /^data:image\/(png|jpe?g|gif);base64,(.*)$/i.exec(im.currentSrc || im.src || ''); if(!m) return;
+      const b = im.getBoundingClientRect(); if(!b.width || !b.height) return;
+      let x = Math.max(0, b.left - TB.left), y = Math.max(0, b.top - top0), col = 0, row = 0;
+      while(col < nC - 1 && x >= cols[col]){ x -= cols[col]; col++; }
+      while(row < rows.length - 1 && y >= (rows[row].h || 0)){ y -= rows[row].h || 0; row++; }
+      imgs.push({ ext: /png/i.test(m[1]) ? 'png' : /gif/i.test(m[1]) ? 'gif' : 'jpeg', b64: m[2], col, colOff: x, row, rowOff: y, w: b.width, h: b.height });
+    });
+    return { cols, rows, merges, imgs };
+  }
+  // 시트 여러 장 → 엑셀 파일 하나 (시트 = 업체 탭)
+  async function sdSheetsToXlsx(list){
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const fonts = [], fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'], borders = [], xfs = [];
+    const K = { f: new Map(), fl: new Map(), b: new Map(), x: new Map() };
+    const idx = (map, arr, key, xml) => { if(!map.has(key)){ map.set(key, arr.length); arr.push(xml); } return map.get(key); };
+    const fontXml = f => `<font>${f.b ? '<b/>' : ''}${f.u ? '<u/>' : ''}<sz val="${f.sz || 10}"/><color rgb="FF${f.fc || '000000'}"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>`;
+    idx(K.f, fonts, 'base', fontXml({ sz: 10 }));
+    idx(K.b, borders, '||||', '<border><left/><right/><top/><bottom/><diagonal/></border>');
+    idx(K.x, xfs, 'default', '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>');
+    const xfOf = (st, wrap) => {
+      const fi = idx(K.f, fonts, [st.sz, st.b ? 1 : 0, st.u ? 1 : 0, st.fc].join('|'), fontXml(st));
+      const fli = st.fill ? idx(K.fl, fills, st.fill, `<fill><patternFill patternType="solid"><fgColor rgb="FF${st.fill}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
+      const bi = idx(K.b, borders, st.bd.join('|'), '<border>' + ['left', 'right', 'top', 'bottom'].map((k, i) => st.bd[i] ? `<${k} style="${st.bd[i]}"><color indexed="64"/></${k}>` : `<${k}/>`).join('') + '<diagonal/></border>');
+      const al = `<alignment horizontal="${st.h || 'left'}" vertical="center"${wrap ? ' wrapText="1"' : ''}/>`;
+      return idx(K.x, xfs, [fi, fli, bi, al].join('|'), `<xf numFmtId="0" fontId="${fi}" fillId="${fli}" borderId="${bi}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf>`);
+    };
+    const CL = n => { let s = ''; n++; while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+    const zip = new JSZip(), names = new Set();
+    let media = 0;
+    const ct = ['<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>', '<Default Extension="xml" ContentType="application/xml"/>', '<Default Extension="png" ContentType="image/png"/>', '<Default Extension="jpeg" ContentType="image/jpeg"/>', '<Default Extension="gif" ContentType="image/gif"/>',
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>', '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'];
+    const wbSheets = [], wbRels = [];
+    list.forEach((it, si) => {
+      const n = si + 1, m = it.m;
+      let nm = String(it.name || '').replace(/[\\/?*[\]:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 31) || ('송품장' + n);
+      const base = nm; let k = 2;
+      while(names.has(nm)) nm = base.slice(0, 26) + ' (' + (k++) + ')';
+      names.add(nm);
+      const colsXml = '<cols>' + m.cols.map((px, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.max(0.5, Math.round((px - 5) / 7 * 100) / 100)}" customWidth="1"/>`).join('') + '</cols>';
+      let rowsXml = '';
+      m.rows.forEach((R, r) => {
+        let cs = '';
+        for(let c = 0; c < m.cols.length; c++){
+          const cell = R.cells[c]; if(!cell) continue;
+          const ref = CL(c) + (r + 1), s = xfOf(cell.st, /\n/.test(cell.text || ''));
+          if(cell.runs && cell.runs.length > 1) cs += `<c r="${ref}" s="${s}" t="inlineStr"><is>${cell.runs.map(q => `<r><rPr>${q.b ? '<b/>' : ''}${q.u ? '<u/>' : ''}<sz val="${q.sz || cell.st.sz}"/><color rgb="FF${q.fc || '000000'}"/><rFont val="맑은 고딕"/><family val="3"/><charset val="129"/></rPr><t xml:space="preserve">${esc(q.t)}</t></r>`).join('')}</is></c>`;
+          else if(cell.text) cs += `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${esc(cell.text)}</t></is></c>`;
+          else cs += `<c r="${ref}" s="${s}"/>`;
+        }
+        rowsXml += `<row r="${r + 1}" ht="${Math.max(3, Math.round((R.h || 4) * 0.75 * 100) / 100)}" customHeight="1">${cs}</row>`;
+      });
+      const mergeXml = m.merges.length ? `<mergeCells count="${m.merges.length}">${m.merges.map(([r1, c1, r2, c2]) => `<mergeCell ref="${CL(c1)}${r1 + 1}:${CL(c2)}${r2 + 1}"/>`).join('')}</mergeCells>` : '';
+      let drawXml = '';
+      if(m.imgs.length){
+        const E = v => Math.round(v * 9525), dRels = [];
+        const anchors = m.imgs.map((im, j) => {
+          media++;
+          zip.file(`xl/media/image${media}.${im.ext}`, im.b64, { base64: true });
+          dRels.push(`<Relationship Id="rId${j + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${media}.${im.ext}"/>`);
+          return `<xdr:oneCellAnchor><xdr:from><xdr:col>${im.col}</xdr:col><xdr:colOff>${E(im.colOff)}</xdr:colOff><xdr:row>${im.row}</xdr:row><xdr:rowOff>${E(im.rowOff)}</xdr:rowOff></xdr:from><xdr:ext cx="${E(im.w)}" cy="${E(im.h)}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${j + 2}" name="그림 ${j + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${j + 1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${E(im.w)}" cy="${E(im.h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
+        });
+        zip.file(`xl/drawings/drawing${n}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors.join('')}</xdr:wsDr>`);
+        zip.file(`xl/drawings/_rels/drawing${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${dRels.join('')}</Relationships>`);
+        zip.file(`xl/worksheets/_rels/sheet${n}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${n}.xml"/></Relationships>`);
+        ct.push(`<Override PartName="/xl/drawings/drawing${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
+        drawXml = '<drawing r:id="rId1"/>';
+      }
+      zip.file(`xl/worksheets/sheet${n}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView showGridLines="0" workbookViewId="0"${si === 0 ? ' tabSelected="1"' : ''}/></sheetViews><sheetFormatPr defaultRowHeight="15"/>${colsXml}<sheetData>${rowsXml}</sheetData>${mergeXml}<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/>${drawXml}</worksheet>`);
+      ct.push(`<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
+      wbSheets.push(`<sheet name="${esc(nm)}" sheetId="${n}" r:id="rId${n}"/>`);
+      wbRels.push(`<Relationship Id="rId${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${n}.xml"/>`);
+    });
+    wbRels.push(`<Relationship Id="rId${list.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`);
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${ct.join('')}</Types>`);
+    zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${wbSheets.join('')}</sheets></workbook>`);
+    zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${wbRels.join('')}</Relationships>`);
+    zip.file('xl/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+    return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
+  }
+  // 선택한 송품장을 엑셀 1개로 (업체마다 탭)
+  async function sdDownloadXlsx(){
+    await sdLoad();
+    const keys = Array.from(document.querySelectorAll('#sd-list input[type=checkbox]:checked')).map(c => c.dataset.key);
+    if(!keys.length){ toast('송품장을 만들 업체를 선택해주세요'); return; }
+    if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    const btn = document.getElementById('sd-xlsx-btn'), msg = document.getElementById('sd-zip-msg');
+    if(btn) btn.disabled = true;
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;'; holder.setAttribute('data-noico', '');
+    document.body.appendChild(holder);
+    try{
+      const list = [];
+      for(let i = 0; i < keys.length; i++){
+        if(msg) msg.textContent = `엑셀 만드는 중… (${i + 1}/${keys.length})`;
+        const c = sdFind(keys[i]); if(!c) continue;
+        const doc = sdDoc(c);
+        holder.innerHTML = sdHtmlOf(c, doc);
+        await Promise.all([...holder.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+        list.push({ name: doc.recv + (doc.label ? ' ' + doc.label : ''), m: sdDomToSheet(holder.firstElementChild) });
+      }
+      const blob = await sdSheetsToXlsx(list);
+      stmSaveBlob(blob, `송품장_${stmDate().replace(/-/g, '')}.xlsx`);
+      if(msg) msg.textContent = `${list.length}개 업체를 탭으로 나눠 엑셀 1개로 저장했습니다`;
+      try{ await writeLog('shipdoc_xlsx', `송품장 엑셀 ${stmDate()} ${list.length}장`); }catch(e){}
+    }catch(e){ console.error(e); if(msg) msg.textContent = ''; toast('송품장 엑셀을 만들지 못했습니다: ' + ((e && e.message) || e)); }
+    finally{ holder.remove(); if(btn) btn.disabled = false; }
+  }
+
+  // ── SP 송장 설정: 고정 정보·그림 (송장/명세서 전체 권한) ──
+  function sdImgLoad(url){ return new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('그림을 읽지 못했습니다')); im.src = url; }); }
+  async function sdCropImg(url, l, t, r, b){
+    const im = await sdImgLoad(url), w = im.naturalWidth, h = im.naturalHeight;
+    const sx = Math.round(w * l), sy = Math.round(h * t), sw = Math.max(1, Math.round(w * (1 - l - r))), sh = Math.max(1, Math.round(h * (1 - t - b)));
+    const cv = document.createElement('canvas'); cv.width = sw; cv.height = sh;
+    cv.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh);
+    return cv.toDataURL('image/png');
+  }
+  async function sdShrinkImg(url, maxW){
+    const im = await sdImgLoad(url);
+    if(im.naturalWidth <= maxW) return url;
+    const w = maxW, h = Math.round(im.naturalHeight * maxW / im.naturalWidth);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(im, 0, 0, w, h);
+    return cv.toDataURL('image/png');
+  }
+  function sdRenderSpSetup(can){
+    const box = document.getElementById('sd-sp-fields'); if(!box) return;
+    const sp = sdSettings.sp = sdSp();
+    box.innerHTML = '';
+    const after = async () => { if(await sdSave()) toast('SP 송장 설정을 저장했습니다'); if(sdPreviewKey) sdPreview(sdPreviewKey); };
+    SD_SP_FIELDS.forEach(([k, label]) => {
+      const l = document.createElement('label'); l.style.fontSize = '13px'; l.textContent = label;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = sp[k] || ''; inp.disabled = !can;
+      inp.addEventListener('change', () => { sdSettings.sp[k] = inp.value.trim(); after(); });
+      box.append(l, inp);
+    });
+    const l2 = document.createElement('label'); l2.style.fontSize = '13px'; l2.textContent = '아래 안내 문구 (줄마다)';
+    const ta = document.createElement('textarea'); ta.rows = 4; ta.value = sp.notes || ''; ta.disabled = !can;
+    ta.addEventListener('change', () => { sdSettings.sp.notes = ta.value.replace(/\s+$/, ''); after(); });
+    box.append(l2, ta);
+    const iw = document.getElementById('sd-sp-imgs'); iw.innerHTML = '';
+    SD_SP_IMGS.forEach(([k, label]) => {
+      const w = document.createElement('div'); w.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 12px 4px 0;';
+      w.innerHTML = `<span style="font-size:13px;min-width:74px;">${label}</span>`;
+      const th = document.createElement('img'); th.style.cssText = 'height:34px;max-width:160px;border:1px solid var(--line);background:#fff;' + (sp[k] ? '' : 'display:none;'); if(sp[k]) th.src = sp[k];
+      const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/png,image/jpeg'; fi.disabled = !can; fi.style.maxWidth = '180px';
+      fi.addEventListener('change', () => { const f = fi.files[0]; fi.value = ''; if(!f) return; const fr = new FileReader(); fr.onload = async () => { sdSettings.sp[k] = await sdShrinkImg(fr.result, k === 'stamp' ? 260 : 600); after(); sdRenderSetup(); }; fr.readAsDataURL(f); });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn-ghost small-btn'; del.textContent = '제거'; del.disabled = !can || !sp[k];
+      del.addEventListener('click', () => { sdSettings.sp[k] = ''; after(); sdRenderSetup(); });
+      w.append(th, fi, del); iw.appendChild(w);
+    });
+    const imp = document.getElementById('sd-sp-import'); if(imp) imp.disabled = !can;
+  }
+  // SP 송장 엑셀에서 불러오기: 'SP 송장' 시트(본사·평택창고 칸이 있는 시트)에서 고정 정보·그림, 시트마다 도착지 회사명·주소·전화
+  async function sdSpImport(file){
+    const msg = document.getElementById('sd-sp-import-msg');
+    try{
+      msg.textContent = '엑셀을 읽는 중…';
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const rd = p => zip.file(p) ? zip.file(p).async('string') : Promise.resolve('');
+      const dec = s => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+      const wb = await rd('xl/workbook.xml'), rels = await rd('xl/_rels/workbook.xml.rels'), ssx = await rd('xl/sharedStrings.xml');
+      const SS = [...ssx.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => dec([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x => x[1]).join('')));
+      const relT = (xml, id) => { const m = new RegExp('Id="' + id + '"[^>]*Target="([^"]+)"').exec(xml) || new RegExp('Target="([^"]+)"[^>]*Id="' + id + '"').exec(xml); return m ? m[1] : ''; };
+      const res = (target, baseDir) => target.startsWith('/') ? target.slice(1) : new URL(target, 'http://x/' + baseDir).pathname.slice(1);
+      const sheets = [...wb.matchAll(/<sheet ([^>]*?)\/>/g)].map(m => ({ name: dec((/name="([^"]+)"/.exec(m[1]) || [])[1] || ''), hidden: /state="(hidden|veryHidden)"/.test(m[1]), path: res(relT(rels, (/r:id="([^"]+)"/.exec(m[1]) || [])[1]), 'xl/') }));
+      const forms = [];
+      for(const sh of sheets){
+        const x = await rd(sh.path); if(!x) continue;
+        const val = ref => {
+          const c = new RegExp('<c r="' + ref + '"([^>]*?)(?:/>|>([\\s\\S]*?)</c>)').exec(x); if(!c) return '';
+          const v = /<v>([\s\S]*?)<\/v>/.exec(c[2] || ''), is = /<is>([\s\S]*?)<\/is>/.exec(c[2] || '');
+          if(/t="s"/.test(c[1]) && v) return SS[+v[1]] || '';
+          if(is) return dec([...is[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(q => q[1]).join(''));
+          return v ? dec(v[1]) : '';
+        };
+        if(String(val('A6')).replace(/\s/g, '') !== '본사' || String(val('A7')).replace(/\s/g, '') !== '평택창고') continue;
+        forms.push({ sh, val });
+      }
+      if(!forms.length){ msg.textContent = 'SP 송장 양식(본사 · 평택창고 칸이 있는 시트)을 찾지 못했습니다'; return; }
+      const main = forms.find(f => !f.sh.hidden) || forms[0], v = main.val, T = s => String(s || '').replace(/[ \t]+/g, ' ').trim();
+      const sp = sdSp();
+      sp.hq = T(v('B6')); sp.wh = T(v('B7')); sp.tel1 = T(v('B8')); sp.tel2 = T(v('B9'));
+      sp.sender = T(v('B36')) || sp.sender; sp.freight = T(v('F38')) || sp.freight; sp.account = T(v('B39')); sp.holder = T(v('F39')); sp.biz = T(v('B41')); sp.reportNo = T(v('B43'));
+      sp.notes = ['B44', 'B45', 'B46', 'B47', 'B48'].map(r => String(v(r) || '').replace(/\s+$/, '')).filter(s => s.trim()).join('\n');
+      // 그림: 위쪽 왼쪽 = 로고, 위쪽 오른쪽 = 회사명 그림, 직인 칸 = 직인 (잘라 쓴 그림은 잘라서)
+      const dir = main.sh.path.replace(/[^/]+$/, ''), srel = await rd(dir + '_rels/' + main.sh.path.split('/').pop() + '.rels');
+      const dm = /Target="([^"]*drawings\/drawing\d+\.xml)"/.exec(srel);
+      let nImg = 0;
+      if(dm){
+        const dpath = res(dm[1], dir), ddir = dpath.replace(/[^/]+$/, '');
+        const dx = await rd(dpath), drel = await rd(ddir + '_rels/' + dpath.split('/').pop() + '.rels');
+        const pics = [...dx.matchAll(/<xdr:(twoCellAnchor|oneCellAnchor)[\s\S]*?<\/xdr:\1>/g)].map(a => a[0]).filter(a => /<xdr:pic>/.test(a)).map(a => ({
+          col: +(/<xdr:from><xdr:col>(\d+)/.exec(a) || [, 0])[1], row: +(/<xdr:from>[\s\S]*?<xdr:row>(\d+)/.exec(a) || [, 0])[1], rid: (/r:embed="([^"]+)"/.exec(a) || [])[1], crop: (/<a:srcRect ([^>]*?)\/>/.exec(a) || [])[1] }));
+        const seen = new Set();
+        for(const p of pics){
+          const key = p.row <= 6 ? (p.col === 0 ? 'logo' : 'nameImg') : (p.row >= 35 && p.row <= 43 && p.col >= 4 ? 'stamp' : '');
+          if(!key || seen.has(key) || !p.rid) continue;
+          const mpath = res(relT(drel, p.rid), ddir), f = zip.file(mpath); if(!f) continue;
+          const ext = (mpath.split('.').pop() || 'png').toLowerCase(), mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/' + ext;
+          let url = `data:${mime};base64,` + await f.async('base64');
+          if(p.crop){ const g = k => (Number((new RegExp('\\b' + k + '="(-?\\d+)"').exec(p.crop) || [, 0])[1]) || 0) / 100000; url = await sdCropImg(url, g('l'), g('t'), g('r'), g('b')); }
+          sp[key] = await sdShrinkImg(url, key === 'stamp' ? 260 : 600);
+          seen.add(key); nImg++;
+        }
+      }
+      sdSettings.sp = sp;
+      // 거래처별 도착지 회사명·주소·전화 → 매출처 정보 (관리자만)
+      let nCo = 0; const miss = [];
+      if(stmIsAdmin()){
+        const cands = companies.filter(c => !c.isThirdParty), keyOf = s => poNameKey(String(s || '').replace(/_(SP|직)$/i, ''));
+        const done = new Set();
+        forms.forEach(f => {
+          const nm = T(f.val('B34')), addr = T(f.val('B33')), tel = T(f.val('F34'));
+          if(!nm || done.has(nm)) return;
+          done.add(nm);
+          const k = keyOf(nm);
+          let co = cands.find(c => [c.name, c.ecName, c.invRecv, c.listedMarketName, c.spRecv].map(keyOf).filter(Boolean).includes(k));
+          if(!co){ const part = cands.filter(c => [c.name, c.ecName, c.invRecv, c.spRecv].map(keyOf).filter(q => q.length >= 3).some(q => k.length >= 3 && (q.includes(k) || k.includes(q)))); if(part.length === 1) co = part[0]; }
+          if(!co){ miss.push(nm); return; }
+          if(keyOf(nm) !== keyOf(co.name)) co.spRecv = nm;
+          if(addr) co.spAddr = addr;
+          if(tel) co.spTel = tel;
+          nCo++;
+        });
+        if(nCo) await saveCompanies();
+      }
+      await sdSave();
+      msg.textContent = `SP 정보 · 그림 ${nImg}개${stmIsAdmin() ? ` · 거래처 ${nCo}곳 도착지` : ' (거래처 도착지는 관리자만 불러옴)'}를 불러왔습니다${miss.length ? ` / 같은 이름 업체를 찾지 못한 시트 ${miss.length}개: ${miss.slice(0, 6).join(', ')}${miss.length > 6 ? ' …' : ''}` : ''}`;
+      sdRenderSetup(); sdRenderList();
+    }catch(e){ console.error(e); msg.textContent = '엑셀을 읽지 못했습니다: ' + ((e && e.message) || e); }
+  }
+
   // ── 목록 · 미리보기 · 저장 ──
   const sdFileName = (doc, dateLabel) => `송품장_${dateLabel.replace(/-/g, '')}_${String(doc.recv + (doc.label ? '_' + doc.label : '')).replace(/[\\/:*?"<>|]/g, '').trim()}.jpg`;
   async function sdRenderList(){
@@ -12035,7 +12430,7 @@ function mnShow(id, keepScroll) {
       else if(doc.driver.name && !doc.driver.plate) warns.push('운송자 목록에 없는 기사(차량번호 없음)');
       const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = doc.recv + (doc.label ? ` · ${doc.label}` : '') + (c.kind === '3pl' ? ` (${c.name})` : (doc.recv !== (c.company || c.name) ? ` (${c.company || c.name})` : ''));
       const meta = document.createElement('span'); meta.className = 'meta';
-      meta.textContent = `${c.lines.length}줄 · ${doc.total} · 출하 ${sdKo(doc.shipDate)}`;
+      meta.textContent = `${sdFormOf(c) === 'sp' ? '[SP 송장] ' : ''}${c.lines.length}줄 · ${doc.total} · 출하 ${sdKo(doc.shipDate)}`;
       row.append(cb, nm, meta);
       // 기사: 생산/물류 탭의 납품담당이 기본값. 여기서 바꾸면 이번 송품장에만 적용
       const dsel = document.createElement('select'); dsel.title = '운송자(기사). 기본값은 생산 / 물류 탭의 납품담당입니다';
@@ -12063,14 +12458,14 @@ function mnShow(id, keepScroll) {
   function sdPreview(key){
     sdPreviewKey = key;
     const c = sdFind(key); if(!c){ document.getElementById('sd-preview').innerHTML = ''; return; }
-    document.getElementById('sd-preview').innerHTML = sdSheetHtml(sdDoc(c));
+    document.getElementById('sd-preview').innerHTML = sdHtmlOf(c);
   }
   async function sdRenderBlob(key){
     const c = sdFind(key); if(!c) throw new Error('업체를 찾지 못했습니다');
     const holder = document.createElement('div');
     holder.style.cssText = 'position:fixed;left:-10000px;top:0;';
     holder.setAttribute('data-noico', '');
-    holder.innerHTML = sdSheetHtml(sdDoc(c));
+    holder.innerHTML = sdHtmlOf(c);
     document.body.appendChild(holder);
     try{
       const imgs = [...holder.querySelectorAll('img')];
@@ -12131,11 +12526,11 @@ function mnShow(id, keepScroll) {
     // 운송자(기사) 목록
     const dw = document.getElementById('sd-drivers'); dw.innerHTML = '';
     const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
-    tbl.innerHTML = '<thead><tr><th>성함(납품담당 이름과 같게)</th><th>차량번호</th><th>연락처</th><th>차종</th><th></th></tr></thead>';
+    tbl.innerHTML = '<thead><tr><th>성함(납품담당 이름과 같게)</th><th>차량번호</th><th>연락처</th><th>차종</th><th title="SP 송장의 운반자 소속 (비우면 출하자 단체명)">소속(SP 송장)</th><th></th></tr></thead>';
     const tb = document.createElement('tbody');
     sdSettings.drivers.forEach((d, i) => {
       const tr = document.createElement('tr');
-      ['name', 'plate', 'phone', 'type'].forEach(k => {
+      ['name', 'plate', 'phone', 'type', 'org'].forEach(k => {
         const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k] || ''; inp.disabled = !can;
         inp.addEventListener('change', async () => { d[k] = inp.value.trim(); await sdSave(); sdRenderList(); });
         td.appendChild(inp); tr.appendChild(td);
@@ -12147,6 +12542,7 @@ function mnShow(id, keepScroll) {
     });
     tbl.appendChild(tb); dw.appendChild(tbl);
     document.getElementById('sd-driver-add').disabled = !can;
+    sdRenderSpSetup(can);
     sdRenderCompanySettings();
   }
   function sdRenderCompanySettings(){
@@ -12154,11 +12550,11 @@ function mnShow(id, keepScroll) {
     const q = poNameKey(document.getElementById('sd-company-q').value || '');
     const list = companies.filter(c => !c.isThirdParty && (!q || [c.name, c.invRecv, c.ecName].some(x => poNameKey(x).includes(q))));
     const tbl = document.createElement('table'); tbl.className = 'stm-info-tbl';
-    tbl.innerHTML = '<thead><tr><th>업체(시스템)</th><th>수신 표기</th><th>도착</th><th>거래방법</th><th>매매방법</th></tr></thead>';
+    tbl.innerHTML = '<thead><tr><th>업체(시스템)</th><th>수신 표기</th><th>도착</th><th>거래방법</th><th>매매방법</th><th title="자동: 대분류 SP 거래처는 SP 송장">양식</th><th>SP 도착지 회사명</th><th>SP 도착지 주소</th><th>SP 전화</th></tr></thead>';
     const tb = document.createElement('tbody');
     list.forEach(c => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td></td><td></td><td></td><td></td>`;
+      tr.innerHTML = `<td>${escapeHtml(c.name)}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;
       const inp = document.createElement('input'); inp.type = 'text'; inp.value = c.invRecv || ''; inp.placeholder = c.name; inp.disabled = !admin;
       inp.addEventListener('change', () => { c.invRecv = inp.value.trim(); saveCompanies(); sdRenderList(); });
       tr.children[1].appendChild(inp);
@@ -12171,6 +12567,13 @@ function mnShow(id, keepScroll) {
       mkSel('invArrive', [['', `자동 (${sdIsListed(c) ? '상장 → 익일' : '당일'})`], ['1', '익일'], ['0', '당일']], 2, '');
       mkSel('invTrade', [['', '(표시 안 함)'], ['매수', '매수거래'], ['위탁', '위탁거래'], ['중개', '중개거래']], 3, '');
       mkSel('invSale', [['', '(표시 안 함)'], ['경매', '경매/입찰'], ['정가', '정가/수의매매']], 4, '');
+      const isSp = typeof ccIsSpCompany === 'function' && ccIsSpCompany(c);
+      mkSel('sdForm', [['', `자동 (${isSp ? 'SP 송장' : '표준'})`], ['std', '표준송품장'], ['sp', 'SP 송장']], 5, '');
+      [['spRecv', 6, c.invRecv || c.name, '120px'], ['spAddr', 7, '도착지 주소', '200px'], ['spTel', 8, '전화번호', '110px']].forEach(([f, ci, ph, w]) => {
+        const x = document.createElement('input'); x.type = 'text'; x.value = c[f] || ''; x.placeholder = ph; x.disabled = !admin; x.style.width = w;
+        x.addEventListener('change', () => { c[f] = x.value.trim(); saveCompanies(); if(sdPreviewKey) sdPreview(sdPreviewKey); });
+        tr.children[ci].appendChild(x);
+      });
       tb.appendChild(tr);
     });
     tbl.appendChild(tb); wrap.innerHTML = '';
@@ -12265,7 +12668,9 @@ function mnShow(id, keepScroll) {
     $('sd-select-none').addEventListener('click', () => setAll(false));
     $('sd-setup').addEventListener('toggle', e => { if(e.target.open) sdLoad().then(sdRenderSetup); });
     $('sd-company-q').addEventListener('input', sdRenderCompanySettings);
-    $('sd-driver-add').addEventListener('click', async () => { sdSettings.drivers.push({ name: '', plate: '', phone: '', type: '' }); sdRenderSetup(); });
+    $('sd-driver-add').addEventListener('click', async () => { sdSettings.drivers.push({ name: '', plate: '', phone: '', type: '', org: '' }); sdRenderSetup(); });
+    $('sd-xlsx-btn').addEventListener('click', sdDownloadXlsx);
+    $('sd-sp-import').addEventListener('change', e => { const f = e.target.files[0]; if(f) sdSpImport(f); e.target.value = ''; });
     $('sd-logo-file').addEventListener('change', e => {
       const f = e.target.files[0]; if(!f) return;
       const fr = new FileReader();
