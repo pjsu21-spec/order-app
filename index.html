@@ -11968,14 +11968,16 @@ function mnShow(id, keepScroll) {
   }
 
   // ── 설정: 출하자 정보 · 로고 · 운송자(기사) 목록 · 업체별 설정 · 엑셀에서 불러오기 ──
+  // 출하자 정보·로고·운송자(기사) 목록('shipdoc-settings')은 송장/명세서 전체 권한이면 수정 (서버 규칙과 같음)
+  //  엑셀에서 불러오기·업체별 설정은 매출처 정보(companies)를 바꾸므로 관리자만
   function sdRenderSetup(){
-    const admin = stmIsAdmin();
-    document.getElementById('sd-admin-note').style.display = admin ? 'none' : '';
+    const admin = stmIsAdmin(), can = admin || window.sectionLevel('invoice') === 'full';
+    { const nt = document.getElementById('sd-admin-note'); nt.style.display = admin ? 'none' : ''; nt.textContent = can ? '※ 엑셀에서 불러오기 · 업체별 송품장 설정은 관리자만 수정할 수 있습니다.' : '※ 송장 / 명세서 전체 권한이 있어야 수정할 수 있습니다 (엑셀 불러오기 · 업체별 설정은 관리자만).'; }
     // 출하자 정보 + 공통 값
     const box = document.getElementById('sd-shipper'); box.innerHTML = '';
     const addField = (label, get, set) => {
       const l = document.createElement('label'); l.style.fontSize = '13px'; l.textContent = label;
-      const inp = document.createElement('input'); inp.type = 'text'; inp.value = get() || ''; inp.disabled = !admin;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.value = get() || ''; inp.disabled = !can;
       inp.addEventListener('change', async () => { set(inp.value.trim()); if(await sdSave()) toast('송품장 설정을 저장했습니다'); if(sdPreviewKey) sdPreview(sdPreviewKey); });
       box.append(l, inp);
     };
@@ -11986,7 +11988,7 @@ function mnShow(id, keepScroll) {
     // 로고
     const th = document.getElementById('sd-logo-thumb');
     th.style.display = sdSettings.logo ? '' : 'none'; if(sdSettings.logo) th.src = sdSettings.logo;
-    document.getElementById('sd-logo-file').disabled = !admin; document.getElementById('sd-logo-clear').disabled = !admin;
+    document.getElementById('sd-logo-file').disabled = !can; document.getElementById('sd-logo-clear').disabled = !can;
     document.getElementById('sd-import-file').disabled = !admin;
     // 운송자(기사) 목록
     const dw = document.getElementById('sd-drivers'); dw.innerHTML = '';
@@ -11996,17 +11998,17 @@ function mnShow(id, keepScroll) {
     sdSettings.drivers.forEach((d, i) => {
       const tr = document.createElement('tr');
       ['name', 'plate', 'phone', 'type'].forEach(k => {
-        const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k] || ''; inp.disabled = !admin;
+        const td = document.createElement('td'), inp = document.createElement('input'); inp.type = 'text'; inp.value = d[k] || ''; inp.disabled = !can;
         inp.addEventListener('change', async () => { d[k] = inp.value.trim(); await sdSave(); sdRenderList(); });
         td.appendChild(inp); tr.appendChild(td);
       });
       const td = document.createElement('td'), del = document.createElement('button');
-      del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제'; del.disabled = !admin;
+      del.type = 'button'; del.className = 'btn-danger small-btn'; del.textContent = '삭제'; del.disabled = !can;
       del.addEventListener('click', async () => { sdSettings.drivers.splice(i, 1); await sdSave(); sdRenderSetup(); sdRenderList(); });
       td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
     });
     tbl.appendChild(tb); dw.appendChild(tbl);
-    document.getElementById('sd-driver-add').disabled = !admin;
+    document.getElementById('sd-driver-add').disabled = !can;
     sdRenderCompanySettings();
   }
   function sdRenderCompanySettings(){
