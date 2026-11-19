@@ -605,7 +605,7 @@
   /* 읽기 전용 권한: 안내 띠 표시 + 삭제류 버튼 숨김 (실제 저장 차단은 스크립트의 쓰기 가드가 담당) */
   #app.ro-order #panel-order::before, #app.ro-order #panel-agg::before, #app.ro-order #panel-sales::before, #app.ro-order #panel-settings::before,
   #app.ro-plan #panel-plan::before, #app.ro-invoice #panel-ship::before,
-  #app.ro-order #panel-ecount::before,
+  #app.ro-order #panel-ecount::before, #app.ro-order #panel-master::before,
   #app.ro-sorting #panel-sorting::before{
     content:'👁 읽기 전용 권한입니다 — 조회와 엑셀 다운로드만 가능하며, 입력·수정한 내용은 저장되지 않습니다.';
     display:block; background:var(--warn-soft); color:var(--warn); border:1px solid var(--warn);
@@ -613,7 +613,7 @@
   }
   #app.ro-order #panel-order .btn-danger, #app.ro-order #panel-agg .btn-danger, #app.ro-order #panel-sales .btn-danger, #app.ro-order #panel-settings .btn-danger,
   #app.ro-plan #panel-plan .btn-danger, #app.ro-invoice #panel-ship .btn-danger,
-  #app.ro-order #panel-ecount .btn-danger,
+  #app.ro-order #panel-ecount .btn-danger, #app.ro-order #panel-master .btn-danger,
   #app.ro-sorting #panel-sorting .btn-danger,
   #app.ro-order .company-bulk-delete-ui{ display:none !important; }
   /* 전일 재고·원물 입력(생산 / 물류 탭): 생산 / 물류 권한이 전체가 아니면 잠금 */
@@ -657,7 +657,7 @@
   #app.stock-ro #stock-card .stock-ro-note{ display:block; }
   #app.stock-ro #stock-card input, #app.stock-ro #stock-card select, #app.stock-ro #stock-card button{ pointer-events:none; opacity:.55; }
   /* 발주자동화 세부 권한: 생산/물류·송장/명세서만 받은 직원은 그 두 탭만 보임 */
-  #app.order-core-off #panel-ecount, #app.order-core-off #main-nav-btn-ecount,
+  #app.order-core-off #panel-ecount, #app.order-core-off #main-nav-btn-ecount, #app.order-core-off #panel-master, #app.order-core-off #main-nav-btn-master,
   #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-order"], #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-agg"],
   #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-sales"], #app.order-core-off .order-sub-nav-btn[data-order-panel="panel-settings"],
   #app.order-core-off #panel-order, #app.order-core-off #panel-agg, #app.order-core-off #panel-sales, #app.order-core-off #panel-settings,
@@ -799,7 +799,7 @@
   .order-sub-panel.active{ display:block; }
   #no-order-access-msg, #no-sorting-access-msg{ display:none; }
   #app.no-order-access #panel-order-group,
-  #app.no-order-access #panel-ecount,
+  #app.no-order-access #panel-ecount, #app.no-order-access #panel-master,
   #app.no-order-access .main-nav-btn:not([data-panel="panel-sorting"]):not([data-panel="panel-admin"]):not([data-panel="panel-cost"]):not([data-panel="panel-sample"]):not([data-panel="panel-manual"]){ display:none !important; }
   #app.no-order-access #no-order-access-msg{ display:block; }
   #app.no-sorting-access #main-nav-btn-sorting{ display:none !important; }
@@ -1165,7 +1165,8 @@
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
     <button class="main-nav-btn" id="main-nav-btn-mat" data-panel="panel-mat">📦 자재·재고</button>
     <button class="main-nav-btn" id="main-nav-btn-buy" data-panel="panel-buy">📥 구매관리</button>
-    <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트·기준정보</button>
+    <button class="main-nav-btn" id="main-nav-btn-master" data-panel="panel-master">🗂 기준정보</button>
+    <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
     <a id="main-nav-link-detail" href="detail.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">🖼 상세페이지 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
@@ -1239,7 +1240,7 @@
 
   <div class="card" id="master-moved-note">
     <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
-      <span class="sub" style="margin:0;">📦 품목(SKU)·매출처 정보는 <b>이카운트·기준정보</b> 탭으로 옮겼습니다. (수정은 관리자만 가능)</span>
+      <span class="sub" style="margin:0;">📦 품목(SKU)·매출처 정보는 <b>🗂 기준정보</b> 탭으로 옮겼습니다. (수정은 관리자만 가능)</span>
       <button class="btn-ghost small-btn" id="order-goto-sku-btn">품목(SKU) 관리 열기</button>
       <button class="btn-ghost small-btn" id="order-goto-company-btn">매출처 정보 열기</button>
     </div>
@@ -2025,7 +2026,7 @@
         <label style="font-size:13px;">날짜 :</label>
         <input type="date" id="shipment-date">
       </div>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;"><b>거래처</b>는 이카운트·기준정보의 매출처 정보 목록에서 이름이나 <b>코드</b>(일부만 입력해도 됨)로 검색해 고릅니다. 처음 출고하는 거래처는 정산용 거래처(수수료율 0%)로 자동 등록되고 코드가 같이 저장되니, 수수료율은 마스터관리 → 거래처에서 입력하세요.<br>포장단위는 <b>SKU 관리에 등록된 출고 제품</b> 중에서 고릅니다. 박스 수를 입력하면 <b>수량(kg) = 품목명에 적힌 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다 (예: 500g × 4팩 × 3박스 = 6kg, 직접 수정도 가능). 품목명에서 중량을 찾지 못하면 안내가 나오니 수량(kg)을 직접 입력하세요.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;"><b>거래처</b>는 기준정보의 매출처 정보 목록에서 이름이나 <b>코드</b>(일부만 입력해도 됨)로 검색해 고릅니다. 처음 출고하는 거래처는 정산용 거래처(수수료율 0%)로 자동 등록되고 코드가 같이 저장되니, 수수료율은 마스터관리 → 거래처에서 입력하세요.<br>포장단위는 <b>SKU 관리에 등록된 출고 제품</b> 중에서 고릅니다. 박스 수를 입력하면 <b>수량(kg) = 품목명에 적힌 중량 × 박스입수 × 박스 수</b>로 자동 계산됩니다 (예: 500g × 4팩 × 3박스 = 6kg, 직접 수정도 가능). 품목명에서 중량을 찾지 못하면 안내가 나오니 수량(kg)을 직접 입력하세요.</div></details>
       <div id="shipment-calc-hint" class="sub" style="margin:2px 0 0;"></div>
       <div id="shipment-dest-hint" class="sub" style="margin:2px 0 0;"></div>
       <div class="row">
@@ -2114,10 +2115,11 @@
   </div><!-- /panel-sorting -->
 
   <!-- ───────────── 패널 6: 이카운트 (발주취합/원물선별 공용 ERP 연동) ───────────── -->
-  <div id="panel-ecount" class="main-tab-panel">
+  <!-- ───────────── 패널: 기준정보 (품목 · 매출처 · 구매처 · 단가) — 등록·수정은 여기서만, 다른 탭은 골라 씀 ───────────── -->
+  <div id="panel-master" class="main-tab-panel">
 
-  <h1 style="margin-bottom:4px;">이카운트 · 기준정보</h1>
-  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">품목(SKU)·매출처·구매처 기준정보를 한 곳에서 관리하고(수정은 관리자만), 발주취합·원물선별 데이터를 이카운트 ERP 양식으로 내려받습니다. 발주취합·샘플 신청·단가 확인이 같은 품목 목록을 씁니다.</div></details>
+  <h1 style="margin-bottom:4px;">기준정보</h1>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">품목(SKU) · 매출처 · 구매처 · 단가 같은 기준정보를 여기서 등록·수정합니다. 발주취합 · 원물선별 · 자재·재고 · 구매관리 · 송장/명세서는 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 수정은 관리자만, 구매처는 발주자동화 전체 권한이면 고칠 수 있습니다. 이카운트에 올릴 엑셀과 이카운트 설정은 <b>🧾 이카운트</b> 탭에 있습니다.</div></details>
 
   <div class="card master-banner" id="master-readonly-banner" style="display:none;">
     <span class="sub" style="margin:0;">👁 품목(SKU)·매출처 정보는 <b>관리자만 수정</b>할 수 있습니다. (조회와 코드표 다운로드는 가능합니다)</span>
@@ -2173,7 +2175,6 @@
       <div class="row">
         <input type="text" id="new-company-manage-input" placeholder="업체명 입력" style="min-width:180px;">
         <button class="btn-ghost small-btn" id="add-company-manage-btn">+ 업체 추가</button>
-        <button class="btn-primary small-btn" id="export-codes-btn">품목·거래처 코드표 다운로드</button>
       </div>
       <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--line);">
         <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--muted);">구분 목록 관리</div>
@@ -2201,41 +2202,9 @@
   </div>
 
   <div class="card">
-    <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
-      <span class="sub" style="margin:0;">원물선별 품목·거래처 등은 원물선별 마스터관리에서</span>
-      <button class="btn-ghost small-btn" id="ecount-goto-sorting-master-btn">→ 원물선별 마스터관리로 이동</button>
-    </div>
-  </div>
-  <div class="card">
-    <details open>
-      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
-      <div style="margin-top:10px;">
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 매출처 정보에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다). 발주 입력의 <b>샘플 동봉</b>도 들어가며(적요 '거래처명 샘플 동봉'), <b>대분류가 SP인 거래처</b>의 샘플 동봉은 별도 정산을 위해 자가사용 대신 <b>매출 엑셀에 단가 0원 줄</b>(적요 '샘플 n팩')로 들어갑니다.</div></details>
-    <div class="row" style="margin-top:0;">
-      <label style="font-size:13px;">다운로드 일자 :</label>
-      <select id="ecount-date-select" style="min-width:230px;"></select>
-    </div>
-    <div class="row" style="margin-top:6px;">
-      <label style="font-size:13px;">출하창고 :</label>
-      <input type="text" id="ecount-warehouse" placeholder="예: 본창고" style="width:110px;">
-      <label style="font-size:13px;">거래유형 :</label>
-      <input type="text" id="ecount-trade-type" placeholder="예: 판매" style="width:90px;" value="판매">
-      <span style="font-size:11px;color:var(--muted);">※ 공용 저장</span>
-    </div>
-    <div class="row" style="margin-top:6px;">
-      <label style="font-size:13px;">담당자 :</label>
-      <input type="text" id="ecount-manager" placeholder="담당자명 (개인 저장)" style="width:120px;">
-      <label style="font-size:13px;">부서 :</label>
-      <input type="text" id="ecount-department" placeholder="부서명 (개인 저장)" style="width:110px;">
-      <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
-    </div>
-    <div class="row">
-      <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
-      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
-      <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
-    </div>
-    <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
-
+    <details id="price-manage-details" open>
+      <summary>단가 설정 (거래 방식별 단가 · 업체별 예외 단가)</summary>
+      <div style="margin-top:6px;">
     <h3 style="margin-top:14px;">거래 방식별 단가</h3>
     <div class="sub" style="margin:0 0 8px;">거래처 분류(거래 방식)마다 단가를 한 번만 넣으면 그 분류의 모든 거래처에 적용됩니다. 특정 업체만 다른 단가는 아래 <b>업체별 예외 단가</b>에 넣으세요(예외가 우선). 이카운트 매출 엑셀·거래명세서·월간 매출에 이 단가가 쓰입니다.</div>
     <div class="row" style="margin:0 0 6px;align-items:center;">
@@ -2265,6 +2234,14 @@
     <div id="price-bulk-banner" style="display:none; margin:0 0 8px; padding:8px 12px; border:1px solid var(--accent); background:#fff4d6; border-radius:8px; font-size:13px; align-items:center; gap:10px; flex-wrap:wrap;"></div>
     <div id="price-map-editor" style="overflow-x:auto;"></div>
 
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details id="fee-manage-details">
+      <summary>3PL 택배비 품목 · 택배사</summary>
+      <div style="margin-top:6px;">
     <h3 style="margin-top:16px;">3PL 택배비 품목 설정 (이카운트 자동 입력용)</h3>
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">운송장번호가 매칭된 3PL 주문에 대해 극소/소 사이즈별 택배비를 이카운트 행으로 자동 추가합니다. 품목명·품목코드·단가를 설정해두세요.</div></details>
     <div class="row" style="margin:0 0 8px;">
@@ -2279,9 +2256,86 @@
 
   <div class="card">
     <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
+      <span class="sub" style="margin:0;">원물선별 품목·거래처 등은 원물선별 마스터관리에서</span>
+      <button class="btn-ghost small-btn" id="ecount-goto-sorting-master-btn">→ 원물선별 마스터관리로 이동</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
       <span class="sub" style="margin:0;">자재 재고·사용·정전개는 <b>📦 자재·재고</b> 탭(생산), 구매 입고와 <b>구매입력 엑셀</b>은 <b>📥 구매관리</b> 탭으로 옮겼습니다.</span>
       <button class="btn-ghost small-btn" id="ecount-goto-mat-btn">→ 자재·재고</button>
       <button class="btn-ghost small-btn" id="ecount-goto-buy-btn">→ 구매관리</button>
+    </div>
+  </div>
+
+  </div><!-- /panel-master -->
+
+  <!-- ───────────── 패널: 이카운트 (매출입력 · 자가사용 엑셀 · 코드표 · 이카운트 설정) ───────────── -->
+  <div id="panel-ecount" class="main-tab-panel">
+
+  <h1 style="margin-bottom:4px;">이카운트</h1>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">이카운트에 올릴 엑셀(매출입력 · 자가사용)과 품목·거래처 코드표를 받고, 이카운트 설정(창고 · 거래유형 · 담당자)을 한 곳에서 정합니다. 구매입력 엑셀은 <b>📥 구매관리</b> 탭에서 받고 설정은 여기서 합니다. 품목·거래처·단가는 <b>🗂 기준정보</b> 탭에서 고칩니다.</div></details>
+
+  <div class="card" id="ecount-settings-card">
+    <h2 style="margin-top:0;">이카운트 설정</h2>
+    <h3 style="margin:8px 0 2px;">매출입력 · 자가사용 엑셀</h3>
+    <div class="row" style="margin-top:6px;">
+      <label style="font-size:13px;">출하창고 :</label>
+      <input type="text" id="ecount-warehouse" placeholder="예: 본창고" style="width:110px;">
+      <label style="font-size:13px;">거래유형 :</label>
+      <input type="text" id="ecount-trade-type" placeholder="예: 판매" style="width:90px;" value="판매">
+      <span style="font-size:11px;color:var(--muted);">※ 공용 저장</span>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label style="font-size:13px;">담당자 :</label>
+      <input type="text" id="ecount-manager" placeholder="담당자명 (개인 저장)" style="width:120px;">
+      <label style="font-size:13px;">부서 :</label>
+      <input type="text" id="ecount-department" placeholder="부서명 (개인 저장)" style="width:110px;">
+      <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
+    </div>
+    <h3 style="margin:14px 0 2px;">구매입력 엑셀 <span class="sub" style="font-weight:400;margin:0;">(📥 구매관리 → 입고 내역 · 구매입력 엑셀)</span></h3>
+    <div class="row" style="margin-top:6px;">
+      <label style="font-size:13px;">입고창고 :</label>
+      <input type="text" id="ec-buy-wh" placeholder="예: 00019" style="width:100px;">
+      <label style="font-size:13px;">거래유형 (부가세 적용) :</label>
+      <input type="text" id="ec-buy-t21" placeholder="21" style="width:60px;">
+      <label style="font-size:13px;">(미적용) :</label>
+      <input type="text" id="ec-buy-t22" placeholder="22" style="width:60px;">
+      <span style="font-size:11px;color:var(--muted);">※ 공용 저장 (기본 입고창고 00019 = 안성공장(생산))</span>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label style="font-size:13px;">담당자 코드 :</label>
+      <input type="text" id="ec-buy-mgr" placeholder="본인 코드" style="width:120px;">
+      <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <details open>
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">이카운트 매출입력 엑셀 다운로드</summary>
+      <div style="margin-top:10px;">
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">선택한 일자에 집계된 발주를 이카운트 매출입력 템플릿 형식으로 다운로드합니다. 기본은 발주 입력의 배송일자이고, 과거 일자를 골라 다시 받을 수도 있습니다. 업체별 단가는 아래 매출처 정보에서 설정하세요.<br><b>이카운트 자가사용 엑셀</b>: 그 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외)을 자가사용입력 양식으로 받습니다 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 출하창고·담당자는 위 칸 값. 택배 샘플은 3PL 개별 주문에 적힌 운송장번호 기준으로 규격별 택배비 건수 줄이 붙습니다(샘플 택배비는 매출 엑셀에서는 빠집니다). 발주 입력의 <b>샘플 동봉</b>도 들어가며(적요 '거래처명 샘플 동봉'), <b>대분류가 SP인 거래처</b>의 샘플 동봉은 별도 정산을 위해 자가사용 대신 <b>매출 엑셀에 단가 0원 줄</b>(적요 '샘플 n팩')로 들어갑니다.</div></details>
+    <div class="row" style="margin-top:0;">
+      <label style="font-size:13px;">다운로드 일자 :</label>
+      <select id="ecount-date-select" style="min-width:230px;"></select>
+    </div>
+    <div class="sub" style="margin:6px 0 0;">출하창고 · 거래유형 · 담당자 · 부서는 위 <b>이카운트 설정</b>에서 정합니다.</div>
+    <div class="row">
+      <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
+      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
+      <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
+    </div>
+    <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
+
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">품목 · 거래처 코드표</h3>
+    <div class="sub" style="margin:0 0 6px;">기준정보에 등록된 품목코드 · 거래처코드를 엑셀로 받습니다.</div>
+    <div class="row" style="margin-top:0;">
+        <button class="btn-primary small-btn" id="export-codes-btn">품목·거래처 코드표 다운로드</button>
     </div>
   </div>
 
@@ -2332,7 +2386,7 @@
   <div class="sub" style="margin:0 0 10px;">구매해서 들어온 원물·부자재·소모품을 <b>입고</b>하고, 이카운트 <b>구매입력 엑셀</b>을 내려받습니다. 방울토마토 같은 원물은 <b>🍅 원물선별 → 원물입고</b>에 단가와 함께 넣으면 여기 구매입력 엑셀에 같이 들어갑니다.</div>
   <div class="card">
     <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
-      <span class="sub" style="margin:0;">구매 거래처(이카운트 거래처코드 · 원물선별 사입처)는 <b>이카운트·기준정보 → 구매처 정보</b>에서 한 번에 등록합니다.</span>
+      <span class="sub" style="margin:0;">구매 거래처(이카운트 거래처코드 · 원물선별 사입처)는 <b>기준정보 → 구매처 정보</b>에서 한 번에 등록합니다.</span>
       <button class="btn-ghost small-btn" id="buy-goto-pv-btn">→ 구매처 정보</button>
     </div>
   </div>
@@ -2670,7 +2724,8 @@
 <tr><td>원물선별</td><td>현황 · 원물입고 · 선별산출 · 출고·정산 · 물류기기 · 마스터관리</td></tr>
 <tr><td>자재·재고</td><td>생산에서 쓴 원물·부자재·소모품 사용·로스, 재고 실사, 정전개 (생산/물류 권한)</td></tr>
 <tr><td>구매관리</td><td>구매 입고, 입고 내역, 이카운트 구매입력 엑셀 (발주자동화 권한)</td></tr>
-<tr><td>이카운트·기준정보</td><td>품목(SKU)·매출처·구매처 정보, 이카운트 엑셀, 단가 설정</td></tr>
+<tr><td>기준정보</td><td>품목(SKU) · 매출처 · 구매처 정보, 단가 설정, 3PL 택배비 — 등록·수정은 여기서만</td></tr>
+<tr><td>이카운트</td><td>매출입력 · 자가사용 엑셀, 품목·거래처 코드표, 이카운트 설정(창고 · 거래유형 · 담당자)</td></tr>
 <tr><td>단가 확인</td><td>원가·이익률 확인 (권한자만)</td></tr>
 <tr><td>상세페이지</td><td>스마트스토어·쿠팡 등 마켓에 붙여넣을 상세페이지 HTML 만들기 (공유폴더 권한자)</td></tr>
 <tr><td>공유폴더</td><td>부서 간 파일 올리기·내려받기·폴더 정리 (공유폴더 권한자)</td></tr>
@@ -2950,8 +3005,8 @@
 
 <!-- ───────────── 구매 · 자재 ───────────── -->
 <section class="mn-pane" id="mn-p-buy">
-<h2>이카운트 · 기준정보</h2>
-<p class="mn-lead">품목·매출처·구매처 같은 기준 정보를 한 곳에서 관리하고, 이카운트에 올릴 엑셀을 내려받습니다. 품목·매출처 <b>수정은 관리자만</b>, 구매처 정보는 발주자동화 전체 권한이 있으면 수정할 수 있습니다.</p>
+<h2>기준정보</h2>
+<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
 
 <h3>품목(SKU) 관리</h3>
 <p>발주취합, 샘플 신청, 단가 확인이 같은 품목 목록을 씁니다. 품목마다 이름, 별칭, <b>박스입수</b>(박스당 팩 수), 단가그룹, 이카운트 품목코드 등을 둡니다. 박스입수가 있어야 박스 수가 자동으로 계산됩니다. 새 상품이 나오면 여기서 먼저 등록합니다.</p>
@@ -2978,6 +3033,27 @@
   <li><span class="mn-b">목록 엑셀 받기 (양식)</span>로 지금 목록을 엑셀로 받아 고친 뒤 다시 올릴 수 있습니다.</li>
 </ul>
 
+<h3>거래 방식별 단가</h3>
+<ul>
+  <li>거래처 분류(거래 방식)마다 단가를 한 번 넣으면 그 분류의 모든 거래처에 적용됩니다. 이카운트 매출 엑셀·거래명세서·월간 매출에 쓰입니다.</li>
+  <li>처음에는 <span class="mn-b">⤵ 기존 업체 단가에서 가져오기</span>로 시작하세요. 분류마다 업체들이 가장 많이 쓰던 단가를 넣고, 다른 단가를 쓰던 업체는 예외로 남깁니다. 잘못되면 <span class="mn-b">↩ 가져오기 전으로 되돌리기</span>.</li>
+  <li>아래 업체별 표에서 <b>회색 숫자</b>는 거래 방식 단가를 따르는 칸, <b>노란 칸</b>은 그 업체만의 예외 단가입니다. 거래 방식 단가와 같은 값을 넣으면 예외가 지워집니다.</li>
+  <li>단가그룹마다 있는 빨간 <b>일괄</b> 칸에 넣으면 그 그룹 품목 모두에 같은 단가가 들어갑니다. 그 분류 거래처 중 <b>업체별 예외 단가</b>가 있어 바뀌지 않는 곳이 있으면 목록이 뜨고, <span class="mn-b">모두 새 단가로 맞추기</span>로 예외를 지워 새 단가를 적용할 수 있습니다.</li>
+</ul>
+
+<h3>업체별 예외 단가 (거래처별 품목 단가)</h3>
+<ul>
+  <li>업체가 많아 표가 길어지지 않도록 업체 목록은 <b>접혀</b> 있습니다. 업체명·코드로 검색하거나 분류·구분·지역·단가 상태를 고르면 찾은 업체만 펼쳐지고, <span class="mn-b">▾ 업체 목록 펼치기</span>로 전체를 펼칠 수 있습니다(펼침·접힘은 그 PC에 기억).</li>
+  <li>위쪽에서 <b>발주 구분</b>·<b>지역</b>을 고르거나 <b>업체명 또는 코드</b>로 검색하면 그 업체만 표에 보입니다. 코드는 표에서 업체명 오른쪽 칸에 나옵니다.</li>
+  <li>정렬은 등록순, 거래처명순, 구분순, 지역순, 시장명순, 코드순 중에서 고릅니다.</li>
+  <li>표 맨 윗줄 <b>"표시된 N곳 한꺼번에"</b> 칸에 단가를 넣고 Enter → 위쪽 안내의 <span class="mn-b">적용</span>을 누르면 표시된 업체 전체에 들어갑니다. <b>이미 입력된 단가는 유지</b>를 체크하면 빈 칸만 채웁니다. 실수했다면 안내 줄의 되돌리기를 쓰세요.</li>
+  <li>단가그룹이 있는 품목은 <b>그룹 단가</b>를 넣으면 그룹 안 모든 품목에 같은 단가가 들어가고, 개별 조정도 됩니다.</li>
+  <li><b>단가 상태</b>에서 "단가 전혀 없는 업체", "단가 빈 칸: 그룹", "단가 없음: 품목"을 고르면 아직 단가를 안 넣은 업체만 모아 볼 수 있습니다. 넣고 나면 그 업체는 목록에서 빠집니다.</li>
+  <li>공통 검색어가 없는 업체들은 업체명 왼쪽 <b>☑</b>로 골라 둡니다. 검색어를 바꿔 가며 여러 번 골라도 체크는 유지되고, 맨 윗줄이 <b>"체크한 N곳 한꺼번에"</b>로 바뀌어 체크한 업체에만 들어갑니다. <span class="mn-b">체크한 업체만 보기</span>·<span class="mn-b">체크 모두 해제</span>는 안내 줄에 있습니다.</li>
+</ul>
+
+<h2>이카운트</h2>
+<p class="mn-lead">상단 <b>🧾 이카운트</b> 탭입니다. 이카운트에 올릴 매출입력 · 자가사용 엑셀과 품목·거래처 코드표를 받습니다. 맨 위 <b>이카운트 설정</b>에서 출하창고 · 거래유형 · 담당자 · 부서(매출·자가사용)와 입고창고 · 거래유형 · 담당자 코드(구매관리의 구매입력 엑셀)를 한 곳에서 정합니다.</p>
 <h3>이카운트 매출입력 엑셀 다운로드</h3>
 <ol>
   <li><b>다운로드 일자</b>를 고릅니다(기본은 발주 입력의 납품일, 과거 날짜도 가능).</li>
@@ -3003,25 +3079,6 @@
   <li>확인 안 된 신청이 섞여 있거나 품목코드가 없는 품목이 있으면 다운로드할 때 알려 줍니다.</li>
 </ul>
 
-<h3>거래 방식별 단가</h3>
-<ul>
-  <li>거래처 분류(거래 방식)마다 단가를 한 번 넣으면 그 분류의 모든 거래처에 적용됩니다. 이카운트 매출 엑셀·거래명세서·월간 매출에 쓰입니다.</li>
-  <li>처음에는 <span class="mn-b">⤵ 기존 업체 단가에서 가져오기</span>로 시작하세요. 분류마다 업체들이 가장 많이 쓰던 단가를 넣고, 다른 단가를 쓰던 업체는 예외로 남깁니다. 잘못되면 <span class="mn-b">↩ 가져오기 전으로 되돌리기</span>.</li>
-  <li>아래 업체별 표에서 <b>회색 숫자</b>는 거래 방식 단가를 따르는 칸, <b>노란 칸</b>은 그 업체만의 예외 단가입니다. 거래 방식 단가와 같은 값을 넣으면 예외가 지워집니다.</li>
-  <li>단가그룹마다 있는 빨간 <b>일괄</b> 칸에 넣으면 그 그룹 품목 모두에 같은 단가가 들어갑니다. 그 분류 거래처 중 <b>업체별 예외 단가</b>가 있어 바뀌지 않는 곳이 있으면 목록이 뜨고, <span class="mn-b">모두 새 단가로 맞추기</span>로 예외를 지워 새 단가를 적용할 수 있습니다.</li>
-</ul>
-
-<h3>업체별 예외 단가 (거래처별 품목 단가)</h3>
-<ul>
-  <li>업체가 많아 표가 길어지지 않도록 업체 목록은 <b>접혀</b> 있습니다. 업체명·코드로 검색하거나 분류·구분·지역·단가 상태를 고르면 찾은 업체만 펼쳐지고, <span class="mn-b">▾ 업체 목록 펼치기</span>로 전체를 펼칠 수 있습니다(펼침·접힘은 그 PC에 기억).</li>
-  <li>위쪽에서 <b>발주 구분</b>·<b>지역</b>을 고르거나 <b>업체명 또는 코드</b>로 검색하면 그 업체만 표에 보입니다. 코드는 표에서 업체명 오른쪽 칸에 나옵니다.</li>
-  <li>정렬은 등록순, 거래처명순, 구분순, 지역순, 시장명순, 코드순 중에서 고릅니다.</li>
-  <li>표 맨 윗줄 <b>"표시된 N곳 한꺼번에"</b> 칸에 단가를 넣고 Enter → 위쪽 안내의 <span class="mn-b">적용</span>을 누르면 표시된 업체 전체에 들어갑니다. <b>이미 입력된 단가는 유지</b>를 체크하면 빈 칸만 채웁니다. 실수했다면 안내 줄의 되돌리기를 쓰세요.</li>
-  <li>단가그룹이 있는 품목은 <b>그룹 단가</b>를 넣으면 그룹 안 모든 품목에 같은 단가가 들어가고, 개별 조정도 됩니다.</li>
-  <li><b>단가 상태</b>에서 "단가 전혀 없는 업체", "단가 빈 칸: 그룹", "단가 없음: 품목"을 고르면 아직 단가를 안 넣은 업체만 모아 볼 수 있습니다. 넣고 나면 그 업체는 목록에서 빠집니다.</li>
-  <li>공통 검색어가 없는 업체들은 업체명 왼쪽 <b>☑</b>로 골라 둡니다. 검색어를 바꿔 가며 여러 번 골라도 체크는 유지되고, 맨 윗줄이 <b>"체크한 N곳 한꺼번에"</b>로 바뀌어 체크한 업체에만 들어갑니다. <span class="mn-b">체크한 업체만 보기</span>·<span class="mn-b">체크 모두 해제</span>는 안내 줄에 있습니다.</li>
-</ul>
-
 <h2>자재 · 재고 관리 <span class="mn-who">생산/물류 권한</span></h2>
 <p class="mn-lead">상단 <b>📦 자재·재고</b> 탭입니다. 생산에서 쓴 원물·부자재와 소모품(장갑·테이프·비닐 등)을 재고에서 빼고, 재고 실사와 정전개(제품 1팩당 자재 소요량)를 관리합니다. 구매해서 들어온 자재의 입고는 <b>구매관리</b> 탭에서 합니다.</p>
 
@@ -3037,7 +3094,7 @@
 
 <h3>처음 세팅하는 순서</h3>
 <ol class="mn-flow">
-  <li><div><span class="mn-t">구매처 등록</span><span class="mn-s">이카운트·기준정보 → <b>구매처 정보</b>에 자재를 사 오는 업체를 일괄 등록합니다.</span></div></li>
+  <li><div><span class="mn-t">구매처 등록</span><span class="mn-s">기준정보 → <b>구매처 정보</b>에 자재를 사 오는 업체를 일괄 등록합니다.</span></div></li>
   <li><div><span class="mn-t">자재 마스터 등록</span><span class="mn-s">자재명, 구분, 단위(개·장·kg·박스), <b>이카운트 품목코드</b>, 기본 거래처·단가, 안전재고를 넣고 저장합니다. 장갑·테이프 같은 소모품은 구분을 <b>소모품</b>으로.</span></div></li>
   <li><div><span class="mn-t">정전개 등록</span><span class="mn-s">제품을 펼쳐 자재와 <b>1팩당 소요량</b>을 넣습니다. 외박스는 박스입수가 4팩이면 <b>1/4</b>처럼 분수로 적어도 됩니다. 로스%는 불량·손실 여유분입니다.</span></div></li>
   <li><div><span class="mn-t">현재 재고 맞추기</span><span class="mn-s">재고 현황에서 자재별 실사 수량을 넣고 [맞추기]. 이후 구매 입고·사용 입력·출고 차감으로 관리됩니다.</span></div></li>
@@ -3285,7 +3342,7 @@
 <p>입고 기록이 빠졌거나 실제 재고가 전산과 다르다는 뜻입니다. 재고 현황에서 <b>실사 수량</b>을 넣고 <span class="mn-b">맞추기</span>를 누르면 차이만큼 조정 기록이 남고 재고가 맞춰집니다. 파손·손망실은 📦 자재·재고 → 사용 · 로스 입력에서 <b>로스</b>로 기록하세요.</p></details>
 
 <details><summary>출고·정산에서 거래처가 목록에 없어요</summary>
-<p>이카운트·기준정보 → 매출처 정보에 그 거래처가 등록되어 있어야 검색됩니다. 거래처명이나 코드 일부를 입력해 보고, 없으면 거래처를 먼저 등록하세요. 목록에서 고르지 않고 임의로 입력하면 등록되지 않습니다.</p></details>
+<p>기준정보 → 매출처 정보에 그 거래처가 등록되어 있어야 검색됩니다. 거래처명이나 코드 일부를 입력해 보고, 없으면 거래처를 먼저 등록하세요. 목록에서 고르지 않고 임의로 입력하면 등록되지 않습니다.</p></details>
 
 <details><summary>원물입고에서 원물 코드 목록이 비어 있어요</summary>
 <p>📦 자재·재고(또는 📥 구매관리) → 자재 마스터에 원물 자재를 등록하고 이카운트 품목코드를 입력해야 목록에 나옵니다. 코드를 비워 두면 "코드 미입력"으로 표시됩니다.</p></details>
@@ -4302,7 +4359,8 @@ const HOME_TILES = [
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'mat', icon: '📦', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
   { key: 'buy', icon: '📥', name: '구매관리', desc: '구매 입고 · 입고 내역 · 구매입력 엑셀', nav: '#main-nav-btn-buy' },
-  { key: 'ecount', icon: '🧾', img: 'assets/ic-ecount.png', name: '이카운트·기준정보', desc: '품목 · 매출처 · 구매처 · 이카운트 양식', nav: '#main-nav-btn-ecount' },
+  { key: 'master', icon: '🗂', name: '기준정보', desc: '품목 · 매출처 · 구매처 · 단가', nav: '#main-nav-btn-master' },
+  { key: 'ecount', icon: '🧾', img: 'assets/ic-ecount.png', name: '이카운트', desc: '매출 · 자가사용 엑셀 · 코드표 · 설정', nav: '#main-nav-btn-ecount' },
   { key: 'cost', icon: '💰', img: 'assets/ic-cost.png', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
   { key: 'detail', icon: '🖼', img: 'assets/ic-detail.png', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
   { key: 'files', icon: '📁', img: 'assets/ic-files.png', name: '공유폴더', desc: '파일 공유', href: 'files.html', self: true, show: (u, admin) => admin || u.access_files === true },
@@ -10825,7 +10883,7 @@ function mnShow(id, keepScroll) {
         previewHtml += `<div style="margin-left:12px;margin-bottom:2px;">• ${escapeHtml(companyName)}: ${escapeHtml(itemStrs)}</div>`;
       });
     });
-    if(parseErrors > 0) previewHtml += `<div style="color:var(--muted);margin-top:6px;font-size:11px;">※ 품목 미매칭 ${parseErrors}건은 제외됩니다 (이카운트·기준정보 탭의 SKU 관리에서 별칭 추가 후 재시도)</div>`;
+    if(parseErrors > 0) previewHtml += `<div style="color:var(--muted);margin-top:6px;font-size:11px;">※ 품목 미매칭 ${parseErrors}건은 제외됩니다 (기준정보 탭의 SKU 관리에서 별칭 추가 후 재시도)</div>`;
 
     previewHtml += `<div class="row" style="margin-top:10px;">
       <button class="btn-primary small-btn" id="tracking-import-confirm-btn">✓ 실적 등록 확정</button>
@@ -13498,7 +13556,8 @@ function mnShow(id, keepScroll) {
       }
       // 이카운트 탭 진입 시 단가/택배비 에디터 갱신
       if((panelId === 'panel-mat' || panelId === 'panel-buy') && window.__matOpen) window.__matOpen(panelId === 'panel-buy' ? 'buy' : 'mat');
-      if(panelId === 'panel-ecount'){
+      if(panelId === 'panel-ecount' && window.__ecBuyInit) window.__ecBuyInit();   // 구매입력 설정 (자재·구매 쪽 저장값)
+      if(panelId === 'panel-master'){
         renderPriceMapEditor();
         renderDeliveryFeeEditor();
       }
@@ -14303,7 +14362,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       });
       html += `</tbody><tfoot><tr><td>합계</td>${agg.prodDays.map(d => `<td class="num">${sampleFmtNum(ids.reduce((s, id) => s + (agg.bySku[id].byProd[d] || 0), 0))}</td>`).join('')}<td class="num">${sampleFmtNum(totalPacks)}</td></tr></tfoot></table></div>`;
     }
-    if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. 이카운트·기준정보 탭의 SKU 관리에서 박스입수를 입력해주세요.</div>';
+    if(anyMissing) html += '<div class="sub" style="margin-top:6px;">※ 박스입수가 없는 품목은 박스 환산에서 제외됩니다. 기준정보 탭의 SKU 관리에서 박스입수를 입력해주세요.</div>';
     wrap.innerHTML = html;
   }
 
@@ -15241,9 +15300,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     wrap.appendChild(table);
   }
 
-  // ── 품목(SKU)·매출처 정보는 이카운트·기준정보 탭에 있다 (발주 입력 화면에서 바로가기) ──
+  // ── 품목(SKU)·매출처 정보는 기준정보 탭에 있다 (발주 입력 화면에서 바로가기) ──
   function goToMasterDetails(detailsId){
-    document.getElementById('main-nav-btn-ecount').click();
+    document.getElementById('main-nav-btn-master').click();
     const details = document.getElementById(detailsId);
     if(details){
       details.open = true;
@@ -16922,7 +16981,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     form.innerHTML = '';
     if(cfg.key === '__raw') return;
     if(cfg.key === 'sorting_vendors'){
-      form.innerHTML = '<span class="sub" style="margin:0;">사입처는 <b>이카운트·기준정보 → 구매처 정보</b>에서 등록합니다. 구분에 <b>원물</b>을 체크한 구매처가 여기 사입처로 자동으로 들어오고, 이름·사용 여부도 같이 바뀝니다.</span>';
+      form.innerHTML = '<span class="sub" style="margin:0;">사입처는 <b>기준정보 → 구매처 정보</b>에서 등록합니다. 구분에 <b>원물</b>을 체크한 구매처가 여기 사입처로 자동으로 들어오고, 이름·사용 여부도 같이 바뀝니다.</span>';
       const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '→ 구매처 정보로 이동';
       b.addEventListener('click', () => { if(window.pvGoto) window.pvGoto(); }); form.appendChild(b);
       return;
@@ -22452,15 +22511,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       <div class="sub" style="margin:0 0 6px;">입고(구매) 기록을 이카운트 구매입력 양식(21열)으로 내려받습니다. 품목코드는 자재 마스터, 거래처코드는 <b>구매처 정보</b>에서 가져옵니다(코드가 없으면 거래처명만 넣고 이카운트가 이름으로 찾습니다). 거래유형은 부가세 별도 자재면 「적용」, 아니면 「미적용」 값이 들어갑니다.</div>
       <div class="row" style="margin:0 0 6px; align-items:flex-end;">
         <label style="font-size:12.5px;">입고 기간<br><input type="date" id="mat-x-from"> ~ <input type="date" id="mat-x-to"></label>
-        <label style="font-size:12.5px;">입고창고<br><input type="text" id="mat-x-wh" style="width:90px;" placeholder="예: 00019"></label>
-        <label style="font-size:12.5px;">거래유형 (부가세 적용)<br><input type="text" id="mat-x-t21" style="width:70px;" placeholder="21"></label>
-        <label style="font-size:12.5px;">거래유형 (미적용)<br><input type="text" id="mat-x-t22" style="width:70px;" placeholder="22"></label>
-        <label style="font-size:12.5px;">담당자 코드<br><input type="text" id="mat-x-mgr" style="width:110px;" placeholder="본인 코드"></label>
+        <label style="font-size:12.5px;">입고창고<br><input type="text" id="mat-x-wh" disabled title="🧾 이카운트 탭 → 이카운트 설정에서 바꿉니다" style="width:90px;" placeholder="예: 00019"></label>
+        <label style="font-size:12.5px;">거래유형 (부가세 적용)<br><input type="text" id="mat-x-t21" disabled title="🧾 이카운트 탭 → 이카운트 설정에서 바꿉니다" style="width:70px;" placeholder="21"></label>
+        <label style="font-size:12.5px;">거래유형 (미적용)<br><input type="text" id="mat-x-t22" disabled title="🧾 이카운트 탭 → 이카운트 설정에서 바꿉니다" style="width:70px;" placeholder="22"></label>
+        <label style="font-size:12.5px;">담당자 코드<br><input type="text" id="mat-x-mgr" disabled title="🧾 이카운트 탭 → 이카운트 설정에서 바꿉니다" style="width:110px;" placeholder="본인 코드"></label>
         <label style="font-size:12.5px;"><input type="checkbox" id="mat-x-new"> 이미 내려받은 입고 기록 제외</label>
         <label style="font-size:12.5px;" title="원물선별 → 원물입고에 등록한 원물(방울토마토 등)을 사입처 = 거래처, kg = 수량으로 같이 넣습니다"><input type="checkbox" id="mat-x-raw"> 원물선별 원물입고 포함</label>
         <button type="button" class="btn-primary small-btn" id="mat-x-btn">구매입력 엑셀 다운로드</button>
       </div>
-      <div class="sub" id="mat-x-info" style="margin:0;">입고창고·거래유형은 모두 같이 쓰도록 저장되고(기본 입고창고 00019 = 안성공장(생산)), 담당자 코드는 내 브라우저에만 저장됩니다. <b>원물선별 원물입고 포함</b>을 켜면 원물입고(사입처 = 거래처, kg = 수량, 원물입고의 단가)도 같이 들어갑니다. 거래처코드는 <b>이카운트·기준정보 → 구매처 정보</b>에서 가져옵니다.</div>
+      <div class="sub" id="mat-x-info" style="margin:0;">입고창고 · 거래유형 · 담당자 코드는 <b>🧾 이카운트 탭 → 이카운트 설정</b>에서 바꿉니다. <b>원물선별 원물입고 포함</b>을 켜면 원물입고(사입처 = 거래처, kg = 수량, 원물입고의 단가)도 같이 들어갑니다. 거래처코드는 <b>기준정보 → 구매처 정보</b>에서 가져옵니다.</div>
       </div>`;
     matEl('mat-lf-days').value = String(MAT.ledDays);
     const sign = t => (t === 'in' ? 1 : (t === 'adj' ? 0 : -1));
@@ -22588,7 +22647,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       <div class="sub" style="margin:0 0 6px;">트레이·스티커·방울토마토 원물·습지·외박스·향료 같은 원자재와, 중간 단계의 반제품을 등록합니다. <b>단위</b>는 재고를 세는 단위(개·장·kg …)이고 정전개 소요량도 이 단위로 입력합니다. <b>이카운트 품목코드</b>는 원물선별 → 원물입고의 원물 드롭다운에 그대로 나오고, 같은 코드로 입고된 원물 kg이 재고에 자동 반영됩니다(코드를 비워 두면 품목명으로 맞춥니다).</div>
       <div style="overflow-x:auto;"><table class="mat-t"><thead><tr><th>자재명</th><th>구분</th><th>단위</th><th>이카운트 품목코드</th><th>기본 거래처</th><th>기본 단가</th><th>안전재고</th><th title="구매입력 엑셀에서 부가세 10%를 따로 넣고 거래유형을 「적용」으로 씀">부가세 별도</th><th>사용 안 함</th><th></th></tr></thead><tbody id="mat-m-tb">${MAT.mdraft.map(rowHtml).join('')}</tbody></table></div>
       ${MAT.mdraft.length ? '' : '<div class="sub">아직 등록된 자재가 없습니다. [+ 자재 추가]를 눌러 시작하세요.</div>'}
-      <div class="row" style="margin:14px 0 0; align-items:center;"><span class="sub" style="margin:0;">구매 거래처(이카운트 거래처코드)는 <b>이카운트·기준정보 → 구매처 정보</b>에서 등록합니다. 예전 '매입 거래처' 표의 거래처는 구매처 정보를 열면 자동으로 가져옵니다.</span><button type="button" class="btn-ghost small-btn" id="mat-pv-go">→ 구매처 정보</button></div>
+      <div class="row" style="margin:14px 0 0; align-items:center;"><span class="sub" style="margin:0;">구매 거래처(이카운트 거래처코드)는 <b>기준정보 → 구매처 정보</b>에서 등록합니다. 예전 '매입 거래처' 표의 거래처는 구매처 정보를 열면 자동으로 가져옵니다.</span><button type="button" class="btn-ghost small-btn" id="mat-pv-go">→ 구매처 정보</button></div>
       <datalist id="mat-pv-dl">${pvNames(null).map(n => `<option value="${escapeHtml(n)}">`).join('')}</datalist>
       <div class="row" style="margin-top:12px;"><button type="button" class="btn-ghost small-btn" id="mat-m-add">+ 자재 추가</button><button type="button" class="btn-primary small-btn" id="mat-m-save">자재 마스터 저장</button></div>`;
     const dirty = () => { MAT.mdirty = true; matEl('mat-mdirty').style.display = 'flex'; };
@@ -22829,7 +22888,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   const pvNames = kinds => PV.list.filter(v => !v.off && (!kinds || (v.kinds || []).some(k => kinds.includes(k)))).map(v => v.name);
   function pvMsg(t, bad){ const e = matEl('pv-msg'); if(e){ e.textContent = t || ''; e.style.color = bad ? 'var(--danger,#c0392b)' : ''; } }
   function pvGoto(){
-    const b = matEl('main-nav-btn-ecount'); if(b) b.click();
+    const b = matEl('main-nav-btn-master'); if(b) b.click();
     const f = matEl('pv-fold'); if(f && !f.open) f.open = true;
     setTimeout(() => { const c = matEl('pv-card'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
   }
@@ -23074,6 +23133,30 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const g = matEl('ecount-goto-mat-btn'); if(g) g.addEventListener('click', () => { const b = matEl('main-nav-btn-mat'); if(b) b.click(); });
     const g2 = matEl('ecount-goto-buy-btn'); if(g2) g2.addEventListener('click', () => { const b = matEl('main-nav-btn-buy'); if(b) b.click(); });
   })();
+
+  // 이카운트 탭의 '구매입력 엑셀' 설정: 입고창고·거래유형(공용 'mat-ecount-settings') · 담당자 코드(개인 'mat-ecount-personal') — 구매관리와 같은 저장값
+  window.__ecBuyInit = async () => {
+    const wh = matEl('ec-buy-wh'), t21 = matEl('ec-buy-t21'), t22 = matEl('ec-buy-t22'), mgr = matEl('ec-buy-mgr');
+    if(!wh) return;
+    if(!MAT.loaded){
+      try{
+        const [es, ep] = await Promise.all([matGet('mat-ecount-settings'), window.storage.get('mat-ecount-personal')]);
+        const e1 = matJp(es, {}); MAT.ec = { warehouse: e1.warehouse || '00019', tt21: e1.tt21 != null ? e1.tt21 : '21', tt22: e1.tt22 != null ? e1.tt22 : '22' };
+        MAT.ecMgr = (matJp(ep && ep.value, {}) || {}).manager || '';
+      }catch(e){ /* 기본값 */ }
+    }
+    wh.value = MAT.ec.warehouse || ''; t21.value = MAT.ec.tt21 || ''; t22.value = MAT.ec.tt22 || ''; mgr.value = MAT.ecMgr || '';
+    const canSet = window.accessLevel('order') === 'full';
+    [wh, t21, t22].forEach(x => { x.disabled = !canSet; });
+    if(wh._wired) return;
+    wh._wired = 1;
+    const save = async () => {
+      MAT.ec = { warehouse: wh.value.trim(), tt21: t21.value.trim(), tt22: t22.value.trim() };
+      try{ await window.storage.set('mat-ecount-settings', JSON.stringify(MAT.ec), true); toast('구매입력 설정을 저장했습니다'); }catch(e){ console.error(e); }
+    };
+    [wh, t21, t22].forEach(x => x.addEventListener('change', save));
+    mgr.addEventListener('change', async () => { MAT.ecMgr = mgr.value.trim(); try{ await window.storage.set('mat-ecount-personal', JSON.stringify({ manager: MAT.ecMgr })); }catch(e){ console.error(e); } });
+  };
 
   // 탭·열기·새로고침 연결
   (function wireMat(){
