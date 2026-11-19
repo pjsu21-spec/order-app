@@ -208,7 +208,7 @@
       dv.G107 = R2(disp.reduce((a, x) => a + (x.packs || 0), 0)); dv.H107 = R2(disp.reduce((a, x) => a + (x.boxes || 0), 0));
       PROD_COLS.forEach(c => { const q = R2(disp.reduce((a, x) => a + (Number((x.qty || {})[c]) || 0), 0)); dv[c + '107'] = q || ''; dv[c + '108'] = PACK_COLS.includes(c) ? (q || '') : (q ? R2(q * 4) : ''); });
       B.disp.head.rows.forEach((row, k) => {
-        const R = g.row(head0 + k); R.h = row.h;
+        const R = g.row(head0 + k); R.h = row.h; R.head = true;
         row.cells.forEach(([col, st, v, on, ref]) => {
           const addr = col + row.r; const val = dv[addr] !== undefined ? dv[addr] : v;
           const s = on != null ? style((ref ? Number(dv[ref]) > 0 : Number(val) > 0) ? on : st) : style(st);
@@ -240,15 +240,17 @@
       r++;
       const st = style(B.tpl.after.B ? B.tpl.after.B[0] : 0);
       const mk = t => Object.assign({}, st, { h: 'left', bd: ['', '', '', ''], fill: '', sz: 11, b: 1, fc: '#C00000' });
-      g.set(r, 'B', '※ 품목 열이 없는 주문 (아래 수량은 위 표에 들어가지 않았습니다)', mk()); g.row(r).h = 20; r++;
-      m.extras.forEach(e => { g.set(r, 'B', `${e.company} · ${e.item} ${e.qty}${e.unit || ''}`, Object.assign(mk(), { fc: '#000000' })); g.row(r).h = 18; r++; });
+      g.set(r, 'B', '※ 품목 열이 없는 주문 (아래 수량은 위 표에 들어가지 않았습니다)', mk()); g.row(r).h = 20; g.row(r).cells.B.spill = 1; r++;
+      m.extras.forEach(e => { g.set(r, 'B', `${e.company} · ${e.item} ${e.qty}${e.unit || ''}`, Object.assign(mk(), { fc: '#000000' })); g.row(r).h = 18; g.row(r).cells.B.spill = 1; r++; });
     }
     g.maxRow = r - 1;
     autoFit(g);
     return g;
   }
-  // 글자 길이에 맞춰 왼쪽 이름 칸(B~H열) 너비를 늘림 — 업체명·구분이 두 줄로 접히거나 잘리지 않게 (줄바꿈 글자·여러 줄 병합 머리글은 제외)
-  const FIT = ['B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  // ── 칸 맞춤: 모든 보이는 칸의 글자·숫자가 칸 안에 들어가게 (엑셀 · 공유용 이미지 · 인쇄가 같은 표를 씀) ──
+  //  · 업체 줄·소계·합계(데이터): 한 줄로 보이게 열을 넓힘 (엑셀에서 숫자가 #### 로 보이지 않게)
+  //  · 머리글(1~18행, 출고일 지정 머리글): 줄바꿈·글자 크기 줄이기로 먼저 맞추고, 그래도 모자라면 열을 넓힘
+  //  · 빼는 것: 사이 칸(아주 좁은 열), 맨 위 요약의 병합 안 된 글자(◇토마토 등 — 옆 칸으로 넘쳐 보이는 글자), 맨 아래 메모 줄
   function textUnits(t, sz){
     let em = 0;
     for(const ch of String(t)){
@@ -260,35 +262,77 @@
     const px = em * (sz || 10) * 96 / 72 * 1.1;   // 굵은 글씨·PC마다 다른 글꼴 여유
     return (px + 12) / 7;                          // 엑셀 열 너비 단위(대략 7px)
   }
+  const lineUnits = (t, sz) => Math.max(0, ...String(t).split('\n').map(l => textUnits(l, sz)));
+  // 줄바꿈 칸: 띄어쓰기에서 접어 몇 줄이 되는지 (한 낱말이 너비보다 길면 Infinity)
+  function wrapLines(t, sz, width){
+    let n = 0;
+    for(const para of String(t).split('\n')){
+      let cur = '';
+      for(const w of para.split(' ')){
+        if(textUnits(w, sz) > width) return Infinity;
+        const tt = cur ? cur + ' ' + w : w;
+        if(cur && textUnits(tt, sz) > width){ n++; cur = w; } else cur = tt;
+      }
+      n++;
+    }
+    return n;
+  }
   function autoFit(g){
-    const fitIdx = new Set(FIT.map(CI));
-    const spans = new Map();   // 대표 칸 → 병합 범위
-    const inside = new Set();
+    const base = window.PO_BASE.cols;
+    const spacer = j => (base[j - 1] || 9) < 2;
+    const spans = new Map(), inside = new Set();
     g.merges.forEach(m => {
       const [a, b] = m.split(':'); const p = s => { const x = /([A-Z]+)(\d+)/.exec(s); return [CI(x[1]), +x[2]]; };
       const [c1, r1] = p(a), [c2, r2] = p(b);
       spans.set(c1 + ',' + r1, { c1, c2, r1, r2 });
       for(let i = r1; i <= r2; i++) for(let j = c1; j <= c2; j++) if(!(i === r1 && j === c1)) inside.add(j + ',' + i);
     });
-    const needs = [];
+    const vis = j => g.cols[j - 1] && !g.cols[j - 1].hidden;
+    const w = j => vis(j) ? (g.cols[j - 1].w || 9) : 0;
+    const spanW = sp => { let s = 0; for(let j = sp.c1; j <= sp.c2; j++) s += w(j); return s; };
+    const spanH = sp => { let h = 0; for(let i = sp.r1; i <= sp.r2; i++){ const R = g.rows[i]; if(R && !R.hidden) h += R.h || 15; } return h; };
+    const grow = (sp, need) => {   // 모자란 만큼 범위 안의 마지막 보이는(사이 칸 아닌) 열에 더함
+      const have = spanW(sp); if(need <= have + 0.05) return;
+      for(let j = sp.c2; j >= sp.c1; j--) if(vis(j) && !spacer(j)){ g.cols[j - 1].w = Math.round((w(j) + need - have) * 100) / 100; return; }
+    };
+    const data = [], head = [];
     for(let r = 1; r < g.rows.length; r++){
       const R = g.rows[r]; if(!R || R.hidden) continue;
       Object.entries(R.cells).forEach(([col, c]) => {
         const n = CI(col);
-        if(!fitIdx.has(n) || typeof c.v !== 'string' || !c.v.trim() || /\n/.test(c.v) || inside.has(n + ',' + r)) return;
+        if(c.spill || inside.has(n + ',' + r) || !vis(n) || spacer(n)) return;
+        const txt = (c.v && typeof c.v === 'object') || typeof c.v === 'number' ? fmt(c.v, c.st && c.st.nf) : String(c.v == null ? '' : c.v);
+        if(!txt.trim()) return;
         const sp = spans.get(n + ',' + r) || { c1: n, c2: n, r1: r, r2: r };
-        if(r < 19 && !spans.has(n + ',' + r)) return;   // 머리글의 병합 안 된 글자(◇토마토 등)는 옆 칸으로 넘쳐 보이는 것이라 제외
-        if(sp.r2 > sp.r1 && sp.c2 > sp.c1) return;   // 여러 줄 × 여러 칸 머리글은 그대로
-        for(let j = sp.c1; j <= sp.c2; j++) if(!fitIdx.has(j)) return;
-        needs.push({ c1: sp.c1, c2: sp.c2, u: textUnits(c.v, c.st && c.st.sz) });
+        const isHead = r < 19 || R.head;
+        if(isHead && r < 5 && !spans.has(n + ',' + r)) return;   // 맨 위 2~4행의 넘쳐 보이는 글자(요일 · ◇토마토 …)
+        (isHead ? head : data).push({ c, txt, sp, r, col });
       });
     }
-    const w = j => g.cols[j - 1].w || 9;
-    // 한 칸짜리 먼저, 그다음 여러 칸 병합(모자란 만큼 마지막 칸에 더함)
-    needs.filter(x => x.c1 === x.c2).forEach(x => { if(x.u > w(x.c1)) g.cols[x.c1 - 1].w = Math.round(x.u * 100) / 100; });
-    needs.filter(x => x.c1 !== x.c2).forEach(x => {
-      let s = 0; for(let j = x.c1; j <= x.c2; j++) if(!g.cols[j - 1].hidden) s += w(j);
-      if(x.u > s) g.cols[x.c2 - 1].w = Math.round((w(x.c2) + x.u - s) * 100) / 100;
+    // 1) 데이터: 한 줄 기준으로 넓힘 (한 칸짜리 먼저, 그다음 병합 칸)
+    const byWidth = (x, y) => (x.sp.c2 - x.sp.c1) - (y.sp.c2 - y.sp.c1);
+    data.sort(byWidth).forEach(x => grow(x.sp, lineUnits(x.txt, (x.c.st && x.c.st.sz) || 11)));
+    // 2) 머리글: 줄바꿈(칸 높이 안에서) → 글자 줄이기 → 그래도 모자라면 넓힘
+    head.sort(byWidth).forEach(x => {
+      const st = x.c.st || {}, sz0 = st.sz || 11, H = spanH(x.sp);
+      const fits = sz => {
+        const width = spanW(x.sp);
+        if(st.w){ const n = wrapLines(x.txt, sz, width); return n !== Infinity && n * sz * 1.3 <= H + 1; }
+        return lineUnits(x.txt, sz) <= width + 0.05;
+      };
+      if(fits(sz0)) return;
+      const min = Math.max(9, Math.round(sz0 * 0.6));
+      let sz = sz0;
+      while(sz > min && !fits(sz)) sz = Math.round((sz - 0.5) * 10) / 10;
+      if(sz !== sz0) x.c.st = Object.assign({}, st, { sz });   // 같은 모양을 쓰는 다른 칸은 그대로
+      if(!fits(sz)){
+        // 낱말 하나가 안 들어가거나 줄 수가 높이를 넘으면: 가장 긴 줄(또는 가장 긴 낱말)이 들어가게 넓힘
+        const lines = Math.max(1, Math.floor((H + 1) / (sz * 1.3)));
+        const words = String(x.txt).split(/[\s\n]+/).filter(Boolean);
+        const longest = Math.max(...words.map(t => textUnits(t, sz)));
+        grow(x.sp, st.w && lines > 1 ? Math.max(longest, lineUnits(x.txt, sz) / lines) : lineUnits(x.txt, sz));
+        if(!fits(sz)) grow(x.sp, lineUnits(x.txt, sz));
+      }
     });
   }
 
