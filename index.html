@@ -3026,7 +3026,7 @@
 <!-- ───────────── 구매 · 자재 ───────────── -->
 <section class="mn-pane" id="mn-p-buy">
 <h2>기준정보</h2>
-<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
+<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. 거래처도 여기 두 곳뿐입니다: 원물선별 <b>출고 거래처</b>는 <b>매출처 정보</b>의 업체(원물선별 › 마스터관리 › 거래처에서는 수수료율 등만 고치고 [🔗 매출처와 맞추기]로 예전 거래처를 연결), 원물선별 <b>사입처</b>는 <b>구매처 정보</b>에서만 등록·수정합니다. 원물선별 <b>농가</b>는 원물선별에서 등록하고, 구매처 정보 목록에 '🌱 농가'로 함께 나와 이카운트 거래처코드를 넣을 수 있습니다(농가에서 바로 산 원물입고의 구매입력 엑셀 거래처코드).</p><p class="mn-lead"> <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
 
 <h3>품목(SKU) 관리</h3>
 <p>발주취합, 샘플 신청, 단가 확인이 같은 품목 목록을 씁니다. 품목마다 이름, 별칭, <b>박스입수</b>(박스당 팩 수), 단가그룹, 이카운트 품목코드 등을 둡니다. 박스입수가 있어야 박스 수가 자동으로 계산됩니다. 새 상품이 나오면 여기서 먼저 등록합니다.</p>
@@ -17083,7 +17083,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         { name:'sort_order', label:'정렬순서', type:'number', default:0 }
       ]},
     { key:'sorting_destinations', label:'거래처', fields:[
-        { name:'name', label:'이름', type:'text' },
+        { name:'name', label:'매출처', type:'company' },
         { name:'region', label:'지역', type:'text' },
         { name:'delivery_method', label:'배송방식', type:'text' },
         { name:'category', label:'구분', type:'text' },
@@ -17140,6 +17140,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const form = document.getElementById('sorting-master-add-form');
     form.innerHTML = '';
     if(cfg.key === '__raw') return;
+    if(cfg.key === 'sorting_destinations'){
+      form.innerHTML = '<span class="sub" style="margin:0;">출고 거래처는 <b>🗂 기준정보 › 매출처 정보</b>의 업체입니다. 출고 등록에서 매출처를 고르면 여기 정산용 거래처로 자동으로 들어옵니다. 여기서는 <b>지역 · 배송방식 · 구분 · 수수료율</b>을 고치고, 예전 거래처를 매출처에 연결합니다.</span>';
+      const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '🔗 매출처와 맞추기 (이름·코드)';
+      b.addEventListener('click', () => sortingDestLinkAll()); form.appendChild(b);
+      return;
+    }
     if(cfg.key === 'sorting_vendors'){
       form.innerHTML = '<span class="sub" style="margin:0;">사입처는 <b>기준정보 → 구매처 정보</b>에서 등록합니다. 구분에 <b>원물</b>을 체크한 구매처가 여기 사입처로 자동으로 들어오고, 이름·사용 여부도 같이 바뀝니다.</span>';
       const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '→ 구매처 정보로 이동';
@@ -17201,8 +17207,38 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     form.appendChild(addBtn);
   }
 
+  // 출고 거래처 ↔ 매출처 (이카운트 코드가 먼저, 없으면 이름이 한 곳만 같을 때)
+  function sortingDestCompany(row){
+    const cs = (typeof companies !== 'undefined' ? companies : []).filter(c => c && c.name);
+    const code = String(row.ecount_code || '').trim();
+    if(code){ const a = cs.filter(c => String(c.code || '').trim() === code); if(a.length) return { c: a.find(c => c.name === row.name) || a[0], by: 'code' }; }
+    const nm = pvNorm(row.name), b = cs.filter(c => pvNorm(c.name) === nm);
+    return b.length === 1 ? { c: b[0], by: 'name' } : null;
+  }
+  function sortingCompanyEntries(){ const seen = new Set(); return (typeof companies !== 'undefined' ? companies : []).filter(c => c && c.name).map(c => ({ c, label: c.name + (c.code ? ` [${c.code}]` : '') })).filter(e => !seen.has(e.label) && seen.add(e.label)); }
+  async function sortingDestLinkAll(){
+    let rows; try{ rows = await sbQuery('sorting_destinations', '?order=id.asc'); }catch(e){ toast('거래처를 불러오지 못했습니다: ' + e.message); return; }
+    const hasCol = rows.some(r => 'ecount_code' in r);
+    const todo = [], none = [];
+    rows.forEach(r => {
+      const m = sortingDestCompany(r); if(!m){ none.push(r.name); return; }
+      const b = {}; if(m.c.name !== r.name) b.name = m.c.name; if(hasCol && m.c.code && String(r.ecount_code || '') !== String(m.c.code)) b.ecount_code = String(m.c.code);
+      if(Object.keys(b).length) todo.push({ r, b });
+    });
+    if(!todo.length){ alert(`바꿀 거래처가 없습니다.${none.length ? `\n매출처를 찾지 못한 거래처 ${none.length}곳: ${none.slice(0, 10).join(', ')}${none.length > 10 ? ' …' : ''}\n→ [수정]을 눌러 매출처를 직접 골라 주세요.` : ''}`); return; }
+    if(!confirm(`${todo.length}곳을 매출처에 맞춥니다 (이름을 매출처 이름으로${hasCol ? ', 이카운트 코드 채움' : ''}). 예전 출고·정산 기록은 거래처 번호로 이어져 있어 그대로 연결됩니다.\n\n${todo.slice(0, 12).map(t => t.r.name + (t.b.name ? ' → ' + t.b.name : '') + (t.b.ecount_code ? ' [' + t.b.ecount_code + ']' : '')).join('\n')}${todo.length > 12 ? '\n…' : ''}${none.length ? `\n\n매출처를 못 찾은 곳 ${none.length}곳은 그대로 둡니다 — [수정]에서 직접 고르세요.` : ''}\n\n진행할까요?`)) return;
+    let ok = 0, bad = 0;
+    for(const t of todo){
+      try{ const res = await fetch(`${SB_URL}/rest/v1/sorting_destinations?id=eq.${t.r.id}`, { method: 'PATCH', headers: sbHeaders, body: JSON.stringify(t.b) }); if(!res.ok) throw new Error(res.status); ok++; }catch(e){ bad++; }
+    }
+    try{ await writeLog('sorting_master_edit', `거래처 매출처 맞춤: ${ok}곳`); }catch(e){}
+    toast(`${ok}곳을 매출처에 맞췄습니다${bad ? ` (실패 ${bad}곳)` : ''}`);
+    if(typeof shipmentLoadDestinations === 'function') shipmentLoadDestinations();
+    loadSortingMasterTable();
+  }
   function sortingFieldDisplay(f, row){
     const v = row[f.name];
+    if(f.type === 'company'){ const m = sortingDestCompany(row); return escapeHtml(v || '') + (m ? ` <span class="sub" style="margin:0;" title="매출처 정보와 연결">✓ 매출처${m.c.code ? ' [' + escapeHtml(String(m.c.code)) + ']' : ''}${m.c.name !== v ? ' · ' + escapeHtml(m.c.name) : ''}</span>` : ' <span class="sub" style="margin:0;color:var(--danger,#c0392b);">매출처 연결 안 됨</span>'); }
     if(f.type === 'raw') return escapeHtml(srOn() ? srNameOf(v) : '—');
     if(f.type === 'checkbox') return v ? '✅' : '—';
     return escapeHtml(v === null || v === undefined ? '' : String(v));
@@ -17254,7 +17290,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         delBtn.title = '기록(입고·선별·출고·물류기기)에 쓰인 적이 없을 때만 지울 수 있습니다';
         delBtn.addEventListener('click', ()=> sortingMasterDelete(cfg, row));
         actionTd.appendChild(delBtn);
-        if(cfg.key === 'sorting_vendors'){ editBtn.remove(); toggleBtn.remove(); delBtn.style.marginLeft = '0'; }   // 이름·사용 여부는 구매처 정보에서
+        if(cfg.key === 'sorting_vendors'){ editBtn.remove(); toggleBtn.remove(); delBtn.remove(); }   // 사입처는 구매처 정보에서만 (기준정보 정리 3단계)
 
         tbody.appendChild(tr);
       });
@@ -17297,6 +17333,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       let input;
       if(f.type === 'raw'){
         input = srRawSelect(row[f.name]);
+      } else if(f.type === 'company'){   // 매출처에서 고르기
+        input = document.createElement('input'); input.type = 'text'; input.style.width = '200px';
+        const m = sortingDestCompany(row), dl = 'sm-co-dl';
+        input.value = m ? m.c.name + (m.c.code ? ` [${m.c.code}]` : '') : (row.name || '');
+        input.placeholder = '매출처 검색 (이름·코드)'; input.setAttribute('list', dl);
+        if(!document.getElementById(dl)){ const d = document.createElement('datalist'); d.id = dl; document.body.appendChild(d); }
+        document.getElementById(dl).innerHTML = sortingCompanyEntries().map(e => `<option value="${escapeHtml(e.label)}"></option>`).join('');
       } else if(f.type === 'checkbox'){
         input = document.createElement('input');
         input.type = 'checkbox';
@@ -17320,8 +17363,17 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       cfg.fields.forEach(f=>{
         const el = inputs[f.name];
         if(f.type === 'raw'){ if(srOn()) data[f.name] = el.value || null; return; }
+        if(f.type === 'company'){
+          const t = el.value.trim(), es = sortingCompanyEntries();
+          const e = es.find(x => x.label === t) || (es.filter(x => pvNorm(x.c.name) === pvNorm(t)).length === 1 ? es.find(x => pvNorm(x.c.name) === pvNorm(t)) : null);
+          if(e){ data.name = e.c.name; if('ecount_code' in row && e.c.code) data.ecount_code = String(e.c.code); }
+          else if(t === row.name) data.name = row.name;   // 그대로 (아직 매출처 연결 안 됨)
+          else data.__bad = t;
+          return;
+        }
         data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
       });
+      if(data.__bad){ toast(`「${data.__bad}」은(는) 매출처 정보에 없습니다 — 목록에서 골라 주세요 (매출처는 🗂 기준정보 › 매출처 정보에서 등록)`); return; }
       try{
         const res = await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
           method:'PATCH', headers: sbHeaders, body: JSON.stringify(data)
@@ -22881,7 +22933,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const out = { rows: [], noItem: 0, noPriceCol: false, err: '' };
     try{
       const base = `?work_date=gte.${from}&work_date=lte.${to}&order=work_date.asc,id.asc&limit=1000`;
-      let cols = 'id,work_date,vendor_id,item_code,item_name,weight_kg,unit_price,variety', list = [];
+      let cols = 'id,work_date,vendor_id,farm_id,item_code,item_name,weight_kg,unit_price,variety', list = [];
       for(let off = 0; off <= 100000; off += 1000){
         let a;
         try{ a = await sbQuery('sorting_inbound', base + '&select=' + cols + '&offset=' + off); }
@@ -22893,15 +22945,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         if(!a || a.length < 1000) break;
       }
       if(!list.length) return out;
-      const [vendors, xl] = await Promise.all([sbQuery('sorting_vendors', '?select=id,name'), matRawXlMap()]);
-      const vName = Object.fromEntries((vendors || []).map(v => [String(v.id), v.name]));
+      const [vendors, farms, xl] = await Promise.all([sbQuery('sorting_vendors', '?select=id,name'), sbQuery('sorting_farms', '?select=id,name').catch(() => []), matRawXlMap()]);
+      const vName = Object.fromEntries((vendors || []).map(v => [String(v.id), v.name])), fName = Object.fromEntries((farms || []).map(v => [String(v.id), v.name]));
       list.forEach(r => {
         const code = String(r.item_code || '').trim(), name = String(r.item_name || '').trim();
         if(!code && !name){ out.noItem++; return; }
         const m = MAT.master.items.find(i => code && String(i.code || '').trim() === code) || MAT.master.items.find(i => name && i.name === name) || null;
         const it = m ? { code: m.code || code, name: m.name, vat: !!m.vat } : { code, name: name || code, vat: false };
-        out.rows.push({ rawId: r.id, svId: r.vendor_id, d: r.work_date, m: m ? m.id : '', it, t: 'in', q: Number(r.weight_kg) || 0, price: Number(r.unit_price) > 0 ? Number(r.unit_price) : 0,
-          vendor: vName[String(r.vendor_id)] || '', note: '원물입고' + (r.variety ? ' ' + r.variety : ''), ts: Number(r.id) || 0, xl: xl[String(r.id)] || 0 });
+        const viaFarm = !r.vendor_id && r.farm_id != null;   // 사입처 없이 농가에서 바로 산 원물
+        out.rows.push({ rawId: r.id, svId: r.vendor_id, fId: viaFarm ? r.farm_id : null, d: r.work_date, m: m ? m.id : '', it, t: 'in', q: Number(r.weight_kg) || 0, price: Number(r.unit_price) > 0 ? Number(r.unit_price) : 0,
+          vendor: vName[String(r.vendor_id)] || (viaFarm ? (fName[String(r.farm_id)] || '') : ''), note: '원물입고' + (r.variety ? ' ' + r.variety : ''), ts: Number(r.id) || 0, xl: xl[String(r.id)] || 0 });
       });
     }catch(e){ out.err = '원물선별 원물입고를 불러오지 못했습니다: ' + ((e && e.message) || e); }
     return out;
@@ -22911,7 +22964,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const sorted = rows.slice().sort((a, b) => a.d.localeCompare(b.d) || String(a.vendor || '').localeCompare(String(b.vendor || ''), 'ko') || (a.ts || 0) - (b.ts || 0));
     const seqOf = new Map(); let seq = 0; const noCode = new Set();
     const data = sorted.map(e => {
-      const it = e.it || matById(e.m) || { name: matLabel(e.m), code: '' }, vcode = pvCodeOf(e.vendor, e.svId);
+      const it = e.it || matById(e.m) || { name: matLabel(e.m), code: '' }, vcode = pvCodeOf(e.vendor, e.svId, e.fId);
       const key = e.d + '|' + (e.vendor || '');
       if(!seqOf.has(key)) seqOf.set(key, ++seq);
       if(!it.code) noCode.add(it.name);
@@ -23046,7 +23099,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
 
   // ══════════════════ 구매처 정보 (원물·부자재·소모품을 사 오는 거래처) ══════════════════
-  //  저장: kv 'purchase-vendors' { vendors: [{ id, name, code, kinds:[raw|pack|supply|etc], bizNo, rep, tel, manager, memo, off, svId }], ignored: [이름] }
+  //  저장: kv 'purchase-vendors' { vendors: [{ id, name, code, kinds:[raw|pack|supply|etc], bizNo, rep, tel, manager, memo, off, svId, farmId }], ignored: [이름] }
+  //  farmId = 원물선별 농가(sorting_farms) id — 농가는 원물선별에서 등록하고 이름·사용 여부도 거기를 따름. 여기서는 거래처코드·사업자번호 등만 (기준정보 정리 3단계)
   //  구분에 '원물'이 있는 구매처는 원물선별 사입처(sorting_vendors)와 이름·사용 여부를 맞춤 (svId = 사입처 id)
   const PV_KEY = 'purchase-vendors';
   const PV_KINDS = [['raw', '원물'], ['pack', '부자재'], ['supply', '소모품'], ['etc', '기타']];
@@ -23062,14 +23116,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }catch(e){ if(!PV.loaded){ PV.list = []; PV.ignored = []; } }
     return PV.list;
   }
-  function pvFind(name, svId){
+  function pvFind(name, svId, farmId){
     if(svId != null && svId !== ''){ const a = PV.list.find(v => v.svId != null && String(v.svId) === String(svId)); if(a) return a; }
+    if(farmId != null && farmId !== ''){ const a = PV.list.find(v => v.farmId != null && String(v.farmId) === String(farmId)); if(a) return a; }
     const n = String(name || '').trim(); if(!n) return null;
     return PV.list.find(v => v.name === n) || PV.list.find(v => pvNorm(v.name) === pvNorm(n)) || null;
   }
   // 거래처코드: 구매처 정보 → 없으면 예전 자재 마스터의 매입 거래처
-  function pvCodeOf(name, svId){
-    const v = pvFind(name, svId); if(v && v.code) return v.code;
+  function pvCodeOf(name, svId, farmId){
+    const v = pvFind(name, svId, farmId); if(v && v.code) return v.code;
     const o = (MAT.master.vendors || []).find(x => x.name === name); return (o && o.code) || '';
   }
   const pvNames = kinds => PV.list.filter(v => !v.off && (!kinds || (v.kinds || []).some(k => kinds.includes(k)))).map(v => v.name);
@@ -23091,6 +23146,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(same){ same.svId = x.id; if(!(same.kinds || []).includes('raw')) same.kinds = (same.kinds || []).concat('raw'); n++; return; }
       if(x.is_active === false || ign.has(x.name)) return;
       PV.draft.push({ id: matRid('pv'), name: x.name, code: '', kinds: ['raw'], svId: x.id, _new: '원물선별 사입처' }); n++;
+    });
+    // 원물선별 농가: 구매처 목록 아래에 연결 (이름·사용 여부는 농가를 따름)
+    let fm = []; try{ fm = (await sbQuery('sorting_farms', '?select=id,name,is_active&order=id.asc')) || []; }catch(e){ fm = []; }
+    fm.forEach(x => {
+      const ex = PV.draft.find(v => v.farmId != null && String(v.farmId) === String(x.id));
+      if(ex){ if(ex.name !== x.name){ ex.name = x.name; n++; } if(!!ex.off !== (x.is_active === false)){ ex.off = x.is_active === false; n++; } return; }
+      const same = PV.draft.find(v => v.farmId == null && v.svId == null && v.name === x.name);
+      if(same){ same.farmId = x.id; if(!(same.kinds || []).includes('raw')) same.kinds = (same.kinds || []).concat('raw'); n++; return; }
+      if(x.is_active === false) return;
+      PV.draft.push({ id: matRid('pv'), name: x.name, code: '', kinds: ['raw'], farmId: x.id, off: false, _new: '원물선별 농가' }); n++;
     });
     let mm = null; try{ const r = await window.storage.get('mat-master', true); mm = r ? JSON.parse(r.value) : null; }catch(e){ mm = null; }
     ((mm && mm.vendors) || []).forEach(v => {
@@ -23162,7 +23227,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       ${ed ? '' : '<div class="sub" style="margin:0 0 6px;">👁 구매처 정보는 발주자동화 전체 권한이 있어야 수정할 수 있습니다 (조회만 가능)</div>'}
       <div class="row" style="margin:0 0 6px; align-items:center;">
         <input type="search" id="pv-q" placeholder="구매처 검색 (이름·코드·사업자번호·담당자)" value="${escapeHtml(PV.q)}" style="min-width:220px; flex:0 1 300px;">
-        <select id="pv-kind"><option value="">구분 전체</option>${PV_KINDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}<option value="none">구분 없음</option></select>
+        <select id="pv-kind"><option value="">구분 전체</option>${PV_KINDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}<option value="none">구분 없음</option><option value="farm">원물선별 농가</option></select>
         <span id="pv-cnt" style="font-size:12.5px; font-weight:600; color:var(--muted);"></span>
         ${ed ? '<button type="button" class="btn-ghost small-btn" id="pv-bulk-btn">📋 엑셀로 일괄 등록</button>' : ''}
         <button type="button" class="btn-ghost small-btn" id="pv-xl">목록 엑셀 받기 (양식)</button>
@@ -23222,16 +23287,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const tb = matEl('pv-tb'); if(!tb) return;
     const ed = pvCanEdit(), q = PV.q.trim().toLowerCase();
     const list = PV.draft.map((v, i) => ({ v, i })).filter(({ v }) => (!q || [v.name, v.code, v.bizNo, v.manager, v.memo, v.rep].some(x => String(x || '').toLowerCase().includes(q)))
-      && (!PV.kind || (PV.kind === 'none' ? !(v.kinds || []).length : (v.kinds || []).includes(PV.kind))));
+      && (!PV.kind || (PV.kind === 'farm' ? v.farmId != null : PV.kind === 'none' ? !(v.kinds || []).length : (v.kinds || []).includes(PV.kind))));
     const dis = ed ? '' : ' disabled';
-    const inp = (v, f, w, ph) => `<input type="text" class="pv-f" data-f="${f}" value="${escapeHtml(v[f] || '')}" placeholder="${ph}" style="width:${w}px;"${dis}>`;
+    const inp = (v, f, w, ph) => `<input type="text" class="pv-f" data-f="${f}" value="${escapeHtml(v[f] || '')}" placeholder="${ph}" style="width:${w}px;"${dis || (v.farmId != null && f === 'name' ? ' readonly title="농가 이름은 🍅 원물선별 › 마스터관리 › 농가에서 바꿉니다"' : '')}>`;
     tb.innerHTML = list.map(({ v, i }) => {
-      const raw = (v.kinds || []).includes('raw');
-      const link = raw ? (v.off ? '<span class="sub" style="margin:0;">사입처 비활성</span>' : (v.svId != null ? '<span title="원물선별 사입처와 연결됨">🍅 사입처 연결</span>' : '<span class="sub" style="margin:0;">저장하면 사입처 추가</span>')) : '';
+      const raw = (v.kinds || []).includes('raw'), farm = v.farmId != null;
+      const link = farm ? `<span title="원물선별 농가 — 등록·이름·사용 여부는 원물선별 › 마스터관리 › 농가에서">🌱 농가${v.off ? ' (비활성)' : ''}</span>` : raw ? (v.off ? '<span class="sub" style="margin:0;">사입처 비활성</span>' : (v.svId != null ? '<span title="원물선별 사입처와 연결됨">🍅 사입처 연결</span>' : '<span class="sub" style="margin:0;">저장하면 사입처 추가</span>')) : '';
       return `<tr data-i="${i}"${v.off ? ' style="opacity:.55;"' : ''}><td>${inp(v, 'name', 160, '거래처명')}${v._new ? `<div class="sub" style="margin:0; font-size:11px;">${escapeHtml(v._new)}에서 가져옴</div>` : ''}</td><td>${inp(v, 'code', 110, '거래처코드')}</td>
         <td>${PV_KINDS.map(([k, l]) => `<label class="pv-k"><input type="checkbox" class="pv-kind" data-k="${k}"${(v.kinds || []).includes(k) ? ' checked' : ''}${dis}>${l}</label>`).join('')}</td>
         <td>${inp(v, 'bizNo', 110, '000-00-00000')}</td><td>${inp(v, 'rep', 80, '대표자')}</td><td>${inp(v, 'tel', 110, '연락처')}</td><td>${inp(v, 'manager', 80, '담당자')}</td><td>${inp(v, 'memo', 140, '메모')}</td>
-        <td><label><input type="checkbox" class="pv-off"${v.off ? ' checked' : ''}${dis}> 안 씀</label></td><td>${link}</td><td>${ed ? '<button type="button" class="btn-danger small-btn pv-del" title="삭제">✕</button>' : ''}</td></tr>`;
+        <td><label><input type="checkbox" class="pv-off"${v.off ? ' checked' : ''}${dis || (farm ? ' disabled title="농가 사용 여부는 원물선별에서"' : '')}> 안 씀</label></td><td>${link}</td><td>${ed && !farm ? '<button type="button" class="btn-danger small-btn pv-del" title="삭제">✕</button>' : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="11" class="sub">${PV.draft.length ? '조건에 맞는 구매처가 없습니다.' : '아직 등록된 구매처가 없습니다. [+ 구매처 추가] 또는 [📋 엑셀로 일괄 등록]으로 시작하세요.'}</td></tr>`;
     const on = PV.draft.filter(v => !v.off);
     matEl('pv-cnt').textContent = `${list.length === PV.draft.length ? '' : list.length + '곳 표시 · '}전체 ${PV.draft.length}곳 (원물 ${on.filter(v => (v.kinds || []).includes('raw')).length} · 부자재 ${on.filter(v => (v.kinds || []).includes('pack')).length} · 소모품 ${on.filter(v => (v.kinds || []).includes('supply')).length})`;
@@ -23272,6 +23337,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const a = await res.json().catch(() => []); if(Array.isArray(a) && !a.length) throw new Error('권한 없음');
     };
     for(const v of rows){
+      if(v.farmId != null) continue;   // 농가는 사입처가 아님
       const want = (v.kinds || []).includes('raw') && !v.off;
       let x = v.svId != null ? byId.get(String(v.svId)) : null;
       if(v.svId != null && !x) v.svId = null;   // 사입처가 지워짐
@@ -23294,7 +23360,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(PV.busy) return;
     const rows = PV.draft.map(v => {
       const o = { id: v.id || matRid('pv') }; PV_FIELDS.forEach(f => { o[f] = String(v[f] || '').trim(); });
-      o.kinds = PV_KINDS.map(k => k[0]).filter(k => (v.kinds || []).includes(k)); o.off = !!v.off; o.svId = v.svId != null ? v.svId : null; return o;
+      o.kinds = PV_KINDS.map(k => k[0]).filter(k => (v.kinds || []).includes(k)); o.off = !!v.off; o.svId = v.svId != null ? v.svId : null; o.farmId = v.farmId != null ? v.farmId : null; return o;
     });
     const seen = new Set();
     for(const r of rows){
