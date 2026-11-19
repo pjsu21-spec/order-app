@@ -6,7 +6,7 @@
   if (window.__ddIcons) return; window.__ddIcons = true;
   var me = document.currentScript && document.currentScript.src;
   var BASE = me ? me.replace(/[^\/]*$/, '') : 'assets/';
-  var PNG = { '📋': 'order', '🍅': 'sorting', '🧾': 'ecount', '💰': 'cost', '🧪': 'sample', '🖼': 'detail', '📁': 'files', '📂': 'files', '🛠': 'admin', '📖': 'manual', '🍱': 'lunch' };
+  var PNG = { '🗃': 'mat', '🧺': 'buy', '🗂': 'master', '📋': 'order', '🍅': 'sorting', '🧾': 'ecount', '💰': 'cost', '🧪': 'sample', '🖼': 'detail', '📁': 'files', '📂': 'files', '🛠': 'admin', '📖': 'manual', '🍱': 'lunch' };
   var RS = '#D7192B';   // 선 색 (빨강)
   var DEFS = "<defs>" +
     "<linearGradient id='r' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#F4525A'/><stop offset='1' stop-color='#C8102E'/></linearGradient>" +

@@ -1102,7 +1102,7 @@
   .dropzone.dragover{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .dropzone .fname{ font-weight:700; color:var(--ink); margin-top:4px; }
 </style>
-<script src="assets/icons.js"></script>
+<script src="assets/icons.js?v=20261119"></script>
 </head>
 <body style="margin:0;">
 <div id="load-fail-banner" role="alert">⚠ 서버에서 일부 데이터를 불러오지 못했습니다. 기존 데이터 보호를 위해 해당 항목은 저장되지 않습니다 — 인터넷 연결을 확인하고 새로고침해 주세요.<button type="button" onclick="location.reload()">새로고침</button></div>
@@ -1166,8 +1166,8 @@
     <button class="main-nav-btn active" data-panel="panel-order-group">📋 발주취합</button>
     <button class="main-nav-btn" id="main-nav-btn-sample" data-panel="panel-sample" style="display:none;">🧪 샘플 신청</button>
     <button class="main-nav-btn" id="main-nav-btn-sorting" data-panel="panel-sorting">🍅 원물선별</button>
-    <button class="main-nav-btn" id="main-nav-btn-mat" data-panel="panel-mat">📦 자재·재고</button>
-    <button class="main-nav-btn" id="main-nav-btn-buy" data-panel="panel-buy">📥 구매관리</button>
+    <button class="main-nav-btn" id="main-nav-btn-mat" data-panel="panel-mat">🗃 자재·재고</button>
+    <button class="main-nav-btn" id="main-nav-btn-buy" data-panel="panel-buy">🧺 구매관리</button>
     <button class="main-nav-btn" id="main-nav-btn-master" data-panel="panel-master">🗂 기준정보</button>
     <button class="main-nav-btn" id="main-nav-btn-ecount" data-panel="panel-ecount">🧾 이카운트</button>
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
@@ -1675,7 +1675,7 @@
       <div style="margin-top:10px;">
         <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">
           날짜를 고르고 <b>[출고분 불러오기]</b>를 누르면 그날 출고 팩 수와 자재별 차감 수량을 계산해 보여 줍니다. 확인한 뒤 <b>[자재 차감 반영]</b>을 누르면 자재 재고에서 빠집니다. 출고 팩 수에는 발주, 출고일을 따로 지정한 주문(쿠팡 등), 생산본부 샘플이 들어가고(현황판 합계와 같은 기준), <b>정전개를 등록한 제품만</b> 차감됩니다.<br>
-          같은 날짜를 다시 반영하면 기록이 덮어써져서 <b>중복 차감되지 않습니다</b>(발주가 바뀌었으면 다시 불러와서 반영). [반영 되돌리기]는 그 날짜의 자동 차감을 모두 취소하고 재고를 복구합니다. 자재·정전개 등록은 <b>📦 자재·재고</b> 탭, 구매 입고는 <b>📥 구매관리</b> 탭에서 합니다.</div></details>
+          같은 날짜를 다시 반영하면 기록이 덮어써져서 <b>중복 차감되지 않습니다</b>(발주가 바뀌었으면 다시 불러와서 반영). [반영 되돌리기]는 그 날짜의 자동 차감을 모두 취소하고 재고를 복구합니다. 자재·정전개 등록은 <b>🗃 자재·재고</b> 탭, 구매 입고는 <b>🧺 구매관리</b> 탭에서 합니다.</div></details>
         <div class="row" style="margin:6px 0;"><button type="button" class="btn-ghost small-btn" id="mat-d-reload">↻ 새로고침</button><span class="sub" id="mat-d-msg" style="margin:0;"></span></div>
         <div id="mat-d-wrap"></div>
       </div>
@@ -1938,7 +1938,7 @@
         <label style="font-size:13px;">KPP팔레트 :</label>
         <input type="number" id="inbound-kpp" style="width:70px;" value="0">
       </div>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">원물입고 한 건에 <b>사입처(필수)</b>와 <b>농가(선택)</b>를 함께 기록합니다. 농가를 고르지 않으면 사입처만 기록·표시됩니다. <b>원물</b>은 이카운트 자재 마스터(원자재)에 등록된 <b>품목코드·품목명</b> 중에서 고르며, 고른 원물의 입고 kg은 자재 재고에 자동으로 더해집니다. <b>단가(원/kg)</b>를 넣으면 📥 구매관리 탭의 <b>구매입력 엑셀</b>에 사입처를 거래처로 같이 들어갑니다(구매관리에서 또 입고하지 마세요). 선별전재고와 선별산출(선입선출)은 사입처 기준으로 계산됩니다.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px;">원물입고 한 건에 <b>사입처(필수)</b>와 <b>농가(선택)</b>를 함께 기록합니다. 농가를 고르지 않으면 사입처만 기록·표시됩니다. <b>원물</b>은 이카운트 자재 마스터(원자재)에 등록된 <b>품목코드·품목명</b> 중에서 고르며, 고른 원물의 입고 kg은 자재 재고에 자동으로 더해집니다. <b>단가(원/kg)</b>를 넣으면 🧺 구매관리 탭의 <b>구매입력 엑셀</b>에 사입처를 거래처로 같이 들어갑니다(구매관리에서 또 입고하지 마세요). 선별전재고와 선별산출(선입선출)은 사입처 기준으로 계산됩니다.</div></details>
       <div class="row" style="flex-wrap:wrap;">
         <input type="text" id="inbound-note" placeholder="메모" style="flex:0 1 380px; min-width:150px;">
         <button class="btn-primary small-btn form-submit-btn" id="inbound-add-btn">+ 원물입고 등록</button>
@@ -2292,7 +2292,7 @@
   </div>
   <div class="card">
     <div class="row" style="margin-top:0; align-items:center; flex-wrap:wrap;">
-      <span class="sub" style="margin:0;">자재 재고·사용·정전개는 <b>📦 자재·재고</b> 탭(생산), 구매 입고와 <b>구매입력 엑셀</b>은 <b>📥 구매관리</b> 탭으로 옮겼습니다.</span>
+      <span class="sub" style="margin:0;">자재 재고·사용·정전개는 <b>🗃 자재·재고</b> 탭(생산), 구매 입고와 <b>구매입력 엑셀</b>은 <b>🧺 구매관리</b> 탭으로 옮겼습니다.</span>
       <button class="btn-ghost small-btn" id="ecount-goto-mat-btn">→ 자재·재고</button>
       <button class="btn-ghost small-btn" id="ecount-goto-buy-btn">→ 구매관리</button>
     </div>
@@ -2304,7 +2304,7 @@
   <div id="panel-ecount" class="main-tab-panel">
 
   <h1 style="margin-bottom:4px;">이카운트</h1>
-  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">이카운트에 올릴 엑셀(매출입력 · 자가사용)과 품목·거래처 코드표를 받고, 이카운트 설정(창고 · 거래유형 · 담당자)을 한 곳에서 정합니다. 구매입력 엑셀은 <b>📥 구매관리</b> 탭에서 받고 설정은 여기서 합니다. 품목·거래처·단가는 <b>🗂 기준정보</b> 탭에서 고칩니다.</div></details>
+  <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-bottom:12px;">이카운트에 올릴 엑셀(매출입력 · 자가사용)과 품목·거래처 코드표를 받고, 이카운트 설정(창고 · 거래유형 · 담당자)을 한 곳에서 정합니다. 구매입력 엑셀은 <b>🧺 구매관리</b> 탭에서 받고 설정은 여기서 합니다. 품목·거래처·단가는 <b>🗂 기준정보</b> 탭에서 고칩니다.</div></details>
 
   <div class="card" id="ecount-settings-card">
     <h2 style="margin-top:0;">이카운트 설정</h2>
@@ -2323,7 +2323,7 @@
       <input type="text" id="ecount-department" placeholder="부서명 (개인 저장)" style="width:110px;">
       <span style="font-size:11px;color:var(--muted);">※ 내 브라우저에만 저장</span>
     </div>
-    <h3 style="margin:14px 0 2px;">구매입력 엑셀 <span class="sub" style="font-weight:400;margin:0;">(📥 구매관리 → 입고 내역 · 구매입력 엑셀)</span></h3>
+    <h3 style="margin:14px 0 2px;">구매입력 엑셀 <span class="sub" style="font-weight:400;margin:0;">(🧺 구매관리 → 입고 내역 · 구매입력 엑셀)</span></h3>
     <div class="row" style="margin-top:6px;">
       <label style="font-size:13px;">입고창고 :</label>
       <input type="text" id="ec-buy-wh" placeholder="예: 00019" style="width:100px;">
@@ -2374,7 +2374,7 @@
   <!-- ───────────── 패널: 자재·재고 관리 (생산/물류 권한) — 구매관리 탭과 같은 자재 화면을 씀 ───────────── -->
   <div id="panel-mat" class="main-tab-panel">
   <h1 style="margin-bottom:4px;">자재 · 재고 관리</h1>
-  <div class="sub" style="margin:0 0 10px;">생산에서 쓴 원물·부자재·소모품을 <b>사용 · 로스</b>로 빼고, 재고 실사와 정전개(제품별 자재 소요량)를 관리합니다. 구매해서 들어온 자재는 <b>📥 구매관리</b> 탭에서 입고합니다.</div>
+  <div class="sub" style="margin:0 0 10px;">생산에서 쓴 원물·부자재·소모품을 <b>사용 · 로스</b>로 빼고, 재고 실사와 정전개(제품별 자재 소요량)를 관리합니다. 구매해서 들어온 자재는 <b>🧺 구매관리</b> 탭에서 입고합니다.</div>
   <div id="mat-host">
   <div class="card" id="mat-card" data-mode="mat">
     <div>
@@ -2384,7 +2384,7 @@
           <b>수불 내역 · 실사</b>: 하나씩 사용·로스·재고조정을 넣고 모든 입고·사용 기록을 봅니다. 실제 재고와 다르면 <b>재고 현황</b>에서 실사 수량을 넣고 [맞추기].<br>
           <b>정전개</b>: 제품(SKU) 1팩을 만들 때 쓰는 자재와 소요량을 등록하고, 계획 수량으로 필요한 자재와 부족분을 계산합니다. <b>역전개</b>: 자재가 쓰이는 제품과 지금 재고로 만들 수 있는 팩 수.<br>
           <b>출고 차감</b>은 생산/물류 탭의 「자재 출고 차감」 카드에서 합니다(정전개를 등록한 제품만).<br>
-          구매해서 들어온 자재의 <b>입고</b>는 <b>📥 구매관리</b> 탭에서, 원물(방울토마토)은 <b>🍅 원물선별 → 원물입고</b>에서 합니다(입고 kg이 같은 코드의 자재 재고에 자동으로 더해짐).</div></details>
+          구매해서 들어온 자재의 <b>입고</b>는 <b>🧺 구매관리</b> 탭에서, 원물(방울토마토)은 <b>🍅 원물선별 → 원물입고</b>에서 합니다(입고 kg이 같은 코드의 자재 재고에 자동으로 더해짐).</div></details>
         <details class="help mat-help-master"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">
           <b>원물 · 부자재 · 소모품 · 반제품</b>: 제품(SKU)을 뺀 모든 품목을 여기서 등록합니다(관리자). 원물선별 · 자재·재고 · 구매관리 · 단가 확인이 이 목록을 함께 씁니다. 원물은 <b>원물선별</b> 칸을 체크하면 원물선별 맨 위 원물 선택에 나옵니다. <b>이카운트 품목코드</b>가 공통 열쇠입니다.<br>
           <b>품목 구성 (정전개)</b>: 제품 1팩에 드는 원물·부자재 소요량입니다. 이 값으로 <b>원가(단가 확인) · 생산일보 필요kg · 주간 생산계획 원물량 · 자재 출고 차감</b>을 모두 계산합니다(원물 kg/박스 = 원물 소요량 × 박스입수).</div></details>
@@ -3034,7 +3034,7 @@
   <li><span class="mn-b">반영 되돌리기</span>는 그 날짜의 자동 차감을 모두 취소하고 재고를 되돌립니다.</li>
   <li><b>정전개(제품별 자재 소요량)를 등록한 제품만</b> 차감됩니다. 정전개가 없는 제품은 "정전개 없음 (차감 안 됨)"으로 빨갛게 표시되니, 새 제품이 보이면 구매·자재 담당자에게 정전개 등록을 요청하세요.</li>
 </ul>
-<div class="mn-warn"><b>주의</b>자재 마스터와 정전개가 먼저 등록되어 있어야 이 기능을 쓸 수 있습니다. 등록은 📦 자재·재고 탭에서 합니다. → 기준정보 · 자재 · 구매 탭</div>
+<div class="mn-warn"><b>주의</b>자재 마스터와 정전개가 먼저 등록되어 있어야 이 기능을 쓸 수 있습니다. 등록은 🗃 자재·재고 탭에서 합니다. → 기준정보 · 자재 · 구매 탭</div>
 </section>
 
 <!-- ───────────── 구매 · 자재 ───────────── -->
@@ -3114,7 +3114,7 @@
 </ul>
 
 <h2>자재 · 재고 관리 <span class="mn-who">생산/물류 권한</span></h2>
-<p class="mn-lead">상단 <b>📦 자재·재고</b> 탭입니다. 생산에서 쓴 원물·부자재와 소모품(장갑·테이프·비닐 등)을 재고에서 빼고, 재고 실사와 정전개(제품 1팩당 자재 소요량)를 관리합니다. 구매해서 들어온 자재의 입고는 <b>구매관리</b> 탭에서 합니다.</p>
+<p class="mn-lead">상단 <b>🗃 자재·재고</b> 탭입니다. 생산에서 쓴 원물·부자재와 소모품(장갑·테이프·비닐 등)을 재고에서 빼고, 재고 실사와 정전개(제품 1팩당 자재 소요량)를 관리합니다. 구매해서 들어온 자재의 입고는 <b>구매관리</b> 탭에서 합니다.</p>
 
 <div class="mn-tw"><table>
 <tr><th>탭</th><th>하는 일</th></tr>
@@ -3139,7 +3139,7 @@
 </ul>
 
 <h2>구매관리 <span class="mn-who">발주자동화 권한</span></h2>
-<p class="mn-lead">상단 <b>📥 구매관리</b> 탭입니다. 구매해서 들어온 부자재·소모품 등을 입고하고, 이카운트 <b>구매입력 엑셀</b>을 내려받습니다. 자재 목록과 재고는 자재·재고 탭과 같습니다.</p>
+<p class="mn-lead">상단 <b>🧺 구매관리</b> 탭입니다. 구매해서 들어온 부자재·소모품 등을 입고하고, 이카운트 <b>구매입력 엑셀</b>을 내려받습니다. 자재 목록과 재고는 자재·재고 탭과 같습니다.</p>
 <div class="mn-tw"><table>
 <tr><th>탭</th><th>하는 일</th></tr>
 <tr><td>구매 입고 입력</td><td>여러 자재를 한 번에 입고합니다. 단가는 자재 마스터의 단가가 기본으로 채워지고, 거래처를 비우면 자재의 기본 거래처가 들어갑니다(거래처는 구매처 정보 목록에서 고름).</td></tr>
@@ -3370,10 +3370,10 @@
 <p>인감은 서버에 한 번 등록하면 송장/명세서 권한자 모두가 씁니다. 명세서 설정 → 인감 도장 이미지에 등록돼 있는지 보세요(배경이 투명한 PNG 권장, 등록은 송장/명세서 전체 권한자). 송장/명세서 권한이 없는 계정에는 인감이 내려가지 않습니다.</p></details>
 
 <details><summary>자재 출고 차감에서 "정전개 없음"이 떠요</summary>
-<p>그 제품에 자재 소요량이 등록되지 않았다는 뜻입니다. 📦 자재·재고 → 정전개에서 제품을 펼쳐 자재와 1팩당 소요량을 등록하면 다음 반영부터 차감됩니다.</p></details>
+<p>그 제품에 자재 소요량이 등록되지 않았다는 뜻입니다. 🗃 자재·재고 → 정전개에서 제품을 펼쳐 자재와 1팩당 소요량을 등록하면 다음 반영부터 차감됩니다.</p></details>
 
 <details><summary>자재 재고가 마이너스예요</summary>
-<p>입고 기록이 빠졌거나 실제 재고가 전산과 다르다는 뜻입니다. 재고 현황에서 <b>실사 수량</b>을 넣고 <span class="mn-b">맞추기</span>를 누르면 차이만큼 조정 기록이 남고 재고가 맞춰집니다. 파손·손망실은 📦 자재·재고 → 사용 · 로스 입력에서 <b>로스</b>로 기록하세요.</p></details>
+<p>입고 기록이 빠졌거나 실제 재고가 전산과 다르다는 뜻입니다. 재고 현황에서 <b>실사 수량</b>을 넣고 <span class="mn-b">맞추기</span>를 누르면 차이만큼 조정 기록이 남고 재고가 맞춰집니다. 파손·손망실은 🗃 자재·재고 → 사용 · 로스 입력에서 <b>로스</b>로 기록하세요.</p></details>
 
 <details><summary>출고·정산에서 거래처가 목록에 없어요</summary>
 <p>기준정보 → 매출처 정보에 그 거래처가 등록되어 있어야 검색됩니다. 거래처명이나 코드 일부를 입력해 보고, 없으면 거래처를 먼저 등록하세요. 목록에서 고르지 않고 임의로 입력하면 등록되지 않습니다.</p></details>
@@ -4391,9 +4391,9 @@ const HOME_TILES = [
   { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
-  { key: 'mat', icon: '📦', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
-  { key: 'buy', icon: '📥', name: '구매관리', desc: '구매 입고 · 입고 내역 · 구매입력 엑셀', nav: '#main-nav-btn-buy' },
-  { key: 'master', icon: '🗂', name: '기준정보', desc: '품목 · 매출처 · 구매처 · 단가', nav: '#main-nav-btn-master' },
+  { key: 'mat', icon: '🗃', img: 'assets/ic-mat.png', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
+  { key: 'buy', icon: '🧺', img: 'assets/ic-buy.png', name: '구매관리', desc: '구매 입고 · 입고 내역 · 구매입력 엑셀', nav: '#main-nav-btn-buy' },
+  { key: 'master', icon: '🗂', img: 'assets/ic-master.png', name: '기준정보', desc: '품목 · 매출처 · 구매처 · 단가', nav: '#main-nav-btn-master' },
   { key: 'ecount', icon: '🧾', img: 'assets/ic-ecount.png', name: '이카운트', desc: '매출 · 자가사용 엑셀 · 코드표 · 설정', nav: '#main-nav-btn-ecount' },
   { key: 'cost', icon: '💰', img: 'assets/ic-cost.png', name: '단가 확인', desc: '원가 · 공급가 · 이익률', nav: '#main-nav-btn-cost' },
   { key: 'detail', icon: '🖼', img: 'assets/ic-detail.png', name: '상세페이지', desc: '마켓 상세페이지 만들기', href: 'detail.html', self: true, show: (u, admin) => admin || u.access_files === true },
@@ -22463,7 +22463,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const t = MAT.tab, needMaster = (t === 'bom' || t === 'master' || t === 'master2');
     if(MAT.mode !== 'buy'){ const x = matEl('mat-x-sec'); if(x) x.style.display = 'none'; }   // 구매입력 엑셀은 구매관리 탭에서만
     if(t === 'stock' && (MAT.mode === 'buy' || window.sectionLevel('plan') !== 'full')){   // 재고 실사는 자재·재고 탭(생산/물류)에서만
-      body.querySelectorAll('.mat-cnt, .mat-cnt-btn').forEach(e => { e.disabled = true; e.title = '재고 실사는 📦 자재·재고 탭에서 (생산/물류 권한)'; });
+      body.querySelectorAll('.mat-cnt, .mat-cnt-btn').forEach(e => { e.disabled = true; e.title = '재고 실사는 🗃 자재·재고 탭에서 (생산/물류 권한)'; });
     }
     if(t === 'stock') return;
     if(needMaster ? matCanMaster() : matCanLed()) return;
