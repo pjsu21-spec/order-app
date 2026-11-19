@@ -1112,7 +1112,7 @@
 
 <div id="app" style="display:none;">
   <div id="test-banner" style="display:none;">
-    <span>🧪 <b>테스트 모드</b> — 여기서 저장한 내용은 <b>운영에 반영되지 않습니다</b>. 발주 데이터는 운영 데이터를 날짜별로 그대로 보여 주고, 고친 날짜만 테스트 사본이 됩니다. 원물선별·샘플 신청 등 표 자료는 저장되지 않습니다.</span>
+    <span>🧪 <b>테스트 모드</b> — 여기서 저장한 내용은 <b>운영에 반영되지 않습니다</b>. 발주 데이터는 운영 데이터를 날짜별로 그대로 보여 주고, 고친 날짜만 테스트 사본이 됩니다. 원물선별·자재·구매도 테스트 사본에 저장되고, 샘플 신청은 저장되지 않습니다.</span>
     <button type="button" id="test-reset-date">이 날짜 운영 데이터로 되돌리기</button>
     <button type="button" id="test-reset-all">테스트 데이터 모두 지우기</button>
     <button type="button" id="test-exit">운영 화면으로 나가기</button>
@@ -2660,7 +2660,8 @@
 <ul>
   <li><b>발주 데이터는 운영 것을 날짜별로 그대로</b> 보여 줍니다. 테스트에서 고친 날짜만 테스트 사본이 되고, 고치지 않은 날짜는 운영에서 바뀌는 대로 계속 따라옵니다.</li>
   <li>생산/물류(재고·배차·적재·생산 계획), 자재·재고, 발주 입력·현황판 등에서 저장한 내용은 <b>테스트 사본에만</b> 저장되고 운영에는 반영되지 않습니다.</li>
-  <li><b>원물선별 · 샘플 신청</b> 같은 표 자료와 <b>사용자 관리</b>는 테스트 모드에서 저장되지 않습니다(저장하면 안내가 뜸). 활동 기록도 남지 않습니다.</li>
+  <li><b>원물선별</b>(원물입고·선별산출·출고·물류기기·마스터관리)도 테스트 사본에 저장됩니다. 목록·재고에는 운영 기록과 테스트 기록이 합쳐져 보이고, 테스트에서 지우거나 고친 운영 기록은 테스트 화면에서만 바뀝니다. <b>자재·재고 · 구매관리</b>(구매처 정보 포함)도 마찬가지입니다.</li>
+  <li><b>샘플 신청</b>과 <b>사용자 관리</b>는 테스트 모드에서 저장되지 않습니다(저장하면 안내가 뜸). 활동 기록도 남지 않습니다.</li>
   <li><span class="mn-b">이 날짜 운영 데이터로 되돌리기</span>: 지금 고른 날짜의 테스트 사본을 지우고 운영 데이터로 다시 시작합니다. <span class="mn-b">테스트 데이터 모두 지우기</span>: 모든 테스트 사본을 지웁니다(다른 직원이 테스트한 내용도 함께 지워짐).</li>
   <li>테스트 사본은 직원끼리 함께 씁니다. 같은 날짜를 여럿이 테스트하면 서로의 테스트 내용이 보입니다.</li>
   <li>끝나면 띠의 <span class="mn-b">운영 화면으로 나가기</span>. 테스트 모드는 그 창(탭)에서만 유지되고, 새 창으로 열면 운영 화면입니다.</li>
@@ -3472,15 +3473,142 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
     } catch (e) { /* 확인 실패(통신 오류 등)면 그대로 둠 */ }
     finally { expChecking = false; }
   }
+  // ── 테스트 모드: 원물선별 표(sorting_*) 사본 ──
+  //  읽기 = 운영 서버의 결과 + 테스트에서 넣은 줄(조건에 맞는 것) · 테스트 수정/삭제를 반영
+  //  쓰기 = 공용 저장값 'test:tbl:<표>' = { rows:[테스트에서 넣은 줄(id 음수)], upd:{ id: 바뀐 칸 }, del:[운영 줄 id] } 에만 저장 (운영 표는 그대로)
+  //  화면이 쓰는 조건만 흉내 냄: eq · neq · gt/gte/lt/lte · in · is(null/true/false) · not. · or=( … ) · order · limit · offset · select
+  const TT_CASCADE = { sorting_output: [['sorting_output_items', 'output_id']] };   // 선별산출을 지우면 그 항목도
+  let ttQueue = Promise.resolve();
+  const ttKey = t => 'tbl:' + t;
+  async function ttLoad(t){
+    const r = await window.storage.get(ttKey(t), true);
+    let o = null; try { o = r && r.value ? JSON.parse(r.value) : null; } catch (e) {}
+    o = o && typeof o === 'object' ? o : {};
+    return { rows: Array.isArray(o.rows) ? o.rows : [], upd: o.upd && typeof o.upd === 'object' ? o.upd : {}, del: Array.isArray(o.del) ? o.del.map(String) : [] };
+  }
+  const ttSave = (t, o) => window.storage.set(ttKey(t), JSON.stringify(o), true);
+  function ttCond(str){   // 'col.op.val' (or 안) 또는 'op.val' (col 은 따로)
+    let not = false, m = /^not\.(.*)$/.exec(str); if (m) { not = true; str = m[1]; }
+    const i = str.indexOf('.'); const op = str.slice(0, i); let val = str.slice(i + 1);
+    if (op === 'in') val = val.replace(/^\(|\)$/g, '').split(',').map(x => x.replace(/^"|"$/g, ''));
+    else val = val.replace(/^"|"$/g, '');
+    return { op, val, not };
+  }
+  function ttParse(qs){
+    const p = { f: [], order: [], limit: null, offset: 0, select: null };
+    (qs || '').split('&').forEach(part => {
+      if (!part) return;
+      const i = part.indexOf('='); if (i < 0) return;
+      const k = decodeURIComponent(part.slice(0, i)), v = decodeURIComponent(part.slice(i + 1));
+      if (k === 'select') p.select = v;
+      else if (k === 'order') p.order = v.split(',').map(x => { const a = x.split('.'); return { c: a[0], desc: a[1] === 'desc' }; });
+      else if (k === 'limit') p.limit = +v;
+      else if (k === 'offset') p.offset = +v;
+      else if (k === 'or') p.f.push({ or: v.replace(/^\(|\)$/g, '').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x => { const j = x.indexOf('.'); return Object.assign({ c: x.slice(0, j) }, ttCond(x.slice(j + 1))); }) });
+      else p.f.push(Object.assign({ c: k }, ttCond(v)));
+    });
+    return p;
+  }
+  function ttOne(row, f){
+    const v = row[f.c]; let ok;
+    const num = x => x !== '' && x != null && isFinite(Number(x));
+    const cmp = (a, b) => (num(a) && num(b)) ? Number(a) - Number(b) : String(a).localeCompare(String(b));
+    switch (f.op) {
+      case 'eq': ok = v != null && String(v) === f.val; break;
+      case 'neq': ok = v != null && String(v) !== f.val; break;
+      case 'gt': ok = v != null && cmp(v, f.val) > 0; break;
+      case 'gte': ok = v != null && cmp(v, f.val) >= 0; break;
+      case 'lt': ok = v != null && cmp(v, f.val) < 0; break;
+      case 'lte': ok = v != null && cmp(v, f.val) <= 0; break;
+      case 'in': ok = v != null && f.val.includes(String(v)); break;
+      case 'is': ok = f.val === 'null' ? v == null : String(v) === f.val; break;
+      default: ok = true;
+    }
+    return f.not ? !ok : ok;
+  }
+  const ttMatch = (row, fs, onlyCols) => fs.every(f => f.or ? (onlyCols && !f.or.some(x => onlyCols.has(x.c)) ? true : f.or.some(x => ttOne(row, x))) : (onlyCols && !onlyCols.has(f.c) ? true : ttOne(row, f)));
+  const ttJson = (o, st) => new Response(o == null ? null : JSON.stringify(o), { status: st || 200, headers: { 'Content-Type': 'application/json' } });
+  async function ttLive(url){   // 운영 서버 조회 (로그인 토큰 포함)
+    const tok = appToken();
+    const res = await origFetch(url, withToken({ headers: sbHeaders }, tok));
+    if (!res.ok) throw Object.assign(new Error('조회 실패 ' + res.status), { res });
+    return res.json();
+  }
+  async function testTableFetch(url, init, method){
+    const path = url.slice(REST.length), qi = path.indexOf('?');
+    const t = qi < 0 ? path : path.slice(0, qi), qs = qi < 0 ? '' : path.slice(qi + 1), p = ttParse(qs);
+    try {
+      if (method === 'GET' || method === 'HEAD') {
+        let live;
+        try { live = await ttLive(url); } catch (e) { if (e.res) return e.res; throw e; }
+        const o = await ttLoad(t), del = new Set(o.del);
+        // 지운 부모(선별산출)의 항목은 숨김
+        const parentDel = new Set();
+        for (const [pt, kids] of Object.entries(TT_CASCADE)) if (kids.some(k => k[0] === t)) { const po = await ttLoad(pt); po.del.forEach(id => parentDel.add(id)); }
+        const kidCol = (Object.values(TT_CASCADE).flat().find(k => k[0] === t) || [])[1];
+        let rows = (Array.isArray(live) ? live : []).filter(r => !del.has(String(r.id)) && !(kidCol && parentDel.has(String(r[kidCol]))));
+        rows = rows.map(r => { const u = o.upd[String(r.id)]; if (!u) return r; const m = Object.assign({}, r, u); return ttMatch(m, p.f, new Set(Object.keys(u))) ? m : null; }).filter(Boolean);
+        if (!p.offset) rows = rows.concat(o.rows.filter(r => ttMatch(r, p.f)).map(r => Object.assign({}, r)));
+        if (p.order.length) rows.sort((a, b) => { for (const k of p.order) { const x = a[k.c], y = b[k.c]; if (x == y) continue; if (x == null) return 1; if (y == null) return -1; const d = (isFinite(x) && isFinite(y) && x !== '' && y !== '') ? x - y : String(x).localeCompare(String(y)); if (d) return k.desc ? -d : d; } return 0; });
+        if (p.limit != null && rows.length > p.limit) rows = rows.slice(0, p.limit);
+        if (p.select && p.select !== '*') { const cs = p.select.split(',').map(x => x.trim()); rows = rows.map(r => { const q = {}; cs.forEach(c => { if (c in r) q[c] = r[c]; }); return q; }); }
+        return ttJson(rows);
+      }
+      // 쓰기 권한: 원물선별 전체 권한 (사입처는 구매처 정보에서 맞추므로 발주자동화 전체 권한도)
+      const canW = window.accessLevel('sorting') === 'full' || (t === 'sorting_vendors' && window.accessLevel('order') === 'full');
+      if (!canW) { window.showToast('🔒 이 자료를 저장할 권한이 없습니다 — 저장되지 않았습니다', { ms: 2600 }); return ttJson({ message: '권한이 없습니다' }, 403); }
+      const job = ttQueue.then(async () => {
+        const o = await ttLoad(t), wantRep = /return=representation/.test(JSON.stringify((init && init.headers) || {}));
+        if (method === 'POST') {
+          let body = []; try { body = JSON.parse(init.body); } catch (e) {}
+          const now = new Date().toISOString();
+          const made = (Array.isArray(body) ? body : [body]).map((b, k) => Object.assign({ id: -(Date.now() % 1e10) * 10 - k - Math.floor(Math.random() * 7), created_at: now }, b, { __test: 1 }));
+          o.rows.push(...made); await ttSave(t, o);
+          return ttJson(made, 201);
+        }
+        const tRows = o.rows.filter(r => ttMatch(r, p.f));
+        let liveIds = [];
+        if (p.f.length) { const lq = REST + t + '?' + qs.split('&').filter(x => !/^(select|order|limit|offset)=/.test(x)).concat('select=id').join('&'); try { liveIds = (await ttLive(lq)).map(r => String(r.id)).filter(id => !o.del.includes(id)); } catch (e) { liveIds = []; } }
+        if (method === 'PATCH') {
+          let body = {}; try { body = JSON.parse(init.body) || {}; } catch (e) {}
+          tRows.forEach(r => Object.assign(r, body));
+          liveIds.forEach(id => { o.upd[id] = Object.assign(o.upd[id] || {}, body); });
+          await ttSave(t, o);
+          const out = tRows.map(r => Object.assign({}, r)).concat(liveIds.map(id => Object.assign({ id: Number(id) }, o.upd[id])));
+          return wantRep ? ttJson(out) : new Response(null, { status: 204 });
+        }
+        if (method === 'DELETE') {
+          const gone = new Set(tRows.map(r => String(r.id)));
+          o.rows = o.rows.filter(r => !gone.has(String(r.id)));
+          liveIds.forEach(id => { if (!o.del.includes(id)) o.del.push(id); delete o.upd[id]; });
+          await ttSave(t, o);
+          for (const [kt, col] of (TT_CASCADE[t] || [])) {   // 테스트에서 넣은 항목도 같이 지움 (운영 항목은 읽을 때 숨김)
+            if (!gone.size) continue;
+            const ko = await ttLoad(kt); const n0 = ko.rows.length;
+            ko.rows = ko.rows.filter(r => !gone.has(String(r[col]))); if (ko.rows.length !== n0) await ttSave(kt, ko);
+          }
+          return new Response(null, { status: 204 });
+        }
+        return ttJson({ message: '테스트 모드에서 지원하지 않는 요청' }, 400);
+      });
+      ttQueue = job.catch(() => {});
+      return await job;
+    } catch (e) {
+      console.error('테스트 표 처리 실패', e);
+      return ttJson({ message: '테스트 모드 처리 실패: ' + ((e && e.message) || e) }, 500);
+    }
+  }
+
   window.fetch = function(input, init){
     let tok = '', url = '';
     try {
       url = typeof input === 'string' ? input : (input && input.url) || '';
       const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      if (window.TEST_MODE && typeof input === 'string' && url.startsWith(REST) && /^sorting_/.test(url.slice(REST.length))) return testTableFetch(url, init, method);   // 원물선별 표는 테스트 사본으로
       const blocked = writeBlocked(url, init, method);
       if (blocked === 'testlog') return Promise.resolve(new Response('[]', { status: 201, headers: { 'Content-Type': 'application/json' } }));
       if (blocked === 'test') {
-        window.showToast('🧪 테스트 모드 — 원물선별·샘플 신청 같은 표 자료와 사용자 관리는 저장하지 않습니다', { ms: 3200 });
+        window.showToast('🧪 테스트 모드 — 샘플 신청·사용자 관리 등은 저장하지 않습니다', { ms: 3200 });
         return Promise.resolve(new Response(JSON.stringify({ message: '테스트 모드에서는 저장하지 않습니다' }), { status: 403, headers: { 'Content-Type': 'application/json', 'X-Readonly-Guard': '1' } }));
       }
       if (blocked) {
@@ -3738,6 +3866,14 @@ if (window.TEST_MODE) (function(){
     let n = 0;
     for (const r of await res.json()) {
       if (!dk || r.key.includes(dk)) { await delRow(r.key); n++; continue; }
+      if (r.key.startsWith(TP + 'tbl:')) {   // 원물선별 표 사본: 그 날짜(작업일·출고일 등)에 테스트로 넣은 줄만 지움
+        const t = jp(r.value);
+        if (t && Array.isArray(t.rows)) {
+          const keep = t.rows.filter(x => !Object.values(x).some(v => typeof v === 'string' && v.slice(0, 10) === dk && !/T/.test(v)));
+          if (keep.length !== t.rows.length) { t.rows = keep; await put(r.key, JSON.stringify(t)); n++; }
+        }
+        continue;
+      }
       const t = jp(r.value);
       if (isDates(t) && Object.prototype.hasOwnProperty.call(t.__testDates, dk)) {
         delete t.__testDates[dk];
