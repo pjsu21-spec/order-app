@@ -321,7 +321,7 @@
         return lineUnits(x.txt, sz) <= width + 0.05;
       };
       if(fits(sz0)) return;
-      const min = Math.max(9, Math.round(sz0 * 0.6));
+      const min = Math.max(9, Math.round(sz0 * 0.7));
       let sz = sz0;
       while(sz > min && !fits(sz)) sz = Math.round((sz - 0.5) * 10) / 10;
       if(sz !== sz0) x.c.st = Object.assign({}, st, { sz });   // 같은 모양을 쓰는 다른 칸은 그대로
@@ -387,7 +387,8 @@
       let cs = '';
       for(let n = 1; n <= LASTC; n++){
         const col = CL(n), c = R.cells[col]; if(!c) continue;
-        const s = xfOf(c.st), ref = col + r;
+        const multi = typeof c.v === 'string' && c.v.includes('\n') && c.st && !c.st.w;   // 여러 줄 글자(재고사용 등)는 엑셀 '줄 바꿈'을 켜야 줄바꿈이 네모로 깨지지 않음
+        const s = xfOf(multi ? Object.assign({}, c.st, { w: 1, v: c.st.v || 'center' }) : c.st), ref = col + r;
         let v = c.v;
         if(v && typeof v === 'object' && v.n != null) cs += `<c r="${ref}" s="${s}"><v>${v.n}</v></c>`;
         else if(typeof v === 'number') cs += `<c r="${ref}" s="${s}"${v === 0 ? '' : ''}><v>${v}</v></c>`;
