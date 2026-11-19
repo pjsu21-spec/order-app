@@ -8611,7 +8611,7 @@ function mnShow(id, keepScroll) {
         const td = pc[ix];
         if(mt.type === 'disp') return lock(td, WHY.disp);
         if(mt.type === 'qc') return lock(td, '품질 확인용 샘플(생산본부) 줄입니다 — 생산 / 물류 → 배차·적재에서 고쳐 주세요');
-        if(mt.type === 'psmp') return lock(td, '택배 발송 샘플은 3PL 출고로 나갑니다 — 납품담당·적재방식은 3PL 줄에서 적어 주세요');
+        if(mt.type === 'psmp') return lock(td, '택배 발송(샘플·개인구매)은 3PL 출고로 나갑니다 — 납품담당·적재방식은 3PL 줄에서 적어 주세요');
         if(mt.type === 'smp'){
           if(!canPlan) return lock(td, WHY.roPlan);
           const u = spSampleUnits(dk).find(x => x.name === mt.key);
@@ -8993,7 +8993,9 @@ function mnShow(id, keepScroll) {
 
     // 3PL 업체는 한 줄로 묶어서 오프라인 발주 업체 줄들 바로 아래(합계 위)에 보여줌. 이름을 누르면 업체별로 펼침. 합계·재고 계산에는 그대로 포함됨.
     const isThreePl = name => { const m = companies.find(c => c.name === name); return !!(m && m.isThirdParty); };
-    const tplCompanies = orderCompanies.filter(isThreePl);
+    // 개인구매(택배)는 3PL 합산 줄에 숨기지 않고 바로 아래에 따로 보여 줌 (합계에는 그대로 포함)
+    const tplCompanies = orderCompanies.filter(c => isThreePl(c) && c !== PP_PARCEL_COMPANY);
+    const ppParcelShown = orderCompanies.includes(PP_PARCEL_COMPANY);
     orderCompanies.filter(c => !isThreePl(c)).forEach(company => {
       tbody.appendChild(makeCompanyRow(company, false));
       if(splitOpen === company) tbody.appendChild(makeSplitEditorRow(company));
@@ -9028,6 +9030,12 @@ function mnShow(id, keepScroll) {
       sumTr.appendChild(document.createElement('td'));
       tbody.appendChild(sumTr);
       if(agg3plOpen) tplCompanies.forEach(company => tbody.appendChild(makeCompanyRow(company, true)));
+    }
+    if(ppParcelShown){
+      const tr = makeCompanyRow(PP_PARCEL_COMPANY, false);
+      const nm = tr.querySelector('.name-cell');
+      if(nm){ nm.textContent = '📦 개인구매(택배)'; const who = [...new Set((currentLineItems() || []).filter(l => l && l.company === PP_PARCEL_COMPANY).map(l => ppBuyerOfLine(l) || l.recipientName || ''))].filter(Boolean); if(who.length){ const sm = document.createElement('div'); sm.style.cssText = 'font-size:10.5px;color:var(--muted);font-weight:400;'; sm.textContent = who.join(', ') + ' · 3PL 택배로 출고'; nm.appendChild(sm); } }
+      tbody.appendChild(tr);
     }
     // 샘플 신청 (생산본부 생산): 한 줄로 접어 두고 눌러서 신청자별로 펼침. 합계·생산 필요수량에 포함
     if(sampleRows.length){
@@ -18858,7 +18866,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   async function draftBuild(dk){
     let samples = [];
     if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' }); }catch(e){ /* 샘플 없이 */ } }
-    return buildProductionOrderEntries({ dict, companies, orders: ordersPhys(currentDateKey), stockPacks: {}, colMap: skuColumnMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+    return buildProductionOrderEntries({ dict, companies, orders: ordersPhys(currentDateKey), stockPacks: {}, colMap: skuColumnMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {}, dateKey: dk });
   }
   async function draftRenderStatus(force){
     const el = document.getElementById('po-draft-status'), clr = document.getElementById('po-draft-clear-btn');
@@ -19066,15 +19074,43 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   })();
 
   // 앱의 발주 데이터 → 서식 열(skuColumnMap) 기준 박스 수량. 박스입수가 있으면 박스로 환산, 없으면 팩 수 그대로.
-  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch, samples, splits }){
+  function buildProductionOrderEntries({ dict, companies, orders, stockPacks, colMap, dispatch, samples, splits, dateKey }){
     const unitOf = d => Number(d.boxUnitCount) || 0;
     const toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
     const label = d => (d.shortName || d.name || '').trim();
     const unmapped = new Set(), noUnit = new Set();
     const entries = [], extras = [];
     const dispatchCompanies = new Set((dispatch || []).map(e => e.company)); // 출고일별로 따로 입력한 업체는 서식의 쿠팡 블록에 넣으므로 일반 업체 행에서는 뺌
+    // 개인구매(택배): 3PL 개별 주문 줄을 구매자별로 묶어 '개인구매 / 구매자' 택배 줄로 (택배 샘플과 같은 방식 — 3PL 안에, 3PL 합계에는 그대로 포함)
+    //  줄 합계가 발주 수량과 다르면(줄이 빠졌거나 따로 고친 경우) 예전처럼 3PL 줄에 합쳐 둠
+    function ppParcelEntries(name){
+      if(!dateKey) return false;
+      const lines = ((thirdPartyLineItems || {})[dateKey] || []).filter(l => l && l.company === name && l.itemId && Number(l.qty) > 0);
+      if(!lines.length) return false;
+      const r2 = v => Math.round(v * 100) / 100, tot = {}, o = orders[name] || {};
+      lines.forEach(l => { tot[l.itemId] = r2((tot[l.itemId] || 0) + Number(l.qty)); });
+      const ids = new Set([...Object.keys(tot), ...Object.keys(o).filter(k => k !== '_meta' && Number(o[k]) > 0)]);
+      if([...ids].some(id => Math.abs((Number(o[id]) || 0) - (tot[id] || 0)) > 0.01)) return false;
+      const byBuyer = new Map();
+      lines.forEach(l => { const b = ppBuyerOfLine(l) || l.recipientName || '(구매자 미상)'; if(!byBuyer.has(b)) byBuyer.set(b, []); byBuyer.get(b).push(l); });
+      byBuyer.forEach((ls, b) => {
+        const e = { name: '개인구매 ' + b + ' (택배)', dispName: b, registered: true, category: '3PL', region: '개인구매', market: '', corp: '', isThirdParty: true, parcel: true, pp: true, colQty: {}, src: {}, srcKey: 'PP:' + b, planKey: '#ppp:' + b };
+        ls.forEach(l => {
+          const d = dict.find(x => x.id === l.itemId); if(!d) return;
+          const q = Number(l.qty) || 0;
+          e.src[d.id] = r2((e.src[d.id] || 0) + q);
+          const col = colMap[d.id];
+          if(!col){ unmapped.add(label(d)); extras.push({ company: e.name, item: label(d), qty: r2(toBox(d, q)), unit: unitOf(d) > 0 ? '박스' : '팩' }); return; }
+          if(unitOf(d) <= 0) noUnit.add(label(d));
+          e.colQty[col] = (e.colQty[col] || 0) + toBox(d, q);
+        });
+        if(Object.keys(e.colQty).length || Object.keys(e.src).length) entries.push(e);
+      });
+      return true;
+    }
     Object.keys(orders || {}).forEach(name => {
       if(name === '_meta' || dispatchCompanies.has(name)) return;
+      if(name === PP_PARCEL_COMPANY && ppParcelEntries(name)) return;   // 개인구매(택배): 구매자별 택배 줄로 (아래)
       // 주문에 적힌 이름이 등록된 이름과 괄호 위치만 다르거나 상장청과명으로 적혀 있어도 같은 거래처로 봄 ("상장(생명)" = "(상장)생명")
       const nk = poNameKey(name);
       const metaFound = companies.find(c => c.name === name) || companies.find(c => poNameKey(c.name) === nk) || companies.find(c => c.listedMarketName && poNameKey(c.listedMarketName) === nk);
@@ -19228,7 +19264,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let sampleRows = [], warn = [];
     if(typeof window.getSampleRequestsForDate === 'function'){ try{ sampleRows = await window.getSampleRequestsForDate(dateKey, { productionMethod: '생산본부 생산' }); }catch(e){ warn.push('샘플 신청을 불러오지 못해 샘플이 빠졌습니다'); } }
     ensureCarryOver(dateKey);
-    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dateKey), stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dateKey), stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {}, dateKey });
     addQcSampleEntry(built, skuColumnMap);
     try{ const snap = await draftLoad(dateKey); if(snap) draftCompare(built, snap); }catch(e){ /* 초안 비교는 부가 기능 */ }
     const plan = spPlanForFill(dateKey, sampleRows);
@@ -19764,7 +19800,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(ac.failed.length) add('err', '서식에 열을 추가하지 못한 품목', `${ac.failed.map(nm).join(', ')} — 서식에 열을 직접 추가하거나 다른 열을 지정해주세요`);
     }
     ensureCarryOver(dateKey);   // 점검은 저장하지 않고 화면의 값만 채워서 본다
-    const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: colMapU, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: colMapU, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {}, dateKey });
     if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ add('info', '발주 데이터 없음', '이 날짜에는 서식에 채울 주문이 없습니다'); return issues; }
     built.qcItems = addQcSampleEntry(built, colMapU);
     if(built.unmapped.length) add('err', '서식에 열이 없는 품목', `${built.unmapped.join(', ')} — 서식에 열을 추가해 다시 등록하고 열을 지정하거나, 서식의 다른 열을 지정해주세요. 안 하면 파일 맨 아래 표에만 적힙니다`);
@@ -19873,7 +19909,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       }
       if(ensureCarryOver(dateKey) && canSaveStock()) savePreviousStock();
       const stockPacks = (previousStock[dateKey] && previousStock[dateKey].product) || {};
-      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
+      const built = buildProductionOrderEntries({ dict, companies, orders: ordersToday, stockPacks, colMap: skuColumnMap, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {}, dateKey });
       if(built.entries.length === 0 && built.dispatchRows.length === 0 && built.unmapped.length === 0){ toast('발주 데이터가 없습니다'); return; }
       built.qcItems = addQcSampleEntry(built, skuColumnMap);   // 생산하는 품목의 품질 확인용 샘플
       let draftInfo = null;   // 초안 공유본과 비교해 바뀐 업체 표시
@@ -21677,7 +21713,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let cm = colMap, remap = L => L;
     if(need.length){ const ac = poAddItemColumns(ctx, need, colMap); cm = ac.colMap; remap = ac.remap; }
     ensureCarryOver(dateKey);   // 현황판은 읽기만 하므로 저장하지 않고 계산값을 채워서 표시
-    const built = buildProductionOrderEntries({ dict, companies, orders, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: cm, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {} });
+    const built = buildProductionOrderEntries({ dict, companies, orders, stockPacks: (previousStock[dateKey] && previousStock[dateKey].product) || {}, colMap: cm, dispatch: dispatchByDate[dateKey] || [], samples: sampleRows, splits: splitByDate[dateKey] || {}, dateKey });
     addQcSampleEntry(built, cm);
     let draftInfo = null;   // 초안 공유본과 비교해 수정·추가된 업체를 노란색으로 표시 (발주취합 파일과 같은 기준)
     { const snap = await draftLoad(dateKey); if(snap) draftInfo = Object.assign(draftCompare(built, snap), { at: snap.at, by: snap.by }); }
@@ -23193,7 +23229,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let samples = [];
     if(typeof window.getSampleRequestsForDate === 'function'){ try{ samples = (await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' })) || []; }catch(e){ warns.push('샘플 신청을 불러오지 못해 샘플 출고가 빠졌습니다'); } }
     const colMap = {}; dict.forEach(d => { colMap[d.id] = d.id; });
-    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dk), stockPacks: {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {} });
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dk), stockPacks: {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {}, dateKey: dk });
     const qc = addQcSampleEntry(built, colMap);
     const boxes = {};
     built.entries.forEach(e => Object.entries(e.colQty).forEach(([c, q]) => { boxes[c] = (boxes[c] || 0) + q; }));
