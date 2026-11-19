@@ -4960,11 +4960,13 @@ function mnShow(id, keepScroll) {
         }
       }
     }catch(e){ ordersByDate = {}; }
+    kvMergeBase.orders = kvSnapMap(ordersByDate);
 
     try{
       const li = await window.storage.get('thirdparty-lineitems', true);
       thirdPartyLineItems = li ? JSON.parse(li.value) : {};
     }catch(e){ thirdPartyLineItems = {}; }
+    kvMergeBase.lines = kvSnapList(thirdPartyLineItems);
 
     try{
       const rm = await window.storage.get('raw-materials', true);
@@ -5182,14 +5184,77 @@ function mnShow(id, keepScroll) {
   async function saveDict(){
     try{ await window.storage.set('dictionary', JSON.stringify(dict), true); }catch(e){ console.error(e); }
   }
-  async function saveOrdersByDate(){
-    try{ await window.storage.set('orders-by-date', JSON.stringify(ordersByDate), true); }catch(e){ console.error(e); }
+  // ── 여러 직원이 동시에 고칠 때 덮어쓰기 방지 ──
+  //  발주(orders-by-date)·3PL 개별 주문(thirdparty-lineitems)은 한 덩어리로 저장되므로, 화면을 연 뒤 다른 직원이 넣은 자료를
+  //  예전 화면에서 저장하면 지워졌음 (예: 개인구매(택배)가 3PL 송장엔 있는데 집계표·발주서에서 빠짐).
+  //  → 저장 직전에 서버 최신본을 읽고, 내가 마지막으로 받은/저장한 상태(기준)에서 '내가 바꾼 칸'만 내 값으로, 나머지는 서버 값으로 합쳐 저장
+  //    발주: 날짜 › 업체 단위 / 3PL 줄: 날짜 › 줄(id) 단위
+  const kvMergeBase = { orders: {}, lines: {} };
+  function kvSnapMap(o){ const s = {}; Object.keys(o || {}).forEach(d => { const x = o[d]; if(!x || typeof x !== 'object') return; s[d] = {}; Object.keys(x).forEach(c => { s[d][c] = JSON.stringify(x[c]); }); }); return s; }
+  const kvLineKey = (l, i) => (l && l.id) ? 'id:' + l.id : 'i:' + i;
+  function kvSnapList(o){ const s = {}; Object.keys(o || {}).forEach(d => { const a = o[d]; if(!Array.isArray(a)) return; s[d] = {}; a.forEach((l, i) => { s[d][kvLineKey(l, i)] = JSON.stringify(l); }); }); return s; }
+  // 발주 합치기 (ordersByDate를 그 자리에서 고침 — 다른 코드가 쥐고 있는 날짜 객체가 그대로 이어지도록). 서버에서 바뀐 게 들어오면 true
+  function kvMergeOrders(srv){
+    const base = kvMergeBase.orders || {}; let got = false;
+    new Set([...Object.keys(ordersByDate), ...Object.keys(srv || {}), ...Object.keys(base)]).forEach(d => {
+      const S = (srv && srv[d] && typeof srv[d] === 'object') ? srv[d] : {}, B = base[d] || {};
+      const hadLocal = !!ordersByDate[d];
+      const L = ordersByDate[d] || {};
+      new Set([...Object.keys(L), ...Object.keys(S), ...Object.keys(B)]).forEach(c => {
+        const lj = c in L ? JSON.stringify(L[c]) : undefined, bj = B[c], sj = c in S ? JSON.stringify(S[c]) : undefined;
+        if(lj !== bj || lj === sj) return;   // 내가 바꾼 칸(또는 같음) → 내 값 유지
+        got = true;
+        if(sj === undefined) delete L[c]; else L[c] = JSON.parse(sj);
+      });
+      if(!hadLocal && Object.keys(L).length) ordersByDate[d] = L;
+    });
+    return got;
+  }
+  function kvMergeLines(srv){
+    const base = kvMergeBase.lines || {}; let got = false;
+    new Set([...Object.keys(thirdPartyLineItems), ...Object.keys(srv || {}), ...Object.keys(base)]).forEach(d => {
+      const S = Array.isArray(srv && srv[d]) ? srv[d] : [], B = base[d] || {};
+      const L = Array.isArray(thirdPartyLineItems[d]) ? thirdPartyLineItems[d] : [];
+      const lMap = new Map(L.map((l, i) => [kvLineKey(l, i), l])), sKeys = new Set(S.map((l, i) => kvLineKey(l, i)));
+      const out = [];
+      // 서버 순서를 따르되, 내가 고친 줄은 내 값 / 내가 지운 줄은 뺌
+      S.forEach((sl, i) => {
+        const k = kvLineKey(sl, i), sj = JSON.stringify(sl), bj = B[k];
+        if(lMap.has(k)){ const lj = JSON.stringify(lMap.get(k)); out.push(lj !== bj ? lMap.get(k) : sl); if(lj === bj && lj !== sj) got = true; }
+        else if(bj === undefined){ out.push(sl); got = true; }   // 다른 직원이 새로 넣은 줄
+        else if(bj !== sj){ out.push(sl); got = true; }          // 내가 지웠지만 그 사이 다른 직원이 고친 줄 → 살림
+        // else: 내가 지운 줄
+      });
+      // 내가 새로 넣은 줄 (서버에 없음, 기준에도 없음)
+      L.forEach((l, i) => { const k = kvLineKey(l, i); if(!sKeys.has(k) && B[k] === undefined) out.push(l); });
+      if(!out.length && !(d in thirdPartyLineItems)) return;
+      const same = out.length === L.length && out.every((x, i) => x === L[i]);
+      if(!same){ if(Array.isArray(thirdPartyLineItems[d])){ L.splice(0, L.length, ...out); } else thirdPartyLineItems[d] = out; }
+    });
+    return got;
+  }
+  let kvOrdersChain = Promise.resolve(), kvLinesChain = Promise.resolve();
+  const kvReadJson = async k => { const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; };
+  function saveOrdersByDate(){
+    const run = async () => {
+      let got = false;
+      try{ const srv = await kvReadJson('orders-by-date'); if(srv && typeof srv === 'object') got = kvMergeOrders(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      try{ await window.storage.set('orders-by-date', JSON.stringify(ordersByDate), true); kvMergeBase.orders = kvSnapMap(ordersByDate); }catch(e){ console.error(e); }
+      if(got){ try{ renderAggTable(); renderThirdPartyAggTable(); }catch(e){ /* 화면 갱신은 부가 */ } }
+    };
+    return (kvOrdersChain = kvOrdersChain.then(run, run));
   }
   async function saveCompanies(){
     try{ await window.storage.set('companies', JSON.stringify(companies), true); }catch(e){ console.error(e); }
   }
-  async function saveLineItems(){
-    try{ await window.storage.set('thirdparty-lineitems', JSON.stringify(thirdPartyLineItems), true); }catch(e){ console.error(e); }
+  function saveLineItems(){
+    const run = async () => {
+      let got = false;
+      try{ const srv = await kvReadJson('thirdparty-lineitems'); if(srv && typeof srv === 'object') got = kvMergeLines(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      try{ await window.storage.set('thirdparty-lineitems', JSON.stringify(thirdPartyLineItems), true); kvMergeBase.lines = kvSnapList(thirdPartyLineItems); }catch(e){ console.error(e); }
+      if(got){ try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){ /* 화면 갱신은 부가 */ } }
+    };
+    return (kvLinesChain = kvLinesChain.then(run, run));
   }
   async function saveRawMaterials(){
     try{ await window.storage.set('raw-materials', JSON.stringify(rawMaterials), true); }catch(e){ console.error(e); }
@@ -9631,7 +9696,7 @@ function mnShow(id, keepScroll) {
   async function uploadSyncLatest(){
     const read = async k => { const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; };
     const [tp, fp] = await Promise.all([read('thirdparty-lineitems'), read('upload-fingerprints')]);
-    if(tp && typeof tp === 'object') thirdPartyLineItems = tp;
+    if(tp && typeof tp === 'object'){ thirdPartyLineItems = tp; kvMergeBase.lines = kvSnapList(tp); }
     if(fp && typeof fp === 'object') uploadFingerprints = fp;
     udSyncAt = Date.now();
     try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){ /* 화면 갱신은 부가 */ }
@@ -22123,7 +22188,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const [d, c, o, ps, dd, scm, sgm, dsp, tpl, cats, spl, oex] = await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'delivery-date', 'sku-column-map', 'sku-group-map', 'dispatch-by-date', 'production-template-b64', 'company-categories', 'split-by-date', 'order-extras-by-date'].map(get));
     if(d) dict = jp(d, dict);
     if(c) companies = jp(c, companies).map(x => typeof x === 'string' ? { name: x, isThirdParty: false } : x);
-    ordersByDate = jp(o, {}); previousStock = jp(ps, {});
+    ordersByDate = jp(o, {}); kvMergeBase.orders = kvSnapMap(ordersByDate); previousStock = jp(ps, {});
     skuColumnMap = jp(scm, {}); skuGroupMap = jp(sgm, {}); dispatchByDate = jp(dsp, {}); splitByDate = jp(spl, {}); orderExtras = jp(oex, {});
     if(tpl) productionTemplateB64 = tpl;
     if(cats) companyCategories = jp(cats, companyCategories);
