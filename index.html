@@ -1260,7 +1260,7 @@
       <div class="row">
         <button class="btn-primary" id="parse-btn">입력하기</button>
         <button class="btn-ghost" id="clear-input-btn">지우기</button>
-        <label class="btn-ghost" id="img-order-btn" style="cursor:pointer;" title="쿠팡처럼 표로 온 발주 캡처 이미지를 읽어 품목·수량·납품일을 채웁니다 (이미지를 위 입력칸에 붙여넣기·끌어다 놓아도 됩니다)">🖼 발주표 이미지 읽기<input type="file" id="img-order-file" accept="image/*" style="display:none;"></label>
+        <label class="btn-ghost" id="img-order-btn" style="cursor:pointer;" title="쿠팡처럼 표로 온 발주 캡처 이미지를 읽어 품목·TTL 수량·납품일을 채웁니다. 여러 장을 한 번에 고르거나, 카톡에서 이미지를 복사해 이 화면에서 Ctrl+V로 붙여넣어도 됩니다 (같은 날짜는 한 발주로 합침)">🖼 발주표 이미지 읽기<input type="file" id="img-order-file" accept="image/*" multiple style="display:none;"></label>
       </div>
       <div class="sub" id="img-order-msg" style="margin:4px 0 0;display:none;"></div>
     </div>
@@ -2862,10 +2862,14 @@
     </ul></li>
   <li>맞으면 <span class="mn-b">✓ 집계표에 확정 추가</span>를 누릅니다. 이때부터 집계에 반영됩니다.</li>
 </ol>
-<p><b>쿠팡처럼 표 이미지로 온 발주</b>는 <span class="mn-b">🖼 발주표 이미지 읽기</span>로 이미지를 고르거나, 입력칸에 이미지를 <b>붙여넣기(Ctrl+V)·끌어다 놓기</b> 하면 글자 인식으로 읽어 인식 결과 확인 카드를 채웁니다.</p>
+<p><b>쿠팡처럼 표 이미지로 온 발주</b>는 글자 인식으로 읽어 인식 결과 확인 카드를 채웁니다. 넣는 방법은 세 가지입니다.</p>
 <ul>
+  <li><b>PC</b>: 카톡 대화방에서 이미지를 <b>복사</b>(우클릭 → 복사)한 뒤 발주 입력 화면에서 <b>Ctrl+V</b>. 여러 장이면 한 장씩 복사·붙여넣기를 이어서 하면 됩니다.</li>
+  <li><b>휴대폰(앱으로 설치)</b>: 카톡에서 이미지를 길게 눌러(여러 장 선택 가능) <b>공유 → 다름달음 오더</b>. 앱이 열리면서 바로 읽습니다. 공유 목록에 안 보이면 앱을 지웠다가 다시 설치하세요.</li>
+  <li><span class="mn-b">🖼 발주표 이미지 읽기</span>로 이미지 파일을 고르기(여러 장 선택 가능) · 입력칸에 끌어다 놓기.</li>
+  <li><b>여러 장</b>: 날짜가 같은 이미지는 한 발주로 합쳐지고(같은 품목은 수량을 더함), 같은 이미지를 두 번 넣으면 건너뜁니다. 날짜가 다른 이미지는 지금 결과를 확정한 뒤 나오는 <b>📅 날짜 이미지 불러오기</b> 버튼으로 이어서 읽습니다.</li>
   <li>표 맨 위 날짜(SP → 쿠팡 실제 납품일)는 <b>납품일</b> 칸에 들어갑니다. 출고일과 화면 위쪽 날짜(생산일)는 평소처럼 확인하세요.</li>
-  <li>수량은 센터별 수량을 더한 <b>팩</b> 수로 들어가고, 박스입수로 나눈 값이 TTL(박스)과 다르면 ⚠로 알려 줍니다. 수량이 없는 품목은 넣지 않습니다.</li>
+  <li>수량은 <b>TTL(박스) 합계</b>로 들어갑니다. TTL이 비어 있는 품목은 넣지 않고, TTL을 못 읽었거나 박스수 합과 다르면 ⚠로 알려 줍니다.</li>
   <li>글자 인식이라 틀릴 수 있습니다. 각 줄의 <b>원문</b>(읽은 내용)과 이미지를 대조한 뒤 확정하세요. 처음 한 번은 인식 데이터를 내려받느라 조금 걸립니다.</li>
   <li>표 테두리가 다 보이게 캡처한 이미지를 쓰세요(테두리로 칸을 나눠 읽습니다).</li>
 </ul>
@@ -9700,6 +9704,7 @@ function mnShow(id, keepScroll) {
   function ibMarkDone(f){ try{ const m = ibDone(); m[ibKeyOf(f)] = Date.now(); const ks = Object.keys(m); if(ks.length > 300) ks.sort((a, b) => m[a] - m[b]).slice(0, ks.length - 300).forEach(k => delete m[k]); localStorage.setItem(IB_DONE_KEY, JSON.stringify(m)); }catch(e){} }
   let ibShared = [], ibFolder = [], ibFolderState = '';   // ibFolderState: '' | 'none'(미연결) | 'prompt'(허용 필요) | 'missing'(폴더를 찾을 수 없음) | 'ok' | 'unsupported'
   const IB_ACCEPT = /\.(xlsx|xls|csv)$/i;
+  const ibIsImg = x => !!x && (/^image\//.test((x.file && x.file.type) || '') || /\.(png|jpe?g|webp|gif|bmp|heic)$/i.test(x.name || ''));   // 카톡에서 공유한 발주표 이미지
   async function ibLoadShared(){
     ibShared = [];
     if(!('caches' in window)) return;
@@ -9760,7 +9765,7 @@ function mnShow(id, keepScroll) {
     let body = '';
     if(list.length){
       const opts = '<option value="">(업체 선택)</option>' + ibMapped().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(companyDisplayName(c))}</option>`).join('');
-      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const chk = ibChk.has(x.key) ? ibChk.get(x.key) : !d; return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder ? '' : ' disabled'} title="한 번에 불러오기에 넣기"><select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const img = ibIsImg(x); const chk = img ? false : (ibChk.has(x.key) ? ibChk.get(x.key) : !d); return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder && !img ? '' : ' disabled'} title="${img ? '이미지는 [열기]로 읽습니다' : '한 번에 불러오기에 넣기'}">${img ? '<span class="ib-co" style="font-size:12px;color:var(--muted);">🖼 발주표 이미지</span>' : `<select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select>`}<span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
       if(canOrder) body += `<div class="ib-bar"><button type="button" class="btn-primary small-btn" data-ib="batch">✅ 체크한 파일 한 번에 불러오기</button><span class="sub" style="margin:0;">업체가 골라진 파일은 저장된 양식(매핑)으로 바로 불러옵니다. 겹치는 주문은 자동으로 빠집니다</span></div>`;
     } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
     else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
@@ -9797,6 +9802,12 @@ function mnShow(id, keepScroll) {
   async function ibUse(x){
     const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]');
     if(go && !go.classList.contains('active')) go.click();
+    if(ibIsImg(x)){   // 발주표 이미지 → 이미지 읽기 (같은 날짜면 지금 인식 결과에 합침)
+      ibMarkDone(x.file); ibRender();
+      const card = document.getElementById('msg-input'); if(card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if(typeof window.imgOrderRun === 'function') window.imgOrderRun([x.file]);
+      return;
+    }
     handleOnlineOrderFile(x.file, ibCo.get(x.key) || '');
     ibMarkDone(x.file); ibRender();
     const card = document.getElementById('upload-dropzone'); if(card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -9818,9 +9829,19 @@ function mnShow(id, keepScroll) {
       if(shared === 'error'){ toast('공유받은 파일을 읽지 못했습니다. 다시 공유해 주세요'); return; }
       const nav = document.querySelector('.main-nav-btn[data-panel="panel-order-group"]'); if(nav) nav.click();
       await ibRefresh(false);
-      const first = ibShared.filter(x => String(x.at) === shared)[0] || ibShared[0];
+      const mine = ibShared.filter(x => String(x.at) === shared);
+      const imgs = mine.filter(ibIsImg);
+      if(imgs.length){   // 카톡에서 발주표 이미지를 공유: 여러 장이면 한꺼번에 읽어 같은 날짜는 합침
+        const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]'); if(go && !go.classList.contains('active')) go.click();
+        imgs.forEach(x => ibMarkDone(x.file)); ibRender();
+        if(typeof window.imgOrderRun === 'function') window.imgOrderRun(imgs.map(x => x.file));
+        const ta = document.getElementById('msg-input'); if(ta) ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      const first = mine[0] || ibShared[0];
       if(first && IB_ACCEPT.test(first.name)) ibUse(first);
-      else if(first) toast('엑셀(xlsx·xls)이나 csv 파일만 불러올 수 있습니다');
+      else if(first && ibIsImg(first)) ibUse(first);
+      else if(first) toast('엑셀(xlsx·xls)·csv 파일이나 발주표 이미지만 불러올 수 있습니다');
       if(ibShared.length > 1) toast(`공유받은 파일 ${ibShared.length}개 — 나머지는 받은 발주서 목록에서 불러오세요`);
     };
     setTimeout(tick, 300);
@@ -9884,6 +9905,7 @@ function mnShow(id, keepScroll) {
     if(!list.length || window.accessLevel('order') === 'none') return;
     if(Date.now() - udSyncAt > 60000){ try{ await uploadSyncLatest(); }catch(e){ /* 표시는 부가 기능 */ } }
     for(const x of list.slice(0, 20)){
+      if(ibIsImg(x)) continue;
       if(!x.aoa) x.aoa = await ibReadAoa(x.file);
       const el = document.querySelector(`#inbox-box .ib-it[data-k="${CSS.escape(x.key)}"]`);
       if(!ibCoUser.has(x.key) && x.aoa){
@@ -9908,7 +9930,7 @@ function mnShow(id, keepScroll) {
   // 체크한 파일을 골라 둔 업체의 저장된 양식(매핑)으로 차례로 불러오기 — 업체가 안 골라진 파일은 알려 줌
   async function ibBatch(list){
     const box = document.getElementById('inbox-box');
-    const checked = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked; });
+    const checked = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked && !ibIsImg(x); });
     if(!checked.length){ toast('불러올 파일을 체크해 주세요'); return; }
     const go = checked.filter(x => ibCo.get(x.key) && companies.some(c => c.name === ibCo.get(x.key) && c.uploadMapping));
     const miss = checked.filter(x => !go.includes(x));
@@ -10242,59 +10264,145 @@ function mnShow(id, keepScroll) {
     return { date, heads, types, rows, title: heads[0] || '' };
   }
   // 읽은 표 → 인식 결과(발주 입력 확인 화면)
-  function imgBuildParsed(res){
-    const rc = res.title ? matchCompanyName(res.title) : null;
+  //  수량 = TTL(박스) 합계. TTL을 못 읽으면 박스수 합, 그것도 없으면 센터 수량(팩)
+  //  여러 장: 같은 날짜 이미지는 한 발주로 합침(같은 품목은 수량을 더함), 날짜가 다르면 따로 대기했다가 하나씩 불러옴
+  function imgFindCompany(res){
+    const rc = res && res.title ? matchCompanyName(res.title) : null;
+    if(rc && (rc.kind === 'exact' || rc.kind === 'similar')) return rc.name;
     const disp = companies.filter(c => c.dispatchByDate);
-    let company = rc && (rc.kind === 'exact' || rc.kind === 'similar') ? rc.name : '';
-    if(!company){ const c = disp.find(x => /쿠팡|coupang/i.test(x.name)) || companies.find(x => /쿠팡|coupang/i.test(x.name)) || (disp.length === 1 ? disp[0] : null); if(c) company = c.name; }
-    const none = [], warns = [];
-    const items = [];
+    const c = disp.find(x => /쿠팡|coupang/i.test(x.name)) || companies.find(x => /쿠팡|coupang/i.test(x.name)) || (disp.length === 1 ? disp[0] : null);
+    return c ? c.name : '';
+  }
+  function imgMergeInto(parsed, res, no){
+    const M = parsed.imgMeta;
     res.rows.forEach(r => {
-      const text = imgCleanName(r.name), b = r.ttl || r.boxes;
-      if(!(r.packs > 0) && !(b > 0)){ if(text) none.push(text); return; }
-      const id = imgMatch(text, company), d = id ? dict.find(x => String(x.id) === String(id)) : null, per = d ? Number(d.boxUnitCount) || 0 : 0;
-      let warn = '';
-      if(r.ttl && r.boxes && Math.abs(r.ttl - r.boxes) > 0.01) warn = `⚠ 박스수 합 ${r.boxes} ≠ TTL ${r.ttl}`;
-      else if(r.packs > 0 && b > 0 && per > 0 && Math.abs(r.packs / per - b) > 0.01) warn = `⚠ 센터 합 ${r.packs}팩 ÷ 박스입수 ${per} = ${Math.round(r.packs / per * 100) / 100}박스 ≠ TTL ${b}박스`;
-      if(warn) warns.push(text + ' ' + warn);
-      const cellTxt = r.cells.filter(c => c.qty > 0).map(c => `${c.label || '센터'} ${c.qty}`).join(' · ');
-      items.push({ raw: `🖼 ${r.name}${cellTxt ? ' — ' + cellTxt : ''}${r.packs ? ` = ${r.packs}팩` : ''}${b ? ` (TTL ${b}박스)` : ''}${warn ? ' ' + warn : ''}`, itemText: text, qty: r.packs > 0 ? r.packs : b, unit: r.packs > 0 ? '팩' : '박스', matchedId: id ? d.id : null, prefWeight: false });
+      const text = imgCleanName(r.name);
+      let qty = 0, unit = '박스', warn = '';
+      if(r.ttl > 0){ qty = r.ttl; if(r.boxes > 0 && Math.abs(r.ttl - r.boxes) > 0.01) warn = `⚠ 박스수 합 ${r.boxes} ≠ TTL ${r.ttl} (TTL로 넣음)`; }
+      else if(r.boxes > 0){ qty = r.boxes; warn = '⚠ TTL을 못 읽어 박스수 합으로 넣음'; }
+      else if(r.packs > 0){ qty = r.packs; unit = '팩'; warn = '⚠ TTL·박스수를 못 읽어 센터 수량(팩)으로 넣음'; }
+      if(!(qty > 0)){ if(text) M.none.add(text); return; }
+      const id = imgMatch(text, parsed.company), d = id ? dict.find(x => String(x.id) === String(id)) : null, mid = d ? d.id : null;
+      if(warn) M.warns.push(`${no}장째 ${text} ${warn}`);
+      const raw = `🖼${M.multi ? ' ' + no + '장째' : ''} ${r.name} — TTL ${qty}${unit}${warn ? ' ' + warn : ''}`;
+      const same = mid ? parsed.items.find(it => it.matchedId === mid && it.unit === unit && it.fromImg) : null;
+      if(same){ same.qty = Math.round(((Number(same.qty) || 0) + qty) * 1000) / 1000; same.raw += ` / ${no}장째 +${qty}${unit}`; }
+      else parsed.items.push({ raw, itemText: text, qty, unit, matchedId: mid, prefWeight: false, fromImg: true });
     });
-    const parsed = { company, items };
-    if(res.date){ parsed.deliverDate = res.date; parsed.deliverManual = true; }
+    parsed.items.forEach(it => { if(it.fromImg && it.itemText && M.none.has(it.itemText)) M.none.delete(it.itemText); });
+  }
+  function imgPaintNote(parsed){
+    const M = parsed.imgMeta;
     const md = k => { const d = parseDateKey(k); return d ? `${d.getMonth() + 1}/${d.getDate()}(${dowLabel(k)})` : ''; };
-    parsed.imgNote = `🖼 <b>이미지에서 읽음</b> — 글자 인식이라 틀릴 수 있으니 <b>품목·수량을 이미지와 꼭 대조</b>하세요.<br>`
-      + (res.date ? `납품일(SP → 쿠팡) <b>${md(res.date)}</b>을 납품일 칸에 넣었습니다. 출고일과 위쪽 생산 날짜(${md(currentDateKey)})가 맞는지 확인하세요.` : '⚠ 이미지에서 날짜를 읽지 못했습니다 — 납품일을 직접 고르세요.')
-      + (none.length ? `<br>수량 없는 품목(넣지 않음): ${none.map(escapeHtml).join(', ')}` : '')
-      + (warns.length ? `<br><span style="color:var(--danger,#c0392b);font-weight:700;">${warns.map(escapeHtml).join('<br>')}</span>` : '')
-      + (company ? '' : '<br>⚠ 쿠팡 업체를 찾지 못했습니다 — 업체명을 고르세요.');
+    parsed.imgNote = `🖼 <b>이미지 ${M.count}장에서 읽음</b> — 수량은 <b>TTL(박스) 합계</b>입니다. 글자 인식이라 틀릴 수 있으니 이미지의 TTL과 꼭 대조하세요. 다음 이미지를 더 붙여넣으면(Ctrl+V) 같은 날짜는 여기에 합쳐집니다.<br>`
+      + (parsed.imgDate ? `납품일(SP → 쿠팡) <b>${md(parsed.imgDate)}</b>을 납품일 칸에 넣었습니다. 출고일과 위쪽 생산 날짜(${md(currentDateKey)})가 맞는지 확인하세요.` : '⚠ 이미지에서 날짜를 읽지 못했습니다 — 납품일을 직접 고르세요.')
+      + (M.none.size ? `<br>TTL이 없는 품목(넣지 않음): ${[...M.none].map(escapeHtml).join(', ')}` : '')
+      + (M.warns.length ? `<br><span style="color:var(--danger,#c0392b);font-weight:700;">${M.warns.map(escapeHtml).join('<br>')}</span>` : '')
+      + (M.errs.length ? `<br><span style="color:var(--danger,#c0392b);">읽지 못한 이미지: ${M.errs.map(escapeHtml).join(' / ')}</span>` : '')
+      + (parsed.company ? '' : '<br>⚠ 쿠팡 업체를 찾지 못했습니다 — 업체명을 고르세요.');
+  }
+  function imgNewParsed(date, firstRes){
+    const parsed = { company: imgFindCompany(firstRes), items: [], imgDate: date || '', imgMeta: { count: 0, none: new Set(), warns: [], errs: [], hashes: new Set(), multi: false } };
+    if(date){ parsed.deliverDate = date; parsed.deliverManual = true; }
     return parsed;
   }
-  async function imgOrderRun(file){
-    const msg = document.getElementById('img-order-msg'), st = document.getElementById('parse-status');
-    const step = t => { if(msg){ msg.style.display = ''; msg.style.color = ''; msg.textContent = '🖼 ' + t; } };
-    if(!file || !/^image\//.test(file.type || '')){ toast('이미지 파일을 골라 주세요'); return; }
-    if(IMG_OCR.busy){ toast('이미지를 읽는 중입니다. 잠시만 기다려 주세요'); return; }
-    IMG_OCR.busy = true; if(st) st.textContent = '이미지 읽는 중';
+  // 이미 1장 이상이면 같은 날짜로 합침
+  function imgBuildParsed(res){ const p = imgNewParsed(res.date, res); p.imgMeta.count = 1; imgMergeInto(p, res, 1); imgPaintNote(p); return p; }
+  const imgPreviewOpen = () => { const pc = document.getElementById('preview-card'); return !!(currentParsed && currentParsed.imgMeta && pc && pc.style.display !== 'none'); };
+  async function imgHash(f){
+    try{ const h = await crypto.subtle.digest('SHA-1', await f.arrayBuffer()); return [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+    catch(e){ return (f.name || '') + '|' + f.size; }
+  }
+  IMG_OCR.queue = []; IMG_OCR.pending = [];
+  function imgMsg(t, bad){ const msg = document.getElementById('img-order-msg'); if(!msg) return; msg.style.display = t ? '' : 'none'; msg.style.color = bad ? 'var(--danger,#c0392b)' : ''; msg.textContent = t ? '🖼 ' + t : ''; }
+  // 날짜가 다른 이미지 묶음: 버튼으로 하나씩 불러옴
+  function imgPaintPending(){
+    const msg = document.getElementById('img-order-msg'); if(!msg) return;
+    msg.querySelectorAll('.img-pend').forEach(b => b.remove());
+    IMG_OCR.pending.forEach((g, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost small-btn img-pend'; b.style.margin = '4px 6px 0 0';
+      const d = parseDateKey(g.date); b.textContent = `📅 ${d ? `${d.getMonth() + 1}/${d.getDate()}(${dowLabel(g.date)})` : '날짜 모름'} 이미지 ${g.list.length}장 불러오기`;
+      b.addEventListener('click', () => {
+        if(imgPreviewOpen() && !confirm('지금 인식 결과는 아직 확정하지 않았습니다. 버리고 이 날짜 이미지를 불러올까요?\n(먼저 [✓ 집계표에 확정 추가]를 누르면 지금 결과가 저장됩니다)')) return;
+        IMG_OCR.pending.splice(i, 1);
+        imgShowGroup(g.date, g.list, null);
+      });
+      msg.appendChild(document.createElement('br')); msg.appendChild(b);
+    });
+  }
+  function imgShowGroup(date, list, base){
+    const parsed = base || imgNewParsed(date, list[0].res);
+    const M = parsed.imgMeta;
+    list.forEach(x => { M.count++; M.hashes.add(x.res.hash); });
+    M.multi = M.count > 1 || list.length > 1;
+    let no = M.count - list.length;
+    list.forEach(x => imgMergeInto(parsed, x.res, ++no));
+    imgPaintNote(parsed);
+    renderParsed(parsed);
+    return parsed;
+  }
+  async function imgOrderRun(input){
+    const files = (Array.isArray(input) ? input : [input]).filter(f => f && /^image\//.test(f.type || ''));
+    if(!files.length && !IMG_OCR.queue.length){ toast('이미지 파일을 골라 주세요'); return; }
+    IMG_OCR.queue.push(...files);
+    if(IMG_OCR.busy){ imgMsg(`읽는 중… (기다리는 이미지 ${IMG_OCR.queue.length}장)`); return; }
+    IMG_OCR.busy = true;
+    const st = document.getElementById('parse-status'); if(st) st.textContent = '이미지 읽는 중';
+    const got = [], errs = []; let n = 0, dup = 0;
+    const seen = new Set(imgPreviewOpen() ? currentParsed.imgMeta.hashes : []);
     try{
-      const res = await imgReadOrder(file, step);
-      if(!res.rows.length) throw new Error('품목 줄을 찾지 못했습니다');
-      const parsed = imgBuildParsed(res);
-      renderParsed(parsed);
-      if(st) st.textContent = '이미지 읽음';
-      step(`다 읽었습니다 — 품목 ${parsed.items.length}줄. 아래 인식 결과를 이미지와 대조한 뒤 확정하세요.`);
-      const pc = document.getElementById('preview-card'); if(pc && pc.scrollIntoView) pc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      while(IMG_OCR.queue.length){
+        const f = IMG_OCR.queue.shift(); n++;
+        const hash = await imgHash(f);
+        if(seen.has(hash)){ dup++; continue; }
+        seen.add(hash);
+        try{
+          const res = await imgReadOrder(f, t => imgMsg(`${n}장째${IMG_OCR.queue.length ? ` (남은 ${IMG_OCR.queue.length}장)` : ''}: ${t}`));
+          if(!res.rows.length) throw new Error('품목 줄을 찾지 못했습니다');
+          res.hash = hash; got.push({ res });
+        }catch(e){ errs.push(`${n}장째 — ${(e && e.message) || e}`); }
+      }
+      // 날짜별로 묶기 (날짜를 못 읽은 이미지는 날짜가 하나뿐이면 거기에 붙임)
+      const groups = new Map();
+      got.forEach(x => { const k = x.res.date || ''; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+      if(groups.has('') && groups.size === 2){ const k = [...groups.keys()].find(z => z); groups.get(k).push(...groups.get('')); groups.delete(''); }
+      let target = imgPreviewOpen() ? currentParsed : null, shown = 0;
+      if(target && groups.size && !groups.has(target.imgDate) && groups.has('')){ groups.set(target.imgDate, (groups.get(target.imgDate) || []).concat(groups.get(''))); groups.delete(''); }
+      for(const [date, list] of groups){
+        if(target && (date === target.imgDate || (!target.imgDate && !date))){ imgShowGroup(date, list, target); shown += list.length; }
+        else if(!target){ target = imgShowGroup(date, list, null); shown += list.length; }
+        else { const p = IMG_OCR.pending.find(g => g.date === date); if(p) p.list.push(...list); else IMG_OCR.pending.push({ date, list }); }
+      }
+      if(target && errs.length){ target.imgMeta.errs.push(...errs); imgPaintNote(target); renderParsed(target); }
+      if(st) st.textContent = shown ? '이미지 읽음' : '대기중';
+      const waiting = IMG_OCR.pending.reduce((s, g) => s + g.list.length, 0);
+      const parts = [];
+      if(shown) parts.push(`${shown}장 읽어 아래 인식 결과에 넣었습니다 (품목 ${target.items.length}줄) — 이미지의 TTL과 대조한 뒤 확정하세요`);
+      if(dup) parts.push(`같은 이미지 ${dup}장은 건너뜀`);
+      if(waiting) parts.push(`날짜가 다른 이미지 ${waiting}장은 지금 결과를 확정한 뒤 아래 버튼으로 불러오세요`);
+      if(errs.length && !target) parts.push('읽지 못함: ' + errs.join(' / '));
+      imgMsg(parts.join(' · ') || '읽을 이미지가 없습니다', !shown && !waiting);
+      imgPaintPending();
+      if(shown){ const pc = document.getElementById('preview-card'); if(pc && pc.scrollIntoView) pc.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     }catch(e){
       if(st) st.textContent = '대기중';
-      if(msg){ msg.style.display = ''; msg.style.color = 'var(--danger,#c0392b)'; msg.textContent = '🖼 ' + ((e && e.message) || e); }
-    }finally{ IMG_OCR.busy = false; }
+      imgMsg((e && e.message) || String(e), true);
+    }finally{ IMG_OCR.busy = false; if(IMG_OCR.queue.length) imgOrderRun([]); }
   }
   window.imgOrderRun = imgOrderRun;
-  document.getElementById('img-order-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) imgOrderRun(f); });
+  document.getElementById('img-order-file').addEventListener('change', e => { const fs = [...(e.target.files || [])]; e.target.value = ''; if(fs.length) imgOrderRun(fs); });
+  // 이미지 붙여넣기(Ctrl+V): 발주 입력 화면 어디서든 (다른 입력칸에 글자를 붙여넣는 건 그대로)
+  document.addEventListener('paste', e => {
+    const fs = [...((e.clipboardData && e.clipboardData.files) || [])].filter(f => /^image\//.test(f.type || ''));
+    if(!fs.length) return;
+    const t = e.target, inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if(inField && t.id !== 'msg-input') return;
+    const panel = document.getElementById('panel-order'); if(!panel || panel.offsetParent === null) return;
+    e.preventDefault(); imgOrderRun(fs);
+  });
   { const ta = document.getElementById('msg-input');
-    ta.addEventListener('paste', e => { const it = [...((e.clipboardData && e.clipboardData.items) || [])].find(x => x.kind === 'file' && /^image\//.test(x.type)); if(it){ e.preventDefault(); imgOrderRun(it.getAsFile()); } });
     ta.addEventListener('dragover', e => { if([...(e.dataTransfer && e.dataTransfer.items || [])].some(x => x.kind === 'file')) e.preventDefault(); });
-    ta.addEventListener('drop', e => { const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type)); if(f){ e.preventDefault(); imgOrderRun(f); } });
+    ta.addEventListener('drop', e => { const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])].filter(x => /^image\//.test(x.type)); if(fs.length){ e.preventDefault(); imgOrderRun(fs); } });
   }
 
   document.getElementById('clear-input-btn').addEventListener('click', ()=>{

@@ -10,9 +10,24 @@
   "theme_color": "#d9485b",
   "lang": "ko",
   "icons": [
-    { "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "share_target": {
     "action": "index.html?share-target=1",
@@ -25,12 +40,22 @@
         {
           "name": "files",
           "accept": [
-            ".xlsx", ".xls", ".csv",
+            ".xlsx",
+            ".xls",
+            ".csv",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-excel",
             "text/csv",
             "text/comma-separated-values",
-            "application/octet-stream"
+            "application/octet-stream",
+            "image/*",
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp"
           ]
         }
       ]
