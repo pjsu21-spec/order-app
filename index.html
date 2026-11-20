@@ -120,6 +120,8 @@
   .topbar-date .td-lbl{ font-size:12px; font-weight:700; opacity:.92; margin-right:2px; }
   .topbar-date input{ background:#fff; color:#b3122c; border:none; border-radius:8px; padding:3px 6px; font-size:14px; font-weight:800; font-family:inherit; width:auto; min-width:0; }
   .topbar-date .td-wd{ font-size:13px; font-weight:800; min-width:26px; }
+  .topbar-date .td-lock{ font-size:11px; font-weight:800; background:#fff; color:#b3261e; border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .pc-banner{ background:#fdecea; color:#8c1d18; border:1px solid #f5c2c0; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700; margin:0 0 10px; }
   .topbar-date button{ background:rgba(255,255,255,.18); border:none; color:#fff; border-radius:999px; cursor:pointer; font-family:inherit; }
   .topbar-date button:hover{ background:rgba(255,255,255,.32); }
   .topbar-date .td-nav{ width:26px; height:26px; font-size:18px; line-height:1; padding:0; }
@@ -1150,6 +1152,7 @@
       <button type="button" class="td-nav" id="topbar-date-prev" aria-label="전날">‹</button>
       <input type="date" id="topbar-date-input" aria-label="납품일">
       <span class="td-wd" id="topbar-date-wd"></span>
+      <span class="td-lock" id="topbar-close-lock" style="display:none;">🔒 마감</span>
       <button type="button" class="td-nav" id="topbar-date-next" aria-label="다음날">›</button>
       <button type="button" class="td-today" id="topbar-date-today">오늘</button>
     </div>
@@ -1213,6 +1216,7 @@
 
   <!-- ───────────── 패널 1: 발주 입력 ───────────── -->
   <div id="panel-order" class="order-sub-panel active">
+  <div class="pc-banner" style="display:none;"></div>
 
   <div class="card" style="padding:14px 20px;">
     <div class="row" style="margin-top:0; align-items:center;">
@@ -1334,6 +1338,7 @@
 
   <div class="card">
     <h2>발주 집계표 <span class="badge" id="current-date-badge"></span></h2>
+    <div class="pc-banner" style="display:none;"></div>
     <div class="row" style="margin-top:0;">
       <button class="tab-btn" id="tab-board-btn" title="생산 현황판과 같은 모양으로 오늘 발주를 봅니다 (보기 전용)">📺 현황판 형태</button>
       <button class="tab-btn" id="tab-3pl-btn">3PL 출고 집계</button>
@@ -1606,7 +1611,9 @@
       · <b>① 발주현황</b>은 자동입니다: 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 금일출고 − 재고 = 오늘 만들어야 할 박스(재고로 충분하면 0, 남는 재고는 "재고 남음"으로 작게 표시).<br>
       · <b>② 생산지시</b>의 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg). 직접 적으면 그 값이 우선입니다.<br>
       · <b>여유분 · 로스율</b>: 발주 기준 생산 필요 박스에 <b>여유분(박스)</b>을 더하고 로스를 감안해 <b>작업kg = (생산 필요 박스 + 여유분 박스) × 원물 kg/박스 ÷ (1 − 로스율)</b>로 실제 투입할 원물을 계산합니다(생산할 박스가 없으면 여유분도 더하지 않음). 줄마다 적거나, 비워 두면 아래 <b>기본 여유분·로스율</b>을 씁니다. 비고(향료 사용량 등)는 자유 입력입니다.<br>
-      · 생산 순서에 적은 품목은 <b>⤵ 생산 순서에서 가져오기</b>로 한 번에 넣을 수 있고, 인원 배치는 <b>⤵ 전날 인원·비고 가져오기</b>로 이어 쓸 수 있습니다.
+      · 생산 순서에 적은 품목은 <b>⤵ 생산 순서에서 가져오기</b>로 한 번에 넣을 수 있고, 인원 배치는 <b>⤵ 전날 인원·비고 가져오기</b>로 이어 쓸 수 있습니다.<br>
+      · <b>🔒 생산 마감</b>: 누르면 이 납품일은 발주를 추가·수정·삭제할 수 없게 잠기고(발주 입력·업로드·집계표·개인구매·3PL 줄), 바로 <b>마감 PPT</b>를 받습니다. 송장번호·반품·실적 등록은 마감 뒤에도 됩니다. 잘못 눌렀으면 <b>🔓 마감 해제</b>.<br>
+      · <b>마감 PPT</b>: 쓰던 PPT를 <b>📎 PPT 양식 등록</b>으로 한 번 올려 두면, 첫 슬라이드의 왼쪽 큰 그림은 생산일보, 오른쪽 큰 그림은 발주서로 바꿔 넣고 나머지(기준표·LOT 안내 등)는 양식 그대로 둡니다. 기준표가 바뀌면 PPT를 고쳐 다시 등록하세요.
     </div></details>
     <div class="row" style="margin-top:0;align-items:center;">
       <button type="button" class="btn-ghost small-btn" id="pr-board-btn" title="TV 생산 현황판을 생산일보 화면으로 엽니다">📺 생산일보 보기</button>
@@ -1615,6 +1622,15 @@
       <button type="button" class="btn-ghost small-btn" id="pr-copy-prev" title="최근 생산일보의 인원 배치·일용직·총 인원·비고를 가져옵니다">⤵ 전날 인원·비고 가져오기</button>
       <span id="pr-meta" style="font-size:12px;color:var(--muted);"></span>
       <span id="pr-ro" class="sub" style="display:none;margin:0;">👁 생산 / 물류 권한이 읽기만이라 보기만 됩니다</span>
+    </div>
+    <div class="row" id="pc-row" style="margin-top:6px;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:8px;">
+      <button type="button" class="btn-primary small-btn" id="pc-close-btn" title="이 납품일의 생산을 마감합니다. 마감하면 이 날짜 발주를 더 넣거나 고칠 수 없습니다">🔒 생산 마감</button>
+      <button type="button" class="btn-ghost small-btn" id="pc-ppt-btn" style="display:none;" title="등록한 PPT 양식에 오늘 생산일보·발주서를 넣어 받습니다">📥 마감 PPT 받기</button>
+      <button type="button" class="btn-ghost small-btn" id="pc-open-btn" style="display:none;" title="마감을 풀어 다시 발주를 넣거나 고칠 수 있게 합니다">🔓 마감 해제</button>
+      <span id="pc-status" class="sub" style="margin:0;"></span>
+      <button type="button" class="btn-ghost small-btn" id="pc-tpl-btn" style="margin-left:auto;" title="생산본부가 쓰던 마감 PPT 파일(.pptx)을 양식으로 등록합니다 — 한 번만 하면 됩니다">📎 PPT 양식 등록</button>
+      <span id="pc-tpl-info" class="sub" style="margin:0;"></span>
+      <input type="file" id="pc-tpl-file" accept=".pptx" style="display:none;">
     </div>
     <h3 style="margin:8px 0 4px;">① 발주현황 <span class="sub" style="font-weight:400;margin:0;">(자동 — 전일 재고 · 오늘 발주 · 샘플 기준)</span></h3>
     <div id="pr-order"></div>
@@ -2580,6 +2596,7 @@
         <button class="btn-ghost" id="pp-cancel-edit-btn" style="display:none;">수정 취소</button>
         <span class="sub" style="margin:0;">직접 수령은 "OOO 과장 개인 구매" 업체로 집계표에 들어가고, 택배 발송은 3PL 출고에 추가됩니다.</span>
       </div>
+      <div id="pp-close-note" class="pc-banner" style="display:none;margin-top:12px;"></div>
       <div id="pp-list" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -2986,6 +3003,8 @@
   <li>비고, 일용직 충원, 인원 배치(가공실·원물·내포장실·외포장실, 구역 추가 가능), 총 인원, 하단 비고(소비기한·로트 등)를 적습니다. <span class="mn-b">⤵ 전날 인원·비고 가져오기</span>로 최근 생산일보의 인원 배치를 이어 씁니다.</li>
   <li><b>여유분 · 로스율</b>: 발주 기준 생산 필요 박스에 <b>여유분(박스)</b>을 더하고 로스를 감안해 <b>작업kg = (생산 필요 박스 + 여유분 박스) × 원물 kg/박스 ÷ (1 − 로스율)</b>로 실제 투입할 원물을 자동 계산합니다. 예: 필요 10박스 · 1박스 2kg · 여유분 1박스 · 로스 5% → (10 + 1) × 2 ÷ 0.95 = 23.2kg. 생산할 박스가 없으면 여유분도 더하지 않습니다. 생산지시 아래 <b>기본 여유분·로스율</b>을 한 번 넣어 두면 매일 쓰이고, 품목마다 다르면 그 줄의 여유분(박스)·로스% 칸에 적습니다. 작업kg·ct의 <b>파란 숫자</b>가 자동값이고, 직접 적으면 그 값이 우선입니다. TV 현황판에는 작업kg 머리글에 "여유분·로스 반영"이 표시됩니다.</li>
   <li><b>기준 안내</b>(용액 투입량 기준 등)는 매일 같은 내용이라 한 번 적어 두면 계속 나옵니다.</li>
+  <li><span class="mn-b">🔒 생산 마감</span>: 그날 생산을 마치면 누릅니다. 그 납품일은 발주를 추가·수정·삭제할 수 없게 잠기고(발주 입력·업로드·집계표·개인구매·3PL 줄, 상단 납품일 옆에 🔒 마감 표시), 바로 <b>마감 PPT</b>를 받습니다. 송장번호 입력·반품·실적 등록은 마감 뒤에도 됩니다. 잘못 눌렀으면 <span class="mn-b">🔓 마감 해제</span>.</li>
+  <li><b>마감 PPT</b>: 생산본부가 쓰던 PPT를 <span class="mn-b">📎 PPT 양식 등록</span>으로 한 번 올려 두면, 첫 슬라이드의 왼쪽 큰 그림은 그날 생산일보로, 오른쪽 큰 그림은 발주서로 바꿔 넣고 나머지(콩크·향 기준표, LOT 타각 방법 등)는 양식 그대로 둡니다. 마감 뒤 <span class="mn-b">📥 마감 PPT 받기</span>로 몇 번이든 다시 받을 수 있습니다(생산일보를 고친 뒤 다시 받기).</li>
   <li>고칠 때마다 바로 저장되며 생산 / 물류 전체 권한이 필요합니다.</li>
 </ul>
 
@@ -4909,7 +4928,7 @@ function mnShow(id, keepScroll) {
   const LOAD_STATE_KEYS = ['dictionary', 'companies', 'delivery-date', 'orders-by-date', 'thirdparty-lineitems', 'raw-materials', 'previous-stock',
     'raw-material-usage', 'company-categories', 'retention-months', 'internal-order-counters', 'uploaded-original-files', 'sender-info',
     'production-template-b64', 'sku-group-map', 'sku-column-map', 'tracking-col-mappings', 'ecount-settings', 'sales-by-date', 'delivery-fee-items',
-    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date', 'order-extras-by-date', 'company-class-tree', 'class-prices'];
+    'delivery-courier-name', 'upload-fingerprints', 'dispatch-by-date', 'qc-sample-settings', 'split-by-date', 'order-extras-by-date', 'company-class-tree', 'class-prices', 'prod-plan-close'];
   // soft=true (화면에서 '새로고침'을 누른 경우): 서버 연결에 실패하면 예외를 던지고 화면의 현재 내용을 그대로 둠
   async function loadState(soft){
     if(window.storage.prefetch){
@@ -4944,6 +4963,8 @@ function mnShow(id, keepScroll) {
       }
     }catch(e){ /* no saved date yet */ }
     currentDateKey = computeCurrentDateKey();
+
+    try{ const pc = await window.storage.get('prod-plan-close', true); const v = pc && pc.value ? JSON.parse(pc.value) : null; prodClose = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }catch(e){ /* 마감 상태 — 저장할 때 다시 확인 */ }
 
     try{
       const o = await window.storage.get('orders-by-date', true);
@@ -5237,24 +5258,94 @@ function mnShow(id, keepScroll) {
   }
   let kvOrdersChain = Promise.resolve(), kvLinesChain = Promise.resolve();
   const kvReadJson = async k => { const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; };
-  function saveOrdersByDate(){
+  // ── 생산 마감: 마감한 날짜는 발주(수량)·3PL 개별 주문(줄 추가·삭제·업체·품목·수량)을 바꿀 수 없음 ──
+  //  'prod-plan-close' = { 날짜: { at, by } }  ('prod-plan-' 키라 생산/물류 권한으로 저장 — 서버 권한 규칙과 같음)
+  //  화면 곳곳에서 먼저 막고(prodCloseBlocked), 저장 직전에도 서버의 마감 상태를 다시 읽어 마감 날짜의 바뀐 수량은 서버 값으로 되돌림
+  //  (업체 _meta, 3PL 송장번호·받는 분 등은 마감 뒤에도 고칠 수 있음)
+  //  예외(allowClosed): 반품 등록(원래 날짜 실적 차감)·실적 등록·SKU 삭제·업체 이름 변경·백업 복원 같은 전체 정리 작업
+  let prodClose = {};
+  const isProdClosed = dk => !!(dk && prodClose && prodClose[dk]);
+  const prodCloseMd = dk => { const p = String(dk || '').split('-'); return p.length === 3 ? `${Number(p[1])}/${Number(p[2])}` : String(dk || ''); };
+  function prodCloseBlocked(dk){
+    if(!isProdClosed(dk)) return false;
+    toast(`🔒 ${prodCloseMd(dk)}은(는) 생산 마감된 날짜라 발주를 추가·수정·삭제할 수 없습니다 (생산일보 카드에서 마감 해제 가능)`);
+    return true;
+  }
+  async function prodCloseRefresh(){
+    try{ const v = await kvReadJson('prod-plan-close'); prodClose = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }catch(e){ /* 못 읽으면 지금 알고 있는 상태 유지 */ }
+    try{ prodCloseUi(); }catch(e){ /* 화면 표시는 부가 */ }
+    return prodClose;
+  }
+  const kvQtyJson = o => { const r = {}; Object.keys(o || {}).filter(k => k !== '_meta' && (Number(o[k]) || 0) !== 0).sort().forEach(k => { r[k] = Math.round(Number(o[k]) * 100) / 100; }); return JSON.stringify(r); };
+  // 마감 날짜의 발주 수량을 서버(못 읽으면 기준) 값으로 되돌림 → 되돌린 날짜 목록
+  function kvCloseOrders(srv){
+    const out = [];
+    Object.keys(ordersByDate).forEach(d => {
+      if(!isProdClosed(d)) return;
+      const L = ordersByDate[d]; if(!L || typeof L !== 'object') return;
+      let S = srv && srv[d] && typeof srv[d] === 'object' ? srv[d] : null;
+      if(!S){ S = {}; const B = (kvMergeBase.orders || {})[d] || {}; Object.keys(B).forEach(c => { try{ S[c] = JSON.parse(B[c]); }catch(e){} }); }
+      let hit = false;
+      new Set([...Object.keys(L), ...Object.keys(S)]).forEach(c => {
+        if(c === '_meta') return;
+        if(kvQtyJson(L[c]) === kvQtyJson(S[c])) return;
+        hit = true;
+        if(!S[c] || typeof S[c] !== 'object'){ delete L[c]; return; }
+        const keep = L[c] && L[c]._meta;
+        L[c] = JSON.parse(JSON.stringify(S[c]));
+        if(keep) L[c]._meta = keep;
+      });
+      if(hit) out.push(d);
+    });
+    return out;
+  }
+  // 마감 날짜의 3PL 줄: 줄 추가·삭제·업체·품목·수량 변경은 서버 값으로 (송장번호 등 다른 칸은 그대로)
+  function kvCloseLines(srv){
+    const out = [], prot = l => JSON.stringify([l.company || '', l.itemId || '', Number(l.qty) || 0]);
+    Object.keys(thirdPartyLineItems).forEach(d => {
+      if(!isProdClosed(d)) return;
+      const L = thirdPartyLineItems[d]; if(!Array.isArray(L)) return;
+      let S = srv && Array.isArray(srv[d]) ? srv[d] : null;
+      if(!S){ const B = (kvMergeBase.lines || {})[d]; if(!B) return; S = Object.values(B).map(j => { try{ return JSON.parse(j); }catch(e){ return null; } }).filter(Boolean); }
+      const lMap = new Map(L.map((l, i) => [kvLineKey(l, i), l])), sKeys = new Set(S.map((l, i) => kvLineKey(l, i)));
+      let hit = L.some((l, i) => !sKeys.has(kvLineKey(l, i)));
+      const next = S.map((sl, i) => {
+        const l = lMap.get(kvLineKey(sl, i));
+        if(!l){ hit = true; return sl; }
+        if(prot(l) !== prot(sl)){ hit = true; return Object.assign({}, l, { company: sl.company, itemId: sl.itemId, qty: sl.qty }); }
+        return l;
+      });
+      if(hit){ L.splice(0, L.length, ...next); out.push(d); }
+    });
+    return out;
+  }
+  const kvCloseToast = ds => toast(`🔒 ${ds.map(prodCloseMd).join(', ')}은(는) 생산 마감된 날짜라 발주 변경을 저장하지 않았습니다`);
+  function saveOrdersByDate(opt){
+    const allow = !!(opt && opt.allowClosed);
     const run = async () => {
-      let got = false;
-      try{ const srv = await kvReadJson('orders-by-date'); if(srv && typeof srv === 'object') got = kvMergeOrders(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      let got = false, srv = null;
+      try{ srv = await kvReadJson('orders-by-date'); if(srv && typeof srv === 'object') got = kvMergeOrders(srv); else srv = null; }catch(e){ srv = null; /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      let blocked = [];
+      if(!allow){ await prodCloseRefresh(); blocked = kvCloseOrders(srv); if(blocked.length) got = true; }
       try{ await window.storage.set('orders-by-date', JSON.stringify(ordersByDate), true); kvMergeBase.orders = kvSnapMap(ordersByDate); }catch(e){ console.error(e); }
       if(got){ try{ renderAggTable(); renderThirdPartyAggTable(); }catch(e){ /* 화면 갱신은 부가 */ } }
+      if(blocked.length) kvCloseToast(blocked);
     };
     return (kvOrdersChain = kvOrdersChain.then(run, run));
   }
   async function saveCompanies(){
     try{ await window.storage.set('companies', JSON.stringify(companies), true); }catch(e){ console.error(e); }
   }
-  function saveLineItems(){
+  function saveLineItems(opt){
+    const allow = !!(opt && opt.allowClosed);
     const run = async () => {
-      let got = false;
-      try{ const srv = await kvReadJson('thirdparty-lineitems'); if(srv && typeof srv === 'object') got = kvMergeLines(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      let got = false, srv = null;
+      try{ srv = await kvReadJson('thirdparty-lineitems'); if(srv && typeof srv === 'object') got = kvMergeLines(srv); else srv = null; }catch(e){ srv = null; /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      let blocked = [];
+      if(!allow){ await prodCloseRefresh(); blocked = kvCloseLines(srv); if(blocked.length) got = true; }
       try{ await window.storage.set('thirdparty-lineitems', JSON.stringify(thirdPartyLineItems), true); kvMergeBase.lines = kvSnapList(thirdPartyLineItems); }catch(e){ console.error(e); }
       if(got){ try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){ /* 화면 갱신은 부가 */ } }
+      if(blocked.length) kvCloseToast(blocked);
     };
     return (kvLinesChain = kvLinesChain.then(run, run));
   }
@@ -5413,6 +5504,7 @@ function mnShow(id, keepScroll) {
     const ti = document.getElementById('topbar-date-input'), tw = document.getElementById('topbar-date-wd');
     if(ti && document.activeElement !== ti) ti.value = currentDateKey || '';
     if(tw) tw.textContent = currentDateKey ? '(' + '일월화수목금토'[new Date(currentDateKey + 'T00:00:00').getDay()] + ')' : '';
+    try{ prodCloseUi(); }catch(e){ /* 마감 표시는 부가 */ }
   }
 
   function onDateChanged(){
@@ -6296,6 +6388,7 @@ function mnShow(id, keepScroll) {
       del.className = 'btn-danger small-btn';
       del.textContent = '삭제';
       armConfirmButton(del, ()=>{
+        if(prodCloseBlocked(currentDateKey)) return;
         // 이 출고 내역의 수량을 집계표에서도 뺌
         const orders = currentOrders();
         if(orders[e.company]){
@@ -6723,7 +6816,7 @@ function mnShow(id, keepScroll) {
         Object.keys(previousStock).forEach(dateKey=>{
           if(previousStock[dateKey].product) delete previousStock[dateKey].product[item.id];
         });
-        saveDict(); saveOrdersByDate(); saveLineItems(); savePreviousStock();
+        saveDict(); saveOrdersByDate({ allowClosed: true }); saveLineItems({ allowClosed: true }); savePreviousStock();
         renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems(); renderProductStockEditor();
       });
 
@@ -6883,7 +6976,7 @@ function mnShow(id, keepScroll) {
         Object.keys(splitByDate).forEach(dk => { const b = splitByDate[dk]; if(b && b[oldName]){ b[newName] = b[oldName]; delete b[oldName]; } });
         saveSplitByDate();
         { let hit = false; Object.keys(orderExtras).forEach(dk => { const b = orderExtras[dk]; if(b && b[oldName]){ b[newName] = b[oldName]; delete b[oldName]; hit = true; } }); if(hit) saveOrderExtras(); }
-        saveOrdersByDate(); saveLineItems();
+        saveOrdersByDate({ allowClosed: true }); saveLineItems({ allowClosed: true });
         saveCompanies(); renderCompanyManager(); renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems();
       });
 
@@ -8394,6 +8487,7 @@ function mnShow(id, keepScroll) {
   }
   function aggBoardResume(force){ setTimeout(() => aggBoardRender(!!force), 50); }
   function aggDeleteCompany(dk, company){
+    if(prodCloseBlocked(dk)) return;
     const orders = ordersByDate[dk] || {};
     delete orders[company];
     if(extrasRemove(dk, company)) saveOrderExtras();
@@ -8566,6 +8660,7 @@ function mnShow(id, keepScroll) {
         td.title = `눌러서 ${d.shortName || d.name} 발주 수량 고치기 (${unit > 0 ? '박스' : '팩'})` + (smpQ ? ` · 칸의 숫자는 발주 + 샘플 동봉 ${aggBx(d, smpQ)}` : '');
         if(smpQ) td.insertAdjacentHTML('beforeend', `<span class="pbe-smpq">+샘플 ${aggBx(d, smpQ)}</span>`);
         td.addEventListener('click', () => aggBoardEdit(td, Math.round((unit > 0 ? cur / unit : cur) * 100) / 100, { numeric: true }, v => {
+          if(prodCloseBlocked(dk)){ renderAggTable(); return; }
           const o = ordersByDate[dk] || (ordersByDate[dk] = {}), co = o[mt.company] || (o[mt.company] = {});
           const packs = unit > 0 ? Math.round(v * unit * 100) / 100 : v;
           if(packs > 0) co[d.id] = packs; else delete co[d.id];
@@ -8818,7 +8913,9 @@ function mnShow(id, keepScroll) {
         input.value = fmt(toBox(d, packs));
         input.title = unitOf(d) > 0 ? `박스 단위 (1박스 = ${unitOf(d)}팩)` : '박스입수 미설정 — 팩 단위';
         if(dispEntries.length){ input.disabled = true; input.title = '출고일별로 입력된 주문이라 여기서는 수정할 수 없습니다. 아래 "출고일 지정 주문"에서 삭제 후 다시 입력해주세요'; }
+        if(isProdClosed(currentDateKey)){ input.disabled = true; input.title = '🔒 생산 마감된 날짜라 수정할 수 없습니다'; }
         input.addEventListener('change', (e)=>{
+          if(prodCloseBlocked(currentDateKey)){ renderAggTable(); return; }
           const v = parseFloat(e.target.value) || 0;
           orders[company][d.id] = unitOf(d) > 0 ? Math.round(v * unitOf(d) * 100) / 100 : v; // 입력은 박스, 저장은 팩
           orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
@@ -8843,6 +8940,7 @@ function mnShow(id, keepScroll) {
       delBtn.className = 'btn-danger small-btn';
       delBtn.textContent = '삭제';
       delBtn.addEventListener('click', ()=>{
+        if(prodCloseBlocked(currentDateKey)) return;
         delete orders[company];
         if(extrasRemove(currentDateKey, company)) saveOrderExtras();
         if(extrasOpen === company) extrasOpen = '';
@@ -9384,6 +9482,7 @@ function mnShow(id, keepScroll) {
         itemSel.appendChild(opt);
       });
       itemSel.addEventListener('change', (e)=>{
+        if(prodCloseBlocked(currentDateKey)){ e.target.value = r.itemId || ''; return; }
         const oldItemId = r.itemId;
         r.itemId = e.target.value || null;
         // keep the aggregate total in sync with the corrected match
@@ -9437,6 +9536,7 @@ function mnShow(id, keepScroll) {
       delBtn.className = 'btn-danger small-btn';
       delBtn.textContent = '삭제';
       delBtn.addEventListener('click', ()=>{
+        if(prodCloseBlocked(currentDateKey)) return;
         const orders = currentOrders();
         if(r.itemId && orders[r.company]){
           orders[r.company][r.itemId] = (orders[r.company][r.itemId] || 0) - r.qty;
@@ -9713,6 +9813,7 @@ function mnShow(id, keepScroll) {
   }
   // [이 매핑으로 불러오기]를 누르면 먼저 최신 자료를 맞춘 뒤 원래 처리를 그대로 진행 (capture라 가장 먼저 실행)
   document.getElementById('upload-apply-btn').addEventListener('click', async e => {
+    if(prodCloseBlocked(currentDateKey)){ e.preventDefault(); e.stopImmediatePropagation(); udSyncSkip = false; return; }
     if(udSyncSkip || Date.now() - udSyncAt < 4000){ udSyncSkip = false; return; }
     e.preventDefault(); e.stopImmediatePropagation();
     const btn = e.currentTarget, label = btn.textContent;
@@ -10064,6 +10165,7 @@ function mnShow(id, keepScroll) {
   }
   async function confirmParsed(mode){
     if(!currentParsed) return;
+    if(prodCloseBlocked(currentDateKey)) return;
     const company = (document.getElementById('company-select').value || '').trim();
     if(!company){ toast('업체명을 선택하거나 입력해주세요'); return; }
     if(!companies.some(c => c.name === company)){
@@ -10163,6 +10265,7 @@ function mnShow(id, keepScroll) {
   let smpParcelBusy = null;
   async function sampleParcelSync(dk){
     if(!dk || window.accessLevel('order') !== 'full' || typeof sampleRowsForProdDay !== 'function') return false;
+    if(isProdClosed(dk)) return false;   // 생산 마감한 날짜는 3PL 줄을 그대로 둠
     if(smpParcelBusy){ try{ await smpParcelBusy; }catch(e){} }
     smpParcelBusy = (async () => {
       let rows; try{ rows = await sampleRowsForProdDay(dk, false, false); }catch(e){ return false; }
@@ -10363,6 +10466,7 @@ function mnShow(id, keepScroll) {
   }
   function ppMethod(){ const r = document.querySelector('input[name="pp-method"]:checked'); return r ? r.value : 'pickup'; }
   function ppSubmit(){
+    if(prodCloseBlocked(ppDateKey())) return;
     const buyer = (document.getElementById('pp-buyer').value || '').trim();
     if(!buyer){ toast('구매자(이름·직급)를 입력해주세요'); return; }
     const rows = ppItems.filter(it => it.itemId || (it.qty !== '' && it.qty != null));
@@ -10490,6 +10594,7 @@ function mnShow(id, keepScroll) {
     document.getElementById('pp-parcel-box').style.display = m === 'parcel' ? 'block' : 'none';
   }
   function ppStartEdit(kind, id){
+    if(prodCloseBlocked(ppDateKey())) return;
     const dk = ppDateKey(), orders = ordersByDate[dk] || {};
     ppResetForm();
     const set = (i, v) => { const el = document.getElementById(i); if(el) el.value = v || ''; };
@@ -10513,6 +10618,7 @@ function mnShow(id, keepScroll) {
   }
   function ppDelete(kind, id){
     if(window.accessLevel('order') !== 'full'){ toast('발주취합(발주 입력) 권한이 있어야 개인구매를 지울 수 있습니다'); return; }
+    if(prodCloseBlocked(ppDateKey())) return;
     const dk = ppDateKey();
     const e = kind === 'pickup' ? { dk, kind, company: id } : { dk, kind, key: id };
     const lines = ppEntryLines(e);
@@ -10531,6 +10637,7 @@ function mnShow(id, keepScroll) {
   // 고른 날짜의 개인구매 목록 (직접 수령 업체 · 택배 개별 주문) + 수정 · 삭제
   function ppRenderList(){
     const wrap = document.getElementById('pp-list'); if(!wrap) return;
+    try{ prodCloseUi(); }catch(e){ /* 마감 표시는 부가 */ }
     const dk = ppDateKey(), orders = ordersByDate[dk] || {};
     const can = window.accessLevel('order') === 'full';
     const unitOf = d => Number(d.boxUnitCount) || 0, toBox = (d, packs) => unitOf(d) > 0 ? packs / unitOf(d) : packs;
@@ -11011,7 +11118,7 @@ function mnShow(id, keepScroll) {
           addCompanyIfNew(companyName);
         });
       });
-      saveOrdersByDate();
+      saveOrdersByDate({ allowClosed: true });   // 실적 등록: 마감한 날짜도 실제 출고 실적으로
 
       // lineItems 생성 (택배 건수 집계용)
       // 파일의 각 행을 개별 lineItem으로 생성 (운송장번호 포함)
@@ -11108,7 +11215,7 @@ function mnShow(id, keepScroll) {
             }
           }
         });
-        saveLineItems();
+        saveLineItems({ allowClosed: true });
       }
 
       renderSavedDatesBar();
@@ -13207,7 +13314,7 @@ function mnShow(id, keepScroll) {
       if(!ordersByDate[originalDate][companyName]) ordersByDate[originalDate][companyName] = {};
       const cur = Number(ordersByDate[originalDate][companyName][itemId]) || 0;
       ordersByDate[originalDate][companyName][itemId] = Math.max(0, cur - qty);
-      saveOrdersByDate();
+      saveOrdersByDate({ allowClosed: true });   // 반품: 마감한 날짜여도 실적에서 차감
       await writeLog('return_add', `반품 등록: ${companyName} ${itemName} ${qty}팩 (${reason}/${process})`);
       renderReturnList();
       renderAggTable();
@@ -13242,6 +13349,7 @@ function mnShow(id, keepScroll) {
   armConfirmButton(
     document.getElementById('agg-bulk-delete-btn'),
     ()=>{
+      if(prodCloseBlocked(currentDateKey)) return false;
       const checked = Array.from(document.querySelectorAll('.agg-row-check:checked'));
       const orders = currentOrders();
       let exHit = false;
@@ -13262,6 +13370,7 @@ function mnShow(id, keepScroll) {
   armConfirmButton(
     document.getElementById('detail-bulk-delete-btn'),
     ()=>{
+      if(prodCloseBlocked(currentDateKey)) return false;
       const checked = Array.from(document.querySelectorAll('.detail-row-check:checked'));
       const idsToDelete = new Set(checked.map(cb=>cb.dataset.id));
       const bucket = currentLineItems();
@@ -13293,6 +13402,7 @@ function mnShow(id, keepScroll) {
     ()=>{
       const company = document.getElementById('company-bulk-delete-select').value;
       if(!company) return;
+      if(prodCloseBlocked(currentDateKey)) return false;
       const bucket = currentLineItems();
       const count = bucket.filter(r=>r.company === company).length;
       thirdPartyLineItems[currentDateKey] = bucket.filter(r=>r.company !== company);
@@ -13318,6 +13428,7 @@ function mnShow(id, keepScroll) {
   );
 
   armConfirmButton(document.getElementById('reset-all-btn'), ()=>{
+    if(prodCloseBlocked(currentDateKey)) return false;
     ordersByDate[currentDateKey] = {};
     delete splitByDate[currentDateKey]; saveSplitByDate();
     if(orderExtras[currentDateKey]){ delete orderExtras[currentDateKey]; saveOrderExtras(); }
@@ -13361,6 +13472,7 @@ function mnShow(id, keepScroll) {
     if(!y||!m||!d){ toast('날짜를 모두 입력해주세요'); return; }
     if(!company){ toast('업체명을 입력해주세요'); return; }
     const dateKey = `${y}-${pad2(m)}-${pad2(d)}`;
+    if(prodCloseBlocked(dateKey)) return;
     if(!ordersByDate[dateKey]) ordersByDate[dateKey] = {};
     if(!ordersByDate[dateKey][company]) ordersByDate[dateKey][company] = {};
     let added = false;
@@ -13589,7 +13701,7 @@ function mnShow(id, keepScroll) {
 
     if(removedKeys === 0){ toast('정리할 잘못된 날짜 데이터가 없습니다'); return; }
 
-    await Promise.all([saveLineItems(), saveOrdersByDate()]);
+    await Promise.all([saveLineItems({ allowClosed: true }), saveOrdersByDate({ allowClosed: true })]);
     renderSavedDatesBar();
     renderAggTable();
     toast(`✓ ${removedKeys}개의 잘못된 날짜 키를 정리했습니다`);
@@ -13691,8 +13803,8 @@ function mnShow(id, keepScroll) {
       saveDict(),
       saveCompanies(),
       saveCompanyCategories(),
-      saveOrdersByDate(),
-      saveLineItems(),
+      saveOrdersByDate({ allowClosed: true }),
+      saveLineItems({ allowClosed: true }),
       savePreviousStock(),
       saveRawMaterials(),
       saveRawMaterialUsage(),
@@ -19341,8 +19453,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!document.getElementById('pg-font-css')){ const st = document.createElement('style'); st.id = 'pg-font-css'; st.textContent = window.PoSheet.fontCss; document.head.appendChild(st); }
     try{ await Promise.race([document.fonts.load("800 12px 'PoNanumEB'"), new Promise(r => setTimeout(r, 6000))]); }catch(e){ /* 글꼴이 늦으면 기본 글꼴 */ }
   }
-  async function pgCapture(html, width, fileBase, extraCss){
-    if(typeof html2canvas !== 'function'){ toast('캡처 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+  // 화면 밖에 그려 PNG로 → { blob, w, h, canvas }
+  async function pgRenderPng(html, width, extraCss){
+    if(typeof html2canvas !== 'function') throw new Error('캡처 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요');
     await pgFontReady();
     const holder = document.createElement('div');
     holder.setAttribute('data-noico', '');
@@ -19352,8 +19465,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{
       const canvas = await html2canvas(holder, { backgroundColor: '#ffffff', scale: 2, useCORS: true, windowWidth: width + 60 });
       const blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
-      pgImageDialog(blob, fileBase + '.png', canvas.toDataURL('image/png'));
+      return { blob, w: canvas.width, h: canvas.height, canvas };
     } finally { holder.remove(); }
+  }
+  async function pgCapture(html, width, fileBase, extraCss){
+    if(typeof html2canvas !== 'function'){ toast('캡처 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const r = await pgRenderPng(html, width, extraCss);
+    pgImageDialog(r.blob, fileBase + '.png', r.canvas.toDataURL('image/png'));
   }
   function pgImageDialog(blob, name, dataUrl){
     const wrap = document.createElement('div');
@@ -19481,6 +19599,204 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if($('pr-img-btn')) $('pr-img-btn').addEventListener('click', () => pgReport('img'));
     if($('pr-print-btn')) $('pr-print-btn').addEventListener('click', () => pgReport('print'));
     const det = $('pg-rules-details'); if(det) det.addEventListener('toggle', () => { if(det.open) pgRulesRender(); });
+  })();
+
+  // ══════════════════ 생산 마감 · 마감 PPT ══════════════════
+  //  생산일보 카드의 [🔒 생산 마감] → 'prod-plan-close'[날짜] 저장 (그 날짜 발주 잠금 — saveOrdersByDate 위쪽 설명 참고) → PPT 받기
+  //  PPT: 생산본부가 쓰던 PPT를 양식으로 한 번 등록('prod-plan-close-ppt' = { name, at, by, size, b64 })해 두면,
+  //   첫 슬라이드의 그림 중 왼쪽에서 가장 큰 그림 → 생산일보, 오른쪽에서 가장 큰 그림 → 발주서 이미지로 바꿔 끼움
+  //   (나머지 그림·글상자·배경은 양식 그대로 — 예: 콩크/향 기준표, LOT 타각 방법). 그림은 원래 자리 안에 비율 맞춰 넣음
+  //   양식은 회사 자료라 공개 저장소(GitHub)가 아니라 서버(kv)에 둠
+  let pcTpl, pcTplLoading = null;   // undefined = 아직 안 읽음, null = 없음
+  const pcWho = () => getStaffName() || (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+  const pcFmtAt = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  function pcTplLoad(force){
+    if(pcTpl !== undefined && !force) return Promise.resolve(pcTpl);
+    if(pcTplLoading) return pcTplLoading;
+    pcTplLoading = (async () => {
+      try{ const r = await window.storage.get('prod-plan-close-ppt', true); const v = r && r.value ? JSON.parse(r.value) : null; pcTpl = v && v.b64 ? v : null; }
+      catch(e){ if(pcTpl === undefined) pcTpl = undefined; throw e; }
+      finally{ pcTplLoading = null; }
+      return pcTpl;
+    })();
+    return pcTplLoading;
+  }
+  function prodCloseUi(){
+    const dk = currentDateKey, c = dk && prodClose ? prodClose[dk] : null;
+    const msg = c ? `🔒 ${prodCloseMd(dk)} 생산 마감됨${c.at ? ' (' + pcFmtAt(c.at) + (c.by ? ' · ' + c.by : '') + ')' : ''} — 이 날짜는 발주를 추가·수정·삭제할 수 없습니다` : '';
+    document.querySelectorAll('.pc-banner').forEach(el => { el.textContent = msg; el.style.display = c ? '' : 'none'; });
+    const lk = document.getElementById('topbar-close-lock'); if(lk){ lk.style.display = c ? '' : 'none'; lk.title = msg; }
+    const ppn = document.getElementById('pp-close-note');
+    if(ppn){ const pdk = ppDateKey(), pc = prodClose && prodClose[pdk]; ppn.textContent = pc ? `🔒 ${prodCloseMd(pdk)}은(는) 생산 마감된 날짜라 개인구매를 추가·수정·삭제할 수 없습니다` : ''; ppn.style.display = pc ? '' : 'none'; }
+    // 생산일보 카드
+    const can = typeof prCan === 'function' && prCan(), $ = id => document.getElementById(id);
+    if(!$('pc-close-btn')) return;
+    $('pc-close-btn').style.display = c ? 'none' : '';
+    $('pc-ppt-btn').style.display = c ? '' : 'none';
+    $('pc-open-btn').style.display = c ? '' : 'none';
+    ['pc-close-btn', 'pc-open-btn', 'pc-tpl-btn'].forEach(id => { $(id).disabled = !can; });
+    $('pc-status').innerHTML = c ? `<b style="color:#b3261e;">🔒 마감됨</b> ${escapeHtml(c.at ? pcFmtAt(c.at) : '')}${c.by ? ' · ' + escapeHtml(c.by) : ''}` : '마감 전 — 마감하면 이 날짜 발주를 더 넣거나 고칠 수 없고, 마감 PPT를 받을 수 있습니다';
+    const ti = $('pc-tpl-info');
+    if(pcTpl === undefined){ ti.textContent = ''; pcTplLoad().then(() => prodCloseUi()).catch(() => { ti.textContent = '양식을 확인하지 못했습니다'; }); }
+    else ti.textContent = pcTpl ? `양식: ${pcTpl.name}${pcTpl.at ? ' (' + pcFmtAt(pcTpl.at) + ' 등록)' : ''}` : '⚠ PPT 양식이 아직 없습니다 — 쓰던 PPT 파일을 한 번 등록해 주세요';
+  }
+  async function pcSetClose(dk, rec){
+    let cur;
+    try{ cur = await kvReadJson('prod-plan-close'); }catch(e){ toast('마감 상태를 확인하지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+    cur = (cur && typeof cur === 'object' && !Array.isArray(cur)) ? cur : {};
+    if(rec) cur[dk] = rec; else delete cur[dk];
+    try{ await window.storage.set('prod-plan-close', JSON.stringify(cur), true); }catch(e){ toast('저장하지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+    prodClose = cur;
+    prodCloseUi();
+    try{ renderAggTable(); renderThirdPartyLineItems(); ppRenderList(); }catch(e){ /* 화면 갱신은 부가 */ }
+    return true;
+  }
+  async function pcClose(){
+    const dk = currentDateKey; if(!dk) return;
+    if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 생산 마감을 할 수 있습니다'); return; }
+    await prodCloseRefresh();
+    if(isProdClosed(dk)){ toast('이미 마감된 날짜입니다'); return; }
+    if(!confirm(`납품일 ${dk} 생산을 마감할까요?\n\n· 마감하면 이 날짜에는 발주를 추가·수정·삭제할 수 없습니다 (발주 입력·업로드·집계표·개인구매·3PL 줄)\n· 잘못 눌렀으면 [마감 해제]로 되돌릴 수 있습니다\n· 마감 후 바로 생산일보 PPT를 받습니다`)) return;
+    const ok = await pcSetClose(dk, { at: new Date().toISOString(), by: pcWho() });
+    if(!ok) return;
+    try{ await writeLog('prod_close', `생산 마감 ${dk}`); }catch(e){}
+    toast(`🔒 ${prodCloseMd(dk)} 생산을 마감했습니다`);
+    await pcPpt(dk);
+  }
+  async function pcReopen(){
+    const dk = currentDateKey; if(!dk) return;
+    if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 마감을 해제할 수 있습니다'); return; }
+    if(!confirm(`납품일 ${dk} 생산 마감을 해제할까요?\n해제하면 이 날짜에 다시 발주를 추가·수정할 수 있습니다.`)) return;
+    const ok = await pcSetClose(dk, null);
+    if(!ok) return;
+    try{ await writeLog('prod_reopen', `생산 마감 해제 ${dk}`); }catch(e){}
+    toast(`🔓 ${prodCloseMd(dk)} 생산 마감을 해제했습니다`);
+  }
+  const pcB64ToBuf = b64 => { const bin = atob(b64), u = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+  const pcBufToB64 = buf => { const u = new Uint8Array(buf); let s = ''; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+  // 양식 분석: 첫 슬라이드와 바꿔 끼울 두 그림 찾기
+  async function pcTplInspect(zip){
+    const pf = zip.file('ppt/presentation.xml'), prf = zip.file('ppt/_rels/presentation.xml.rels');
+    if(!pf || !prf) throw new Error('PPT(.pptx) 파일이 아닙니다');
+    const pres = await pf.async('string'), presRels = await prf.async('string');
+    const W = Number((pres.match(/<p:sldSz\b[^>]*\bcx="(\d+)"/) || [])[1]) || 12192000;
+    const rid = (pres.match(/<p:sldId\b[^>]*\br:id="([^"]+)"/) || [])[1];
+    const rel = rid && (presRels.match(new RegExp(`<Relationship\\b[^>]*\\bId="${rid}"[^>]*>`)) || [])[0];
+    const tgt = rel && (rel.match(/\bTarget="([^"]+)"/) || [])[1];
+    if(!tgt) throw new Error('첫 슬라이드를 찾지 못했습니다');
+    const slidePath = tgt.startsWith('/') ? tgt.slice(1) : 'ppt/' + tgt.replace(/^\.\//, '');
+    const relsPath = slidePath.replace(/([^/]+)$/, '_rels/$1.rels');
+    const sf = zip.file(slidePath), rf = zip.file(relsPath);
+    if(!sf || !rf) throw new Error('첫 슬라이드를 읽지 못했습니다');
+    const xml = await sf.async('string'), rels = await rf.async('string');
+    const pics = [];
+    (xml.match(/<p:pic\b[\s\S]*?<\/p:pic>/g) || []).forEach(block => {
+      const emb = (block.match(/<a:blip\b[^>]*\br:embed="([^"]+)"/) || [])[1];
+      const xf = block.match(/<a:off x="(-?\d+)" y="(-?\d+)"\s*\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\s*\/>/);
+      if(!emb || !xf) return;
+      const x = +xf[1], y = +xf[2], cx = +xf[3], cy = +xf[4];
+      pics.push({ block, emb, x, y, cx, cy, area: cx * cy, mid: x + cx / 2 });
+    });
+    const big = arr => arr.sort((a, b) => b.area - a.area)[0];
+    const report = big(pics.filter(p => p.mid < W / 2)), order = big(pics.filter(p => p.mid >= W / 2));
+    if(!report || !order) throw new Error('첫 슬라이드에 왼쪽(생산일보)·오른쪽(발주서) 그림이 있어야 합니다');
+    return { slidePath, relsPath, xml, rels, report, order, pics: pics.length };
+  }
+  // 양식에 새 그림 두 장을 끼워 .pptx Blob으로
+  async function pcBuildPptx(buf, imgs){
+    const zip = await JSZip.loadAsync(buf);
+    const t = await pcTplInspect(zip);
+    let xml = t.xml, rels = t.rels;
+    const olds = [];
+    const put = (pic, img, base) => {
+      let name = base, n = 1; while(zip.file('ppt/media/' + name + '.png')) name = base + '_' + (n++);
+      zip.file('ppt/media/' + name + '.png', img.blob);
+      const relRe = new RegExp(`<Relationship\\b[^>]*\\bId="${pic.emb}"[^>]*>`);
+      const rel = (rels.match(relRe) || [])[0]; if(!rel) throw new Error('그림 연결 정보를 찾지 못했습니다');
+      const old = (rel.match(/\bTarget="([^"]+)"/) || [])[1]; if(old) olds.push(old.split('/').pop());
+      rels = rels.replace(rel, rel.replace(/\bTarget="[^"]*"/, `Target="../media/${name}.png"`).replace(/\s*TargetMode="[^"]*"/, ''));
+      // 원래 자리 안에 비율 맞춰 (왼쪽 위 기준)
+      const a = img.w / img.h;
+      let cx = pic.cx, cy = pic.cy;
+      if(cx / cy > a) cx = Math.round(cy * a); else cy = Math.round(cx / a);
+      let b = pic.block
+        .replace(/(<a:off x="-?\d+" y="-?\d+"\s*\/>\s*<a:ext )cx="\d+" cy="\d+"/, `$1cx="${cx}" cy="${cy}"`)
+        .replace(/<a:blip\b[^>]*?(\/>|>[\s\S]*?<\/a:blip>)/, `<a:blip r:embed="${pic.emb}"/>`)
+        .replace(/<a:srcRect\b[^>]*\/>/, '');
+      xml = xml.replace(pic.block, b);
+    };
+    put(t.report, imgs.report, 'pc_report');
+    put(t.order, imgs.order, 'pc_order');
+    zip.file(t.slidePath, xml);
+    zip.file(t.relsPath, rels);
+    // png 형식 등록
+    const ctf = zip.file('[Content_Types].xml');
+    let ct = await ctf.async('string');
+    if(!/<Default\b[^>]*Extension="png"/i.test(ct)) ct = ct.replace('</Types>', '<Default Extension="png" ContentType="image/png"/></Types>');
+    // 미리보기 그림(예전 내용)은 뺌
+    const rootRf = zip.file('_rels/.rels');
+    if(rootRf){
+      let rr = await rootRf.async('string');
+      const th = rr.match(/<Relationship\b[^>]*\bTarget="([^"]*thumbnail[^"]*)"[^>]*\/>/i);
+      if(th){ rr = rr.replace(th[0], ''); zip.file('_rels/.rels', rr); const p = th[1].replace(/^\//, ''); zip.remove(p); ct = ct.replace(new RegExp(`<Override\\b[^>]*PartName="/${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*/>`), ''); }
+    }
+    zip.file('[Content_Types].xml', ct);
+    // 이제 아무도 안 쓰는 예전 그림 파일은 지움
+    const relFiles = Object.keys(zip.files).filter(p => /\.rels$/.test(p));
+    const relTexts = await Promise.all(relFiles.map(p => zip.file(p).async('string')));
+    [...new Set(olds)].forEach(fn => { if(!relTexts.some(tx => tx.includes('/' + fn + '"') || tx.includes('"' + fn + '"'))) zip.remove('ppt/media/' + fn); });
+    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+  }
+  async function pcPpt(dk){
+    dk = dk || currentDateKey; if(!dk) return;
+    if(!isProdClosed(dk)){ toast('생산 마감을 한 뒤에 PPT를 받을 수 있습니다'); return; }
+    if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    const btn = document.getElementById('pc-ppt-btn'); if(btn) btn.disabled = true;
+    try{
+      let tpl; try{ tpl = await pcTplLoad(true); }catch(e){ toast('PPT 양식을 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); return; }
+      prodCloseUi();
+      if(!tpl){ toast('⚠ PPT 양식이 아직 없습니다. [📎 PPT 양식 등록]으로 쓰던 PPT 파일을 한 번 올려 주세요'); return; }
+      toast('생산일보 PPT를 만드는 중...');
+      await pgEnsure();
+      const m = await poBoardCollect(dk);
+      const report = await pgRenderPng(`<div class="pg-pr">${prReportHtml(m)}</div>`, 1040, pgPrCss());
+      const r = await poGenGrid(dk);
+      const h = window.PoSheet.toHtml(r.grid);
+      const order = await pgRenderPng(h.html, h.width, '');
+      const blob = await pcBuildPptx(pcB64ToBuf(tpl.b64), { report, order });
+      const [y, mo, d] = dk.split('-');
+      pgDownloadBlob(blob, `${y.slice(2)}.${mo}.${d} 생산일보.pptx`);
+      try{ await writeLog('prod_close_ppt', `생산 마감 PPT 다운로드 ${dk}`); }catch(e){}
+    }catch(e){ console.error(e); toast('PPT를 만들지 못했습니다: ' + (e.message || e)); }
+    finally{ if(btn) btn.disabled = false; }
+  }
+  async function pcTplUpload(file){
+    if(!file) return;
+    if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 양식을 등록할 수 있습니다'); return; }
+    if(!/\.pptx$/i.test(file.name)){ toast('.pptx 파일만 등록할 수 있습니다 (예전 .ppt는 PowerPoint에서 .pptx로 다시 저장해 주세요)'); return; }
+    if(file.size > 6 * 1024 * 1024){ toast('파일이 너무 큽니다 (6MB 이하). 그림을 줄여 다시 저장해 주세요'); return; }
+    if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
+    try{
+      const buf = await file.arrayBuffer();
+      const t = await pcTplInspect(await JSZip.loadAsync(buf));
+      try{ await pcTplLoad(true); }catch(e){ /* 처음 등록이면 없음 */ }
+      const v = { name: file.name, at: new Date().toISOString(), by: pcWho(), size: file.size, b64: pcBufToB64(buf) };
+      await window.storage.set('prod-plan-close-ppt', JSON.stringify(v), true);
+      pcTpl = v; prodCloseUi();
+      toast(`PPT 양식을 등록했습니다 (그림 ${t.pics}개 중 왼쪽 큰 그림 → 생산일보, 오른쪽 큰 그림 → 발주서로 바뀝니다)`);
+      try{ await writeLog('prod_close_tpl', `생산 마감 PPT 양식 등록 ${file.name}`); }catch(e){}
+    }catch(e){ console.error(e); toast('양식을 등록하지 못했습니다: ' + (e.message || e)); }
+  }
+  (function wireProdClose(){
+    const $ = id => document.getElementById(id);
+    if($('pc-close-btn')) $('pc-close-btn').addEventListener('click', pcClose);
+    if($('pc-open-btn')) $('pc-open-btn').addEventListener('click', pcReopen);
+    if($('pc-ppt-btn')) $('pc-ppt-btn').addEventListener('click', () => pcPpt(currentDateKey));
+    if($('pc-tpl-btn')) $('pc-tpl-btn').addEventListener('click', () => { if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 양식을 등록할 수 있습니다'); return; } $('pc-tpl-file').click(); });
+    if($('pc-tpl-file')) $('pc-tpl-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pcTplUpload(f); });
+    // 다른 직원이 마감·해제한 것: 창으로 돌아올 때 다시 확인 (30초에 한 번까지)
+    let at = 0;
+    window.addEventListener('focus', () => { if(!window.currentUser || Date.now() - at < 30000) return; at = Date.now(); prodCloseRefresh().then(() => { try{ renderAggTable(); }catch(e){} }); });
   })();
 
   // 다운로드 후 결과 안내 (경고는 붉은 글씨로 남겨둠)
@@ -22093,6 +22409,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 권한 없으면 잠금
     card.querySelectorAll('#pr-inst input, #pr-inst select, #pr-inst button, #pr-etc input, #pr-etc textarea, #pr-etc button, #pr-std, #pr-ctkg, #pr-extra, #pr-loss, #pr-inst-add, #pr-inst-seq, #pr-copy-prev').forEach(x => { x.disabled = !can; });
     const ro = document.getElementById('pr-ro'); if(ro) ro.style.display = can ? 'none' : '';
+    try{ prodCloseUi(); }catch(e){ /* 마감 표시는 부가 */ }
   }
   // 이벤트 (카드 안에서 위임)
   (function wireProdReport(){
