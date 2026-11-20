@@ -15975,6 +15975,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       if(sec === 'equipment' && !sortingEquipmentUIInited){
         sortingEquipmentUIInited = true;
         initSortingEquipmentUI();
+      } else if(sec === 'equipment'){
+        loadEquipmentSummary();   // 다른 탭(원물입고 A1·KPP 등)에서 바뀐 내용을 탭을 열 때마다 다시 계산
+        loadSortingEquipmentTable();
       }
     });
   });
@@ -17240,7 +17243,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       sbQuery('sorting_equipment_types', '?is_active=eq.true&order=id.asc'),
       sbQuery('sorting_businesses', '?is_active=eq.true&order=id.asc'),
       sbQuery('sorting_equipment_log', ''),
-      sbQuery('sorting_inbound', '?select=a1_count,kpp_count,farm_id')
+      (async () => {   // 입고가 1000건을 넘어도 다 더하도록 나눠서 읽음
+        const all = [];
+        for(let off = 0; off <= 200000; off += 1000){
+          const r = await sbQuery('sorting_inbound', `?select=a1_count,kpp_count,farm_id&or=(a1_count.gt.0,kpp_count.gt.0)&order=id&limit=1000&offset=${off}`);
+          (r || []).forEach(x => all.push(x));
+          if(!r || r.length < 1000) break;
+        }
+        return all;
+      })()
     ]);
 
     // 농가를 고른 입고는 '농가 회수', 사입처만 있는 입고는 '사입처 회수'로 나눠 집계
@@ -17251,15 +17262,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     });
 
     // 농가/사입 입고는 거의 항상 자담이 받는 구조로 단순화 확인됨 → 자동회수는 자담 사업자에 귀속
-    const jadamBiz = businesses.find(b=> b.name === '자담');
+    const jadamBiz = businesses.find(b=> String(b.name || '').trim() === '자담');
 
     const rows = [];
     const outstanding = [];
 
     types.forEach(t=>{
       const typeLogs = logs.filter(l=> l.equipment_type_id === t.id);
-      const autoRecoveryFarm = t.code === 'A1' ? sumInbound.A1 : (t.code === 'KPP' ? sumInbound.KPP : 0);
-      const autoRecoveryVendor = t.code === 'A1' ? sumPurchase.A1 : (t.code === 'KPP' ? sumPurchase.KPP : 0);
+      const tc = String(t.code || t.name || '').trim().toUpperCase();   // 코드가 비었거나 소문자·공백이어도 A1/KPP로 맞춤
+      const autoRecoveryFarm = tc === 'A1' ? sumInbound.A1 : (tc === 'KPP' ? sumInbound.KPP : 0);
+      const autoRecoveryVendor = tc === 'A1' ? sumPurchase.A1 : (tc === 'KPP' ? sumPurchase.KPP : 0);
       const autoRecoveryTotal = autoRecoveryFarm + autoRecoveryVendor;
 
       let typeOutbound = 0, typeDestReturn = 0, typeFarmSend = 0;
