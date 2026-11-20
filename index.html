@@ -1260,7 +1260,9 @@
       <div class="row">
         <button class="btn-primary" id="parse-btn">입력하기</button>
         <button class="btn-ghost" id="clear-input-btn">지우기</button>
+        <label class="btn-ghost" id="img-order-btn" style="cursor:pointer;" title="쿠팡처럼 표로 온 발주 캡처 이미지를 읽어 품목·수량·납품일을 채웁니다 (이미지를 위 입력칸에 붙여넣기·끌어다 놓아도 됩니다)">🖼 발주표 이미지 읽기<input type="file" id="img-order-file" accept="image/*" style="display:none;"></label>
       </div>
+      <div class="sub" id="img-order-msg" style="margin:4px 0 0;display:none;"></div>
     </div>
 
     <div class="card" style="flex:1; min-width:300px; margin-bottom:0;">
@@ -1315,6 +1317,7 @@
       <span id="deliver-date-dow" style="font-size:13px;"></span>
       <span class="sub" style="margin:0;">이카운트 매출 일자 (기본: 출고일과 같은 날)</span>
     </div>
+    <div id="img-read-note" class="sub" style="display:none;margin:10px 0 0;padding:6px 8px;border-radius:6px;background:var(--soft,#f6f1e7);"></div>
     <div id="parsed-items" style="margin-top:12px;"></div>
     <div class="row" style="margin-top:6px;">
       <button class="btn-ghost small-btn" id="add-parsed-item-btn">+ 품목 추가</button>
@@ -2859,6 +2862,13 @@
     </ul></li>
   <li>맞으면 <span class="mn-b">✓ 집계표에 확정 추가</span>를 누릅니다. 이때부터 집계에 반영됩니다.</li>
 </ol>
+<p><b>쿠팡처럼 표 이미지로 온 발주</b>는 <span class="mn-b">🖼 발주표 이미지 읽기</span>로 이미지를 고르거나, 입력칸에 이미지를 <b>붙여넣기(Ctrl+V)·끌어다 놓기</b> 하면 글자 인식으로 읽어 인식 결과 확인 카드를 채웁니다.</p>
+<ul>
+  <li>표 맨 위 날짜(SP → 쿠팡 실제 납품일)는 <b>납품일</b> 칸에 들어갑니다. 출고일과 화면 위쪽 날짜(생산일)는 평소처럼 확인하세요.</li>
+  <li>수량은 센터별 수량을 더한 <b>팩</b> 수로 들어가고, 박스입수로 나눈 값이 TTL(박스)과 다르면 ⚠로 알려 줍니다. 수량이 없는 품목은 넣지 않습니다.</li>
+  <li>글자 인식이라 틀릴 수 있습니다. 각 줄의 <b>원문</b>(읽은 내용)과 이미지를 대조한 뒤 확정하세요. 처음 한 번은 인식 데이터를 내려받느라 조금 걸립니다.</li>
+  <li>표 테두리가 다 보이게 캡처한 이미지를 쓰세요(테두리로 칸을 나눠 읽습니다).</li>
+</ul>
 
 <h3>3. 온라인 주문 엑셀 업로드 (3PL 등)</h3>
 <ol>
@@ -6496,6 +6506,7 @@ function mnShow(id, keepScroll) {
     populateCompanySelect(parsed.company || '');
     renderCompanyMatchNote();
     renderShipDateRow();
+    { const n = document.getElementById('img-read-note'); if(n){ n.style.display = parsed.imgNote ? '' : 'none'; n.innerHTML = parsed.imgNote || ''; } }
     const wrap = document.getElementById('parsed-items');
     wrap.innerHTML = '';
     if(parsed.items.length === 0){
@@ -10074,6 +10085,208 @@ function mnShow(id, keepScroll) {
     }
     renderParsed(parsed);
   });
+
+  // ══════════════════ 발주표 이미지 읽기 (쿠팡처럼 표로 온 발주 캡처) ══════════════════
+  //  Tesseract.js(브라우저 안에서 글자 인식, 처음 쓸 때 CDN에서 내려받음)로 표 테두리(격자)를 찾아 칸마다 읽음.
+  //  - 머리글 줄: TTL·박스수가 있는 줄. 첫 칸 = 품목, '단위·구분' = 단위, '박스수' = 박스, 'TTL·합계' = 합계(박스), 나머지 = 센터별 수량(팩)
+  //  - 머리글 위 줄의 날짜 = 납품일(SP → 쿠팡 실제 납품일) → 인식 결과의 납품일로 넣음
+  //  - 수량: 센터 칸 합(팩)을 넣고, 박스입수로 나눈 값이 TTL(박스)과 다르면 ⚠ 표시
+  const IMG_OCR = { kor: null, num: null, busy: false };
+  async function imgOcrInit(step){
+    if(!window.Tesseract){
+      step('글자 인식 프로그램 내려받는 중…');
+      await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload = ok; s.onerror = () => bad(new Error('글자 인식 프로그램을 불러오지 못했습니다 (인터넷 연결 확인)')); document.head.appendChild(s); });
+    }
+    if(!IMG_OCR.kor){ step('한글 인식 데이터 준비 중… (처음 한 번은 조금 걸립니다)'); const w = await Tesseract.createWorker('kor+eng'); await w.setParameters({ tessedit_pageseg_mode: '7' }); IMG_OCR.kor = w; }
+    if(!IMG_OCR.num){ const w = await Tesseract.createWorker('eng'); await w.setParameters({ tessedit_char_whitelist: '0123456789.-', tessedit_pageseg_mode: '7' }); IMG_OCR.num = w; }
+  }
+  function imgToCanvas(file){
+    return new Promise((ok, bad) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => { const sc = img.width < 1200 ? 2 : 1, c = document.createElement('canvas'); c.width = img.width * sc; c.height = img.height * sc; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c); };
+      img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('이미지를 열지 못했습니다')); };
+      img.src = url;
+    });
+  }
+  // 표 격자: 가로 실선(hs)·세로선(vs), 실선 사이는 글자 덩어리로 다시 나눠 줄(rows) — 줄 사이 점선은 무시
+  function imgGrid(c){
+    const W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data, dark = new Uint8Array(W * H);
+    for(let i = 0, j = 0; i < d.length; i += 4, j++) dark[j] = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) < 110 ? 1 : 0;
+    const lines = (n, m, at, minFrac) => {
+      const out = []; let st = -1;
+      for(let a = 0; a <= n; a++){
+        let f = 0; if(a < n){ let s = 0; for(let b = 0; b < m; b++) s += at(a, b); f = s / m; }
+        if(f >= minFrac){ if(st < 0) st = a; } else if(st >= 0){ out.push((st + a - 1) / 2); st = -1; }
+      }
+      return out;
+    };
+    const hs = lines(H, W, (y, x) => dark[y * W + x], 0.35), vs = lines(W, H, (x, y) => dark[y * W + x], 0.5);
+    const skip = new Uint8Array(W); vs.forEach(v => { for(let k = -3; k <= 3; k++){ const x = Math.round(v) + k; if(x >= 0 && x < W) skip[x] = 1; } });
+    const frac = y => { let s = 0, n = 0; for(let x = 0; x < W; x++){ if(skip[x]) continue; s += dark[y * W + x]; n++; } return n ? s / n : 0; };
+    const rows = [], minH = Math.max(5, Math.round(H / 200));
+    for(let i = 0; i < hs.length - 1; i++){
+      const a = Math.ceil(hs[i] + 2), b = Math.floor(hs[i + 1] - 2); if(b - a < 6) continue;
+      const bands = []; let st = -1;
+      let off = 0;   // 빈 줄이 3줄 이상 이어져야 줄이 끝난 것으로 봄 (한글 받침 사이 틈은 무시)
+      for(let y = a; y <= b + 3; y++){
+        const on = y <= b && frac(y) > 0.03;
+        if(on){ if(st < 0) st = y; off = 0; }
+        else if(st >= 0 && ++off >= 3){ const e = y - off; if(e - st + 1 >= minH) bands.push([st, e]); st = -1; off = 0; }
+      }
+      bands.forEach((bd, k) => rows.push([k === 0 ? hs[i] : (bands[k - 1][1] + bd[0]) / 2, k === bands.length - 1 ? hs[i + 1] : (bd[1] + bands[k + 1][0]) / 2]));
+    }
+    return { hs, vs, rows };
+  }
+  // 한 칸 잘라 흑백·확대 (글자 높이 64px 안팎)
+  function imgCell(src, x0, y0, x1, y1, pad){
+    pad = pad == null ? 3 : pad;
+    const w = Math.max(1, Math.round(x1 - x0 - 2 * pad)), h = Math.max(1, Math.round(y1 - y0 - 2 * pad)), sc = Math.max(1, Math.min(4, Math.round(64 / h)));
+    const c = document.createElement('canvas'); c.width = w * sc + 20; c.height = h * sc + 20;
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(src, x0 + pad, y0 + pad, w, h, 10, 10, w * sc, h * sc);
+    const im = x.getImageData(0, 0, c.width, c.height), p = im.data;
+    for(let i = 0; i < p.length; i += 4){ const v = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]) < 140 ? 0 : 255; p[i] = p[i + 1] = p[i + 2] = v; }
+    x.putImageData(im, 0, 0);
+    return c;
+  }
+  // 칸 안에서 글자가 있는 가로 범위만 (날짜 줄처럼 넓은 칸을 통째로 확대하면 잘 못 읽음)
+  function imgInkX(src, x0, y0, x1, y1){
+    const X0 = Math.max(0, Math.round(x0) + 4), Y0 = Math.max(0, Math.round(y0) + 4), w = Math.max(1, Math.round(x1 - x0) - 8), h = Math.max(1, Math.round(y1 - y0) - 8);
+    const d = src.getContext('2d').getImageData(X0, Y0, w, h).data; let a = -1, b = -1;
+    for(let x = 0; x < w; x++){ let n = 0; for(let y = 0; y < h; y++){ const i = (y * w + x) * 4; if(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 140) n++; } if(n > 0 && n < h * 0.9){ if(a < 0) a = x; b = x; } }
+    return a < 0 ? [x0, x1] : [Math.max(x0, X0 + a - 12), Math.min(x1, X0 + b + 12)];
+  }
+  const imgNum = t => { t = String(t || '').replace(/\s+/g, ''); if(!t || /^[-.]+$/.test(t)) return 0; const m = /\d+(?:\.\d+)?/.exec(t); return m ? parseFloat(m[0]) : 0; };
+  function imgParseDate(t){
+    t = String(t || '').replace(/\s+/g, '');
+    let m = /(20\d{2})[년.\-/](\d{1,2})[월.\-/](\d{1,2})/.exec(t) || /(\d{1,2})월(\d{1,2})일/.exec(t);
+    if(!m) return '';
+    const today = parseDateKey(getTodayKey());
+    const y = m.length === 4 ? +m[1] : today.getFullYear(), mo = m.length === 4 ? +m[2] : +m[1], d = m.length === 4 ? +m[3] : +m[2];
+    const dt = new Date(y, mo - 1, d);
+    if(dt.getMonth() !== mo - 1 || Math.abs(dt - today) > 45 * 86400000) return '';
+    return fmtDateKey(dt);
+  }
+  // 품목명 정리: [로켓프레시] 같은 머리말 빼고, '5009'처럼 g를 9로 읽은 용량 고침
+  const imgCleanName = s => String(s || '').replace(/\[[^\]]*\]/g, ' ').replace(/(\d{2,4})\s?9(?=\s|$|[^\d])/g, (m, a) => (Number(a) % 50 === 0 ? a + 'g' : m)).replace(/\s+/g, ' ').trim();
+  // 품목 찾기: 평소 매칭 → 안 되면 글자 두 개씩 겹치는 정도로 가장 비슷한 SKU (그 업체에 단가가 있는 SKU 조금 우선)
+  function imgMatch(text, companyName){
+    const id = matchItem(text, { preferWeight: PREFER_WEIGHT_G }); if(id) return id;
+    const bg = s => { const t = normalize(s).replace(/[^가-힣a-z0-9]/g, ''), o = new Set(); for(let i = 0; i < t.length - 1; i++) o.add(t.slice(i, i + 2)); return o; };
+    const tb = bg(text), w = (String(text).match(/(\d+)\s*g/i) || [])[1];
+    const co = companies.find(c => c.name === companyName), sold = co && co.priceMap ? new Set(Object.keys(co.priceMap)) : null;
+    const score = {};
+    dict.forEach(d => {
+      [d.name, d.shortName, ...(d.aliases || [])].filter(Boolean).forEach(n => {
+        const cb = bg(n); if(cb.size < 3) return;
+        let hit = 0; cb.forEach(x => { if(tb.has(x)) hit++; });
+        let s = hit / cb.size;
+        const dw = (String(n).match(/(\d+)\s*g/i) || [])[1];
+        if(w && dw && w !== dw) s -= 0.5;
+        if(sold && sold.has(String(d.id))) s += 0.05;
+        if(!(score[d.id] >= s)) score[d.id] = s;
+      });
+    });
+    const top = Object.entries(score).sort((a, b) => b[1] - a[1]);
+    return top.length && top[0][1] >= 0.5 && (!top[1] || top[0][1] - top[1][1] >= 0.1) ? top[0][0] : null;
+  }
+  // 이미지 → { date, heads, types, rows:[{ name, cells:[{label,qty,box}], packs, boxes, ttl }] }
+  async function imgReadOrder(file, step){
+    await imgOcrInit(step);
+    step('표 찾는 중…');
+    const cv = await imgToCanvas(file), g = imgGrid(cv);
+    const cols = []; for(let k = 0; k < g.vs.length - 1; k++) if(g.vs[k + 1] - g.vs[k] >= 12) cols.push([g.vs[k], g.vs[k + 1]]);
+    if(cols.length < 3 || g.rows.length < 2) throw new Error('표를 찾지 못했습니다 — 표 테두리가 다 보이게 캡처한 이미지인지 확인하세요');
+    const kor = async (x0, y0, x1, y1, pad) => (await IMG_OCR.kor.recognize(imgCell(cv, x0, y0, x1, y1, pad))).data.text.replace(/\s+/g, ' ').trim();
+    const num = async (x0, y0, x1, y1) => (await IMG_OCR.num.recognize(imgCell(cv, x0, y0, x1, y1))).data.text.replace(/\s+/g, '').trim();
+    const last = cols[cols.length - 1];
+    let hdr = -1;
+    for(let r = 0; r < Math.min(g.rows.length, 5) && hdr < 0; r++){ if(/TTL|T TL|합계|총/i.test(await kor(last[0], g.rows[r][0], last[1], g.rows[r][1]))) hdr = r; }
+    if(hdr < 0) for(let r = 0; r < Math.min(g.rows.length, 5) && hdr < 0; r++){ for(const c of cols.slice(2)){ if(/박스|수량/.test(await kor(c[0], g.rows[r][0], c[1], g.rows[r][1]))){ hdr = r; break; } } }
+    if(hdr < 0) throw new Error('머리글 줄(박스수·TTL)을 찾지 못했습니다');
+    step('머리글 읽는 중…');
+    const heads = []; for(const c of cols) heads.push(await kor(c[0], g.rows[hdr][0], c[1], g.rows[hdr][1]));
+    let types = heads.map((t, i) => i === 0 ? 'name' : /TTL|T TL|합계|총/i.test(t) ? 'ttl' : /박스\s*수|BOX/i.test(t) ? 'box' : /단위|구분/.test(t) ? 'unit' : 'qty');
+    if(!types.includes('box') && types.filter(t => t === 'qty').length >= 2){ let k = 0; types = types.map(t => t === 'qty' ? (k++ % 2 ? 'box' : 'qty') : t); }   // 머리글을 못 읽으면 수량·박스수가 번갈아 있다고 봄
+    let date = '';
+    const dateAt = async (x0, y0, x1, y1) => { const [a, b] = imgInkX(cv, x0, y0, x1, y1); const t = await kor(a, y0, b, y1, 2); IMG_OCR.lastDate = t; return imgParseDate(t); };
+    if(hdr > 0) date = await dateAt(cols[0][0], g.rows[0][0], last[1], g.rows[hdr][0]);   // 머리글 위 전부 (보통 날짜 한 줄)
+    for(let r = hdr - 1; r >= 0 && !date; r--) date = await dateAt(cols[0][0], g.rows[r][0], last[1], g.rows[r][1]);
+    if(!date && g.hs[0] > 20) date = await dateAt(0, 0, cv.width, g.hs[0]);
+    const rows = [];
+    for(let r = hdr + 1; r < g.rows.length; r++){
+      step(`품목 읽는 중… (${r - hdr}/${g.rows.length - hdr - 1})`);
+      const [y0, y1] = g.rows[r];
+      const name = await kor(cols[0][0], y0, cols[0][1], y1);
+      if(/합계|총계|TOTAL/i.test(name)) continue;
+      const cells = []; let packs = 0, boxes = 0, ttl = 0, cur = null;
+      for(let i = 1; i < cols.length; i++){
+        const t = types[i]; if(t === 'unit') continue;
+        const v = imgNum(await num(cols[i][0], y0, cols[i][1], y1));
+        if(t === 'qty'){ cur = { label: heads[i], qty: v, box: 0 }; cells.push(cur); packs += v; }
+        else if(t === 'box'){ boxes += v; if(cur) cur.box = v; }
+        else if(t === 'ttl') ttl = v;
+      }
+      if(!name && !packs && !boxes && !ttl) continue;
+      rows.push({ name, cells, packs: Math.round(packs * 1000) / 1000, boxes: Math.round(boxes * 1000) / 1000, ttl });
+    }
+    return { date, heads, types, rows, title: heads[0] || '' };
+  }
+  // 읽은 표 → 인식 결과(발주 입력 확인 화면)
+  function imgBuildParsed(res){
+    const rc = res.title ? matchCompanyName(res.title) : null;
+    const disp = companies.filter(c => c.dispatchByDate);
+    let company = rc && (rc.kind === 'exact' || rc.kind === 'similar') ? rc.name : '';
+    if(!company){ const c = disp.find(x => /쿠팡|coupang/i.test(x.name)) || companies.find(x => /쿠팡|coupang/i.test(x.name)) || (disp.length === 1 ? disp[0] : null); if(c) company = c.name; }
+    const none = [], warns = [];
+    const items = [];
+    res.rows.forEach(r => {
+      const text = imgCleanName(r.name), b = r.ttl || r.boxes;
+      if(!(r.packs > 0) && !(b > 0)){ if(text) none.push(text); return; }
+      const id = imgMatch(text, company), d = id ? dict.find(x => String(x.id) === String(id)) : null, per = d ? Number(d.boxUnitCount) || 0 : 0;
+      let warn = '';
+      if(r.ttl && r.boxes && Math.abs(r.ttl - r.boxes) > 0.01) warn = `⚠ 박스수 합 ${r.boxes} ≠ TTL ${r.ttl}`;
+      else if(r.packs > 0 && b > 0 && per > 0 && Math.abs(r.packs / per - b) > 0.01) warn = `⚠ 센터 합 ${r.packs}팩 ÷ 박스입수 ${per} = ${Math.round(r.packs / per * 100) / 100}박스 ≠ TTL ${b}박스`;
+      if(warn) warns.push(text + ' ' + warn);
+      const cellTxt = r.cells.filter(c => c.qty > 0).map(c => `${c.label || '센터'} ${c.qty}`).join(' · ');
+      items.push({ raw: `🖼 ${r.name}${cellTxt ? ' — ' + cellTxt : ''}${r.packs ? ` = ${r.packs}팩` : ''}${b ? ` (TTL ${b}박스)` : ''}${warn ? ' ' + warn : ''}`, itemText: text, qty: r.packs > 0 ? r.packs : b, unit: r.packs > 0 ? '팩' : '박스', matchedId: id ? d.id : null, prefWeight: false });
+    });
+    const parsed = { company, items };
+    if(res.date){ parsed.deliverDate = res.date; parsed.deliverManual = true; }
+    const md = k => { const d = parseDateKey(k); return d ? `${d.getMonth() + 1}/${d.getDate()}(${dowLabel(k)})` : ''; };
+    parsed.imgNote = `🖼 <b>이미지에서 읽음</b> — 글자 인식이라 틀릴 수 있으니 <b>품목·수량을 이미지와 꼭 대조</b>하세요.<br>`
+      + (res.date ? `납품일(SP → 쿠팡) <b>${md(res.date)}</b>을 납품일 칸에 넣었습니다. 출고일과 위쪽 생산 날짜(${md(currentDateKey)})가 맞는지 확인하세요.` : '⚠ 이미지에서 날짜를 읽지 못했습니다 — 납품일을 직접 고르세요.')
+      + (none.length ? `<br>수량 없는 품목(넣지 않음): ${none.map(escapeHtml).join(', ')}` : '')
+      + (warns.length ? `<br><span style="color:var(--danger,#c0392b);font-weight:700;">${warns.map(escapeHtml).join('<br>')}</span>` : '')
+      + (company ? '' : '<br>⚠ 쿠팡 업체를 찾지 못했습니다 — 업체명을 고르세요.');
+    return parsed;
+  }
+  async function imgOrderRun(file){
+    const msg = document.getElementById('img-order-msg'), st = document.getElementById('parse-status');
+    const step = t => { if(msg){ msg.style.display = ''; msg.style.color = ''; msg.textContent = '🖼 ' + t; } };
+    if(!file || !/^image\//.test(file.type || '')){ toast('이미지 파일을 골라 주세요'); return; }
+    if(IMG_OCR.busy){ toast('이미지를 읽는 중입니다. 잠시만 기다려 주세요'); return; }
+    IMG_OCR.busy = true; if(st) st.textContent = '이미지 읽는 중';
+    try{
+      const res = await imgReadOrder(file, step);
+      if(!res.rows.length) throw new Error('품목 줄을 찾지 못했습니다');
+      const parsed = imgBuildParsed(res);
+      renderParsed(parsed);
+      if(st) st.textContent = '이미지 읽음';
+      step(`다 읽었습니다 — 품목 ${parsed.items.length}줄. 아래 인식 결과를 이미지와 대조한 뒤 확정하세요.`);
+      const pc = document.getElementById('preview-card'); if(pc && pc.scrollIntoView) pc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }catch(e){
+      if(st) st.textContent = '대기중';
+      if(msg){ msg.style.display = ''; msg.style.color = 'var(--danger,#c0392b)'; msg.textContent = '🖼 ' + ((e && e.message) || e); }
+    }finally{ IMG_OCR.busy = false; }
+  }
+  window.imgOrderRun = imgOrderRun;
+  document.getElementById('img-order-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) imgOrderRun(f); });
+  { const ta = document.getElementById('msg-input');
+    ta.addEventListener('paste', e => { const it = [...((e.clipboardData && e.clipboardData.items) || [])].find(x => x.kind === 'file' && /^image\//.test(x.type)); if(it){ e.preventDefault(); imgOrderRun(it.getAsFile()); } });
+    ta.addEventListener('dragover', e => { if([...(e.dataTransfer && e.dataTransfer.items || [])].some(x => x.kind === 'file')) e.preventDefault(); });
+    ta.addEventListener('drop', e => { const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type)); if(f){ e.preventDefault(); imgOrderRun(f); } });
+  }
 
   document.getElementById('clear-input-btn').addEventListener('click', ()=>{
     document.getElementById('msg-input').value = '';
