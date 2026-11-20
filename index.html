@@ -3023,7 +3023,7 @@
   <li><b>여유분 · 로스율</b>: 발주 기준 생산 필요 박스에 <b>여유분(박스)</b>을 더하고 로스를 감안해 <b>작업kg = (생산 필요 박스 + 여유분 박스) × 원물 kg/박스 ÷ (1 − 로스율)</b>로 실제 투입할 원물을 자동 계산합니다. 예: 필요 10박스 · 1박스 2kg · 여유분 1박스 · 로스 5% → (10 + 1) × 2 ÷ 0.95 = 23.2kg. 생산할 박스가 없으면 여유분도 더하지 않습니다. 생산지시 아래 <b>기본 여유분·로스율</b>을 한 번 넣어 두면 매일 쓰이고, 품목마다 다르면 그 줄의 여유분(박스)·로스% 칸에 적습니다. 작업kg·ct의 <b>파란 숫자</b>가 자동값이고, 직접 적으면 그 값이 우선입니다. TV 현황판에는 작업kg 머리글에 "여유분·로스 반영"이 표시됩니다.</li>
   <li><b>기준 안내</b>(용액 투입량 기준 등)는 매일 같은 내용이라 한 번 적어 두면 계속 나옵니다.</li>
   <li><span class="mn-b">🔒 생산 마감</span>: 그날 생산을 마치면 누릅니다. 그 납품일은 발주를 추가·수정·삭제할 수 없게 잠기고(발주 입력·업로드·집계표·개인구매·3PL 줄, 상단 납품일 옆에 🔒 마감 표시), 바로 <b>마감 PPT</b>를 받습니다. 송장번호 입력·반품·실적 등록은 마감 뒤에도 됩니다. 잘못 눌렀으면 <span class="mn-b">🔓 마감 해제</span>.</li>
-  <li><b>④ 제조 폐기 원물</b>: 가공·포장 중 버린 원물을 무게를 달아 원물·kg·사유(가공 중 불량, 파손·낙과, 이물·변질, 작업 잔량 폐기, 기타)로 적습니다. 선별 폐기는 원물선별에서 따로 잡습니다. 생산 마감 때 자재 재고에서 빠지고 🗃 자재·재고 → 폐기 · 수율에서 모아 봅니다.</li>
+  <li><b>④ 제조 폐기 원물</b>: 가공·포장 중 버린 원물을 무게를 달아 원물·kg·사유(가공 중 불량, 파손·낙과, 이물·변질, 작업 잔량 폐기, 기타)로 적습니다. 줄마다 <span class="mn-b">📷</span>을 누르면 폐기 사진을 붙입니다(휴대폰은 바로 촬영·앨범, PC는 사진을 복사해 Ctrl+V). 사진은 생산 마감 차감 기록에도 같이 남아 🗃 자재·재고 수불 내역에서 볼 수 있습니다. 선별 폐기는 원물선별에서 따로 잡습니다. 생산 마감 때 자재 재고에서 빠지고 🗃 자재·재고 → 폐기 · 수율에서 모아 봅니다.</li>
   <li>생산 마감을 하면 <b>자재 차감도 자동</b>으로 됩니다(생산량 × 정전개, 원물은 생산지시 작업kg). 결과는 카드 아래에 나오고, 생산량·작업kg·폐기를 고쳤으면 <span class="mn-b">♻ 자재 차감 다시 반영</span>을 누르세요.</li>
   <li><b>마감 PPT</b>: 생산본부가 쓰던 PPT를 <span class="mn-b">📎 PPT 양식 등록</span>으로 한 번 올려 두면, 첫 슬라이드의 왼쪽 큰 그림은 그날 생산일보로, 오른쪽 큰 그림은 발주서로 바꿔 넣고 나머지(콩크·향 기준표, LOT 타각 방법 등)는 양식 그대로 둡니다. 마감 뒤 <span class="mn-b">📥 마감 PPT 받기</span>로 몇 번이든 다시 받을 수 있습니다(생산일보를 고친 뒤 다시 받기).</li>
   <li>고칠 때마다 바로 저장되며 생산 / 물류 전체 권한이 필요합니다.</li>
@@ -3180,6 +3180,7 @@
   <li><b>생산 마감</b>(생산일보 카드의 🔒 생산 마감)을 누르면 그날 <b>생산량</b> × 정전개만큼 부자재·소모품이 자동으로 빠지고, 원물은 생산지시 작업kg(투입)만큼 빠집니다. 투입은 <b>제품에 들어간 원물 · 제조 폐기(생산일보 ④에 적은 kg) · 기타 로스</b>로 나눠 기록됩니다. 생산량은 제품 재고의 '오늘 생산량', 비어 있으면 생산 필요수량입니다. 고친 뒤에는 <b>♻ 자재 차감 다시 반영</b>(중복 차감 없음), 마감 해제하면 그날 차감도 취소됩니다.</li>
   <li>마감하지 않은 날짜는 예전처럼 생산/물류 탭의 <b>자재 출고 차감</b>(출고 기준)으로 뺄 수 있습니다. 같은 날짜를 생산 마감으로 차감하면 출고 기준 차감은 자동으로 무효가 되어 두 번 빠지지 않습니다. 정전개에 없는 소모품은 <b>사용 · 로스 입력</b>으로 뺍니다.</li>
   <li>원물선별 선별산출에서 <b>폐기 등급</b>(판매 불가)으로 나온 kg은 원물 재고에서 자동으로 빠집니다(재고 현황에 "선별 폐기 −kg"으로 표시).</li>
+  <li><b>사용 · 로스 입력</b>(여러 개 한 번에 / 한 건씩)에서 폐기·파손한 물건의 <b>📷 사진</b>을 붙일 수 있습니다. <span class="mn-b">📷 사진 추가</span>(휴대폰은 촬영·앨범)나 사진을 복사해 붙여넣기 칸에 <b>Ctrl+V</b>. 기록을 저장할 때 함께 저장되고, 수불 내역의 <b>📷 n</b>을 누르면 봅니다. 사진은 긴 변 1600px로 줄여 저장합니다.</li>
   <li>원물선별 <b>출고·정산</b>으로 외부에 판 kg도 원물 재고에서 빠집니다("선별 출고(외부) −kg"). 자사 생산으로 넘긴 출고는 생산 마감 때 생산지시 작업kg으로 빠지므로 <b>빼지 않습니다</b>. 자사 생산 출고처는 원물선별 › 마스터관리 › 거래처에서 <b>구분</b>에 <b>자사생산</b>(또는 '자사'·'내부'가 들어간 말)을 적어 둡니다. 안 적으면 두 번 빠집니다.</li>
   <li>원물(방울토마토)은 원물선별 → 원물입고에서 <b>원물(자재 코드)</b>을 골라 입고하면 그 kg이 자재 재고에 자동으로 더해집니다.</li>
 </ul>
@@ -20338,7 +20339,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const kg = Number(w.kg) || 0; if(!(kg > 0)) return;
       if(!w.m || !matById(w.m)){ warns.push(`제조 폐기 ${kg}kg — 원물을 고르지 않아 차감에서 빠짐`); return; }
       waste[w.m] = (waste[w.m] || 0) + kg;
-      (wDet[w.m] = wDet[w.m] || []).push({ p: (w.reason || '기타') + (w.note ? ' · ' + w.note : ''), q: kg });
+      (wDet[w.m] = wDet[w.m] || []).push(Object.assign({ p: (w.reason || '기타') + (w.note ? ' · ' + w.note : ''), q: kg }, (w.ph || []).length ? { ph: w.ph.slice() } : {}));
     });
     const r4 = v => Math.round(v * 10000) / 10000, by = matUser(), ts = Date.now(), entries = [], sum = [];
     Object.entries(ex.need).forEach(([m, n]) => {
@@ -23085,6 +23086,140 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       .catch(() => { prMatRaw = []; prMatRawP = null; });
     return prMatRawP;
   }
+  // ══════════════════ 폐기 사진 (원물 제조 폐기 · 자재 사용/로스) ══════════════════
+  //  사진 한 장 = kv 'mat-led-photo-<id>' (자재 기록 권한: 생산/물류 또는 발주자동화와 같은 키 묶음). 긴 변 1600px JPEG로 줄여 저장
+  //  기록에는 사진 id만 둠: 생산일보 waste[].ph · 자재 수불 기록 e.ph · 생산 마감 제조 폐기 det[].ph
+  window.WP = (function(){
+    const PRE = 'mat-led-photo-', cache = new Map();
+    const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const who = () => (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+    function compress(file){
+      return new Promise((ok, bad) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let max = 1600, q = 0.72, out = '';
+          for(let k = 0; k < 6; k++){
+            const sc = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(img.width * sc)); c.height = Math.max(1, Math.round(img.height * sc));
+            const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+            out = c.toDataURL('image/jpeg', q);
+            if(out.length < 450000) break;
+            max = Math.round(max * 0.8); q = Math.max(0.5, q - 0.06);
+          }
+          ok(out);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('사진을 열지 못했습니다')); };
+        img.src = url;
+      });
+    }
+    async function put(dataUrl, meta){
+      const id = rid(), rec = { id, at: Date.now(), by: who(), meta: meta || {}, data: dataUrl };
+      await window.storage.set(PRE + id, JSON.stringify(rec), true);
+      cache.set(id, rec); return id;
+    }
+    async function get(id){
+      if(cache.has(id)) return cache.get(id);
+      try{ const r = await window.storage.get(PRE + id, true); const rec = r && r.value ? JSON.parse(r.value) : null; if(rec) cache.set(id, rec); return rec; }catch(e){ return null; }
+    }
+    async function del(id){ cache.delete(id); try{ await window.storage.delete(PRE + id, true); }catch(e){ /* 지우기 실패는 무시 (기록에서는 빠짐) */ } }
+    const imgFiles = list => [...(list || [])].filter(f => f && /^image\//.test(f.type || ''));
+    function modal(title, body, buttons){
+      const ov = document.createElement('div');
+      ov.className = 'wp-ov';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:10060;display:flex;align-items:center;justify-content:center;padding:14px;';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:var(--card,#fff);border-radius:14px;max-width:760px;width:100%;max-height:92vh;overflow:auto;padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.25);';
+      box.innerHTML = `<div style="font-weight:800;font-size:16px;margin-bottom:10px;">${escapeHtml(title)}</div>`;
+      box.appendChild(body);
+      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:12px;';
+      const close = () => ov.remove();
+      (buttons || [{ text: '닫기', fn: c => c() }]).forEach(b => { const el = document.createElement('button'); el.type = 'button'; el.className = b.primary ? 'btn-primary small-btn' : 'btn-ghost small-btn'; el.textContent = b.text; el.addEventListener('click', () => b.fn(close)); row.appendChild(el); });
+      box.appendChild(row); ov.appendChild(box);
+      ov.addEventListener('click', e => { if(e.target === ov) close(); });
+      document.body.appendChild(ov);
+      return { close, box };
+    }
+    function big(src){
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10070;display:flex;align-items:center;justify-content:center;padding:10px;cursor:zoom-out;';
+      const im = document.createElement('img'); im.src = src; im.style.cssText = 'max-width:100%;max-height:100%;border-radius:6px;';
+      ov.appendChild(im); ov.addEventListener('click', () => ov.remove()); document.body.appendChild(ov);
+    }
+    // 사진 칸: items = [{ id?, data? }] (id = 저장된 사진, data = 아직 저장 안 한 사진)
+    //  opts.live: 고르는 즉시 저장하고 onChange(ids) / 아니면 저장 전 사진(data)으로 들고 있다가 나중에 upload()
+    function box(opts){
+      const st = { items: (opts.items || []).slice(), busy: 0 }, can = opts.can !== false;
+      const el = document.createElement('div'); el.className = 'wp-box';
+      el.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0;';
+      const emit = () => { if(opts.onChange) opts.onChange(st.items); };
+      const add = async files => {
+        files = imgFiles(files); if(!files.length || !can) return;
+        st.busy += files.length; paint();
+        for(const f of files){
+          try{
+            const data = await compress(f);
+            if(opts.live){ const id = await put(data, opts.meta); st.items.push({ id }); }
+            else st.items.push({ data });
+          }catch(e){ toast('사진을 넣지 못했습니다: ' + ((e && e.message) || e)); }
+          st.busy--; paint(); emit();
+        }
+      };
+      function paint(){
+        el.innerHTML = '';
+        st.items.forEach((it, i) => {
+          const w = document.createElement('div'); w.style.cssText = 'position:relative;width:76px;height:76px;border:1px solid var(--line,#ddd);border-radius:8px;overflow:hidden;background:#f4f4f4;';
+          const im = document.createElement('img'); im.style.cssText = 'width:100%;height:100%;object-fit:cover;cursor:zoom-in;'; im.alt = '폐기 사진';
+          if(it.data) im.src = it.data; else get(it.id).then(r => { if(r) im.src = r.data; else { im.alt = '없음'; w.title = '사진을 찾지 못했습니다'; } });
+          im.addEventListener('click', () => { if(im.src) big(im.src); });
+          w.appendChild(im);
+          if(can){
+            const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.title = '이 사진 빼기';
+            x.style.cssText = 'position:absolute;top:2px;right:2px;border:0;border-radius:50%;width:22px;height:22px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:12px;line-height:22px;padding:0;';
+            x.addEventListener('click', async () => { const [rm] = st.items.splice(i, 1); if(opts.live && rm && rm.id) await del(rm.id); paint(); emit(); });
+            w.appendChild(x);
+          }
+          el.appendChild(w);
+        });
+        if(st.busy){ const s = document.createElement('span'); s.className = 'sub'; s.style.margin = '0'; s.textContent = `사진 넣는 중… (${st.busy})`; el.appendChild(s); }
+        if(!can){ if(!st.items.length){ const s = document.createElement('span'); s.className = 'sub'; s.style.margin = '0'; s.textContent = '사진 없음'; el.appendChild(s); } return; }
+        const lb = document.createElement('label'); lb.className = 'btn-ghost small-btn'; lb.style.cursor = 'pointer'; lb.textContent = '📷 사진 추가';
+        lb.title = '휴대폰에서는 바로 촬영하거나 앨범에서 고를 수 있습니다 (여러 장 가능)';
+        const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true; fi.style.display = 'none';
+        fi.addEventListener('change', () => { const fs = [...fi.files]; fi.value = ''; add(fs); });
+        lb.appendChild(fi); el.appendChild(lb);
+        const pz = document.createElement('div'); pz.contentEditable = 'true'; pz.className = 'wp-paste';
+        pz.textContent = '여기를 누르고 Ctrl+V (사진 붙여넣기)';
+        pz.style.cssText = 'min-width:150px;padding:6px 10px;border:1px dashed var(--line,#ccc);border-radius:8px;font-size:12px;color:var(--muted,#888);cursor:text;outline:none;';
+        pz.addEventListener('keydown', e => { if(!(e.ctrlKey || e.metaKey) && e.key !== 'Tab') e.preventDefault(); });
+        pz.addEventListener('paste', e => { e.preventDefault(); e.stopPropagation(); const fs = imgFiles(e.clipboardData && e.clipboardData.files); if(fs.length) add(fs); else toast('붙여넣을 사진이 없습니다 — 사진을 복사한 뒤 붙여넣으세요'); });
+        pz.addEventListener('drop', e => { e.preventDefault(); add(e.dataTransfer && e.dataTransfer.files); });
+        pz.addEventListener('dragover', e => e.preventDefault());
+        pz.addEventListener('input', () => { pz.textContent = '여기를 누르고 Ctrl+V (사진 붙여넣기)'; });
+        el.appendChild(pz);
+      }
+      paint();
+      return {
+        el,
+        get items(){ return st.items; },
+        get busy(){ return st.busy; },
+        set(items){ st.items = (items || []).slice(); paint(); },
+        // 저장 전 사진을 서버에 올리고 id 목록을 돌려줌
+        async upload(meta){ const ids = []; for(const it of st.items){ if(it.id) ids.push(it.id); else { const id = await put(it.data, meta || opts.meta); it.id = id; delete it.data; ids.push(id); } } return ids; }
+      };
+    }
+    // 저장된 사진 보기/고치기 창 (onChange(ids) 가 있으면 고칠 수 있음)
+    function edit(title, ids, onChange, meta){
+      const wrap = document.createElement('div');
+      const b = box({ items: (ids || []).map(id => ({ id })), live: true, can: !!onChange, meta, onChange: items => { if(onChange) onChange(items.map(x => x.id).filter(Boolean)); } });
+      wrap.appendChild(b.el);
+      if(onChange){ const s = document.createElement('div'); s.className = 'sub'; s.style.margin = '6px 0 0'; s.textContent = '사진을 고르거나 붙여넣으면 바로 저장됩니다. 사진을 누르면 크게 봅니다.'; wrap.appendChild(s); }
+      return modal(title, wrap);
+    }
+    function view(ids, title){ return edit(title || '📷 폐기 사진', ids, null); }
+    return { compress, put, get, del, box, edit, view, PRE };
+  })();
+
   function prRenderWaste(dk, doc, can){
     const el = document.getElementById('pr-waste'); if(!el) return;
     if(prMatRaw === null){ el.innerHTML = '<div class="sub" style="margin:0;">불러오는 중…</div>'; prMatRawLoad().then(() => prRender()); return; }
@@ -23094,12 +23229,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const rsn = sel => PR_WASTE_REASONS.map(x => `<option${x === sel ? ' selected' : ''}>${e(x)}</option>`).join('') + (sel && !PR_WASTE_REASONS.includes(sel) ? `<option selected>${e(sel)}</option>` : '');
     const tot = Math.round(rows.reduce((s, r) => s + (Number(r.kg) || 0), 0) * 100) / 100;
     let h = '';
-    if(rows.length) h += `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>원물</th><th>폐기 kg</th><th>사유</th><th>메모</th><th></th></tr></thead><tbody>${rows.map(r => `<tr data-id="${e(r.id)}"><td><select data-f="m">${opt(r.m)}</select></td><td><input data-f="kg" type="text" inputmode="decimal" value="${e(r.kg === '' || r.kg == null ? '' : String(r.kg))}" placeholder="kg" style="width:80px;"></td><td><select data-f="reason">${rsn(r.reason)}</select></td><td><input data-f="note" value="${e(r.note || '')}" placeholder="예: 3차 라인 기계 걸림" style="width:200px;"></td><td><button type="button" class="btn-ghost small-btn" data-act="wdel" title="이 줄 지우기">✕</button></td></tr>`).join('')}</tbody><tfoot><tr><td style="text-align:right;font-weight:700;">합계</td><td class="n" style="font-weight:700;">${tot ? tot.toLocaleString() + ' kg' : ''}</td><td colspan="3"></td></tr></tfoot></table></div>`;
+    if(rows.length) h += `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>원물</th><th>폐기 kg</th><th>사유</th><th>메모</th><th>사진</th><th></th></tr></thead><tbody>${rows.map(r => { const np = (r.ph || []).length; return `<tr data-id="${e(r.id)}"><td><select data-f="m">${opt(r.m)}</select></td><td><input data-f="kg" type="text" inputmode="decimal" value="${e(r.kg === '' || r.kg == null ? '' : String(r.kg))}" placeholder="kg" style="width:80px;"></td><td><select data-f="reason">${rsn(r.reason)}</select></td><td><input data-f="note" value="${e(r.note || '')}" placeholder="예: 3차 라인 기계 걸림" style="width:200px;"></td><td><button type="button" class="btn-ghost small-btn" data-act="wph" data-np="${np}" title="폐기 사진 ${np ? '보기·추가' : '붙이기'} (촬영·앨범·붙여넣기)">📷${np ? ' ' + np : ' +'}</button></td><td><button type="button" class="btn-ghost small-btn" data-act="wdel" title="이 줄 지우기">✕</button></td></tr>`; }).join('')}</tbody><tfoot><tr><td style="text-align:right;font-weight:700;">합계</td><td class="n" style="font-weight:700;">${tot ? tot.toLocaleString() + ' kg' : ''}</td><td colspan="4"></td></tr></tfoot></table></div>`;
     else h += '<div class="sub" style="margin:0;">가공·포장 중에 버린 원물이 있으면 무게를 달아 <b>+ 폐기 추가</b>로 적습니다. 생산 마감 때 자재 재고에서 빠지고, 🗃 자재·재고 → <b>폐기 · 수율</b>에서 날짜별로 모아 봅니다.</div>';
     if(!prMatRaw.length) h += '<div class="sub" style="margin:4px 0 0;color:var(--danger,#c0392b);">원물 자재가 없습니다. 🗂 기준정보 › 품목에서 원물(구분: 원물)을 먼저 등록해 주세요.</div>';
     h += `<div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="pr-waste-add">+ 폐기 추가</button></div>`;
     el.innerHTML = h;
     el.querySelectorAll('input, select, button').forEach(x => { x.disabled = !can; });
+    if(!can) el.querySelectorAll('[data-act="wph"]').forEach(x => { if(Number(x.dataset.np) > 0) x.disabled = false; });   // 권한이 없어도 붙은 사진은 볼 수 있게
   }
   function prInstView(dk, doc){
     return doc.inst.map((r, i) => {
@@ -23250,7 +23386,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         return;
       }
       if(b.id === 'pr-waste-add'){ prCommit(d, doc => { doc.waste.push({ id: prId(), m: (prMatRaw && prMatRaw.length === 1) ? prMatRaw[0].id : '', kg: '', reason: PR_WASTE_REASONS[0], note: '' }); }, true); return; }
-      if(b.dataset.act === 'wdel' && b.closest('#pr-waste')){ const id = rowOf(b); prCommit(d, doc => { doc.waste = doc.waste.filter(x => x.id !== id); }, true); return; }
+      if(b.dataset.act === 'wdel' && b.closest('#pr-waste')){
+        const id = rowOf(b), w0 = (prCache[d].waste || []).find(x => x.id === id), ph = (w0 && w0.ph) || [];
+        if(ph.length && !confirm(`이 줄에 붙은 사진 ${ph.length}장도 같이 지워집니다. 지울까요?`)) return;
+        prCommit(d, doc => { doc.waste = doc.waste.filter(x => x.id !== id); }, true).then(() => ph.forEach(p => window.WP.del(p)));
+        return;
+      }
+      if(b.dataset.act === 'wph' && b.closest('#pr-waste')){
+        const id = rowOf(b), w0 = (prCache[d].waste || []).find(x => x.id === id); if(!w0) return;
+        const nm = (prMatRaw || []).find(i => i.id === w0.m);
+        window.WP.edit(`📷 제조 폐기 사진 — ${d} ${nm ? nm.name : ''} ${w0.kg ? w0.kg + 'kg' : ''}`, w0.ph || [], prCan() ? ids => { prCommit(d, doc => { const w = doc.waste.find(x => x.id === id); if(w) w.ph = ids; }, true); } : null, { kind: 'prodw', d, row: id });
+        return;
+      }
       if(b.id === 'pr-inst-add'){ prCommit(d, doc => { doc.inst.push({ id: prId(), lbl: '', raw: '', item: '', kg: '', ct: '', extra: '', loss: '', note: '' }); }, true); return; }
       if(b.id === 'pr-staff-add'){ const cur = prCache[d].staff.map(x => Object.assign({}, x)); prCommit(d, doc => { if(!doc.staff.length && cur.length) doc.staff = cur; doc.staff.push({ id: prId(), label: '', names: '' }); }, true); return; }
       if(b.id === 'pr-inst-seq'){
@@ -23730,7 +23877,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const bd = matJp(b, { boms: {} }); MAT.bom = (bd && bd.boms) || {}; MAT.skip = (bd && bd.skip) || {};
       const e1 = matJp(es, {}); MAT.ec = { warehouse: e1.warehouse || '00019', tt21: e1.tt21 != null ? e1.tt21 : '21', tt22: e1.tt22 != null ? e1.tt22 : '22' };
       MAT.ecMgr = (matJp(ep && ep.value, {}) || {}).manager || '';
-      const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED)).sort().concat(((ka && ka.keys) || []).filter(k => k.startsWith(MAT_K_AUTO)).sort());
+      const keys = ((ks && ks.keys) || []).filter(k => k.startsWith(MAT_K_LED) && !k.startsWith(window.WP.PRE)).sort().concat(((ka && ka.keys) || []).filter(k => k.startsWith(MAT_K_AUTO)).sort());
       const docs = await Promise.all(keys.map(matGet));
       const lm = new Map();   // 같은 id가 두 곳에 있으면 자동 차감 쪽(나중)이 우선
       docs.forEach(v => { const a = matJp(v, []); if(Array.isArray(a)) a.forEach(e => lm.set(e.id, e)); });
@@ -23749,6 +23896,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     matRenderDedCard();
   }
   // 수불 기록 추가·수정(같은 id는 덮어씀): 저장 직전에 서버의 월별 기록을 다시 읽어 합쳐서, 동시에 입력해도 서로 지우지 않게 함
+  // 기록에 붙은 사진 id (직접 붙인 사진 + 생산 마감 제조 폐기의 생산일보 사진)
+  const matPhotos = e => [...new Set([...((e && e.ph) || []), ...(((e && e.det) || []).flatMap(x => (x && x.ph) || []))])];
   async function matLedAdd(entries){
     const byMonth = {};
     entries.forEach(e => { const k = (e.auto ? MAT_K_AUTO : MAT_K_LED) + String(e.d).slice(0, 7); (byMonth[k] = byMonth[k] || []).push(e); });
@@ -23941,6 +24090,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <label style="font-size:12.5px;">비고<br><input type="text" id="mat-k-note" value="${escapeHtml(B.note)}" placeholder="사유·전표번호 등" style="width:170px;"></label>
       </div>
       <div id="mat-k-tbl" style="overflow-x:auto;"></div>
+      <div id="mat-k-phw" style="margin-top:8px;"><div style="font-size:12.5px;font-weight:600;">📷 사진 <span class="sub" style="margin:0;font-weight:400;">(선택 — 폐기·파손한 물건 사진. 저장하면 이번에 저장하는 기록에 함께 붙습니다)</span></div><div id="mat-k-ph"></div></div>
       <div class="row" style="margin-top:8px; align-items:center;">
         <button type="button" class="btn-ghost small-btn" id="mat-k-all" title="지금 보이는 자재의 수량 칸을 남은 재고로 모두 채웁니다">보이는 자재 전량 채우기</button>
         <button type="button" class="btn-ghost small-btn" id="mat-k-clr">입력 지우기</button>
@@ -23961,9 +24111,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       matEl('mat-k-sum').textContent = tot ? `입력한 자재 ${tot}종${tot !== n ? ' (다른 구분·검색에 있는 것 포함)' : ''}` : '';
       matEl('mat-k-save').textContent = tot ? `기록 저장 (${tot}건)` : '기록 저장';
     };
+    if(!B.ph) B.ph = [];
+    const phBox = window.WP.box({ items: B.ph, can: matCanLed(), onChange: items => { B.ph = items.slice(); } });
+    matEl('mat-k-ph').appendChild(phBox.el);
     const fill = () => {
       const sm = matStockMap(), items = vis(), isIn = B.t === 'in';
       document.querySelectorAll('.mat-k-in').forEach(e => { e.style.display = isIn ? '' : 'none'; });
+      matEl('mat-k-phw').style.display = isIn ? 'none' : '';
       matEl('mat-k-all').style.display = isIn ? 'none' : '';
       matEl('mat-k-tbl').innerHTML = items.length ? `<table class="mat-t"><thead><tr><th>자재</th><th>구분</th><th>현재고</th><th>${isIn ? '입고 수량' : (B.t === 'loss' ? '로스 수량' : '사용 수량')}</th><th>${isIn ? '단가(원)' : ''}</th><th>기록 후</th></tr></thead><tbody>${items.map(i => {
         const cur = sm[i.id] || 0;
@@ -24010,9 +24164,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         return e;
       });
       const btn = matEl('mat-k-save'); btn.disabled = true;
-      try{ await matLedAdd(entries); }
+      if(phBox.busy){ matMsg('사진을 넣는 중입니다. 잠시 뒤 다시 저장하세요', true); btn.disabled = false; return; }
+      try{
+        if(B.t !== 'in' && phBox.items.length){ const ids = await phBox.upload({ kind: 'mat-' + B.t, d }); entries.forEach(e => { e.ph = ids.slice(); }); }
+        await matLedAdd(entries);
+      }
       catch(err){ const m = String((err && err.message) || err); matMsg('저장 실패: ' + m + (/40[13]|권한/.test(m) ? ' — 서버 권한 SQL(자재재고_구매관리_SQL.sql)을 실행했는지 확인하세요' : ''), true); btn.disabled = false; return; }
-      B.qty = {}; B.price = {}; B.note = '';
+      B.qty = {}; B.price = {}; B.note = ''; B.ph = [];
       matMsg(`${MAT_TYPES[B.t]} ${entries.length}건을 저장했습니다`); toast(`${MAT_TYPES[B.t]} ${entries.length}건 저장됨`);
       matRender();
     });
@@ -24192,6 +24350,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <label style="font-size:12.5px;">비고<br><input type="text" id="mat-l-note" style="width:170px;" placeholder="사유·전표번호 등"></label>
         <button type="button" class="btn-primary small-btn" id="mat-l-save">기록 저장</button>
       </div>
+      <div id="mat-l-phw" style="margin:0 0 6px;"><span style="font-size:12.5px;font-weight:600;">📷 사진 <span class="sub" style="margin:0;font-weight:400;">(선택 — 로스·사용 기록에 붙음)</span></span><div id="mat-l-ph"></div></div>
       <div class="sub" id="mat-l-prev" style="margin:0 0 10px;">구분이 <b>입고</b>면 재고가 늘고, <b>로스·사용</b>이면 줄어듭니다. <b>재고조정</b>은 늘릴 때 5, 줄일 때 -5처럼 부호를 붙여 입력하세요.</div>
       <h3 style="margin:12px 0 6px;">${MAT.mode === 'buy' ? '입고 내역' : '수불 내역 (입고 포함 전체)'}</h3>
       <div class="row" style="margin:0 0 6px;">
@@ -24217,7 +24376,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       </div>`;
     matEl('mat-lf-days').value = String(MAT.ledDays);
     const sign = t => (t === 'in' ? 1 : (t === 'adj' ? 0 : -1));
-    const typeUI = () => { const t = matEl('mat-l-type').value; document.querySelectorAll('.mat-l-in').forEach(e => { e.style.display = t === 'in' ? '' : 'none'; }); };
+    const lPh = window.WP.box({ items: [], can: matCanLed() });
+    matEl('mat-l-ph').appendChild(lPh.el);
+    const typeUI = () => { const t = matEl('mat-l-type').value; document.querySelectorAll('.mat-l-in').forEach(e => { e.style.display = t === 'in' ? '' : 'none'; }); matEl('mat-l-phw').style.display = t === 'in' ? 'none' : ''; };
     const itUI = () => { const it = matById(matEl('mat-l-mat').value); matEl('mat-l-unit').textContent = it ? '(' + it.unit + ')' : ''; if(it && matEl('mat-l-type').value === 'in'){ if(!matEl('mat-l-price').value && it.price) matEl('mat-l-price').value = String(it.price); if(!matEl('mat-l-vendor').value && it.vendor) matEl('mat-l-vendor').value = it.vendor; } prev(); };
     const prev = () => {
       const id = matEl('mat-l-mat').value, t = matEl('mat-l-type').value, v = matParseQty(matEl('mat-l-qty').value), it = matById(id);
@@ -24238,8 +24399,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const q = t === 'adj' ? v : sign(t) * Math.abs(v);
       const e = { id: matRid('e'), d, m: id, t, q, note: matEl('mat-l-note').value.trim(), by: matUser(), ts: Date.now() };
       if(t === 'in'){ const p = matParseQty(matEl('mat-l-price').value); if(p > 0) e.price = p; const vn = matEl('mat-l-vendor').value.trim(); if(vn) e.vendor = vn; }
+      if(lPh.busy){ matMsg('사진을 넣는 중입니다. 잠시 뒤 다시 저장하세요', true); return; }
       matEl('mat-l-save').disabled = true;
-      try{ await matLedAdd([e]); matMsg(`${MAT_TYPES[t]} 기록을 저장했습니다`); toast('수불 기록 저장됨'); }
+      try{ if(t !== 'in' && lPh.items.length) e.ph = await lPh.upload({ kind: 'mat-' + t, d }); await matLedAdd([e]); matMsg(`${MAT_TYPES[t]} 기록을 저장했습니다`); toast('수불 기록 저장됨'); }
       catch(err){ matMsg('저장 실패: ' + ((err && err.message) || err), true); matEl('mat-l-save').disabled = false; return; }
       matRender();
     });
@@ -24248,7 +24410,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const rows = MAT.led.filter(e => (MAT.ledVoid || !e.void) && (!MAT.ledMat || e.m === MAT.ledMat) && (!from || e.d >= from) && (MAT.mode !== 'buy' || e.t === 'in')).sort((a, b) => b.d.localeCompare(a.d) || (b.ts || 0) - (a.ts || 0));
       const box = matEl('mat-l-list');
       if(!rows.length){ box.innerHTML = '<div class="sub">조건에 맞는 기록이 없습니다.</div>'; return; }
-      box.innerHTML = `<table class="mat-t"><thead><tr><th>날짜</th><th>자재</th><th>구분</th><th>수량</th><th>단가</th><th>거래처</th><th>비고</th><th>기록자</th><th></th></tr></thead><tbody>${rows.slice(0, 300).map(e => `<tr data-id="${escapeHtml(e.id)}"${e.void ? ' style="opacity:.5; text-decoration:line-through;"' : ''}><td>${escapeHtml(e.d)}</td><td>${escapeHtml(matLabel(e.m))}</td><td>${escapeHtml(e.auto ? '출고 차감(자동)' : (MAT_TYPES[e.t] || e.t))}${e.xl ? ' <span class="sub" style="margin:0;" title="구매입력 엑셀로 내려받음">· 엑셀 ✓</span>' : ''}</td><td class="n${e.q < 0 ? ' mat-low' : ''}">${e.q > 0 ? '+' : ''}${matN(e.q)} ${escapeHtml(matUnitOf(e.m))}</td><td class="n">${e.price ? matN(e.price) : ''}</td><td>${escapeHtml(e.vendor || '')}</td><td${e.det ? ` title="${escapeHtml(e.det.map(x => x.p + ' ' + matN(x.q)).join(', '))}"` : ''}>${escapeHtml(e.note || '')}</td><td>${escapeHtml(e.by || '')}</td><td>${e.void ? '취소됨' : (e.auto || ((MAT.mode === 'buy') !== (e.t === 'in')) ? '' : '<button type="button" class="btn-danger small-btn mat-l-void">취소</button>')}</td></tr>`).join('')}</tbody></table>${rows.length > 300 ? `<div class="sub">최근 300건만 표시됩니다 (전체 ${rows.length}건)</div>` : ''}`;
+      box.innerHTML = `<table class="mat-t"><thead><tr><th>날짜</th><th>자재</th><th>구분</th><th>수량</th><th>단가</th><th>거래처</th><th>비고</th><th>기록자</th><th></th></tr></thead><tbody>${rows.slice(0, 300).map(e => `<tr data-id="${escapeHtml(e.id)}"${e.void ? ' style="opacity:.5; text-decoration:line-through;"' : ''}><td>${escapeHtml(e.d)}</td><td>${escapeHtml(matLabel(e.m))}</td><td>${escapeHtml(e.auto ? '출고 차감(자동)' : (MAT_TYPES[e.t] || e.t))}${e.xl ? ' <span class="sub" style="margin:0;" title="구매입력 엑셀로 내려받음">· 엑셀 ✓</span>' : ''}</td><td class="n${e.q < 0 ? ' mat-low' : ''}">${e.q > 0 ? '+' : ''}${matN(e.q)} ${escapeHtml(matUnitOf(e.m))}</td><td class="n">${e.price ? matN(e.price) : ''}</td><td>${escapeHtml(e.vendor || '')}</td><td${e.det ? ` title="${escapeHtml(e.det.map(x => x.p + ' ' + matN(x.q)).join(', '))}"` : ''}>${escapeHtml(e.note || '')}${matPhotos(e).length ? ` <button type="button" class="btn-ghost small-btn mat-l-ph" title="폐기 사진 보기">📷 ${matPhotos(e).length}</button>` : ''}</td><td>${escapeHtml(e.by || '')}</td><td>${e.void ? '취소됨' : (e.auto || ((MAT.mode === 'buy') !== (e.t === 'in')) ? '' : '<button type="button" class="btn-danger small-btn mat-l-void">취소</button>')}</td></tr>`).join('')}</tbody></table>${rows.length > 300 ? `<div class="sub">최근 300건만 표시됩니다 (전체 ${rows.length}건)</div>` : ''}`;
+      box.querySelectorAll('.mat-l-ph').forEach(btn => btn.addEventListener('click', () => { const cur = MAT.led.find(x => x.id === btn.closest('tr').dataset.id); if(cur) window.WP.view(matPhotos(cur), `📷 ${matLabel(cur.m)} ${MAT_TYPES[cur.t] || ''} 사진 — ${cur.d}`); }));
       box.querySelectorAll('.mat-l-void').forEach(btn => armConfirmButton(btn, async () => {
         const id = btn.closest('tr').dataset.id, cur = MAT.led.find(x => x.id === id); if(!cur) return;
         try{ await matLedAdd([Object.assign({}, cur, { void: true, voidBy: matUser(), voidAt: Date.now() })]); matMsg('기록을 취소했습니다 (재고에서 빠집니다)'); }
