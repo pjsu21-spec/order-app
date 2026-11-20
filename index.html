@@ -3230,6 +3230,15 @@
   <li>원물 종류를 하나도 체크하지 않으면 예전처럼 원물 구분 없이 동작합니다.</li>
 </ul>
 
+<h3>등록한 기록 고치기</h3>
+<p>원물입고 · 선별산출 · 출고·정산의 아래 목록에서 <span class="mn-b">수정</span>을 누르면 창이 열립니다. 고친 뒤 <span class="mn-b">저장</span>을 누르면 재고·정산·자재 재고가 고친 값으로 다시 계산됩니다.</p>
+<ul>
+  <li><b>원물입고</b>: 날짜, 사입처, 농가, 원물, 품종, 무게, 단가, A1·KPP, 메모.</li>
+  <li><b>선별산출</b>: 날짜, 등급별 kg, 메모. kg을 0으로 하면 그 등급 줄이 지워지고, 빠진 등급은 <b>등급 추가</b>로 넣습니다. 원본(사입처·농가)을 바꾸려면 삭제한 뒤 다시 등록하세요.</li>
+  <li><b>출고·정산</b>: 날짜, 거래처, 등급, 수량, 박스 수, 단가, 메모.</li>
+  <li><b>물류기기 이력</b>은 [수정]을 누르면 위 입력칸에 내용이 채워지고, <b>[수정 저장]</b>으로 고칩니다.</li>
+</ul>
+
 <h3>현황</h3>
 <p>사입처별 <b>선별전재고</b>, 등급별 <b>선별후재고</b>(판매 가능), 날짜별 작업·출고 현황을 한눈에 봅니다. 조회 날짜를 바꾸고 <span class="mn-b">🔄 새로고침</span>.</p>
 
@@ -16464,6 +16473,179 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
     }catch(e){ toast('등록 실패: '+e.message); }
   }
 
+  // ══════════════════ 원물선별 · 등록한 기록 수정 (원물입고 · 선별산출 · 출고·정산) ══════════════════
+  //  표의 [수정] → 창에서 고치고 [저장]. 물류기기 이력은 위 입력칸으로 고치는 방식 그대로
+  async function srPatch(table, filter, body){
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: Object.assign({}, sbHeaders, { 'Prefer': 'return=representation' }), body: JSON.stringify(body) });
+    if(!res.ok){ const t = await res.text().catch(() => ''); throw new Error(`${res.status} ${t.slice(0, 120)}`); }
+    const rows = await res.json().catch(() => []);
+    if(Array.isArray(rows) && !rows.length) throw new Error('고칠 권한이 없거나 이미 지워진 기록입니다');
+    return rows;
+  }
+  // fields: [{ key, label, type:'date'|'number'|'text'|'select'|'info', value, options:[[값, 이름]], step, wide }]
+  //  onSave(vals) 가 true(또는 아무것도 안 돌려줌)면 창을 닫음, false면 그대로 둠
+  function srEditModal(title, fields, onSave, extra){
+    const ov = document.createElement('div');
+    ov.className = 'sr-edit-ov';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--card,#fff);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.25);';
+    box.innerHTML = `<div style="font-weight:800;font-size:16px;margin-bottom:10px;">✏️ ${escapeHtml(title)}</div>`;
+    const grid = document.createElement('div'); grid.style.cssText = 'display:grid;grid-template-columns:120px 1fr;gap:8px 10px;align-items:center;';
+    const els = {};
+    fields.forEach(f => {
+      const lb = document.createElement('label'); lb.style.cssText = 'font-size:13px;font-weight:600;'; lb.textContent = f.label; grid.appendChild(lb);
+      let el;
+      if(f.type === 'info'){ el = document.createElement('div'); el.style.fontSize = '13px'; el.textContent = f.value == null ? '' : String(f.value); }
+      else if(f.type === 'select'){
+        el = document.createElement('select');
+        (f.options || []).forEach(([v, n]) => { const o = document.createElement('option'); o.value = v == null ? '' : String(v); o.textContent = n; el.appendChild(o); });
+        const cur = f.value == null ? '' : String(f.value);
+        if(![...el.options].some(o => o.value === cur)){ const o = document.createElement('option'); o.value = cur; o.textContent = (f.curLabel || ('#' + cur)) + ' (사용 안 함)'; el.appendChild(o); }
+        el.value = cur;
+      } else {
+        el = document.createElement('input'); el.type = f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text');
+        if(f.type === 'number'){ el.step = f.step || 'any'; el.inputMode = 'decimal'; }
+        el.value = f.value == null ? '' : String(f.value);
+        if(f.placeholder) el.placeholder = f.placeholder;
+      }
+      el.style.maxWidth = f.type === 'number' ? '140px' : '100%';
+      el.dataset.key = f.key || '';
+      grid.appendChild(el); if(f.key) els[f.key] = el;
+    });
+    box.appendChild(grid);
+    if(extra) box.appendChild(extra);
+    const msg = document.createElement('div'); msg.className = 'sub'; msg.style.cssText = 'margin:8px 0 0;color:var(--danger,#c0392b);'; box.appendChild(msg);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:12px;';
+    const close = () => ov.remove();
+    const bc = document.createElement('button'); bc.type = 'button'; bc.className = 'btn-ghost small-btn'; bc.textContent = '취소'; bc.addEventListener('click', close);
+    const bs = document.createElement('button'); bs.type = 'button'; bs.className = 'btn-primary small-btn'; bs.textContent = '저장';
+    bs.addEventListener('click', async () => {
+      const vals = {}; Object.entries(els).forEach(([k, el]) => { vals[k] = el.value; });
+      bs.disabled = true; msg.textContent = '';
+      try{ const r = await onSave(vals, m => { msg.textContent = m; }); if(r !== false) close(); }
+      catch(e){ msg.textContent = '저장 실패: ' + ((e && e.message) || e); }
+      finally{ bs.disabled = false; }
+    });
+    row.appendChild(bc); row.appendChild(bs); box.appendChild(row);
+    ov.appendChild(box); ov.addEventListener('click', e => { if(e.target === ov) close(); });
+    document.body.appendChild(ov);
+    const first = box.querySelector('input,select'); if(first) first.focus();
+    return { close, els };
+  }
+  const srNumOrNull = v => { const t = String(v == null ? '' : v).replace(/,/g, '').trim(); if(t === '') return null; const n = Number(t); return isFinite(n) ? n : NaN; };
+
+  // 원물입고 수정
+  async function srEditInbound(r, vendorRows, farmRows){
+    const vendors = (vendorRows || []).filter(v => v.is_active !== false || v.id === r.vendor_id);
+    const farms = (farmRows || []).filter(f => f.is_active !== false || f.id === r.farm_id);
+    if(!inboundMatItems.length) await inboundLoadMatItems();
+    const items = inboundMatItems.slice().sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), 'ko'));
+    const curItem = items.find(i => r.item_code && String(i.code) === String(r.item_code)) || items.find(i => !r.item_code && r.item_name && i.name === r.item_name);
+    const itemOpts = [['', '(원물 선택 안 함)']].concat(items.map(i => [i.id, (i.code ? i.code + ' · ' : '') + i.name]));
+    if(!curItem && r.item_name) itemOpts.push(['__keep', (r.item_code ? r.item_code + ' · ' : '') + r.item_name + ' (지금 값 그대로)']);
+    const fields = [
+      { key: 'work_date', label: '날짜', type: 'date', value: r.work_date },
+      { key: 'vendor_id', label: '사입처 *', type: 'select', value: r.vendor_id, options: vendors.map(v => [v.id, v.name]) },
+      { key: 'farm_id', label: '농가 (선택)', type: 'select', value: r.farm_id || '', options: [['', '(농가 없음)']].concat(farms.map(f => [f.id, f.name])) },
+      { key: 'item', label: '원물', type: 'select', value: curItem ? curItem.id : (r.item_name ? '__keep' : ''), options: itemOpts },
+    ];
+    if('variety' in r) fields.push({ key: 'variety', label: '품종', type: 'text', value: r.variety || '' });
+    fields.push({ key: 'weight_kg', label: '무게(kg) *', type: 'number', value: r.weight_kg });
+    if('unit_price' in r) fields.push({ key: 'unit_price', label: '단가(원/kg)', type: 'number', value: r.unit_price == null ? '' : r.unit_price, placeholder: '비우면 단가 없음' });
+    fields.push({ key: 'a1_count', label: 'A1콘테이너', type: 'number', value: r.a1_count || 0, step: '1' });
+    fields.push({ key: 'kpp_count', label: 'KPP팔레트', type: 'number', value: r.kpp_count || 0, step: '1' });
+    fields.push({ key: 'note', label: '메모', type: 'text', value: r.note || '' });
+    srEditModal(`원물입고 수정 — ${r.work_date}`, fields, async (v, err) => {
+      const w = srNumOrNull(v.weight_kg), price = 'unit_price' in r ? srNumOrNull(v.unit_price) : null;
+      if(!v.work_date){ err('날짜를 입력해주세요'); return false; }
+      if(!v.vendor_id){ err('사입처를 선택해주세요'); return false; }
+      if(!(w > 0)){ err('무게를 입력해주세요'); return false; }
+      if(Number.isNaN(price) || (price != null && price < 0)){ err('단가는 숫자로 입력해주세요'); return false; }
+      const body = { work_date: v.work_date, vendor_id: Number(v.vendor_id), farm_id: v.farm_id ? Number(v.farm_id) : null, weight_kg: w, a1_count: Number(v.a1_count) || 0, kpp_count: Number(v.kpp_count) || 0, note: String(v.note || '').trim() };
+      if(v.item !== '__keep'){ const it = items.find(i => String(i.id) === String(v.item)); body.item_code = it ? (it.code || '') : null; body.item_name = it ? it.name : null; }
+      if('variety' in r) body.variety = String(v.variety || '').trim() || null;
+      if('unit_price' in r) body.unit_price = price && price > 0 ? price : null;
+      await srPatch('sorting_inbound', `id=eq.${r.id}`, body);
+      await writeLog('sorting_inbound_edit', `입고 수정: ${r.work_date} ${r.weight_kg}kg → ${body.work_date} ${w}kg`);
+      if(typeof ppVarLoad === 'function') ppVarInfo.at = 0;
+      if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;
+      loadSortingStock(); loadSortingInboundTable();
+      toast('입고 내역을 수정했습니다');
+    });
+  }
+
+  // 선별산출 수정: 날짜·메모·등급별 kg (0이면 그 등급 줄 삭제), 등급 추가. 원본(사입처·농가)을 바꾸려면 삭제 후 다시 등록
+  async function srEditOutput(r, items, grades, originName){
+    const gname = id => (grades.find(g => g.id === id) || {}).name || ('#' + id);
+    const fields = [
+      { label: '원본', type: 'info', value: originName + ' (바꾸려면 삭제 후 다시 등록)' },
+      { key: 'work_date', label: '날짜', type: 'date', value: r.work_date },
+    ];
+    (items || []).forEach(it => fields.push({ key: 'it_' + it.id, label: gname(it.grade_id) + ' (kg)', type: 'number', value: it.weight_kg }));
+    const used = new Set((items || []).map(it => it.grade_id));
+    const addable = grades.filter(g => g.is_active !== false && !used.has(g.id));
+    if(addable.length){
+      fields.push({ key: 'add_grade', label: '등급 추가', type: 'select', value: '', options: [['', '(추가 안 함)']].concat(addable.map(g => [g.id, g.name + (g.sellable === false ? ' (폐기)' : '')])) });
+      fields.push({ key: 'add_kg', label: '추가 등급 kg', type: 'number', value: '' });
+    }
+    fields.push({ key: 'note', label: '메모', type: 'text', value: r.note || '' });
+    const hint = document.createElement('div'); hint.className = 'sub'; hint.style.margin = '8px 0 0'; hint.textContent = '등급 kg을 0으로 하면 그 등급 줄이 지워집니다. 원본의 입고 잔량(선입선출)은 저장한 kg 기준으로 다시 계산됩니다.';
+    srEditModal(`선별산출 수정 — ${r.work_date} · ${originName}`, fields, async (v, err) => {
+      if(!v.work_date){ err('날짜를 입력해주세요'); return false; }
+      const ups = [], dels = [];
+      for(const it of (items || [])){
+        const n = srNumOrNull(v['it_' + it.id]);
+        if(Number.isNaN(n) || (n != null && n < 0)){ err(`${gname(it.grade_id)} kg을 확인해주세요`); return false; }
+        if(!n) dels.push(it); else if(n !== Number(it.weight_kg)) ups.push([it, n]);
+      }
+      const addKg = srNumOrNull(v.add_kg);
+      if(v.add_grade && !(addKg > 0)){ err('추가 등급의 kg을 입력해주세요'); return false; }
+      if(dels.length === (items || []).length && !(v.add_grade && addKg > 0)){ err('등급이 하나도 남지 않습니다 — 기록 전체를 지우려면 [삭제]를 누르세요'); return false; }
+      await srPatch('sorting_output', `id=eq.${r.id}`, { work_date: v.work_date, note: String(v.note || '').trim() });
+      for(const [it, n] of ups) await srPatch('sorting_output_items', `id=eq.${it.id}`, { weight_kg: n });
+      for(const it of dels) await sbDelete2('sorting_output_items', `id=eq.${it.id}`);
+      if(v.add_grade && addKg > 0) await sbInsert('sorting_output_items', { output_id: r.id, grade_id: Number(v.add_grade), weight_kg: addKg });
+      await writeLog('sorting_output_edit', `선별산출 수정: ${r.work_date} ${originName} (변경 ${ups.length} · 삭제 ${dels.length}${v.add_grade && addKg > 0 ? ' · 추가 1' : ''})`);
+      if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;
+      loadOutputPostStock(); loadSortingOutputTable();
+      toast('선별산출을 수정했습니다');
+    }, hint);
+  }
+
+  // 출고·정산 수정
+  async function srEditShipment(r, dests, grades, pkgs){
+    const ds = (dests || []).filter(d => d.is_active !== false || d.id === r.destination_id).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+    const gs = (grades || []).filter(g => (g.is_active !== false && g.sellable !== false) || g.id === r.grade_id);
+    const fields = [
+      { key: 'ship_date', label: '날짜', type: 'date', value: r.ship_date },
+      { key: 'destination_id', label: '거래처 *', type: 'select', value: r.destination_id, options: ds.map(d => [d.id, d.name + (d.ecount_code ? ` [${d.ecount_code}]` : '')]) },
+      { key: 'grade_id', label: '등급 *', type: 'select', value: r.grade_id, options: gs.map(g => [g.id, g.name]) },
+      { key: 'qty_kg', label: '수량(kg) *', type: 'number', value: r.qty_kg },
+      { key: 'box_count', label: '박스 수', type: 'number', value: r.box_count == null ? '' : r.box_count, step: '1' },
+    ];
+    if(r.packaging_unit_id != null && !r.sku_name) fields.push({ key: 'packaging_unit_id', label: '포장', type: 'select', value: r.packaging_unit_id, options: (pkgs || []).map(p => [p.id, p.name]) });
+    if(r.sku_name) fields.push({ label: '포장 제품', type: 'info', value: r.sku_name });
+    fields.push({ key: 'unit_price', label: '단가(원/kg)', type: 'number', value: r.unit_price == null ? '' : r.unit_price, placeholder: '비우면 단가 미입력' });
+    fields.push({ key: 'note', label: '메모', type: 'text', value: r.note || '' });
+    srEditModal(`출고 수정 — ${r.ship_date}`, fields, async (v, err) => {
+      const q = srNumOrNull(v.qty_kg), price = srNumOrNull(v.unit_price), box = srNumOrNull(v.box_count);
+      if(!v.ship_date){ err('날짜를 입력해주세요'); return false; }
+      if(!v.destination_id || !v.grade_id){ err('거래처와 등급을 선택해주세요'); return false; }
+      if(!(q > 0)){ err('수량을 입력해주세요'); return false; }
+      if(Number.isNaN(price) || (price != null && price <= 0)){ err('단가는 0보다 큰 숫자로 입력하거나 비워 두세요'); return false; }
+      if(Number.isNaN(box) || (box != null && box < 0)){ err('박스 수를 확인해주세요'); return false; }
+      const body = { ship_date: v.ship_date, destination_id: Number(v.destination_id), grade_id: Number(v.grade_id), qty_kg: q, box_count: box, note: String(v.note || '').trim(), unit_price: price };
+      if(price !== (r.unit_price == null ? null : Number(r.unit_price))) body.price_updated_at = new Date().toISOString();
+      if('packaging_unit_id' in v) body.packaging_unit_id = v.packaging_unit_id ? Number(v.packaging_unit_id) : null;
+      await srPatch('sorting_shipment', `id=eq.${r.id}`, body);
+      await writeLog('sorting_shipment_edit', `출고 수정: ${r.ship_date} ${r.qty_kg}kg → ${body.ship_date} ${q}kg`);
+      if(typeof MAT !== 'undefined' && MAT.loaded) MAT.loaded = false;
+      loadSellableGradeStock('shipment-stock-wrap'); loadSortingShipmentTable();
+      toast('출고 내역을 수정했습니다');
+    });
+  }
+
   async function loadSortingInboundTable(){
     const wrap = document.getElementById('inbound-table-wrap');
     wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
@@ -16483,9 +16665,15 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
       rows.forEach(r=>{
         const tr = document.createElement('tr');
         const itemText = r.item_name ? (r.item_code ? r.item_code + ' · ' : '') + r.item_name : '';
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(vendorMap[r.vendor_id]||'')}</td><td>${escapeHtml(r.farm_id ? (farmMap[r.farm_id]||'') : '')}</td><td>${escapeHtml(itemText)}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${Number(r.unit_price) > 0 ? Number(r.unit_price).toLocaleString() : ''}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(vendorMap[r.vendor_id]||'')}</td><td>${escapeHtml(r.farm_id ? (farmMap[r.farm_id]||'') : '')}</td><td>${escapeHtml(itemText)}</td><td>${escapeHtml(r.variety||'')}</td><td>${r.weight_kg}</td><td>${Number(r.unit_price) > 0 ? Number(r.unit_price).toLocaleString() : ''}</td><td>${r.a1_count||0}</td><td>${r.kpp_count||0}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(r.note||'')}</td><td style="white-space:nowrap;"></td>`;
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-ghost small-btn sr-edit-btn';
+        editBtn.textContent = '수정';
+        editBtn.addEventListener('click', () => srEditInbound(r, vendorRows, farmRows));
+        tr.lastElementChild.appendChild(editBtn);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
+        delBtn.style.marginLeft = '6px';
         delBtn.textContent = '삭제';
         delBtn.addEventListener('click', async ()=>{
           if(!confirm('삭제하시겠습니까?')) return;
@@ -16811,9 +16999,15 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
         const originName = r.farm_id ? (farmMap[r.farm_id]||'') : (vendorMap[r.vendor_id]||'');
         const itemsText = (itemsByOutput[r.id]||[]).map(it=> `${gradeMap[it.grade_id]||'?'} ${it.weight_kg}kg`).join(', ');
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originName)}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(itemsText)}</td><td>${escapeHtml(r.note||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.work_date)}</td><td>${escapeHtml(originName)}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td>${escapeHtml(itemsText)}</td><td>${escapeHtml(r.note||'')}</td><td style="white-space:nowrap;"></td>`;
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-ghost small-btn sr-edit-btn';
+        editBtn.textContent = '수정';
+        editBtn.addEventListener('click', () => srEditOutput(r, itemsByOutput[r.id] || [], grades, originName));
+        tr.lastElementChild.appendChild(editBtn);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-danger small-btn';
+        delBtn.style.marginLeft = '6px';
         delBtn.textContent = '삭제';
         delBtn.addEventListener('click', async ()=>{
           if(!confirm('삭제하시겠습니까? (등급별 산출 내역도 함께 삭제됩니다)')) return;
@@ -17239,8 +17433,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}${dest.ecount_code ? ` <span class="sub" style="margin:0;">[${escapeHtml(dest.ecount_code)}]</span>` : ''}${srDestInternal(dest) ? ' <span class="sub" style="margin:0;color:var(--accent,#2b6cb0);">자사 생산</span>' : ''}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
+        actionTd.style.whiteSpace = 'nowrap';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-ghost small-btn sr-edit-btn';
+        editBtn.textContent = '수정';
+        editBtn.title = '날짜·거래처·등급·수량·박스·단가·메모 고치기';
+        editBtn.addEventListener('click', () => srEditShipment(r, dests, grades, packagingUnits));
+        actionTd.appendChild(editBtn);
         const priceBtn = document.createElement('button');
         priceBtn.className = 'btn-ghost small-btn';
+        priceBtn.style.marginLeft = '6px';
         priceBtn.textContent = hasPrice ? '단가 수정' : '단가 입력';
         priceBtn.addEventListener('click', ()=> promptShipmentPrice(r));
         actionTd.appendChild(priceBtn);
