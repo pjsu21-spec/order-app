@@ -2086,13 +2086,13 @@
         <button class="btn-primary small-btn form-submit-btn" id="equipment-add-btn">+ 물류기기 이력 등록</button>
         <button type="button" class="btn-ghost small-btn" id="equipment-edit-cancel-btn" style="display:none;">수정 취소</button>
       </div>
-      <details class="help"><summary>ⓘ 사업자</summary><div class="sub" style="margin-top:4px;">사업자는 물류기기를 소유한 회사입니다. 자담 외에 <b>우리 회사나 다른 회사</b>를 아래 <b>새 사업자(회사) 추가</b>에서 등록하면 그 회사 자산으로 이력을 기록하고, 현재 보유 현황이 회사별로 따로 집계됩니다. 이관은 이동유형 <b>내부이관</b>(보내는 사업자 → 받는 사업자)으로 기록하세요. 농가·사입 입고로 자동 회수되는 기기는 계속 <b>자담</b>에 잡힙니다. 잘못 입력한 이력은 최근 이동 이력의 <b>수정</b>으로 고칠 수 있습니다.</div></details>
+      <details class="help"><summary>ⓘ 사업자</summary><div class="sub" style="margin-top:4px;">사업자는 물류기기를 소유한 회사입니다. 자담 외에 <b>우리 회사나 다른 회사</b>를 아래 <b>새 사업자(회사) 추가</b>에서 기준정보 업체에서 골라 등록하면 그 회사 자산으로 이력을 기록하고, 현재 보유 현황이 회사별로 따로 집계됩니다. 이관은 이동유형 <b>내부이관</b>(보내는 사업자 → 받는 사업자)으로 기록하세요. 농가·사입 입고로 자동 회수되는 기기는 계속 <b>자담</b>에 잡힙니다. 잘못 입력한 이력은 최근 이동 이력의 <b>수정</b>으로 고칠 수 있습니다.</div></details>
       <details class="sorting-master-only" id="equipment-new-business-wrap" style="display:none; margin:6px 0 0;">
         <summary style="cursor:pointer; font-size:13px; font-weight:600; color:var(--accent);">새 사업자(회사) 추가</summary>
         <div class="row" style="margin-top:6px;">
-          <input type="text" id="equipment-new-business" placeholder="새 회사명 (예: 다름달음)" style="width:200px;">
-          <button type="button" class="btn-ghost small-btn" id="equipment-new-business-btn" title="우리 회사나 다른 회사를 사업자로 추가합니다 (마스터관리 → 사업자에도 같이 들어갑니다)">+ 사업자 추가</button>
-          <span class="sub" style="margin:0;">추가하면 위 사업자 목록에 들어갑니다 (마스터관리 권한이 있는 계정에만 보임)</span>
+          <input type="text" id="equipment-new-business" placeholder="기준정보 업체 검색 (이름)" style="width:220px;">
+          <button type="button" class="btn-ghost small-btn" id="equipment-new-business-btn" title="🗂 기준정보의 업체(우리 회사·구매처·매출처)에서 골라 사업자로 추가합니다 (마스터관리 → 사업자에도 같이 들어갑니다)">+ 사업자 추가</button>
+          <span class="sub" style="margin:0;">🗂 기준정보(우리 회사·구매처·매출처)에 있는 업체에서 고릅니다. 없으면 기준정보에 먼저 등록하세요 (마스터관리 권한이 있는 계정에만 보임)</span>
         </div>
       </details>
       <h3 style="margin-top:16px;">현재 보유 현황 (사업자별)</h3>
@@ -3068,7 +3068,7 @@
 <!-- ───────────── 구매 · 자재 ───────────── -->
 <section class="mn-pane" id="mn-p-buy">
 <h2>기준정보</h2>
-<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. <b>🏢 우리 회사 정보</b>에서 거래명세서 공급자 정보와 송품장 출하자 정보·로고·인감을 한 번에 고치고(두 서류 값이 다르면 둘 다 보여 주니 하나로 맞추세요), <b>🤝 관계사 정보</b>에서 에스피프레시 SP 송장 정보·로고·직인을 고칩니다. 3PL 택배비는 <b>서비스 품목</b> 카드에 있습니다. 기사(운송자)는 생산/물류 쪽에 그대로 두되 <b>배차 납품담당 목록과 송품장 운송자 목록이 한 목록</b>으로 보입니다.</p><p class="mn-lead"> 거래처도 여기 두 곳뿐입니다: 원물선별 <b>출고 거래처</b>는 <b>매출처 정보</b>의 업체(원물선별 › 마스터관리 › 거래처에서는 수수료율 등만 고치고 [🔗 매출처와 맞추기]로 예전 거래처를 연결), 원물선별 <b>사입처</b>는 <b>구매처 정보</b>에서만 등록·수정합니다. 원물선별 <b>농가</b>는 원물선별에서 등록하고, 구매처 정보 목록에 '🌱 농가'로 함께 나와 이카운트 거래처코드를 넣을 수 있습니다(농가에서 바로 산 원물입고의 구매입력 엑셀 거래처코드).</p><p class="mn-lead"> <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
+<p class="mn-lead">상단 <b>🗂 기준정보</b> 탭입니다. <b>🏢 우리 회사 정보</b>에서 거래명세서 공급자 정보와 송품장 출하자 정보·로고·인감을 한 번에 고치고(두 서류 값이 다르면 둘 다 보여 주니 하나로 맞추세요), <b>🤝 관계사 정보</b>에서 에스피프레시 SP 송장 정보·로고·직인을 고칩니다. 3PL 택배비는 <b>서비스 품목</b> 카드에 있습니다. 기사(운송자)는 생산/물류 쪽에 그대로 두되 <b>배차 납품담당 목록과 송품장 운송자 목록이 한 목록</b>으로 보입니다.</p><p class="mn-lead"> 거래처도 여기 두 곳뿐입니다: 원물선별 <b>출고 거래처</b>는 <b>매출처 정보</b>의 업체(원물선별 › 마스터관리 › 거래처에서는 수수료율 등만 고치고 [🔗 매출처와 맞추기]로 예전 거래처를 연결), 원물선별 <b>사입처</b>는 <b>구매처 정보</b>에서만 등록·수정합니다. 원물선별 물류기기 <b>사업자</b>는 우리 회사 정보·구매처·매출처에 있는 업체에서 골라 등록합니다. 원물선별 <b>농가</b>는 원물선별에서 등록하고, 구매처 정보 목록에 '🌱 농가'로 함께 나와 이카운트 거래처코드를 넣을 수 있습니다(농가에서 바로 산 원물입고의 구매입력 엑셀 거래처코드).</p><p class="mn-lead"> <b>원물 · 부자재 · 소모품 · 반제품</b>과 <b>품목 구성(정전개)</b>도 여기서 고칩니다(관리자). 품목 구성 값으로 원가(단가 확인) · 생산일보 필요kg · 주간 원물량 · 자재 출고 차감을 모두 계산하고, 원물의 <b>원물선별</b> 칸을 체크하면 원물선별에서 다룹니다. <b>품목 통합 점검</b>을 펼치면 정전개 값과 예전에 단가 확인에 넣었던 원물 kg/박스가 다른 SKU를 볼 수 있습니다.</p><p class="mn-lead"> 품목(SKU) · 매출처 · 구매처 · 단가를 여기서 등록·수정하고, 다른 탭은 여기 등록된 것을 골라 씁니다. 품목·매출처·단가 <b>수정은 관리자만</b>, 구매처는 발주자동화 전체 권한이면 수정할 수 있습니다.</p>
 
 <h3>품목(SKU) 관리</h3>
 <p>발주취합, 샘플 신청, 단가 확인이 같은 품목 목록을 씁니다. 품목마다 이름, 별칭, <b>박스입수</b>(박스당 팩 수), 단가그룹, 이카운트 품목코드 등을 둡니다. 박스입수가 있어야 박스 수가 자동으로 계산됩니다. 새 상품이 나오면 여기서 먼저 등록합니다.</p>
@@ -3265,7 +3265,7 @@
 <ul>
   <li>아래에 <b>현재 보유 현황</b>(기기유형 × 사업자)과 <b>거래처 미회수 / 농가 보유(미회수)</b>가 자동 계산됩니다.</li>
   <li><b>이력 수정</b>: 최근 이동 이력의 <span class="mn-b">수정</span>을 누르면 위 입력칸에 내용이 채워지고, 고친 뒤 <span class="mn-b">수정 저장</span>(취소는 <span class="mn-b">수정 취소</span>)을 누릅니다. 이동유형을 바꾸면 필요 없어진 항목은 자동으로 비워집니다.</li>
-  <li><b>자담 외에 우리 회사나 다른 회사</b> 자산으로 잡으려면 「새 사업자(회사) 추가」를 펼쳐 회사명을 넣고 추가합니다(마스터관리 권한이 있는 계정에만 보입니다). 회사 간 이동은 <b>내부이관</b>으로 기록합니다.</li>
+  <li><b>자담 외에 우리 회사나 다른 회사</b> 자산으로 잡으려면 「새 사업자(회사) 추가」를 펼쳐 <b>🗂 기준정보 업체(우리 회사·구매처·매출처)</b>에서 골라 추가합니다(마스터관리 권한이 있는 계정에만 보입니다). 목록에 없는 회사는 기준정보에 먼저 등록하세요. 마스터관리 › 사업자에는 기준정보와 연결됐는지(✓ 구매처 등 / 기준정보에 없음)가 표시됩니다. 회사 간 이동은 <b>내부이관</b>으로 기록합니다.</li>
   <li>농가·사입 입고에 적은 A1·KPP 수량은 자동 회수로 <b>자담</b>에 잡힙니다.</li>
 </ul>
 
@@ -17107,6 +17107,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.getElementById('equipment-add-btn').addEventListener('click', submitSortingEquipmentLog);
     document.getElementById('equipment-edit-cancel-btn').addEventListener('click', cancelEquipmentEdit);
     document.getElementById('equipment-new-business-btn').addEventListener('click', addEquipmentBusiness);
+    bizLoadSrc().then(() => { const i = document.getElementById('equipment-new-business'); if(i) i.setAttribute('list', bizDatalist()); });
     document.getElementById('equipment-new-business').addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); addEquipmentBusiness(); } });
 
     loadEquipmentSummary();
@@ -17127,21 +17128,69 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       return businesses;
     }catch(e){ /* 사업자 목록 로드 실패는 무시 */ return []; }
   }
+  // ── 사업자 = 기준정보 업체(우리 회사 정보 · 구매처 정보 · 매출처 정보)에서 고름 ──
+  //  sorting_businesses에는 이름만 저장하고, 이름(공백·(주) 무시)으로 기준정보 업체와 맞춤
+  const BZ = { src: [], at: 0 };
+  const bizNorm = x => String(x || '').replace(/\(주\)|㈜|주식회사/g, '').replace(/\s+/g, '').toLowerCase();
+  async function bizLoadSrc(force){
+    if(!force && BZ.at && Date.now() - BZ.at < 60000) return BZ.src;
+    const map = new Map(), add = (name, src) => { name = String(name || '').trim(); if(!name) return; const k = bizNorm(name); const e = map.get(k) || { name, srcs: [] }; if(!e.srcs.includes(src)) e.srcs.push(src); map.set(k, e); };
+    try{ const s = await window.storage.get('statement-settings', true); if(s) add((JSON.parse(s.value) || {}).name, '우리 회사'); }catch(e){}
+    try{ const s = await window.storage.get('shipdoc-settings', true); if(s){ const sh = (JSON.parse(s.value) || {}).shipper || {}; add(sh.name || sh.org || sh.shipperName, '우리 회사'); } }catch(e){}
+    try{ const s = await window.storage.get('purchase-vendors', true); if(s) ((JSON.parse(s.value) || {}).vendors || []).forEach(v => { if(v && !v.off) add(v.name, '구매처'); }); }catch(e){}
+    if(![...map.values()].some(e => e.srcs.includes('우리 회사'))) add('㈜ 다름달음', '우리 회사');   // 서류 설정을 아직 저장 안 했을 때의 기본값
+    (typeof companies !== 'undefined' ? companies : []).forEach(c => { if(c && c.name) add(c.name, '매출처'); });
+    BZ.src = [...map.values()].map(e => Object.assign(e, { label: e.name + ' · ' + e.srcs.join('·') }));
+    BZ.at = Date.now();
+    return BZ.src;
+  }
+  const bizMatch = name => BZ.src.find(e => bizNorm(e.name) === bizNorm(name)) || null;
+  function bizFind(text){
+    const t = String(text || '').trim(); if(!t) return null;
+    return BZ.src.find(e => e.label === t) || bizMatch(t);
+  }
+  function bizDatalist(){
+    const id = 'biz-co-dl';
+    let dl = document.getElementById(id);
+    if(!dl){ dl = document.createElement('datalist'); dl.id = id; document.body.appendChild(dl); }
+    dl.innerHTML = BZ.src.map(e => `<option value="${escapeHtml(e.label)}"></option>`).join('');
+    return id;
+  }
+  // 고른 업체를 사업자로 추가 (이미 있으면 안내만). 성공하면 새 id
+  async function bizAdd(text){
+    await bizLoadSrc();
+    const e = bizFind(text);
+    if(!String(text || '').trim()){ toast('추가할 회사를 기준정보 목록에서 골라 주세요'); return null; }
+    if(!e){ toast(`「${String(text).trim()}」은(는) 기준정보 업체에 없습니다 — 🗂 기준정보 › 구매처·매출처 정보(또는 우리 회사 정보)에 먼저 등록하세요`); return null; }
+    let cur = []; try{ cur = (await sbQuery('sorting_businesses', '?select=id,name,is_active')) || []; }catch(err){}
+    const same = cur.find(b => bizNorm(b.name) === bizNorm(e.name));
+    if(same){ toast(same.is_active ? `「${same.name}」은(는) 이미 있는 사업자입니다` : `「${same.name}」은(는) 비활성화된 사업자입니다 — 마스터관리 › 사업자에서 활성화하세요`); return null; }
+    try{
+      const rows = await sbInsert('sorting_businesses', { name: e.name, is_active: true });
+      const id = rows && rows[0] ? rows[0].id : null;
+      await writeLog('sorting_master_add', `사업자 추가(기준정보 ${e.srcs.join('·')}): ${e.name}`);
+      toast(`사업자 「${e.name}」을(를) 추가했습니다`);
+      return id;
+    }catch(err){ toast('추가 실패: ' + err.message); return null; }
+  }
+  // 업체 검색칸 + 추가 버튼을 el 안에 그림
+  function bizPickerInto(el, after){
+    const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '4px';
+    row.innerHTML = '<input type="text" placeholder="기준정보 업체 검색 (이름)" style="width:240px;"><button type="button" class="btn-ghost small-btn">+ 사업자 추가</button><span class="sub" style="margin:0;"></span>';
+    el.appendChild(row);
+    const [inp, btn, msg] = row.children;
+    bizLoadSrc().then(() => { inp.setAttribute('list', bizDatalist()); msg.textContent = `기준정보 업체 ${BZ.src.length}곳`; });
+    const go = async () => { const id = await bizAdd(inp.value); if(id != null){ inp.value = ''; if(after) await after(id); } };
+    btn.addEventListener('click', go);
+    inp.addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); go(); } });
+  }
   async function addEquipmentBusiness(){
     const inp = document.getElementById('equipment-new-business');
-    const name = inp.value.trim();
-    if(!name){ toast('추가할 회사명을 입력해주세요'); return; }
-    const exist = [...document.getElementById('equipment-business-select').options].some(o => o.textContent.trim().replace(/\s+/g, '') === name.replace(/\s+/g, ''));
-    if(exist){ toast('이미 있는 사업자입니다'); return; }
-    try{
-      const rows = await sbInsert('sorting_businesses', { name, is_active: true });
-      const id = rows && rows[0] ? rows[0].id : null;
-      await writeLog('sorting_master_add', `사업자 추가: ${name}`);
-      inp.value = '';
-      await loadEquipmentBusinessOptions(id);
-      loadEquipmentSummary();
-      toast(`사업자 「${name}」이(가) 추가되었습니다`);
-    }catch(e){ toast('추가 실패: ' + e.message); }
+    const id = await bizAdd(inp.value);
+    if(id == null) return;
+    inp.value = '';
+    await loadEquipmentBusinessOptions(id);
+    loadEquipmentSummary();
   }
 
   // ── 물류기기 이력 수정: [수정]을 누르면 위 입력칸에 내용이 채워지고, [수정 저장]으로 같은 이력을 고침 ──
@@ -17418,7 +17467,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         { name:'code', label:'코드(A1/KPP)', type:'text' }
       ]},
     { key:'sorting_businesses', label:'사업자', fields:[
-        { name:'name', label:'이름', type:'text' }
+        { name:'name', label:'이름 (기준정보 업체)', type:'bizco' }
       ]}
   ];
   let sortingMasterCurrentKey = SORTING_MASTER_TABLES[0].key;
@@ -17464,6 +17513,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       form.innerHTML = '<span class="sub" style="margin:0;">출고 거래처는 <b>🗂 기준정보 › 매출처 정보</b>의 업체입니다. 출고 등록에서 매출처를 고르면 여기 정산용 거래처로 자동으로 들어옵니다. 여기서는 <b>지역 · 배송방식 · 구분 · 수수료율</b>을 고치고, 예전 거래처를 매출처에 연결합니다. 우리 생산으로 넘기는 출고처는 <b>구분</b>에 <b>자사생산</b>이라고 적어 주세요(자재 재고에서 외부 판매 출고만 빼고, 자사 생산분은 생산 마감 차감으로 뺍니다).</span>';
       const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '🔗 매출처와 맞추기 (이름·코드)';
       b.addEventListener('click', () => sortingDestLinkAll()); form.appendChild(b);
+      return;
+    }
+    if(cfg.key === 'sorting_businesses'){
+      form.innerHTML = '<span class="sub" style="margin:0 0 4px;display:block;">사업자(물류기기 소유 회사)는 <b>🗂 기준정보</b>의 업체(<b>우리 회사 정보 · 구매처 정보 · 매출처 정보</b>)에서 골라 등록합니다. 목록에 없는 회사는 기준정보에 먼저 등록하세요. 농가·사입 입고로 자동 회수되는 기기는 이름이 <b>자담</b>인 사업자에 잡힙니다.</span>';
+      bizPickerInto(form, async () => { loadSortingMasterTable(); });
       return;
     }
     if(cfg.key === 'sorting_vendors'){
@@ -17559,6 +17613,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function sortingFieldDisplay(f, row){
     const v = row[f.name];
     if(f.type === 'company'){ const m = sortingDestCompany(row); return escapeHtml(v || '') + (m ? ` <span class="sub" style="margin:0;" title="매출처 정보와 연결">✓ 매출처${m.c.code ? ' [' + escapeHtml(String(m.c.code)) + ']' : ''}${m.c.name !== v ? ' · ' + escapeHtml(m.c.name) : ''}</span>` : ' <span class="sub" style="margin:0;color:var(--danger,#c0392b);">매출처 연결 안 됨</span>'); }
+    if(f.type === 'bizco'){ const e = bizMatch(v); return escapeHtml(v || '') + (e ? ` <span class="sub" style="margin:0;" title="기준정보 업체와 연결">✓ ${escapeHtml(e.srcs.join('·'))}${e.name !== v ? ' · ' + escapeHtml(e.name) : ''}</span>` : ' <span class="sub" style="margin:0;color:var(--danger,#c0392b);">기준정보에 없음</span>'); }
     if(f.type === 'raw') return escapeHtml(srOn() ? srNameOf(v) : '—');
     if(f.type === 'checkbox') return v ? '✅' : '—';
     return escapeHtml(v === null || v === undefined ? '' : String(v));
@@ -17570,6 +17625,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     wrap.innerHTML = '';
     if(cfg.key === '__raw'){ srRenderRawSettings(wrap); return; }
     await srLoad();
+    if(cfg.key === 'sorting_businesses') await bizLoadSrc(true);
     try{
       const rows = await sbQuery(cfg.key, '?order=id.asc');
       const table = document.createElement('table');
@@ -17660,6 +17716,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         input.placeholder = '매출처 검색 (이름·코드)'; input.setAttribute('list', dl);
         if(!document.getElementById(dl)){ const d = document.createElement('datalist'); d.id = dl; document.body.appendChild(d); }
         document.getElementById(dl).innerHTML = sortingCompanyEntries().map(e => `<option value="${escapeHtml(e.label)}"></option>`).join('');
+      } else if(f.type === 'bizco'){   // 기준정보 업체에서 고르기
+        input = document.createElement('input'); input.type = 'text'; input.style.width = '220px';
+        input.value = row.name || ''; input.placeholder = '기준정보 업체 검색'; input.setAttribute('list', bizDatalist());
       } else if(f.type === 'checkbox'){
         input = document.createElement('input');
         input.type = 'checkbox';
@@ -17683,6 +17742,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       cfg.fields.forEach(f=>{
         const el = inputs[f.name];
         if(f.type === 'raw'){ if(srOn()) data[f.name] = el.value || null; return; }
+        if(f.type === 'bizco'){
+          const t = el.value.trim(), e = bizFind(t);
+          if(e) data.name = e.name; else if(t === row.name) data.name = row.name; else data.__bad = t;
+          return;
+        }
         if(f.type === 'company'){
           const t = el.value.trim(), es = sortingCompanyEntries();
           const e = es.find(x => x.label === t) || (es.filter(x => pvNorm(x.c.name) === pvNorm(t)).length === 1 ? es.find(x => pvNorm(x.c.name) === pvNorm(t)) : null);
@@ -17693,6 +17757,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         }
         data[f.name] = f.type === 'checkbox' ? el.checked : (f.type === 'number' ? Number(el.value || 0) : el.value.trim());
       });
+      if(data.__bad && cfg.key === 'sorting_businesses'){ toast(`「${data.__bad}」은(는) 기준정보 업체에 없습니다 — 목록에서 골라 주세요 (🗂 기준정보 › 구매처·매출처 정보에서 먼저 등록)`); return; }
+      if(cfg.key === 'sorting_businesses' && String(row.name || '').trim() === '자담' && data.name !== row.name && !confirm('「자담」 이름을 바꾸면 농가·사입 입고의 물류기기 자동회수가 이 사업자에 잡히지 않습니다. 바꿀까요?')) return;
       if(data.__bad){ toast(`「${data.__bad}」은(는) 매출처 정보에 없습니다 — 목록에서 골라 주세요 (매출처는 🗂 기준정보 › 매출처 정보에서 등록)`); return; }
       try{
         const res = await fetch(`${SB_URL}/rest/v1/${cfg.key}?id=eq.${row.id}`, {
