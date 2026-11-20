@@ -1626,12 +1626,14 @@
     <div class="row" id="pc-row" style="margin-top:6px;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:8px;">
       <button type="button" class="btn-primary small-btn" id="pc-close-btn" title="이 납품일의 생산을 마감합니다. 마감하면 이 날짜 발주를 더 넣거나 고칠 수 없습니다">🔒 생산 마감</button>
       <button type="button" class="btn-ghost small-btn" id="pc-ppt-btn" style="display:none;" title="등록한 PPT 양식에 오늘 생산일보·발주서를 넣어 받습니다">📥 마감 PPT 받기</button>
-      <button type="button" class="btn-ghost small-btn" id="pc-open-btn" style="display:none;" title="마감을 풀어 다시 발주를 넣거나 고칠 수 있게 합니다">🔓 마감 해제</button>
+      <button type="button" class="btn-ghost small-btn" id="pc-ded-btn" style="display:none;" title="생산량·생산지시 작업kg·제조 폐기를 고친 뒤 자재 재고 차감을 다시 맞춥니다 (중복 차감 없음)">♻ 자재 차감 다시 반영</button>
+      <button type="button" class="btn-ghost small-btn" id="pc-open-btn" style="display:none;" title="마감을 풀어 다시 발주를 넣거나 고칠 수 있게 합니다 (이 날짜 자재 차감도 취소)">🔓 마감 해제</button>
       <span id="pc-status" class="sub" style="margin:0;"></span>
       <button type="button" class="btn-ghost small-btn" id="pc-tpl-btn" style="margin-left:auto;" title="생산본부가 쓰던 마감 PPT 파일(.pptx)을 양식으로 등록합니다 — 한 번만 하면 됩니다">📎 PPT 양식 등록</button>
       <span id="pc-tpl-info" class="sub" style="margin:0;"></span>
       <input type="file" id="pc-tpl-file" accept=".pptx" style="display:none;">
     </div>
+    <div id="pc-ded-info" class="sub" style="margin:4px 0 0;"></div>
     <h3 style="margin:8px 0 4px;">① 발주현황 <span class="sub" style="font-weight:400;margin:0;">(자동 — 전일 재고 · 오늘 발주 · 샘플 기준)</span></h3>
     <div id="pr-order"></div>
     <h3 style="margin:14px 0 4px;">② 생산지시</h3>
@@ -1645,7 +1647,9 @@
     </div>
     <h3 style="margin:14px 0 4px;">③ 비고 · 인원</h3>
     <div id="pr-etc"></div>
-    <h3 style="margin:14px 0 4px;">④ 기준 안내 <span class="sub" style="font-weight:400;margin:0;">(현황판 오른쪽 아래 상자 · 매일 같은 내용 · 첫 줄이 제목)</span></h3>
+    <h3 style="margin:14px 0 4px;">④ 제조 폐기 원물 <span class="sub" style="font-weight:400;margin:0;">(가공·포장 중 버린 원물 — 선별 폐기는 원물선별에서 따로 · 생산 마감 때 자재 재고에서 뺌)</span></h3>
+    <div id="pr-waste"></div>
+    <h3 style="margin:14px 0 4px;">⑤ 기준 안내 <span class="sub" style="font-weight:400;margin:0;">(현황판 오른쪽 아래 상자 · 매일 같은 내용 · 첫 줄이 제목)</span></h3>
     <textarea id="pr-std" rows="5" style="width:100%;max-width:420px;"></textarea>
     </details>
   </div>
@@ -2418,6 +2422,7 @@
             <button type="button" data-mt="led" data-modes="mat">수불 내역 · 실사</button>
             <button type="button" data-mt="bom" data-modes="mat master" data-label-master="품목 구성 (정전개)">정전개 (제품→자재)</button>
             <button type="button" data-mt="rev" data-modes="mat master">역전개 (자재→제품)</button>
+            <button type="button" data-mt="yield" data-modes="mat" title="원물 투입 · 제품 원물 · 제조 폐기 · 선별 폐기 · 수율을 날짜별로 모아 봅니다">폐기 · 수율</button>
             <button type="button" data-mt="master2" data-modes="mat buy" title="원물·부자재 목록 (고치기는 🗂 기준정보 › 품목)">자재 목록</button>
           </div>
           <button type="button" class="btn-ghost small-btn" id="mat-reload">↻ 새로고침</button>
@@ -3004,6 +3009,8 @@
   <li><b>여유분 · 로스율</b>: 발주 기준 생산 필요 박스에 <b>여유분(박스)</b>을 더하고 로스를 감안해 <b>작업kg = (생산 필요 박스 + 여유분 박스) × 원물 kg/박스 ÷ (1 − 로스율)</b>로 실제 투입할 원물을 자동 계산합니다. 예: 필요 10박스 · 1박스 2kg · 여유분 1박스 · 로스 5% → (10 + 1) × 2 ÷ 0.95 = 23.2kg. 생산할 박스가 없으면 여유분도 더하지 않습니다. 생산지시 아래 <b>기본 여유분·로스율</b>을 한 번 넣어 두면 매일 쓰이고, 품목마다 다르면 그 줄의 여유분(박스)·로스% 칸에 적습니다. 작업kg·ct의 <b>파란 숫자</b>가 자동값이고, 직접 적으면 그 값이 우선입니다. TV 현황판에는 작업kg 머리글에 "여유분·로스 반영"이 표시됩니다.</li>
   <li><b>기준 안내</b>(용액 투입량 기준 등)는 매일 같은 내용이라 한 번 적어 두면 계속 나옵니다.</li>
   <li><span class="mn-b">🔒 생산 마감</span>: 그날 생산을 마치면 누릅니다. 그 납품일은 발주를 추가·수정·삭제할 수 없게 잠기고(발주 입력·업로드·집계표·개인구매·3PL 줄, 상단 납품일 옆에 🔒 마감 표시), 바로 <b>마감 PPT</b>를 받습니다. 송장번호 입력·반품·실적 등록은 마감 뒤에도 됩니다. 잘못 눌렀으면 <span class="mn-b">🔓 마감 해제</span>.</li>
+  <li><b>④ 제조 폐기 원물</b>: 가공·포장 중 버린 원물을 무게를 달아 원물·kg·사유(가공 중 불량, 파손·낙과, 이물·변질, 작업 잔량 폐기, 기타)로 적습니다. 선별 폐기는 원물선별에서 따로 잡습니다. 생산 마감 때 자재 재고에서 빠지고 🗃 자재·재고 → 폐기 · 수율에서 모아 봅니다.</li>
+  <li>생산 마감을 하면 <b>자재 차감도 자동</b>으로 됩니다(생산량 × 정전개, 원물은 생산지시 작업kg). 결과는 카드 아래에 나오고, 생산량·작업kg·폐기를 고쳤으면 <span class="mn-b">♻ 자재 차감 다시 반영</span>을 누르세요.</li>
   <li><b>마감 PPT</b>: 생산본부가 쓰던 PPT를 <span class="mn-b">📎 PPT 양식 등록</span>으로 한 번 올려 두면, 첫 슬라이드의 왼쪽 큰 그림은 그날 생산일보로, 오른쪽 큰 그림은 발주서로 바꿔 넣고 나머지(콩크·향 기준표, LOT 타각 방법 등)는 양식 그대로 둡니다. 마감 뒤 <span class="mn-b">📥 마감 PPT 받기</span>로 몇 번이든 다시 받을 수 있습니다(생산일보를 고친 뒤 다시 받기).</li>
   <li>고칠 때마다 바로 저장되며 생산 / 물류 전체 권한이 필요합니다.</li>
 </ul>
@@ -3144,6 +3151,7 @@
 <tr><td>수불 내역 · 실사</td><td>사용·로스·재고조정을 한 건씩 넣고, 입고를 포함한 모든 기록을 봅니다. 잘못 넣은 사용·로스는 <b>취소</b>(입고 취소는 구매관리에서).</td></tr>
 <tr><td>정전개 (제품→자재)</td><td>제품·반제품마다 1팩당 소요량을 등록하고, 계획 수량을 넣어 필요한 자재와 부족분을 계산합니다.</td></tr>
 <tr><td>역전개 (자재→제품)</td><td>자재를 고르면 그 자재가 쓰이는 제품과, 지금 재고로 만들 수 있는 팩 수를 보여 줍니다.</td></tr>
+<tr><td>폐기 · 수율</td><td>기간을 고르면 날짜·원물별로 투입 kg, 제품에 들어간 원물, 제조 폐기(생산일보 실측), 기타 로스, 수율, 선별 폐기를 모아 보여 줍니다. 제조 폐기는 사유별로도 나오고 엑셀로 받을 수 있습니다.</td></tr>
 <tr><td>자재 마스터</td><td>자재 목록, <b>구분(원물·부자재·소모품·반제품)</b>, 단위, 이카운트 품목코드, 기본 거래처·단가, 안전재고, 부가세 구분. 구매관리 탭에서도 같이 씁니다.</td></tr>
 </table></div>
 
@@ -3155,7 +3163,9 @@
   <li><div><span class="mn-t">현재 재고 맞추기</span><span class="mn-s">재고 현황에서 자재별 실사 수량을 넣고 [맞추기]. 이후 구매 입고·사용 입력·출고 차감으로 관리됩니다.</span></div></li>
 </ol>
 <ul>
-  <li>정전개를 등록한 제품은 생산/물류 탭의 <b>자재 출고 차감</b>으로 출고한 만큼 자재가 자동으로 빠집니다. 정전개에 없는 소모품은 <b>사용 · 로스 입력</b>으로 뺍니다.</li>
+  <li><b>생산 마감</b>(생산일보 카드의 🔒 생산 마감)을 누르면 그날 <b>생산량</b> × 정전개만큼 부자재·소모품이 자동으로 빠지고, 원물은 생산지시 작업kg(투입)만큼 빠집니다. 투입은 <b>제품에 들어간 원물 · 제조 폐기(생산일보 ④에 적은 kg) · 기타 로스</b>로 나눠 기록됩니다. 생산량은 제품 재고의 '오늘 생산량', 비어 있으면 생산 필요수량입니다. 고친 뒤에는 <b>♻ 자재 차감 다시 반영</b>(중복 차감 없음), 마감 해제하면 그날 차감도 취소됩니다.</li>
+  <li>마감하지 않은 날짜는 예전처럼 생산/물류 탭의 <b>자재 출고 차감</b>(출고 기준)으로 뺄 수 있습니다. 같은 날짜를 생산 마감으로 차감하면 출고 기준 차감은 자동으로 무효가 되어 두 번 빠지지 않습니다. 정전개에 없는 소모품은 <b>사용 · 로스 입력</b>으로 뺍니다.</li>
+  <li>원물선별 선별산출에서 <b>폐기 등급</b>(판매 불가)으로 나온 kg은 원물 재고에서 자동으로 빠집니다(재고 현황에 "선별 폐기 −kg"으로 표시).</li>
   <li>원물(방울토마토)은 원물선별 → 원물입고에서 <b>원물(자재 코드)</b>을 골라 입고하면 그 kg이 자재 재고에 자동으로 더해집니다.</li>
 </ul>
 
@@ -19634,7 +19644,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     $('pc-close-btn').style.display = c ? 'none' : '';
     $('pc-ppt-btn').style.display = c ? '' : 'none';
     $('pc-open-btn').style.display = c ? '' : 'none';
-    ['pc-close-btn', 'pc-open-btn', 'pc-tpl-btn'].forEach(id => { $(id).disabled = !can; });
+    $('pc-ded-btn').style.display = c ? '' : 'none';
+    if(!c && $('pc-ded-info').textContent && !/계산 중/.test($('pc-ded-info').textContent)) $('pc-ded-info').textContent = '';
+    ['pc-close-btn', 'pc-open-btn', 'pc-tpl-btn', 'pc-ded-btn'].forEach(id => { $(id).disabled = !can; });
     $('pc-status').innerHTML = c ? `<b style="color:#b3261e;">🔒 마감됨</b> ${escapeHtml(c.at ? pcFmtAt(c.at) : '')}${c.by ? ' · ' + escapeHtml(c.by) : ''}` : '마감 전 — 마감하면 이 날짜 발주를 더 넣거나 고칠 수 없고, 마감 PPT를 받을 수 있습니다';
     const ti = $('pc-tpl-info');
     if(pcTpl === undefined){ ti.textContent = ''; pcTplLoad().then(() => prodCloseUi()).catch(() => { ti.textContent = '양식을 확인하지 못했습니다'; }); }
@@ -19660,8 +19672,128 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const ok = await pcSetClose(dk, { at: new Date().toISOString(), by: pcWho() });
     if(!ok) return;
     try{ await writeLog('prod_close', `생산 마감 ${dk}`); }catch(e){}
-    toast(`🔒 ${prodCloseMd(dk)} 생산을 마감했습니다`);
+    toast(`🔒 ${prodCloseMd(dk)} 생산을 마감했습니다 — 자재 차감 중…`);
+    await pcDeductRun(dk);
     await pcPpt(dk);
+  }
+  // ── 생산 마감 → 자재 자동 차감 (생산량 기준) ──
+  //  생산량(팩) = 제품 재고 입력의 '오늘 생산량', 비어 있으면 생산 필요수량(오늘 필요 − 전일 재고) — 다음 날 전일 재고 자동 계산과 같은 기준
+  //  · 부자재·소모품·반제품 하위 자재: 생산량 × 정전개 소요량(로스% 포함) → '사용(자동)'
+  //  · 원물: 투입 = 생산일보 생산지시의 작업kg(그 제품 줄 합계, 비어 있으면 정전개 소요량) / 제품 원물 = 생산량 × 정전개 1팩 원물(로스% 빼고)
+  //          제조 폐기 = 생산일보 ④에 적은 kg(실측) / 기타 로스 = 투입 − 제품 원물 − 제조 폐기 → 투입만큼 원물 재고가 줄어듦
+  //  id: prod-날짜-자재(사용) · prodw-날짜-자재(제조 폐기) · prodl-날짜-자재(기타 로스) — 다시 반영하면 덮어씀(중복 차감 없음)
+  //  같은 날짜에 예전 '출고 기준 자동 차감'(auto-날짜-자재)이 있으면 무효로 돌려 두 번 빠지지 않게 함. 마감 해제하면 이 날짜 생산 차감은 모두 취소
+  const pcProdIdRe = dk => new RegExp('^prod[wl]?-' + dk + '-');
+  function pcProdPacks(dk){
+    const need = carryNeed(dk), st = carryEffective(dk, 0), made = ((previousStock[dk] || {}).made) || {}, out = {};
+    dict.forEach(d => {
+      const v = (made[d.id] != null && made[d.id] !== '') ? (Number(made[d.id]) || 0) : Math.max(0, (need[d.id] || 0) - (st[d.id] || 0));
+      if(v > 0) out[d.id] = Math.round(v * 100) / 100;
+    });
+    return out;
+  }
+  function pcExplodeNet(plan){   // 로스% 없이 (제품에 실제로 들어간 양)
+    const by = {};
+    const walk = (root, pid, qty, depth) => {
+      if(depth > 6) return;
+      matGoodLines(pid).forEach(l => {
+        const n = qty * Number(l.q), it = matById(l.m);
+        if(it && it.kind === 'semi' && matGoodLines(l.m).length){ walk(root, l.m, n, depth + 1); return; }
+        (by[root] = by[root] || {})[l.m] = (by[root][l.m] || 0) + n;
+      });
+    };
+    Object.entries(plan).forEach(([pid, q]) => { if(Number(q) > 0) walk(pid, pid, Number(q), 0); });
+    return by;
+  }
+  async function pcDeductCompute(dk, force){
+    await matLoad(!!force);
+    if(!MAT.loaded) throw new Error(MAT.err || '자재 정보를 불러오지 못했습니다');
+    await prLoad(dk); try{ await prCostLoad(); }catch(e){ /* 자동 작업kg 없이 */ }
+    const doc = prCache[dk] || prNorm({}), warns = [];
+    const packs = pcProdPacks(dk);
+    const rowsP = matProducts().filter(p => packs[p.id] > 0).map(p => ({ id: p.id, name: p.name, packs: packs[p.id], state: MAT.skip[p.id] ? 'skip' : (matGoodLines(p.id).length ? 'ok' : 'nobom') }));
+    const plan = {}; rowsP.filter(r => r.state === 'ok').forEach(r => { plan[r.id] = r.packs; });
+    const ex = matExplodeGross(plan), netBy = pcExplodeNet(plan);
+    const isRaw = m => matIsProduce(matById(m));
+    // 생산지시 작업kg (제품별 투입 원물)
+    const kIn = {};
+    prInstView(dk, doc).forEach(x => { if(x.r.item && Number(x.kg) > 0) kIn[x.r.item] = (kIn[x.r.item] || 0) + Number(x.kg); });
+    Object.keys(kIn).forEach(pid => { if(!plan[pid]){ const p = dict.find(d => d.id === pid); warns.push(`생산지시에 작업kg이 있지만 ${packs[pid] ? '정전개(원물)가 없어' : '오늘 생산량이 0이라'} 원물 차감에서 빠짐: ${p ? (p.shortName || p.name) : pid}`); } });
+    const input = {}, net = {}, inBy = {};
+    Object.keys(plan).forEach(pid => {
+      const g = ex.by[pid] || {}, rawMs = Object.keys(g).filter(isRaw), tot = rawMs.reduce((s, m) => s + g[m], 0);
+      rawMs.forEach(m => {
+        const v = (kIn[pid] > 0 && tot > 0) ? kIn[pid] * g[m] / tot : g[m];
+        input[m] = (input[m] || 0) + v;
+        (inBy[m] = inBy[m] || []).push({ p: matParentName(pid) + (kIn[pid] > 0 ? ' (생산지시 작업kg)' : ' (정전개 소요량)'), q: Math.round(v * 10000) / 10000 });
+        net[m] = (net[m] || 0) + ((netBy[pid] || {})[m] || 0);
+      });
+    });
+    const waste = {}, wDet = {};
+    (doc.waste || []).forEach(w => {
+      const kg = Number(w.kg) || 0; if(!(kg > 0)) return;
+      if(!w.m || !matById(w.m)){ warns.push(`제조 폐기 ${kg}kg — 원물을 고르지 않아 차감에서 빠짐`); return; }
+      waste[w.m] = (waste[w.m] || 0) + kg;
+      (wDet[w.m] = wDet[w.m] || []).push({ p: (w.reason || '기타') + (w.note ? ' · ' + w.note : ''), q: kg });
+    });
+    const r4 = v => Math.round(v * 10000) / 10000, by = matUser(), ts = Date.now(), entries = [], sum = [];
+    Object.entries(ex.need).forEach(([m, n]) => {
+      if(isRaw(m)) return;
+      const q = r4(n); if(!(q > 0)) return;
+      const det = Object.entries(ex.by).filter(([, o]) => o[m] > 0).map(([pid, o]) => ({ p: matParentName(pid), q: r4(o[m]) }));
+      entries.push({ id: `prod-${dk}-${m}`, d: dk, m, t: 'use', q: -q, auto: 1, src: 'prod', note: `생산 자동 차감 (${dk} 생산분)`, det, by, ts });
+    });
+    new Set([...Object.keys(input), ...Object.keys(waste)]).forEach(m => {
+      const I = input[m] || 0, N = Math.min(net[m] || 0, I || Infinity), W = waste[m] || 0, O = Math.max(0, I - N - W);
+      const det = Object.entries(netBy).filter(([, o]) => o[m] > 0).map(([pid, o]) => ({ p: matParentName(pid), q: r4(o[m]) }));
+      if(r4(N) > 0) entries.push({ id: `prod-${dk}-${m}`, d: dk, m, t: 'use', q: -r4(N), auto: 1, src: 'prod', note: `생산 자동 차감 — 제품에 들어간 원물 (${dk})`, det, by, ts });
+      if(r4(W) > 0) entries.push({ id: `prodw-${dk}-${m}`, d: dk, m, t: 'loss', q: -r4(W), auto: 1, src: 'prodw', note: `제조 폐기 (생산일보 실측, ${dk})`, det: wDet[m] || [], by, ts });
+      if(r4(O) > 0) entries.push({ id: `prodl-${dk}-${m}`, d: dk, m, t: 'loss', q: -r4(O), auto: 1, src: 'prodl', note: `제조 로스 — 투입 − 제품 원물 − 제조 폐기 (${dk})`, det: inBy[m] || [], by, ts });
+      if(W > I - N + 1e-9 && I > 0) warns.push(`${matLabel(m)}: 제조 폐기(${matN(W)}kg)가 투입 − 제품 원물(${matN(I - N)}kg)보다 많습니다 — 생산지시 작업kg을 확인하세요`);
+      sum.push({ m, input: r4(Math.max(I, N + W)), net: r4(N), waste: r4(W), other: r4(O), yld: I > 0 ? Math.round(N / Math.max(I, N + W) * 1000) / 10 : null });
+    });
+    const newIds = new Set(entries.map(e => e.id)), re = pcProdIdRe(dk);
+    const old = MAT.led.filter(e => !e.void && re.test(String(e.id))), oldMap = new Map(old.map(e => [e.id, e]));
+    const voidOf = e => Object.assign({}, e, { void: true, voidBy: by, voidAt: ts });
+    const stale = old.filter(e => !newIds.has(e.id)).map(voidOf);
+    const ship = MAT.led.filter(e => !e.void && e.auto && String(e.id).startsWith('auto-' + dk + '-')).map(e => Object.assign(voidOf(e), { voidNote: '생산 마감 차감으로 대체' }));
+    const changed = entries.filter(e => { const o = oldMap.get(e.id); return !o || Math.abs(o.q - e.q) > 1e-9 || o.t !== e.t || JSON.stringify(o.det || []) !== JSON.stringify(e.det || []); });
+    return { dk, rowsP, entries, stale, ship, changed, sum, warns: warns.concat(ex.warn) };
+  }
+  async function pcDeductApply(dk){
+    const c = await pcDeductCompute(dk, true);
+    const todo = c.changed.concat(c.stale, c.ship);
+    if(todo.length) await matLedAdd(todo);
+    try{ matRender(); matRenderDedCard(); }catch(e){ /* 화면 갱신은 부가 */ }
+    return c;
+  }
+  async function pcDeductVoid(dk){
+    await matLoad(true);
+    if(!MAT.loaded) throw new Error(MAT.err || '자재 정보를 불러오지 못했습니다');
+    const re = pcProdIdRe(dk), old = MAT.led.filter(e => !e.void && re.test(String(e.id)));
+    if(old.length) await matLedAdd(old.map(e => Object.assign({}, e, { void: true, voidBy: matUser(), voidAt: Date.now(), voidNote: '생산 마감 해제' })));
+    try{ matRender(); matRenderDedCard(); }catch(e){ /* 화면 갱신은 부가 */ }
+    return old.length;
+  }
+  function pcDeductMsg(c){
+    const mats = c.entries.filter(e => e.src === 'prod' && !matIsProduce(matById(e.m))).length;
+    const raw = c.sum.map(s => `${matLabel(s.m)} 투입 ${matN(s.input)}kg (제품 ${matN(s.net)} · 제조 폐기 ${matN(s.waste)} · 기타 로스 ${matN(s.other)}${s.yld != null ? ' · 수율 ' + s.yld + '%' : ''})`).join(' / ');
+    const nob = c.rowsP.filter(r => r.state === 'nobom').map(r => r.name);
+    return { text: `자재 차감 반영: 부자재·소모품 ${mats}종${raw ? ' · ' + raw : ''}`, warn: (nob.length ? [`정전개 없음(차감 안 됨): ${nob.join(', ')}`] : []).concat(c.warns) };
+  }
+  async function pcDeductRun(dk){
+    const info = document.getElementById('pc-ded-info');
+    if(info){ info.textContent = '자재 차감 계산 중…'; info.style.color = ''; }
+    try{
+      const c = await pcDeductApply(dk), m = pcDeductMsg(c);
+      if(info){ info.innerHTML = escapeHtml(m.text) + m.warn.map(w => `<div style="color:var(--danger,#c0392b);">⚠ ${escapeHtml(w)}</div>`).join(''); }
+      try{ await writeLog('prod_close_deduct', `생산 마감 자재 차감 ${dk} (${c.entries.length}건)`); }catch(e){}
+      return c;
+    }catch(e){
+      console.error(e);
+      if(info){ info.textContent = '⚠ 자재 차감을 하지 못했습니다: ' + (e.message || e) + ' — [♻ 자재 차감 다시 반영]을 눌러 주세요'; info.style.color = 'var(--danger,#c0392b)'; }
+      return null;
+    }
   }
   async function pcReopen(){
     const dk = currentDateKey; if(!dk) return;
@@ -19670,7 +19802,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const ok = await pcSetClose(dk, null);
     if(!ok) return;
     try{ await writeLog('prod_reopen', `생산 마감 해제 ${dk}`); }catch(e){}
-    toast(`🔓 ${prodCloseMd(dk)} 생산 마감을 해제했습니다`);
+    let n = 0, err = '';
+    try{ n = await pcDeductVoid(dk); }catch(e){ err = e.message || String(e); }
+    const info = document.getElementById('pc-ded-info'); if(info){ info.textContent = ''; info.style.color = ''; }
+    toast(err ? `🔓 마감은 해제했지만 자재 차감을 되돌리지 못했습니다: ${err} — 🗃 자재·재고 → 수불 내역에서 확인해 주세요` : `🔓 ${prodCloseMd(dk)} 생산 마감을 해제했습니다${n ? ' (자재 차감 ' + n + '건 되돌림)' : ''}`);
   }
   const pcB64ToBuf = b64 => { const bin = atob(b64), u = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
   const pcBufToB64 = buf => { const u = new Uint8Array(buf); let s = ''; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
@@ -19792,6 +19927,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if($('pc-close-btn')) $('pc-close-btn').addEventListener('click', pcClose);
     if($('pc-open-btn')) $('pc-open-btn').addEventListener('click', pcReopen);
     if($('pc-ppt-btn')) $('pc-ppt-btn').addEventListener('click', () => pcPpt(currentDateKey));
+    if($('pc-ded-btn')) $('pc-ded-btn').addEventListener('click', async () => {
+      const dk = currentDateKey; if(!dk) return;
+      if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 자재 차감을 반영할 수 있습니다'); return; }
+      if(!isProdClosed(dk)){ toast('생산 마감한 날짜만 반영합니다'); return; }
+      $('pc-ded-btn').disabled = true;
+      const c = await pcDeductRun(dk);
+      $('pc-ded-btn').disabled = false;
+      if(c) toast('자재 차감을 다시 반영했습니다');
+    });
     if($('pc-tpl-btn')) $('pc-tpl-btn').addEventListener('click', () => { if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 양식을 등록할 수 있습니다'); return; } $('pc-tpl-file').click(); });
     if($('pc-tpl-file')) $('pc-tpl-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; pcTplUpload(f); });
     // 다른 직원이 마감·해제한 것: 창으로 돌아올 때 다시 확인 (30초에 한 번까지)
@@ -22230,6 +22374,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       inst: Array.isArray(d.inst) ? d.inst : [], instNote: String(d.instNote || ''), note: String(d.note || ''), temp: d.temp == null ? '' : String(d.temp),
       staff: Array.isArray(d.staff) ? d.staff : PR_STAFF_DEFAULT.map((label, i) => ({ id: 'd' + i, label, names: '' })), total: d.total == null ? '' : String(d.total),
       foot: String(d.foot || ''), ctKg: d.ctKg == null || d.ctKg === '' ? 12 : Number(d.ctKg) || 0,
+      waste: Array.isArray(d.waste) ? d.waste : [],
     };
   };
   const prCan = () => window.sectionLevel('plan') === 'full';
@@ -22326,6 +22471,32 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     return { raw, kg, ct, base };
   }
   const prVal = (v, auto) => (v === '' || v == null) ? auto : Number(v);
+  // ── 제조 폐기 원물 (생산일보 ④) — doc.waste = [{ id, m: 자재(원물) id, kg, reason, note }] ──
+  const PR_WASTE_REASONS = ['가공 중 불량', '파손·낙과', '이물·변질', '작업 잔량 폐기', '기타'];
+  let prMatRaw = null, prMatRawP = null;   // 원물 자재 목록 (mat-master 중 원물)
+  function prMatRawLoad(){
+    if(prMatRawP) return prMatRawP;
+    prMatRawP = window.storage.get('mat-master', true)
+      .then(r => { const items = ((r && r.value ? JSON.parse(r.value) : {}) || {}).items || []; prMatRaw = items.filter(i => i && !i.off && matIsProduce(i)); })
+      .catch(() => { prMatRaw = []; prMatRawP = null; });
+    return prMatRawP;
+  }
+  function prRenderWaste(dk, doc, can){
+    const el = document.getElementById('pr-waste'); if(!el) return;
+    if(prMatRaw === null){ el.innerHTML = '<div class="sub" style="margin:0;">불러오는 중…</div>'; prMatRawLoad().then(() => prRender()); return; }
+    const e = escapeHtml, rows = doc.waste || [];
+    const opt = sel => '<option value="">원물 선택</option>' + prMatRaw.map(i => `<option value="${e(i.id)}"${i.id === sel ? ' selected' : ''}>${e(i.name)}${i.code ? ' (' + e(i.code) + ')' : ''}</option>`).join('')
+      + (sel && !prMatRaw.some(i => i.id === sel) ? `<option value="${e(sel)}" selected>(목록에 없는 원물)</option>` : '');
+    const rsn = sel => PR_WASTE_REASONS.map(x => `<option${x === sel ? ' selected' : ''}>${e(x)}</option>`).join('') + (sel && !PR_WASTE_REASONS.includes(sel) ? `<option selected>${e(sel)}</option>` : '');
+    const tot = Math.round(rows.reduce((s, r) => s + (Number(r.kg) || 0), 0) * 100) / 100;
+    let h = '';
+    if(rows.length) h += `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>원물</th><th>폐기 kg</th><th>사유</th><th>메모</th><th></th></tr></thead><tbody>${rows.map(r => `<tr data-id="${e(r.id)}"><td><select data-f="m">${opt(r.m)}</select></td><td><input data-f="kg" type="text" inputmode="decimal" value="${e(r.kg === '' || r.kg == null ? '' : String(r.kg))}" placeholder="kg" style="width:80px;"></td><td><select data-f="reason">${rsn(r.reason)}</select></td><td><input data-f="note" value="${e(r.note || '')}" placeholder="예: 3차 라인 기계 걸림" style="width:200px;"></td><td><button type="button" class="btn-ghost small-btn" data-act="wdel" title="이 줄 지우기">✕</button></td></tr>`).join('')}</tbody><tfoot><tr><td style="text-align:right;font-weight:700;">합계</td><td class="n" style="font-weight:700;">${tot ? tot.toLocaleString() + ' kg' : ''}</td><td colspan="3"></td></tr></tfoot></table></div>`;
+    else h += '<div class="sub" style="margin:0;">가공·포장 중에 버린 원물이 있으면 무게를 달아 <b>+ 폐기 추가</b>로 적습니다. 생산 마감 때 자재 재고에서 빠지고, 🗃 자재·재고 → <b>폐기 · 수율</b>에서 날짜별로 모아 봅니다.</div>';
+    if(!prMatRaw.length) h += '<div class="sub" style="margin:4px 0 0;color:var(--danger,#c0392b);">원물 자재가 없습니다. 🗂 기준정보 › 품목에서 원물(구분: 원물)을 먼저 등록해 주세요.</div>';
+    h += `<div class="row" style="margin-top:4px;"><button type="button" class="btn-ghost small-btn" id="pr-waste-add">+ 폐기 추가</button></div>`;
+    el.innerHTML = h;
+    el.querySelectorAll('input, select, button').forEach(x => { x.disabled = !can; });
+  }
   function prInstView(dk, doc){
     return doc.inst.map((r, i) => {
       const extra = prVal(r.extra, prRates.extra), loss = prVal(r.loss, prRates.loss);
@@ -22366,7 +22537,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const dk = currentDateKey;
     const badge = document.getElementById('prod-report-date'); if(badge) badge.textContent = dk ? `납품일 ${dk}` : '';
     prRenderOrder();
-    { const ae = document.activeElement; if(ae && ae !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && (ae.closest('#pr-inst') || ae.closest('#pr-etc') || ae.id === 'pr-std' || ae.id === 'pr-ctkg' || ae.id === 'pr-extra' || ae.id === 'pr-loss')){ prRenderPending = true; return; } }   // 입력 중이면 칸을 나간 뒤에 다시 그림
+    { const ae = document.activeElement; if(ae && ae !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && (ae.closest('#pr-inst') || ae.closest('#pr-etc') || ae.closest('#pr-waste') || ae.id === 'pr-std' || ae.id === 'pr-ctkg' || ae.id === 'pr-extra' || ae.id === 'pr-loss')){ prRenderPending = true; return; } }   // 입력 중이면 칸을 나간 뒤에 다시 그림
     prRenderPending = false;
     const instEl = document.getElementById('pr-inst'), etcEl = document.getElementById('pr-etc');
     if(!dk) return;
@@ -22405,6 +22576,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     e += `</div><div class="row" style="margin-top:4px;align-items:center;"><button type="button" class="btn-ghost small-btn" id="pr-staff-add">+ 구역 추가</button><label>총 <input id="pr-total" value="${escapeHtml(doc.total)}" placeholder="-" style="width:60px;"> 명</label></div>
       <label class="sub" style="display:block;margin:8px 0 2px;">하단 비고 (예: 소비기한 2026.11.19 / 로트 A2E1)</label><textarea id="pr-foot" rows="2" style="width:100%;max-width:640px;">${escapeHtml(doc.foot)}</textarea>`;
     etcEl.innerHTML = e;
+    prRenderWaste(dk, doc, can);
     const stdEl = document.getElementById('pr-std'); if(stdEl && document.activeElement !== stdEl) stdEl.value = prStd == null ? PR_STD_DEFAULT : prStd;
     // 권한 없으면 잠금
     card.querySelectorAll('#pr-inst input, #pr-inst select, #pr-inst button, #pr-etc input, #pr-etc textarea, #pr-etc button, #pr-std, #pr-ctkg, #pr-extra, #pr-loss, #pr-inst-add, #pr-inst-seq, #pr-copy-prev').forEach(x => { x.disabled = !can; });
@@ -22435,6 +22607,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         prCommit(d, doc => { const r = doc.staff.find(x => x.id === id); if(r) r[f] = v; else { const st = (prCache[d] || {}).staff || []; const src = st.find(x => x.id === id); if(src){ doc.staff = st.map(x => Object.assign({}, x)); const r2 = doc.staff.find(x => x.id === id); if(r2) r2[f] = v; } } });
         return;
       }
+      if(t.closest('#pr-waste') && t.dataset.f){
+        const id = rowOf(t), f = t.dataset.f; let v = t.value.trim();
+        if(f === 'kg'){
+          v = v.replace(/[,\s]/g, '').replace(/kg$/i, '');
+          if(v !== '' && (!isFinite(Number(v)) || Number(v) < 0)){ toast('폐기량은 0 이상의 kg 숫자로 입력해주세요 (예: 12.5)'); t.value = ''; return; }
+          v = v === '' ? '' : Number(v);
+        }
+        prCommit(d, doc => { const r = doc.waste.find(x => x.id === id); if(r) r[f] = v; });
+        return;
+      }
       const map = { 'pr-inst-note': 'instNote', 'pr-note': 'note', 'pr-temp': 'temp', 'pr-total': 'total', 'pr-foot': 'foot' };
       if(map[t.id]){ const v = t.value.trim(); prCommit(d, doc => { doc[map[t.id]] = v; }); return; }
       if(t.id === 'pr-ctkg'){ const v = Number(t.value) || 0; prCommit(d, doc => { doc.ctKg = v; }, true); return; }
@@ -22463,6 +22645,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         prCommit(d, doc => { doc.staff = (doc.staff.some(x => x.id === id) ? doc.staff : cur).filter(x => x.id !== id); }, true);
         return;
       }
+      if(b.id === 'pr-waste-add'){ prCommit(d, doc => { doc.waste.push({ id: prId(), m: (prMatRaw && prMatRaw.length === 1) ? prMatRaw[0].id : '', kg: '', reason: PR_WASTE_REASONS[0], note: '' }); }, true); return; }
+      if(b.dataset.act === 'wdel' && b.closest('#pr-waste')){ const id = rowOf(b); prCommit(d, doc => { doc.waste = doc.waste.filter(x => x.id !== id); }, true); return; }
       if(b.id === 'pr-inst-add'){ prCommit(d, doc => { doc.inst.push({ id: prId(), lbl: '', raw: '', item: '', kg: '', ct: '', extra: '', loss: '', note: '' }); }, true); return; }
       if(b.id === 'pr-staff-add'){ const cur = prCache[d].staff.map(x => Object.assign({}, x)); prCommit(d, doc => { if(!doc.staff.length && cur.length) doc.staff = cur; doc.staff.push({ id: prId(), label: '', names: '' }); }, true); return; }
       if(b.id === 'pr-inst-seq'){
@@ -22803,6 +22987,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const m = {};
     MAT.led.forEach(e => { if(e.void) return; m[e.m] = (m[e.m] || 0) + (Number(e.q) || 0); });
     Object.entries(MAT.rawIn).forEach(([id, kg]) => { m[id] = (m[id] || 0) + (Number(kg) || 0); });
+    Object.entries(MAT.rawWaste || {}).forEach(([id, kg]) => { m[id] = (m[id] || 0) - (Number(kg) || 0); });   // 원물선별 폐기 등급
     Object.keys(m).forEach(k => { m[k] = Math.round(m[k] * 10000) / 10000; });
     return m;
   }
@@ -22879,6 +23064,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       }
       MAT.master.items.forEach(it => { const k = String(it.code || it.name || '').trim(); if(sums[k]) MAT.rawIn[it.id] = Math.round(sums[k] * 100) / 100; });
     }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다(입고 통합 SQL을 아직 실행하지 않았다면 실행해주세요): ' + ((e && e.message) || e); }
+    await matLoadSortWaste();
+  }
+  // 원물선별 선별산출의 폐기 등급(판매 불가) kg → 그 원물 자재 재고에서 뺌 (등급의 원물 코드, 비어 있으면 기본 원물)
+  //  MAT.rawWaste = { 자재id: kg }, MAT.rawWasteUnk = 원물을 알 수 없는 폐기 kg (선별 원물 설정이 없을 때)
+  const matSortCode = c => String(c || '').trim() || String(MAT.srDefault || '');
+  async function matSortWasteGrades(){ return ((await sbQuery('sorting_grades', '?select=id,name,sellable,item_code')) || []).filter(g => g.sellable === false); }
+  async function matLoadSortWaste(){
+    MAT.rawWaste = {}; MAT.rawWasteUnk = 0;
+    try{
+      const wg = await matSortWasteGrades(); if(!wg.length) return;
+      const codeOf = new Map(wg.map(g => [String(g.id), matSortCode(g.item_code)])), sums = {};
+      for(let off = 0; off <= 200000; off += 1000){
+        const rows = await sbQuery('sorting_output_items', `?grade_id=in.(${wg.map(g => g.id).join(',')})&select=grade_id,weight_kg&order=id&limit=1000&offset=${off}`);
+        (rows || []).forEach(r => { const k = codeOf.get(String(r.grade_id)) || ''; sums[k] = (sums[k] || 0) + (Number(r.weight_kg) || 0); });
+        if(!rows || rows.length < 1000) break;
+      }
+      Object.entries(sums).forEach(([k, kg]) => {
+        const it = k && MAT.master.items.find(i => String(i.code || '').trim() === k);
+        if(it) MAT.rawWaste[it.id] = Math.round(((MAT.rawWaste[it.id] || 0) + kg) * 100) / 100; else MAT.rawWasteUnk = Math.round((MAT.rawWasteUnk + kg) * 100) / 100;
+      });
+    }catch(e){ MAT.rawErr = (MAT.rawErr ? MAT.rawErr + ' / ' : '') + '원물선별 폐기 등급을 불러오지 못했습니다: ' + ((e && e.message) || e); }
   }
   async function matLoad(force){
     if(MAT.loading || (MAT.loaded && !force)) return;
@@ -22988,8 +23194,75 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.querySelectorAll('#mat-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mt === MAT.tab));
     if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '아래 탭을 누르면 불러옵니다.'}</div>`; return; }
     if(MAT.rawErr) matMsg(MAT.rawErr, true);
-    ({ stock: matRenderStock, bulk: matRenderBulk, buyin: matRenderBulk, buyled: matRenderLed, master2: matRenderMaster, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
+    ({ yield: matRenderYield, stock: matRenderStock, bulk: matRenderBulk, buyin: matRenderBulk, buyled: matRenderLed, master2: matRenderMaster, bom: matRenderBom, rev: matRenderRev, led: matRenderLed, master: matRenderMaster }[MAT.tab] || matRenderStock)();
     matApplyPerm();
+  }
+  // ── 폐기 · 수율: 생산 마감 차감 기록(prod/prodw/prodl) + 원물선별 폐기 등급을 날짜·원물별로 ──
+  //  투입 = 제품 원물 + 제조 폐기 + 기타 로스 / 수율 = 제품 원물 ÷ 투입 / 선별 폐기는 선별 작업일 기준 (원물선별 → 선별산출)
+  async function matSortWasteByDay(from, to){
+    const out = {}; let unk = 0;
+    const wg = await matSortWasteGrades(); if(!wg.length) return { out, unk };
+    const outs = await sbQuery('sorting_output', `?work_date=gte.${from}&work_date=lte.${to}&select=id,work_date&limit=5000`);
+    if(!outs || !outs.length) return { out, unk };
+    const dayOf = new Map(outs.map(o => [String(o.id), o.work_date])), codeOf = new Map(wg.map(g => [String(g.id), matSortCode(g.item_code)]));
+    for(let i = 0; i < outs.length; i += 150){
+      const ids = outs.slice(i, i + 150).map(o => o.id).join(',');
+      const rows = await sbQuery('sorting_output_items', `?output_id=in.(${ids})&grade_id=in.(${wg.map(g => g.id).join(',')})&select=output_id,grade_id,weight_kg&limit=10000`);
+      (rows || []).forEach(r => {
+        const d = dayOf.get(String(r.output_id)), k = codeOf.get(String(r.grade_id)) || '', it = k && MAT.master.items.find(x => String(x.code || '').trim() === k), kg = Number(r.weight_kg) || 0;
+        if(!d) return;
+        if(!it){ unk += kg; return; }
+        ((out[d] = out[d] || {})[it.id] = ((out[d] || {})[it.id] || 0) + kg);
+      });
+    }
+    return { out, unk };
+  }
+  function matRenderYield(){
+    const body = matEl('mat-body');
+    const td = getTodayKey(), d0 = td.slice(0, 8) + '01';
+    if(!MAT.yFrom) MAT.yFrom = d0; if(!MAT.yTo) MAT.yTo = td;
+    body.innerHTML = `<div class="sub" style="margin:0 0 6px;">생산 마감 때 자동으로 남긴 원물 차감과 원물선별의 폐기 등급을 날짜·원물별로 모읍니다. <b>투입</b> = 제품에 들어간 원물 + 제조 폐기(생산일보 ④ 실측) + 기타 로스(투입 − 제품 − 폐기: 세척 감량·계량 차이·남은 원물 등), <b>수율</b> = 제품 원물 ÷ 투입. 기타 로스가 크면 생산지시 작업kg이나 폐기 계량을 확인하세요.</div>
+      <div class="row" style="margin:0 0 8px;align-items:flex-end;"><label style="font-size:12.5px;">시작<br><input type="date" id="mat-y-from" value="${escapeHtml(MAT.yFrom)}"></label><label style="font-size:12.5px;">끝<br><input type="date" id="mat-y-to" value="${escapeHtml(MAT.yTo)}"></label><button type="button" class="btn-primary small-btn" id="mat-y-load">조회</button><button type="button" class="btn-ghost small-btn" id="mat-y-xlsx">엑셀로 받기</button></div>
+      <div id="mat-y-out"><div class="sub">불러오는 중…</div></div>`;
+    const go = async () => {
+      MAT.yFrom = matEl('mat-y-from').value; MAT.yTo = matEl('mat-y-to').value;
+      const out = matEl('mat-y-out'); if(!out) return;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(MAT.yFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(MAT.yTo) || MAT.yFrom > MAT.yTo){ out.innerHTML = '<div class="sub">날짜를 확인하세요</div>'; return; }
+      out.innerHTML = '<div class="sub">불러오는 중…</div>';
+      const rows = {}, reasons = {}, key = (d, m) => d + '|' + m;
+      const get = (d, m) => rows[key(d, m)] || (rows[key(d, m)] = { d, m, net: 0, waste: 0, other: 0, sort: 0 });
+      MAT.led.forEach(e => {
+        if(e.void || !e.auto || e.d < MAT.yFrom || e.d > MAT.yTo) return;
+        const id = String(e.id), q = -(Number(e.q) || 0);
+        if(/^prod-/.test(id) && matIsProduce(matById(e.m))) get(e.d, e.m).net += q;
+        else if(/^prodw-/.test(id)){ get(e.d, e.m).waste += q; (e.det || []).forEach(x => { const r = String(x.p || '기타').split(' · ')[0]; const k = e.m + '|' + r; reasons[k] = (reasons[k] || 0) + (Number(x.q) || 0); }); }
+        else if(/^prodl-/.test(id)) get(e.d, e.m).other += q;
+      });
+      let sw = { out: {}, unk: 0 }, swErr = '';
+      try{ sw = await matSortWasteByDay(MAT.yFrom, MAT.yTo); }catch(e){ swErr = '원물선별 폐기를 불러오지 못했습니다: ' + ((e && e.message) || e); }
+      Object.entries(sw.out).forEach(([d, o]) => Object.entries(o).forEach(([m, kg]) => { get(d, m).sort += kg; }));
+      const list = Object.values(rows).sort((a, b) => a.d.localeCompare(b.d) || matLabel(a.m).localeCompare(matLabel(b.m), 'ko'));
+      MAT.yRows = list;
+      const f = v => v ? matN(Math.round(v * 100) / 100) : '', yl = r => { const I = r.net + r.waste + r.other; return I > 0 ? (Math.round(r.net / I * 1000) / 10) + '%' : ''; };
+      if(!list.length){ out.innerHTML = (swErr ? `<div class="sub" style="color:var(--danger,#c0392b);">⚠ ${escapeHtml(swErr)}</div>` : '') + '<div class="sub">이 기간에는 생산 마감 차감 기록도, 선별 폐기도 없습니다.</div>'; return; }
+      const tot = {}; list.forEach(r => { const t = tot[r.m] || (tot[r.m] = { d: '합계', m: r.m, net: 0, waste: 0, other: 0, sort: 0 }); ['net', 'waste', 'other', 'sort'].forEach(k => { t[k] += r[k]; }); });
+      const tr = (r, b) => `<tr${b ? ' style="font-weight:700;background:var(--paper);"' : ''}><td>${escapeHtml(r.d)}</td><td>${escapeHtml(matLabel(r.m))}</td><td class="n">${f(r.net + r.waste + r.other)}</td><td class="n">${f(r.net)}</td><td class="n">${f(r.waste)}</td><td class="n">${f(r.other)}</td><td class="n">${yl(r)}</td><td class="n">${f(r.sort)}</td></tr>`;
+      let h = swErr ? `<div class="sub" style="color:var(--danger,#c0392b);">⚠ ${escapeHtml(swErr)}</div>` : '';
+      h += `<table class="mat-t"><thead><tr><th>날짜</th><th>원물</th><th>투입 kg</th><th>제품 원물 kg</th><th>제조 폐기 kg</th><th>기타 로스 kg</th><th>수율</th><th>선별 폐기 kg</th></tr></thead><tbody>${list.map(r => tr(r)).join('')}${Object.values(tot).map(r => tr(r, true)).join('')}</tbody></table>`;
+      const rk = Object.entries(reasons);
+      if(rk.length) h += `<h3 style="margin:14px 0 4px;">제조 폐기 사유별</h3><table class="mat-t"><thead><tr><th>원물</th><th>사유</th><th>kg</th></tr></thead><tbody>${rk.sort((a, b) => b[1] - a[1]).map(([k, v]) => { const [m, r] = k.split('|'); return `<tr><td>${escapeHtml(matLabel(m))}</td><td>${escapeHtml(r)}</td><td class="n">${f(v)}</td></tr>`; }).join('')}</tbody></table>`;
+      if(sw.unk > 0) h += `<div class="sub" style="margin-top:6px;">원물을 알 수 없는 선별 폐기 ${matN(Math.round(sw.unk * 100) / 100)}kg (원물선별 → 마스터관리 → 원물 종류에서 기본 원물을 정하면 나눠집니다)</div>`;
+      out.innerHTML = h;
+    };
+    matEl('mat-y-load').addEventListener('click', go);
+    matEl('mat-y-xlsx').addEventListener('click', () => {
+      const list = MAT.yRows || []; if(!list.length){ toast('먼저 조회하세요'); return; }
+      const r2 = v => Math.round(v * 100) / 100;
+      const aoa = [['날짜', '원물', '투입 kg', '제품 원물 kg', '제조 폐기 kg', '기타 로스 kg', '수율 %', '선별 폐기 kg']].concat(list.map(r => { const I = r.net + r.waste + r.other; return [r.d, matLabel(r.m), r2(I), r2(r.net), r2(r.waste), r2(r.other), I > 0 ? Math.round(r.net / I * 1000) / 10 : '', r2(r.sort)]; }));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), '폐기·수율');
+      XLSX.writeFile(wb, `폐기_수율_${MAT.yFrom}_${MAT.yTo}.xlsx`);
+    });
+    go();
   }
   // 권한이 없으면 저장 버튼을 잠그고 안내 (조회는 가능)
   function matApplyPerm(){
@@ -23139,7 +23412,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       else {
         t.innerHTML = `<table class="mat-t"><thead><tr><th>자재</th><th>구분</th><th>현재고</th><th>안전재고</th><th>상태</th><th>최근 입고일</th><th>재고 실사 (실제 수량 입력)</th></tr></thead><tbody>${items.map(i => {
           const cur = sm[i.id] || 0, low = isLow(i), rawn = MAT.rawIn[i.id];
-          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
+          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)}${(MAT.rawWaste || {})[i.id] > 0 ? ` · 선별 폐기 −${matN(MAT.rawWaste[i.id])}${escapeHtml(i.unit)}` : ''} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
       const pt = matEl('mat-s-prod');
@@ -23598,6 +23871,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const stateTxt = { ok: '차감 대상', skip: '<span class="mat-low">차감 끔</span>', nobom: '<span class="mat-low">정전개 없음 (차감 안 됨)</span>' };
       let h = '';
       if(c.warns.length) h += c.warns.map(w => `<div class="sub" style="color:var(--danger,#c0392b); margin:0 0 4px;">⚠ ${escapeHtml(w)}</div>`).join('');
+      if(isProdClosed(c.dk)) h += `<div class="sub" style="color:var(--danger,#c0392b); margin:0 0 4px;">🔒 이 날짜는 생산 마감 때 <b>생산량 기준</b>으로 자재를 차감합니다 (생산일보 카드의 ♻ 자재 차감 다시 반영). 출고 기준 차감은 하지 않습니다.</div>`;
       if(!c.rowsP.length){ out.innerHTML = h + '<div class="sub">이 날짜에는 출고 수량이 없습니다.</div>'; return; }
       h += `<h3 style="margin:8px 0 4px;">제품별 출고 팩 수</h3><table class="mat-t"><thead><tr><th>제품</th><th>출고 팩</th><th>상태</th></tr></thead><tbody>${c.rowsP.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="n">${fmt(r.packs)} 팩</td><td>${stateTxt[r.state]}</td></tr>`).join('')}</tbody></table>`;
       const ids = [...new Set(c.entries.map(e => e.m).concat([...c.oldMap.values()].map(e => e.m)))].sort((a, b) => matLabel(a).localeCompare(matLabel(b), 'ko'));
@@ -23606,7 +23880,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(!ids.length) h += '<div class="sub">차감할 자재가 없습니다 (정전개가 등록된 제품의 출고가 없음).</div>';
       else h += `<table class="mat-t"><thead><tr><th>자재</th><th>이번 계산 차감량</th><th>이미 반영된 차감</th><th>변경</th><th>현재고</th><th>반영 후 재고</th></tr></thead><tbody>${ids.map(m => { const n = newQ(m), o = oldQ(m), d = Math.round((n - o) * 10000) / 10000, cur = sm[m] || 0, after = Math.round((cur - d) * 10000) / 10000, u = escapeHtml(matUnitOf(m)); return `<tr><td>${escapeHtml(matLabel(m))}</td><td class="n">${fmt(n)} ${u}</td><td class="n">${o ? fmt(o) + ' ' + u : '-'}</td><td class="n${d ? '' : ' mat-ok'}">${d ? (d > 0 ? '+' : '') + fmt(d) : '변경 없음'}</td><td class="n">${fmt(cur)} ${u}</td><td class="n${after < 0 ? ' mat-low' : ''}">${fmt(after)} ${u}${after < 0 ? ' ⚠' : ''}</td></tr>`; }).join('')}</tbody></table>`;
       const todo = c.changed.length + c.stale.length;
-      h += `<div class="row" style="margin-top:10px;"><button type="button" class="btn-primary small-btn" id="mat-d-apply"${todo ? '' : ' disabled'}>${todo ? '자재 차감 반영' : '이미 반영됨 (변경 없음)'}</button><button type="button" class="btn-danger small-btn" id="mat-d-undo"${c.oldMap.size ? '' : ' disabled'}>반영 되돌리기</button></div>`;
+      h += `<div class="row" style="margin-top:10px;"><button type="button" class="btn-primary small-btn" id="mat-d-apply"${todo && !isProdClosed(c.dk) ? '' : ' disabled'}>${todo ? '자재 차감 반영' : '이미 반영됨 (변경 없음)'}</button><button type="button" class="btn-danger small-btn" id="mat-d-undo"${c.oldMap.size ? '' : ' disabled'}>반영 되돌리기</button></div>`;
       out.innerHTML = h;
       const ap = matEl('mat-d-apply');
       if(ap) ap.addEventListener('click', async () => {
