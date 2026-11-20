@@ -3166,6 +3166,7 @@
   <li><b>생산 마감</b>(생산일보 카드의 🔒 생산 마감)을 누르면 그날 <b>생산량</b> × 정전개만큼 부자재·소모품이 자동으로 빠지고, 원물은 생산지시 작업kg(투입)만큼 빠집니다. 투입은 <b>제품에 들어간 원물 · 제조 폐기(생산일보 ④에 적은 kg) · 기타 로스</b>로 나눠 기록됩니다. 생산량은 제품 재고의 '오늘 생산량', 비어 있으면 생산 필요수량입니다. 고친 뒤에는 <b>♻ 자재 차감 다시 반영</b>(중복 차감 없음), 마감 해제하면 그날 차감도 취소됩니다.</li>
   <li>마감하지 않은 날짜는 예전처럼 생산/물류 탭의 <b>자재 출고 차감</b>(출고 기준)으로 뺄 수 있습니다. 같은 날짜를 생산 마감으로 차감하면 출고 기준 차감은 자동으로 무효가 되어 두 번 빠지지 않습니다. 정전개에 없는 소모품은 <b>사용 · 로스 입력</b>으로 뺍니다.</li>
   <li>원물선별 선별산출에서 <b>폐기 등급</b>(판매 불가)으로 나온 kg은 원물 재고에서 자동으로 빠집니다(재고 현황에 "선별 폐기 −kg"으로 표시).</li>
+  <li>원물선별 <b>출고·정산</b>으로 외부에 판 kg도 원물 재고에서 빠집니다("선별 출고(외부) −kg"). 자사 생산으로 넘긴 출고는 생산 마감 때 생산지시 작업kg으로 빠지므로 <b>빼지 않습니다</b>. 자사 생산 출고처는 원물선별 › 마스터관리 › 거래처에서 <b>구분</b>에 <b>자사생산</b>(또는 '자사'·'내부'가 들어간 말)을 적어 둡니다. 안 적으면 두 번 빠집니다.</li>
   <li>원물(방울토마토)은 원물선별 → 원물입고에서 <b>원물(자재 코드)</b>을 골라 입고하면 그 kg이 자재 재고에 자동으로 더해집니다.</li>
 </ul>
 
@@ -15834,6 +15835,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 입고는 item_code로, 선별산출·출고는 등급(sorting_grades.item_code, 비어 있으면 기본 원물)으로 원물이 정해짐
   // 선별 원물을 하나도 고르지 않았으면 예전처럼 원물 구분 없이 동작
   let srRaws = [], srDefault = '', srCur = '', srLoaded = false, srMatItems = [], srGradesCache = null, srLoading = null;
+  // 출고처가 자사 생산 이관인지 (거래처 구분에 '자사'·'내부'): 자재 재고에서 원물 출고로 빼지 않음 (생산 마감 차감으로 빠짐)
+  function srDestInternal(d){ return /자사|내부/.test(String((d && d.category) || '')); }
   async function srLoad(force){
     if(srLoaded && !force) return;
     if(srLoading && !force) return srLoading;
@@ -17017,7 +17020,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         const net = hasPrice ? revenue - fee : null;
         const packagingText = r.sku_name ? `${r.sku_name} × ${r.box_count||'?'}박스` : (r.packaging_unit_id ? `${packagingMap[r.packaging_unit_id]||''} × ${r.box_count||'?'}` : (r.box_count ? `${r.box_count}박스` : ''));
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}${dest.ecount_code ? ` <span class="sub" style="margin:0;">[${escapeHtml(dest.ecount_code)}]</span>` : ''}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
+        tr.innerHTML = `<td>${escapeHtml(r.ship_date)}</td><td>${escapeHtml(dest.name||'')}${dest.ecount_code ? ` <span class="sub" style="margin:0;">[${escapeHtml(dest.ecount_code)}]</span>` : ''}${srDestInternal(dest) ? ' <span class="sub" style="margin:0;color:var(--accent,#2b6cb0);">자사 생산</span>' : ''}</td><td>${escapeHtml(gradeMap[r.grade_id]||'')}</td><td>${r.qty_kg}</td><td>${escapeHtml(packagingText)}</td><td>${hasPrice ? Number(r.unit_price).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(revenue).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(fee).toLocaleString() : '—'}</td><td>${hasPrice ? Math.round(net).toLocaleString() : '—'}</td><td>${escapeHtml(userMap[r.created_by]||'')}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
         const priceBtn = document.createElement('button');
@@ -17446,7 +17449,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     form.innerHTML = '';
     if(cfg.key === '__raw') return;
     if(cfg.key === 'sorting_destinations'){
-      form.innerHTML = '<span class="sub" style="margin:0;">출고 거래처는 <b>🗂 기준정보 › 매출처 정보</b>의 업체입니다. 출고 등록에서 매출처를 고르면 여기 정산용 거래처로 자동으로 들어옵니다. 여기서는 <b>지역 · 배송방식 · 구분 · 수수료율</b>을 고치고, 예전 거래처를 매출처에 연결합니다.</span>';
+      form.innerHTML = '<span class="sub" style="margin:0;">출고 거래처는 <b>🗂 기준정보 › 매출처 정보</b>의 업체입니다. 출고 등록에서 매출처를 고르면 여기 정산용 거래처로 자동으로 들어옵니다. 여기서는 <b>지역 · 배송방식 · 구분 · 수수료율</b>을 고치고, 예전 거래처를 매출처에 연결합니다. 우리 생산으로 넘기는 출고처는 <b>구분</b>에 <b>자사생산</b>이라고 적어 주세요(자재 재고에서 외부 판매 출고만 빼고, 자사 생산분은 생산 마감 차감으로 뺍니다).</span>';
       const b = document.createElement('button'); b.className = 'btn-ghost small-btn'; b.textContent = '🔗 매출처와 맞추기 (이름·코드)';
       b.addEventListener('click', () => sortingDestLinkAll()); form.appendChild(b);
       return;
@@ -17563,7 +17566,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const tbody = document.createElement('tbody');
       rows.forEach(row=>{
         const tr = document.createElement('tr');
-        const cells = cfg.fields.map(f=>`<td>${sortingFieldDisplay(f, row)}</td>`).join('');
+        const cells = cfg.fields.map(f=>`<td>${sortingFieldDisplay(f, row)}${cfg.key === 'sorting_destinations' && f.name === 'category' && srDestInternal(row) ? ' <span class="sub" style="margin:0;color:var(--accent,#2b6cb0);">· 자사 생산 이관</span>' : ''}</td>`).join('');
         tr.innerHTML = `${cells}<td>${row.is_active ? '✅ 활성' : '🔴 비활성'}</td><td></td>`;
         const actionTd = tr.lastElementChild;
 
@@ -22988,6 +22991,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     MAT.led.forEach(e => { if(e.void) return; m[e.m] = (m[e.m] || 0) + (Number(e.q) || 0); });
     Object.entries(MAT.rawIn).forEach(([id, kg]) => { m[id] = (m[id] || 0) + (Number(kg) || 0); });
     Object.entries(MAT.rawWaste || {}).forEach(([id, kg]) => { m[id] = (m[id] || 0) - (Number(kg) || 0); });   // 원물선별 폐기 등급
+    Object.entries(MAT.rawShip || {}).forEach(([id, kg]) => { m[id] = (m[id] || 0) - (Number(kg) || 0); });   // 원물선별 출고(외부 판매). 자사 생산 이관은 생산 마감 차감으로 빠짐
     Object.keys(m).forEach(k => { m[k] = Math.round(m[k] * 10000) / 10000; });
     return m;
   }
@@ -23065,6 +23069,35 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       MAT.master.items.forEach(it => { const k = String(it.code || it.name || '').trim(); if(sums[k]) MAT.rawIn[it.id] = Math.round(sums[k] * 100) / 100; });
     }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다(입고 통합 SQL을 아직 실행하지 않았다면 실행해주세요): ' + ((e && e.message) || e); }
     await matLoadSortWaste();
+    await matLoadSortShip();
+  }
+  // 원물선별 출고·정산 → 외부 판매 출고 kg만 원물 재고에서 뺌. 거래처 구분이 '자사'·'내부'이면 자사 생산 이관으로 보고 빼지 않음
+  //  (자사 생산에 쓴 원물은 생산 마감 때 생산지시 작업kg으로 빠지므로, 같이 빼면 두 번 빠짐)
+  //  MAT.rawShip = { 자재id: kg }, MAT.rawShipInt = 자사 생산 이관 kg(제외), MAT.rawShipUnk = 원물을 알 수 없는 외부 출고 kg
+  async function matLoadSortShip(){
+    MAT.rawShip = {}; MAT.rawShipInt = 0; MAT.rawShipUnk = 0; MAT.rawShipIntDest = 0;
+    try{
+      const [gs, ds] = await Promise.all([sbQuery('sorting_grades', '?select=id,item_code'), sbQuery('sorting_destinations', '?select=id,category')]);
+      const codeOf = new Map((gs || []).map(g => [String(g.id), matSortCode(g.item_code)]));
+      const intIds = new Set((ds || []).filter(srDestInternal).map(d => String(d.id)));
+      MAT.rawShipIntDest = intIds.size;
+      const sums = {};
+      for(let off = 0; off <= 200000; off += 1000){
+        const rows = await sbQuery('sorting_shipment', `?select=grade_id,destination_id,qty_kg&order=id&limit=1000&offset=${off}`);
+        (rows || []).forEach(r => {
+          const kg = Number(r.qty_kg) || 0;
+          if(intIds.has(String(r.destination_id))){ MAT.rawShipInt += kg; return; }
+          const k = codeOf.get(String(r.grade_id)) || matSortCode('');
+          sums[k] = (sums[k] || 0) + kg;
+        });
+        if(!rows || rows.length < 1000) break;
+      }
+      Object.entries(sums).forEach(([k, kg]) => {
+        const it = k && MAT.master.items.find(i => String(i.code || '').trim() === k);
+        if(it) MAT.rawShip[it.id] = Math.round(((MAT.rawShip[it.id] || 0) + kg) * 100) / 100; else MAT.rawShipUnk += kg;
+      });
+      MAT.rawShipInt = Math.round(MAT.rawShipInt * 100) / 100; MAT.rawShipUnk = Math.round(MAT.rawShipUnk * 100) / 100;
+    }catch(e){ MAT.rawErr = (MAT.rawErr ? MAT.rawErr + ' / ' : '') + '원물선별 출고를 불러오지 못했습니다: ' + ((e && e.message) || e); }
   }
   // 원물선별 선별산출의 폐기 등급(판매 불가) kg → 그 원물 자재 재고에서 뺌 (등급의 원물 코드, 비어 있으면 기본 원물)
   //  MAT.rawWaste = { 자재id: kg }, MAT.rawWasteUnk = 원물을 알 수 없는 폐기 kg (선별 원물 설정이 없을 때)
@@ -23405,14 +23438,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const isLow = i => Number(i.safety) > 0 && (sm[i.id] || 0) < Number(i.safety);
       const q = MAT.stockQ.trim().toLowerCase();
       const items = all.filter(i => (!q || i.name.toLowerCase().includes(q)) && (!MAT.stockLow || isLow(i)));
-      matEl('mat-s-sum').textContent = `총 ${matItems(false).length}종 · 안전재고 미만 ${matItems(false).filter(isLow).length}종`;
+      matEl('mat-s-sum').textContent = `총 ${matItems(false).length}종 · 안전재고 미만 ${matItems(false).filter(isLow).length}종` + (MAT.rawShipInt > 0 ? ` · 원물선별 자사 생산 이관 출고 ${matN(MAT.rawShipInt)}kg은 생산 마감 차감으로 빠지므로 제외` : '') + (MAT.rawShipUnk > 0 ? ` · ⚠ 원물을 알 수 없는 외부 출고 ${matN(MAT.rawShipUnk)}kg(등급에 원물 코드를 넣으세요)` : '');
       const t = matEl('mat-s-tbl');
       if(!all.length){ t.innerHTML = '<div class="sub">등록된 자재가 없습니다. <b>자재 마스터</b> 탭에서 자재(트레이·스티커·원물·습지·외박스·향료 등)를 먼저 등록하세요.</div>'; }
       else if(!items.length){ t.innerHTML = '<div class="sub">조건에 맞는 자재가 없습니다.</div>'; }
       else {
         t.innerHTML = `<table class="mat-t"><thead><tr><th>자재</th><th>구분</th><th>현재고</th><th>안전재고</th><th>상태</th><th>최근 입고일</th><th>재고 실사 (실제 수량 입력)</th></tr></thead><tbody>${items.map(i => {
           const cur = sm[i.id] || 0, low = isLow(i), rawn = MAT.rawIn[i.id];
-          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)}${(MAT.rawWaste || {})[i.id] > 0 ? ` · 선별 폐기 −${matN(MAT.rawWaste[i.id])}${escapeHtml(i.unit)}` : ''} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
+          return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)}${(MAT.rawWaste || {})[i.id] > 0 ? ` · 선별 폐기 −${matN(MAT.rawWaste[i.id])}${escapeHtml(i.unit)}` : ''}${(MAT.rawShip || {})[i.id] > 0 ? ` · 선별 출고(외부) −${matN(MAT.rawShip[i.id])}${escapeHtml(i.unit)}` : ''} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
         }).join('')}</tbody></table>`;
       }
       const pt = matEl('mat-s-prod');
