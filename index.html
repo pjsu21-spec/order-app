@@ -1373,6 +1373,7 @@
 
     <div id="agg-3pl-wrap" style="display:none;">
       <h3>품목별 합계</h3>
+      <div id="agg-3pl-check" style="display:none;"></div>
       <div id="agg-3pl-summary-wrap"></div>
       <h3>개별 주문(택배) 리스트</h3>
       <div id="agg-3pl-detail-wrap" class="tbl-scroll"></div>
@@ -9672,6 +9673,7 @@ function mnShow(id, keepScroll) {
     // 샘플 택배 발송 → 3PL 개별 주문으로 들어간 줄도 합계에 (업체명 '다름달음(샘플)')
     { const sm = {}; (currentLineItems() || []).filter(l => l && l.sampleKey && l.itemId).forEach(l => { sm[l.itemId] = Math.round(((sm[l.itemId] || 0) + (Number(l.qty) || 0)) * 100) / 100; });
       if(Object.keys(sm).length) filtered['다름달음(샘플)'] = sm; }
+    try{ tplCheckRender(orders, threePlNames); }catch(e){ console.error(e); }
     const table = buildReadonlyAggTable(filtered, '택배 출고 합계', { boxRow: true });
     if(!table){
       wrap.innerHTML = '<div class="empty">3PL 업체 중 아직 확정된 발주가 없습니다.</div>';
@@ -9679,6 +9681,36 @@ function mnShow(id, keepScroll) {
     }
     wrap.innerHTML = '';
     wrap.appendChild(table);
+  }
+
+  // 품목별 합계(발주 수량 ordersByDate)와 개별 주문(택배) 줄(thirdPartyLineItems)은 따로 저장됨.
+  // 개별 주문 엑셀을 올리면 둘 다 늘지만, 발주 입력·발주표 수정·직접 입력은 합계만 바꿈 → 어긋나면 업체별로 알려 줌
+  function tplCheckRender(orders, threePlNames){
+    const box = document.getElementById('agg-3pl-check');
+    if(!box) return;
+    const r2 = n => Math.round(n * 100) / 100;
+    const lines = (currentLineItems() || []).filter(l => l && !l.sampleKey);
+    const L = {}, cnt = {};
+    lines.forEach(l => {
+      const c = l.company || ''; cnt[c] = (cnt[c] || 0) + 1;
+      if(!l.itemId) return;
+      const m = L[c] || (L[c] = {}); m[l.itemId] = r2((m[l.itemId] || 0) + (Number(l.qty) || 0));
+    });
+    const set3 = new Set(threePlNames), out = [];
+    const itemNm = id => { const d = dict.find(x => x.id === id); return d ? (d.shortName || d.name) : '(삭제된 품목)'; };
+    const who = m => { if(!m) return ''; const at = m.updatedAt ? new Date(m.updatedAt) : null; const s = [m.enteredBy || '', at && !isNaN(at) ? `${at.getMonth() + 1}/${at.getDate()} ${pad2(at.getHours())}:${pad2(at.getMinutes())}` : ''].filter(Boolean).join(' '); return s ? ` <span class="sub" style="margin:0;">(마지막 입력: ${escapeHtml(s)})</span>` : ''; };
+    new Set([...threePlNames.filter(n => orders[n]), ...Object.keys(cnt)]).forEach(c => {
+      const O = orders[c] || {}, Lc = L[c] || {}, ok = Object.keys(O).filter(k => k !== '_meta');
+      const sumO = r2(ok.reduce((s, k) => s + (Number(O[k]) || 0), 0));
+      const nm = `<b>${escapeHtml(c || '(업체 없음)')}</b>`;
+      if(!set3.has(c)){ out.push(`${nm}: 개별 주문 ${cnt[c]}건이 있는데 이 업체가 <b>3PL로 체크돼 있지 않아</b> 품목별 합계에서 빠졌습니다 → 매출처 정보에서 3PL 체크`); return; }
+      if(!cnt[c]){ if(sumO > 0) out.push(`${nm}: 개별 주문 없이 <b>합계만 ${sumO}팩</b> 있습니다${who(O._meta)} → 발주 입력·발주표에서 들어간 수량입니다. 실제 택배 주문이면 개별 주문 엑셀을 올리고, 잘못 들어갔으면 위 발주표에서 이 업체 줄을 지우세요`); return; }
+      const diffs = [...new Set([...ok, ...Object.keys(Lc)])].filter(k => r2(Number(O[k]) || 0) !== r2(Lc[k] || 0));
+      if(diffs.length) out.push(`${nm}: ` + diffs.map(k => `${escapeHtml(itemNm(k))} 합계 ${r2(Number(O[k]) || 0)} / 개별 ${r2(Lc[k] || 0)}팩`).join(' · ') + who(O._meta) + ' → 개별 주문 엑셀 외에 발주 입력·발주표로 따로 고친 수량이 있습니다');
+    });
+    if(!out.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.cssText = 'margin:0 0 10px; padding:10px 12px; border:1px solid var(--danger,#c0392b); border-radius:8px; background:rgba(192,57,43,0.06); font-size:13px; line-height:1.6;';
+    box.innerHTML = `<div style="font-weight:700; color:var(--danger,#c0392b); margin-bottom:4px;">⚠ 품목별 합계와 개별 주문 리스트가 맞지 않는 업체 ${out.length}곳</div><ul style="margin:0; padding-left:18px;">${out.map(s => `<li>${s}</li>`).join('')}</ul>`;
   }
 
   function itemNameById(itemId){
