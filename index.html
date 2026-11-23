@@ -275,6 +275,15 @@
   /* 파일 고르기처럼 label로 만든 버튼도 button과 같은 글자·모양 (small-btn이 덮어쓸 수 있게 :where로 우선순위 0) */
   :where(label.btn-primary, label.btn-ghost, label.btn-danger){ display:inline-block; font-family:inherit; font-size:13px; font-weight:600; line-height:normal; border-radius:7px; padding:8px 14px; cursor:pointer; transition:opacity .15s; }
   :where(label.btn-primary, label.btn-ghost, label.btn-danger):hover{ opacity:.85; }
+  .lab-tbl{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  .lab-tbl th, .lab-tbl td{ border-bottom:1px solid var(--line,#eee); padding:6px 8px; text-align:left; vertical-align:top; }
+  .lab-tbl th{ font-size:12px; color:var(--muted); white-space:nowrap; }
+  .lab-tbl td.lab-note{ max-width:260px; white-space:pre-wrap; }
+  .lab-tbl tr.lab-cancel td{ opacity:.55; }
+  .lab-btns{ display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
+  .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
+  .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
   .row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
   table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   th, td{ border:1px solid var(--line); padding:6px 8px; text-align:center; }
@@ -1186,6 +1195,7 @@
     <a id="main-nav-link-files" href="files.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">📁 공유폴더 ↗</a>
     <a id="main-nav-link-detail" href="detail.html" target="_blank" rel="noopener" style="display:none; padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px;">🖼 상세페이지 ↗</a>
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
+    <button class="main-nav-btn" id="main-nav-btn-lab" data-panel="panel-lab" style="display:none;">🔬 연구소</button>
     <button class="main-nav-btn" id="main-nav-btn-vault" data-panel="panel-vault" style="display:none;">🔐 거래처 계정</button>
     <button class="main-nav-btn" id="main-nav-btn-manual" data-panel="panel-manual">📖 사용설명서</button>
   </nav>
@@ -2742,6 +2752,23 @@
   </div><!-- /panel-admin -->
 
   <!-- ───────────── 패널 7: 사용설명서 (권한과 무관하게 로그인한 누구나 열람) ───────────── -->
+  <div id="panel-lab" class="main-tab-panel">
+    <div class="card">
+      <h2>🔬 연구소 <span class="badge">연구소 의뢰 샘플 · 연구비 비용</span></h2>
+      <details class="help" style="margin:0 0 10px;"><summary>ⓘ 사용 방법</summary><div class="sub" style="margin:6px 0 0;">
+        <b>🧪 샘플 신청</b>에서 품목의 생산 방식을 <b>연구실 생산</b>으로 고른 신청이 여기에 모입니다. 따로 연락하지 않아도 됩니다.
+        아직 접수하지 않은 의뢰가 있으면 홈 화면 <b>연구소</b> 타일에 빨간 숫자가 뜹니다.
+        의뢰를 확인하면 <b>접수</b>, 다 만들면 <b>제작 완료</b>를 누르세요 (누가 언제 눌렀는지 남습니다). 신청 내용을 고치거나 취소하는 것은 샘플 신청 탭에서 합니다.
+        이 탭은 관리자와 <b>🛠 관리자 → 사용자 권한</b>의 '연구소' 칸에서 허용한 직원에게만 보입니다.
+      </div></details>
+      <div id="lab-body"></div>
+    </div>
+    <div class="card">
+      <h2>💰 연구비 비용 취합 <span class="badge">준비 중</span></h2>
+      <div class="sub" style="margin:0;">연구소에서 쓰는 비용 양식을 받으면 이 자리에 만듭니다 (의뢰 샘플별 재료비 등 연구비 처리 자료).</div>
+    </div>
+  </div>
+
   <div id="panel-vault" class="main-tab-panel">
     <div class="card">
       <h2>🔐 거래처 계정 <span class="badge">거래처 어드민 · 판매자센터 · 발주 시스템</span></h2>
@@ -3342,7 +3369,7 @@
 <tr><td>생산본부 생산 (출고일 당일 생산)</td><td>그날 발주취합 샘플 행·생산 필요수량에 들어가 생산본부가 함께 만듭니다.</td></tr>
 <tr><td>생산본부 생산 (전일 생산 · 날짜 지정)</td><td>생산일(발주서 반영일)의 발주취합 샘플 행에 들어가 그날 만들어 두고, 출고일에 재고에서 나갑니다.</td></tr>
 <tr><td>재고에서 출고 (생산 안 함)</td><td>이미 있는 재고로 보냅니다. 발주서 반영일 발주서에 <b>"(재고 사용)"</b> 줄로 들어가고 재고사용 칸에 품목·수량이 적힙니다. 생산 지시에는 들어가지 않습니다.</td></tr>
-<tr><td>연구실 생산 · 기타</td><td>생산본부 생산·재고 계산에는 들어가지 않고, 신청 내역·샘플 취합에만 나옵니다.</td></tr>
+<tr><td>연구실 생산 · 기타</td><td>생산본부 생산·재고 계산에는 들어가지 않고, 신청 내역·샘플 취합에만 나옵니다. <b>연구실 생산</b>은 <b>🔬 연구소</b> 탭에 자동으로 모이고, 연구소 직원 홈 화면에 접수 안 한 건수가 뜹니다(따로 연락할 필요 없음).</td></tr>
 </table></div>
 
 <h3>신청하기</h3>
@@ -4460,6 +4487,7 @@ function applyUserUI() {
   const userBadge = document.getElementById('user-badge');
   if (userBadge) userBadge.textContent = `${window.currentUser.display_name} (${isAdmin ? '관리자' : '직원'})`;
   if (window.vaultApplyAccess) window.vaultApplyAccess();   // 거래처 계정 탭: 관리자 + 볼 수 있게 지정한 직원만
+  if (window.labApplyAccess) window.labApplyAccess();   // 연구소 탭: 관리자 + 허용한 직원만
   if (window.applyMasterReadOnly) window.applyMasterReadOnly(); // 품목·거래처 수정 잠금(관리자만)
   renderHome();
 }
@@ -4712,6 +4740,163 @@ function applyUserUI() {
   document.addEventListener('keydown', e => { if(V.key && e.target.closest && e.target.closest('#panel-vault')) touch(); }, true);
 })();
 
+// ── 🔬 연구소 (연구소 의뢰 샘플 확인 · 연구비 비용 취합) ──
+//  볼 수 있는 사람: 관리자 + kv 'lab-access' { users:[사용자 id] } (관리자 → 사용자 권한 표 '연구소' 칸). 그 밖에는 탭·타일이 안 보임
+//  의뢰 샘플 = 샘플 신청(sample_requests) 중 품목 생산 방식이 '연구실 생산'인 것 (신청 자체는 바꾸지 않음)
+//  연구소 진행: kv 'lab-state' = { [신청 id]: { st: 'recv'(접수·제작 중) | 'done'(제작 완료), by, at } }
+//  알림: 홈 연구소 타일에 아직 접수 안 한 의뢰 건수 (출고일이 14일 전 이후인 것, 취소 제외)
+(function(){
+  const K_ACC = 'lab-access', K_ST = 'lab-state', LAB_PM = '연구실 생산', PEND_DAYS = 14;
+  const L = { acc: null, uid: null, rows: [], st: {}, loaded: false, from: '', to: '', f: 'open', q: '', pend: 0, pendAt: 0, pendBusy: false };
+  const $ = id => document.getElementById(id);
+  const esc = s => escapeHtmlSimple(s == null ? '' : s);
+  const p2 = n => String(n).padStart(2, '0');
+  const dkey = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  const addDays = (key, n) => { const [y, m, d] = key.split('-').map(Number); return dkey(new Date(y, m - 1, d + n)); };
+  const isAdminU = () => !!(window.currentUser && window.currentUser.role === 'admin');
+  const who = () => (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+  const toastL = m => window.showToast(m);
+  const items_ = () => (window.__dictList ? window.__dictList() : []) || [];
+  const labItems = r => (Array.isArray(r && r.items) ? r.items : []).filter(i => i && ((i.production_method || r.production_method || '') === LAB_PM));
+  const purposeOf = r => { const m = /(?:^|\n)\s*용도\s*[:：]\s*([^\n\r]+)/.exec((r && r.note) || ''); return m ? m[1].trim() : ''; };
+  const noteOf = r => String((r && r.note) || '').split(/\r?\n/).filter(l => !/^\s*용도\s*[:：]/.test(l)).join(' ').trim();
+  const KO_DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  const shipText = s => { const d = new Date(s); if(isNaN(d)) return esc(s || ''); return `${p2(d.getMonth() + 1)}/${p2(d.getDate())}(${KO_DOW[d.getDay()]}) ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const atText = t => { const d = new Date(t); return isNaN(d) ? '' : `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+
+  // ── 볼 수 있는 사람 ──
+  async function loadAcc(){ try{ const r = await window.storage.get(K_ACC, true); const v = r && r.value ? JSON.parse(r.value) : null; L.acc = { users: Array.isArray(v && v.users) ? v.users.map(String) : [] }; }catch(e){ L.acc = { users: [] }; } return L.acc; }
+  const canSee = () => { const u = window.currentUser; if(!u) return false; return isAdminU() || !!(L.acc && L.acc.users.includes(String(u.id))); };
+  window.labGetAccess = async () => (await loadAcc()).users.slice();
+  window.labSetAccess = async (userId, on, name) => {
+    if(!isAdminU()) throw new Error('관리자만 바꿀 수 있습니다');
+    const cur = (await loadAcc()).users.filter(x => x !== String(userId));
+    if(on) cur.push(String(userId));
+    await window.storage.set(K_ACC, JSON.stringify({ users: cur, at: Date.now(), by: who() }), true);
+    L.acc = { users: cur };
+    await writeLog('perm_change', `${name || userId} 연구소: ${on ? '허용' : '차단'}`);
+  };
+  window.labApplyAccess = async function(){
+    const u = window.currentUser, btn = $('main-nav-btn-lab');
+    if(!btn) return;
+    if(!u){ btn.style.display = 'none'; return; }
+    if(L.uid !== u.id){ L.uid = u.id; L.pendAt = 0; L.pend = 0; }
+    if(!isAdminU()) await loadAcc();
+    const show = canSee();
+    btn.style.display = show ? '' : 'none';
+    const panel = $('panel-lab');
+    if(!show && panel && panel.classList.contains('active')){ const h = document.querySelector('.main-nav-btn[data-panel="panel-manual"]'); if(h) h.click(); }
+    if(typeof renderHome === 'function') renderHome();
+  };
+
+  // ── 자료 ──
+  async function loadState(){ try{ const r = await window.storage.get(K_ST, true); const v = r && r.value ? JSON.parse(r.value) : null; L.st = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }catch(e){ L.st = L.st || {}; } return L.st; }
+  async function fetchLab(fromKey, toKey){
+    const s = new Date(fromKey + 'T00:00:00'), e = new Date(addDays(toKey, 1) + 'T00:00:00');
+    const rows = await sbQuery('sample_requests', `?ship_at=gte.${encodeURIComponent(s.toISOString())}&ship_at=lt.${encodeURIComponent(e.toISOString())}&order=ship_at.asc&limit=1000`);
+    return (Array.isArray(rows) ? rows : []).filter(r => labItems(r).length);
+  }
+  const stOf = id => (L.st[String(id)] || {}).st || '';
+  // 홈 알림: 아직 접수 안 한 의뢰
+  async function refreshPending(force){
+    if(!canSee() || L.pendBusy || (!force && Date.now() - L.pendAt < 20000)) return;
+    L.pendBusy = true;
+    try{
+      const today = dkey(new Date());
+      const [rows] = await Promise.all([fetchLab(addDays(today, -PEND_DAYS), addDays(today, 365)), loadState()]);
+      const n = rows.filter(r => r.status !== '취소' && !stOf(r.id)).length;
+      const changed = n !== L.pend; L.pend = n; L.pendAt = Date.now();
+      if(changed && typeof renderHome === 'function') renderHome();
+    }catch(e){ L.pendAt = Date.now(); /* 알림은 부가 기능 */ }
+    finally{ L.pendBusy = false; }
+  }
+  window.labPendingCount = () => (canSee() ? L.pend : 0);
+  window.labRefreshPending = refreshPending;
+  setInterval(() => { const app = $('app'); if(window.currentUser && canSee() && app && app.style.display !== 'none' && !document.hidden) refreshPending(true); }, 180000);
+
+  async function setState(id, st, label){
+    const key = String(id);
+    let cur;
+    try{ const r = await window.storage.get(K_ST, true); cur = r && r.value ? JSON.parse(r.value) : {}; if(!cur || typeof cur !== 'object' || Array.isArray(cur)) cur = {}; }
+    catch(e){ toastL('연구소 진행 상태를 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+    if(st) cur[key] = { st, by: who(), at: Date.now() }; else delete cur[key];
+    try{ await window.storage.set(K_ST, JSON.stringify(cur), true); }
+    catch(e){ const m = String((e && e.message) || e); toastL('저장하지 못했습니다: ' + m + (/40[13]|권한|42501|policy/i.test(m) ? ' — 관리자에게 「연구소탭_SQL.sql」 실행을 요청하세요' : '')); return false; }
+    L.st = cur;
+    writeLog('lab_state', `연구소 의뢰 샘플 ${label}`).catch(() => {});
+    return true;
+  }
+
+  // ── 화면 ──
+  function render(){
+    const body = $('lab-body'); if(!body) return;
+    if(!L.loaded){ body.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
+    const q = L.q.trim().toLowerCase();
+    const stName = s => s === 'done' ? '제작 완료' : s === 'recv' ? '접수 · 제작 중' : '미접수';
+    const all = L.rows;
+    const cnt = { none: 0, recv: 0, done: 0 };
+    all.forEach(r => { if(r.status === '취소') return; const s = stOf(r.id) || 'none'; cnt[s]++; });
+    const list = all.filter(r => {
+      const s = stOf(r.id);
+      if(L.f === 'open' && (r.status === '취소' || s === 'done')) return false;
+      if(L.f === 'none' && (r.status === '취소' || s)) return false;
+      if(L.f === 'recv' && (r.status === '취소' || s !== 'recv')) return false;
+      if(L.f === 'done' && s !== 'done') return false;
+      if(!q) return true;
+      return [r.requester_name, r.requester_dept, r.note, r.ship_method, ...labItems(r).map(i => { const d = items_().find(x => x.id === i.skuId); return d ? d.name : ''; })].some(x => String(x || '').toLowerCase().includes(q));
+    });
+    let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
+      <span class="sub" style="margin:0;">출고일</span><input type="date" id="lab-from" value="${esc(L.from)}"><span class="sub" style="margin:0;">~</span><input type="date" id="lab-to" value="${esc(L.to)}">
+      <select id="lab-f">${[['open', `처리할 것 (${cnt.none + cnt.recv})`], ['none', `미접수 (${cnt.none})`], ['recv', `접수 · 제작 중 (${cnt.recv})`], ['done', `제작 완료 (${cnt.done})`], ['all', '전체 (취소 포함)']].map(([v, t]) => `<option value="${v}"${v === L.f ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <input type="search" id="lab-q" placeholder="신청자·품목·비고 검색" value="${esc(L.q)}" style="width:180px;">
+      <button type="button" class="btn-ghost small-btn" id="lab-reload">↻ 새로고침</button>
+      <span class="sub" style="margin:0;">${list.length}건</span></div>`;
+    if(!list.length) h += `<div class="sub">${all.length ? '조건에 맞는 의뢰가 없습니다.' : '이 기간에 연구실 생산으로 신청된 샘플이 없습니다.'}</div>`;
+    else h += `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>출고일시</th><th>신청자</th><th>용도</th><th>연구실 생산 품목</th><th>출고 방식</th><th>비고</th><th>신청 상태</th><th>연구소 진행</th></tr></thead><tbody>${list.map(r => {
+      const s = stOf(r.id), info = L.st[String(r.id)] || {}, cancel = r.status === '취소';
+      const items = labItems(r).map(i => {
+        const d = items_().find(x => x.id === i.skuId), packs = Number(i.packs) || 0, u = d ? Number(d.boxUnitCount) || 0 : 0;
+        const bx = u > 0 ? ` (${Math.round(packs / u * 100) / 100}박스)` : '';
+        const pd = i.production_date ? ` · 생산 ${esc(String(i.production_date).slice(5).replace('-', '/'))}` : '';
+        return `<div><b>${esc(d ? (d.shortName || d.name) : (i.skuName || '품목 미상'))}</b> ${packs}팩${bx}${pd}</div>`;
+      }).join('');
+      const pill = cancel ? '<span class="sample-pill off">취소됨</span>' : r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : '<span class="sample-pill">미확인</span>';
+      const stPill = `<span class="lab-st lab-st-${s || 'none'}">${stName(s)}</span>${s ? `<div class="sub" style="margin:2px 0 0;font-size:11px;">${esc(info.by || '')} ${atText(info.at)}</div>` : ''}`;
+      const btns = cancel ? (s ? '<button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>' : '')
+        : !s ? '<button type="button" class="btn-primary small-btn" data-lab="recv">접수</button><button type="button" class="btn-ghost small-btn" data-lab="done">바로 완료</button>'
+        : s === 'recv' ? '<button type="button" class="btn-primary small-btn" data-lab="done">제작 완료</button><button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>'
+        : '<button type="button" class="btn-ghost small-btn" data-lab="recv">제작 중으로</button>';
+      return `<tr data-id="${esc(r.id)}"${cancel ? ' class="lab-cancel"' : ''}><td>${shipText(r.ship_at)}</td><td>${esc(r.requester_name || '')}${r.requester_dept ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.requester_dept)}</div>` : ''}</td><td>${esc(purposeOf(r))}</td><td>${items}</td><td>${esc(r.ship_method || '')}</td><td class="lab-note">${esc(noteOf(r))}</td><td>${pill}</td><td>${stPill}<div class="lab-btns">${btns}</div></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+    body.innerHTML = h;
+    const reload = async () => { L.from = $('lab-from').value || L.from; L.to = $('lab-to').value || L.to; if(L.to < L.from) L.to = L.from; await load(); };
+    $('lab-from').addEventListener('change', reload);
+    $('lab-to').addEventListener('change', reload);
+    $('lab-reload').addEventListener('click', reload);
+    $('lab-f').addEventListener('change', e => { L.f = e.target.value; render(); });
+    $('lab-q').addEventListener('input', e => { L.q = e.target.value; clearTimeout(L.qt); L.qt = setTimeout(() => { render(); const el = $('lab-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
+    body.querySelectorAll('[data-lab]').forEach(b => b.addEventListener('click', async () => {
+      const tr = b.closest('tr'), r = L.rows.find(x => String(x.id) === tr.dataset.id); if(!r) return;
+      const a = b.dataset.lab, st = a === 'clear' ? '' : a;
+      const label = `${a === 'recv' ? '접수' : a === 'done' ? '제작 완료' : '되돌리기'}: ${r.requester_name || ''} ${shipText(r.ship_at)} 출고`;
+      b.disabled = true;
+      if(await setState(r.id, st, label)){ toastL(a === 'recv' ? '접수했습니다' : a === 'done' ? '제작 완료로 표시했습니다' : '되돌렸습니다'); L.pendAt = 0; refreshPending(true); }
+      render();
+    }));
+  }
+  async function load(){
+    const body = $('lab-body');
+    L.loaded = false; render();
+    try{ const [rows] = await Promise.all([fetchLab(L.from, L.to), loadState()]); L.rows = rows; L.loaded = true; render(); }
+    catch(e){ if(body) body.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; }
+  }
+  window.labOpen = async function(){
+    if(!canSee()){ const b = $('lab-body'); if(b) b.innerHTML = '<div class="sub">볼 수 있는 권한이 없습니다.</div>'; return; }
+    if(!L.from){ const t = dkey(new Date()); L.from = addDays(t, -7); L.to = addDays(t, 30); }
+    await load();
+  };
+})();
+
 // ── 홈 화면 (프로그램 타일) ──
 //  - nav: 기존 상단 탭 버튼(숨김 처리됨)의 선택자. 그 버튼이 화면에 보이는(=권한 있는) 경우에만 타일을 보여주고, 누르면 그 버튼을 눌러 이동한다.
 //  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
@@ -4719,6 +4904,7 @@ function applyUserUI() {
 const HOME_TILES = [
   { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20261117a' },
   { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
+  { key: 'lab', icon: '🔬', name: '연구소', desc: '연구소 의뢰 샘플 · 연구비 비용', nav: '#main-nav-btn-lab' },   // 관리자 + 허용한 직원만
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'mat', icon: '🗃', img: 'assets/ic-mat.png', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
@@ -4840,11 +5026,13 @@ function renderHome() {
     visible.push({ t, btn });
   });
   const sorted = homeSortTiles(visible.map(v => v.t), homeEditing ? homeDraft : homeOrder);
+  if (window.labRefreshPending) window.labRefreshPending(false);   // 연구소 의뢰 미접수 건수
   homeSampleRefresh(false);   // 미확인 샘플 건수 확인 (20초 안에 확인했으면 건너뜀, 바뀌면 다시 그림)
   sorted.forEach((t, n) => {
     const btn = (visible.find(v => v.t === t) || {}).btn;
     const sampleAlert = t.key === 'sample' && !homeEditing && homeSampleCan(u) && homeSamplePending.n > 0;
-    const alertHtml = sampleAlert ? `<span class="home-badge" title="미확인 샘플 신청">${homeSamplePending.n}</span><span class="home-alert">※ 샘플 신청 미확인 건이 ${homeSamplePending.n}건 있습니다${homeSamplePending.past ? ` (출고일 지난 ${homeSamplePending.past}건 포함)` : ''}</span>` : '';
+    const labN = t.key === 'lab' && !homeEditing && window.labPendingCount ? window.labPendingCount() : 0;
+    const alertHtml = labN > 0 ? `<span class="home-badge" title="접수 안 한 연구소 의뢰">${labN}</span><span class="home-alert">※ 접수 안 한 연구소 의뢰 샘플이 ${labN}건 있습니다</span>` : sampleAlert ? `<span class="home-badge" title="미확인 샘플 신청">${homeSamplePending.n}</span><span class="home-alert">※ 샘플 신청 미확인 건이 ${homeSamplePending.n}건 있습니다${homeSamplePending.past ? ` (출고일 지난 ${homeSamplePending.past}건 포함)` : ''}</span>` : '';
     const body = `<span class="ic">${t.img ? `<img src="${t.img}" alt="">` : t.icon}</span><span class="tx"><span class="nm">${t.name}</span><span class="ds">${t.desc}</span>${t.href && !t.self ? '<span class="ext">새 창으로 열림 ↗</span>' : ''}${alertHtml}</span><span class="go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span>`;
     if (homeEditing) {
       // 편집 모드: 클릭 이동 없이 ◀ ▶ 로 순서만 바꾼다
@@ -4862,7 +5050,7 @@ function renderHome() {
       return;
     }
     const el = document.createElement(t.href ? 'a' : 'button');
-    el.className = 'home-tile' + (sampleAlert ? ' has-alert' : '');
+    el.className = 'home-tile' + (sampleAlert || labN > 0 ? ' has-alert' : '');
     if (sampleAlert) el.dataset.key = 'sample';
     if (t.href) { el.href = t.href; if (!t.self) { el.target = '_blank'; el.rel = 'noopener'; } }
     if (t.handoff) el.addEventListener('click', e => {   // 특가몰 관리: 같은 사용자의 새 로그인 세션을 만들어 로그인된 채로 엶 (실패하면 로그인 화면)
@@ -5015,6 +5203,7 @@ function mnShow(id, keepScroll) {
   function cryptoId(){ return 'i' + Math.random().toString(36).slice(2,10); }
 
   let dict = [];
+  window.__dictList = () => dict;   // 품목 목록 (이 범위 밖의 화면 — 연구소 탭 등 — 에서 읽기용)
   let ordersByDate = {};        // { 'YYYY-MM-DD': { 업체명: { itemId: qty } } }
   let thirdPartyLineItems = {}; // { 'YYYY-MM-DD': [ { id, company, orderNo, recipientName, recipientPhone, address, itemNameRaw, itemId, qty, note, trackingNo } ] }
   let companies = [];           // [{ name, isThirdParty, uploadMapping, code, category, region, listedMarketName, priceMap: { itemId: unitPrice } }]
@@ -14613,6 +14802,7 @@ function mnShow(id, keepScroll) {
       // 이카운트 탭 진입 시 단가/택배비 에디터 갱신
       if((panelId === 'panel-mat' || panelId === 'panel-buy') && window.__matOpen) window.__matOpen(panelId === 'panel-buy' ? 'buy' : 'mat');
       if(panelId === 'panel-vault' && window.vaultOpen) window.vaultOpen();   // 거래처 계정
+      if(panelId === 'panel-lab' && window.labOpen) window.labOpen();   // 연구소
       if(panelId === 'panel-ecount' && window.__ecBuyInit) window.__ecBuyInit();   // 구매입력 설정 (자재·구매 쪽 저장값)
       if(panelId === 'panel-master'){
         if(window.__matOpen) window.__matOpen('master');   // 원물·부자재 · 품목 구성
@@ -21802,10 +21992,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{
       const rows = await apiUsersAdmin();
       const vaultUsers = window.vaultGetAccess ? new Set(await window.vaultGetAccess()) : new Set();
+      const labUsers = window.labGetAccess ? new Set(await window.labGetAccess()) : new Set();
       try{ await renderDeptPerms(rows); }catch(e){ console.error(e); }
       const rowsView = permsDeptFilter ? rows.filter(u => dpDeptOf(u) === permsDeptFilter) : rows;
       const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">발주 입력·집계/출고·실적·설정·이카운트</div></th><th>생산/물류<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>송장/명세서<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>특가몰 관리<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">shop 관리자 페이지</div></th><th>거래처 계정<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">거래처 어드민 계정 (열람)</div></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>아이디</th><th>이름 (부서)</th><th>발주자동화<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">발주 입력·집계/출고·실적·설정·이카운트</div></th><th>생산/물류<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>송장/명세서<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">별도 권한</div></th><th>원물선별</th><th>원물선별 마스터관리</th><th>공유폴더 / 상세페이지</th><th>단가 확인 열람</th><th>샘플 신청</th><th>특가몰 관리<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">shop 관리자 페이지</div></th><th>거래처 계정<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">거래처 어드민 계정 (열람)</div></th><th>연구소<div class="sub" style="margin:0;font-size:10.5px;font-weight:400;">연구소 의뢰 샘플 · 연구비</div></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       rowsView.forEach(u=>{
         // 컬럼 미생성(undefined) 시 SQL 기본값과 동일하게 처리: access_order=true, 나머지=false
@@ -21961,6 +22152,22 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
             tdV.appendChild(b);
           }
           tr.appendChild(tdV); }
+        // 연구소 (🔬 연구소 의뢰 샘플 · 연구비): 관리자는 항상 허용, 직원은 켠 사람만 탭이 보임
+        { const tdL = document.createElement('td');
+          if(u.role === 'admin'){ const span = document.createElement('span'); span.textContent = '허용 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);'; tdL.appendChild(span); }
+          else {
+            const on = labUsers.has(String(u.id)), b = document.createElement('button');
+            b.className = on ? 'btn-primary small-btn' : 'btn-ghost small-btn'; b.textContent = on ? '✅ 허용' : '⛔ 차단';
+            b.title = '허용하면 이 직원에게 🔬 연구소 탭이 보이고 연구소 의뢰 샘플 알림을 받습니다';
+            b.addEventListener('click', async () => {
+              b.disabled = true;
+              try{ await window.labSetAccess(u.id, !on, u.display_name || u.username); }
+              catch(e){ b.disabled = false; alert('권한 변경에 실패했습니다: ' + ((e && e.message) || e)); return; }
+              loadAdminPerms();
+            });
+            tdL.appendChild(b);
+          }
+          tr.appendChild(tdL); }
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
