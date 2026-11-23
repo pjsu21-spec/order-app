@@ -5332,6 +5332,7 @@ function mnShow(id, keepScroll) {
       const uof = await window.storage.get('uploaded-original-files', true);
       uploadedOriginalFiles = uof ? JSON.parse(uof.value) : {};
     }catch(e){ uploadedOriginalFiles = {}; }
+    kvMergeBase.orig = ofSnap(uploadedOriginalFiles);
 
     try{
       const si = await window.storage.get('sender-info', true);
@@ -5697,8 +5698,33 @@ function mnShow(id, keepScroll) {
   async function saveInternalOrderCounters(){
     try{ await window.storage.set('internal-order-counters', JSON.stringify(internalOrderCounters), true); }catch(e){ console.error(e); }
   }
+  let kvOrigChain = Promise.resolve();
+  const ofArr = e => Array.isArray(e) ? e : (e && typeof e === 'object' ? [e] : []);
+  const ofBid = (b, i) => (b && b.batchId) ? 'b:' + b.batchId : 'i:' + i;
+  function ofSnap(o){ const r = {}; Object.keys(o || {}).forEach(d => { const x = o[d]; if(!x || typeof x !== 'object') return; r[d] = {}; Object.keys(x).forEach(c => { r[d][c] = ofArr(x[c]).map(ofBid); }); }); return r; }
+  // 내 화면 묶음 + 서버에만 있는 묶음(다른 직원이 올린 것). 내가 지운 묶음(기준에 있었는데 내 화면에 없음)은 뺌
+  function ofMerge(srv){
+    const base = kvMergeBase.orig || {};
+    new Set([...Object.keys(uploadedOriginalFiles), ...Object.keys(srv || {})]).forEach(d => {
+      const S = (srv[d] && typeof srv[d] === 'object') ? srv[d] : {}, B = base[d] || {}, L = uploadedOriginalFiles[d] || {};
+      new Set([...Object.keys(L), ...Object.keys(S)]).forEach(c => {
+        const sa = ofArr(S[c]), sk = new Set(sa.map(ofBid)), bk = new Set(B[c] || []);
+        const la = ofArr(L[c]).filter((b, i) => { const k = ofBid(b, i); return !(bk.has(k) && !sk.has(k)); });   // 다른 직원이 지운 묶음은 뺌
+        const lk = new Set(la.map(ofBid)), out = la.slice();
+        sa.forEach((b, i) => { const k = ofBid(b, i); if(!lk.has(k) && !bk.has(k)) out.push(b); });
+        if(out.length) L[c] = out; else delete L[c];
+      });
+      if(Object.keys(L).length) uploadedOriginalFiles[d] = L; else if(d in uploadedOriginalFiles) delete uploadedOriginalFiles[d];
+    });
+  }
   async function saveOriginalFiles(){
-    try{ await window.storage.set('uploaded-original-files', JSON.stringify(uploadedOriginalFiles), true); }catch(e){ console.error(e); }
+    // 업체 원본 파일도 한 덩어리로 저장됨 → 화면을 연 뒤 다른 직원이 올린 원본을 지우지 않게, 서버 최신본과 묶음(batch) 단위로 합쳐 저장
+    const run = async () => {
+      try{ const srv = await kvReadJson('uploaded-original-files'); if(srv && typeof srv === 'object') ofMerge(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
+      try{ await window.storage.set('uploaded-original-files', JSON.stringify(uploadedOriginalFiles), true); kvMergeBase.orig = ofSnap(uploadedOriginalFiles); }catch(e){ console.error(e); }
+      try{ renderOriginalFileSelect(); }catch(e){ /* 화면 갱신은 부가 */ }
+    };
+    return (kvOrigChain = kvOrigChain.then(run, run));
   }
   async function saveSenderInfo(){
     const name = document.getElementById('sender-name').value.trim();
@@ -8420,21 +8446,23 @@ function mnShow(id, keepScroll) {
     const sel = document.getElementById('original-file-company-select');
     if(!sel) return;
     const prevVal = sel.value;
-    const names = Object.keys(currentOriginalFiles());
+    const names = Object.keys(currentOriginalFiles()).filter(n => ofArr(currentOriginalFiles()[n]).length);
+    const missing = [...new Set(currentLineItems().filter(l => l && !l.sampleKey && !l.ppId && l.company && l.sourceRowIndex != null).map(l => l.company))].filter(n => !names.includes(n));
     sel.innerHTML = '';
-    if(names.length === 0){
+    missing.forEach(name => { const opt = document.createElement('option'); opt.value = '#miss:' + name; opt.textContent = name + ' (원본 파일 없음)'; sel.appendChild(opt); });
+    if(names.length === 0 && !missing.length){
       const opt = document.createElement('option');
       opt.value = ''; opt.textContent = '(업로드된 원본 파일 없음)';
       sel.appendChild(opt);
       renderOriginalPreview();
       return;
     }
-    names.forEach(name=>{
+    names.slice().reverse().forEach(name=>{
       const opt = document.createElement('option');
       opt.value = name; opt.textContent = name;
-      sel.appendChild(opt);
+      sel.insertBefore(opt, sel.firstChild);
     });
-    if(names.includes(prevVal)) sel.value = prevVal;
+    if(names.includes(prevVal) || (prevVal.startsWith('#miss:') && missing.includes(prevVal.slice(6)))) sel.value = prevVal;
     renderOriginalPreview();
   }
 
@@ -8446,6 +8474,10 @@ function mnShow(id, keepScroll) {
     loadOriginalPrefs();
     document.getElementById('original-courier-name').placeholder = deliveryCourierName ? `비우면 ${deliveryCourierName}` : '택배사 이름 (예: CJ대한통운)';
     const companyName = document.getElementById('original-file-company-select').value;
+    if(companyName.startsWith('#miss:')){
+      wrap.innerHTML = `<div class="empty" style="text-align:left;line-height:1.7;">⚠ <b>${escapeHtml(companyName.slice(6))}</b>의 원본 엑셀이 저장돼 있지 않아 업체 양식으로 내려받을 수 없습니다 (예전에 다른 직원 화면에서 저장하면서 덮어써진 경우).<br>발주 입력에서 이 업체를 고르고 <b>같은 원본 엑셀을 다시 올리면</b> 주문은 늘지 않고 원본 파일만 다시 붙습니다.</div>`;
+      if(note) note.textContent = ''; return;
+    }
     const entry = companyName ? currentOriginalFiles()[companyName] : null;
     if(!entry){ wrap.innerHTML = ''; if(note) note.textContent = ''; return; }
     const batches = Array.isArray(entry) ? entry : [entry];
@@ -10181,11 +10213,42 @@ function mnShow(id, keepScroll) {
   let udSyncAt = 0, udSyncSkip = false;
   async function uploadSyncLatest(){
     const read = async k => { const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; };
-    const [tp, fp] = await Promise.all([read('thirdparty-lineitems'), read('upload-fingerprints')]);
+    const [tp, fp, of] = await Promise.all([read('thirdparty-lineitems'), read('upload-fingerprints'), read('uploaded-original-files')]);
+    if(of && typeof of === 'object'){ ofMerge(of); kvMergeBase.orig = ofSnap(of); }
     if(tp && typeof tp === 'object'){ thirdPartyLineItems = tp; kvMergeBase.lines = kvSnapList(tp); }
     if(fp && typeof fp === 'object') uploadFingerprints = fp;
     udSyncAt = Date.now();
     try{ renderThirdPartyAggTable(); renderThirdPartyLineItems(); }catch(e){ /* 화면 갱신은 부가 */ }
+  }
+  // 업체 원본 파일이 없는(지워진) 업체: 같은 원본 엑셀을 다시 올리면 새 주문은 없으므로, 오늘 개별 주문 줄에 원본 행을 다시 이어 붙임
+  function ofAttach(companyName, idx, startRow){
+    const ofs = currentOriginalFiles();
+    if(ofArr(ofs[companyName]).length) return false;
+    const groups = new Map();   // 주문 줄 키 → [사내관리번호 묶음(박스 나눔 포함)]
+    const byNo = {};
+    currentLineItems().forEach(r => { if(r && r.company === companyName && r.orderNo){ const k = r.internalOrderNo || r.id; (byNo[k] = byNo[k] || []).push(r); } });
+    Object.values(byNo).forEach(rs => { const q = rs.reduce((a, r) => a + (Number(r.qty) || 0), 0), k = orderLineKey(companyName, rs[0].orderNo, rs[0].itemNameRaw, rs[0].recipientName || '', q); (groups.get(k) || groups.set(k, []).get(k)).push(rs); });
+    if(!groups.size) return false;
+    const batchId = cryptoId(); let n = 0;
+    const cell = (row, i) => (i !== undefined && i >= 0) ? cleanCell(row[i]) : '';
+    for(let r = startRow - 1; r < uploadedSheetData.length; r++){
+      const row = uploadedSheetData[r] || [];
+      if(row.every(v => v == null || v.toString().trim() === '')) continue;
+      const orderNo = cell(row, idx.orderNo), recipientName = cell(row, idx.recipientName);
+      const optRaw = idx.optionCode >= 0 ? cleanCell(row[idx.optionCode]) : '';
+      expandThirdPartyRow(optRaw, (row[idx.item] ?? '').toString().trim(), row[idx.qty]).forEach(line => {
+        const g = groups.get(orderLineKey(companyName, orderNo, line.itemText, recipientName, line.qty));
+        if(!g || !g.length) return;
+        g.shift().forEach(x => { x.sourceBatchId = batchId; x.sourceRowIndex = r; }); n++;
+      });
+    }
+    if(!n) return false;
+    ofs[companyName] = [{ batchId, aoa: uploadedSheetData, startRow }];
+    saveOriginalFiles(); saveLineItems();
+    renderOriginalFileSelect(); renderThirdPartyLineItems();
+    showUploadDupNote(`이미 불러온 주문이라 새로 추가하지 않고, 지워져 있던 ${companyName} 원본 파일만 다시 붙였습니다 (${n}줄 연결). 이제 송장/명세서 → 업체 송장 회신에서 고를 수 있습니다.`);
+    toast(`${companyName} 원본 파일을 다시 붙였습니다 (${n}줄)`);
+    return true;
   }
   // [이 매핑으로 불러오기]를 누르면 먼저 최신 자료를 맞춘 뒤 원래 처리를 그대로 진행 (capture라 가장 먼저 실행)
   document.getElementById('upload-apply-btn').addEventListener('click', async e => {
@@ -11526,6 +11589,7 @@ function mnShow(id, keepScroll) {
       });
     }
 
+    if(newRows.length === 0 && dupSkipped > 0 && ofAttach(companyName, idx, startRow)) return;
     if(newRows.length === 0){
       if(dupSkipped > 0){
         showUploadDupNote(`이미 불러온 주문입니다 — ${dupSkipped}줄 모두 제외했습니다. 새로 추가된 주문이 없습니다.`);
@@ -13734,6 +13798,7 @@ function mnShow(id, keepScroll) {
   document.getElementById('export-original-format-btn').addEventListener('click', ()=>{
     const companyName = document.getElementById('original-file-company-select').value;
     if(!companyName){ toast('원본 파일이 있는 업체를 선택해주세요'); return; }
+    if(companyName.startsWith('#miss:')){ toast('이 업체는 원본 파일이 없습니다 — 같은 원본 엑셀을 발주 입력에서 다시 올려 주세요'); return; }
     let origEntry = currentOriginalFiles()[companyName];
     if(!origEntry){ toast('해당 업체의 원본 업로드 파일을 찾을 수 없습니다'); return; }
 
