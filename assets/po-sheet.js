@@ -344,7 +344,7 @@
     if(v === 0) return '';
     const g3 = (x, dec) => { const s = Math.abs(x).toFixed(dec).split('.'); s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); return (x < 0 ? '-' : '') + s.join('.'); };
     switch(nf){
-      case 'acc0': return g3(Math.round(v), 0);
+      case 'acc0': return Number.isInteger(R2(v)) ? g3(Math.round(v), 0) : g3(R2(v), 2);   // 서식은 소수 없는 형식이지만 0.25박스 같은 소수는 그대로 보여 줌 (349.75가 350으로 보이지 않게)
       case 'acc2': return g3(v, 2);
       case '0.000': return v.toFixed(3);
       case '0"팩"': return Math.round(v) + '팩';
@@ -388,7 +388,8 @@
       for(let n = 1; n <= LASTC; n++){
         const col = CL(n), c = R.cells[col]; if(!c) continue;
         const multi = typeof c.v === 'string' && c.v.includes('\n') && c.st && !c.st.w;   // 여러 줄 글자(재고사용 등)는 엑셀 '줄 바꿈'을 켜야 줄바꿈이 네모로 깨지지 않음
-        const s = xfOf(multi ? Object.assign({}, c.st, { w: 1, v: c.st.v || 'center' }) : c.st), ref = col + r;
+        const frac = typeof c.v === 'number' && c.st && c.st.nf === 'acc0' && !Number.isInteger(R2(c.v));   // 소수 수량은 소수 둘째 자리 형식으로
+        const s = xfOf(multi ? Object.assign({}, c.st, { w: 1, v: c.st.v || 'center' }) : frac ? Object.assign({}, c.st, { nf: 'acc2' }) : c.st), ref = col + r;
         let v = c.v;
         if(v && typeof v === 'object' && v.n != null) cs += `<c r="${ref}" s="${s}"><v>${v.n}</v></c>`;
         else if(typeof v === 'number') cs += `<c r="${ref}" s="${s}"${v === 0 ? '' : ''}><v>${v}</v></c>`;
