@@ -15562,6 +15562,36 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     produce.sort((a, b) => b.kg - a.kg);
     return { kgPerBox: Math.round(produce.reduce((s, p) => s + p.kg, 0) * 10000) / 10000, produce, mats, warn };
   }
+  // ── 원가 설정 공개본 (2단계 보안) ──
+  //  'cost-config'(원가·단가)·'raw-price-history'(원물 시세)는 서버에서 관리자·단가 확인 열람권자만 읽음.
+  //  생산일보·주간계획·품목 점검은 가격을 뺀 구성(원물·kg/박스·부자재 수량)만 쓰므로 kv 'cost-spec'으로 따로 둠 (관리자 화면이 저장할 때마다 맞춤)
+  function costSpecOf(c){
+    c = c || {};
+    const skus = {};
+    Object.entries(c.skus || {}).forEach(([id, s]) => { if(s && typeof s === 'object') skus[id] = { rawId: s.rawId || '', rawKgPerBox: Number(s.rawKgPerBox) || 0, mats: (Array.isArray(s.mats) ? s.mats : []).map(m => ({ matId: (m && m.matId) || '', qty: Number(m && m.qty) || 0 })) }; });
+    return {
+      v: 1,
+      rawMaterials: (Array.isArray(c.rawMaterials) ? c.rawMaterials : []).map(r => ({ id: r.id, name: r.name || '', code: r.code || '' })),
+      materials: (Array.isArray(c.materials) ? c.materials : []).map(m => ({ id: m.id, name: m.name || '', matId: m.matId || '' })),
+      skus
+    };
+  }
+  async function costSpecSave(c){
+    if(!(window.currentUser && window.currentUser.role === 'admin') || !c) return;
+    const v = JSON.stringify(costSpecOf(c));
+    try{ const cur = await window.storage.get('cost-spec', true); if(cur && cur.value === v) return; await window.storage.set('cost-spec', v, true); }
+    catch(e){ console.error('cost-spec 저장 실패', e); }
+  }
+  // 생산일보·주간계획·품목 점검용 원가 구성 읽기: 관리자는 원본을 읽고 공개본을 맞춰 둠 / 그 밖에는 공개본(없으면 예전처럼 원본)
+  async function costSpecLoad(){
+    const get = async k => { try{ const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; }catch(e){ return null; } };
+    if(window.currentUser && window.currentUser.role === 'admin'){
+      const c = await get('cost-config');
+      if(c){ costSpecSave(c); return c; }
+    }
+    return (await get('cost-spec')) || (await get('cost-config')) || {};
+  }
+  window.costSpecOf = costSpecOf;
   // 단가 확인 설정(costObj)의 SKU 구성 — 정전개가 있으면 정전개에서 만든 값
   function skuCfgFrom(costObj, skuId){
     const base = ((costObj && costObj.skus) || {})[skuId] || null;
@@ -15614,7 +15644,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     box.innerHTML = '<div class="sub">점검하는 중…</div>';
     await recipeLoad(true);
     let cost = {}, sr = {};
-    try{ const r = await window.storage.get('cost-config', true); cost = r && r.value ? JSON.parse(r.value) : {}; }catch(e){ cost = {}; }
+    cost = await costSpecLoad();
     try{ const r = await window.storage.get('sorting-raw-settings', true); sr = r && r.value ? JSON.parse(r.value) : {}; }catch(e){ sr = {}; }
     const e = escapeHtml, items = RCP.items || [], f2 = n => (Math.round((Number(n) || 0) * 1000) / 1000).toLocaleString();
     const rows = dict.map(s => {
@@ -15673,7 +15703,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   async function saveCostConfig(){
     if(!costCanEdit()){ toast('단가 확인은 관리자만 수정할 수 있습니다'); return false; }
     if(costLoadError){ toast('데이터를 불러오지 못한 상태라 저장하지 않았습니다. 새로고침 후 다시 시도해주세요'); return false; }
-    try{ await window.storage.set('cost-config', JSON.stringify(costConfig), true); return true; }
+    try{ await window.storage.set('cost-config', JSON.stringify(costConfig), true); costSpecSave(costConfig); return true; }
     catch(e){ console.error(e); toast('저장 실패: ' + e.message); return false; }
   }
   async function saveRawPriceHistory(){
@@ -22651,7 +22681,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       try{ const r = await window.storage.get(K.key + mk, true); wpData[K.k] = wpNorm(r ? JSON.parse(r.value) : null); }
       catch(e){ wpData[K.k] = wpNorm(null); wpData[K.k]._err = true; }
     }
-    if(!wpCost){ try{ const c = await window.storage.get('cost-config', true); wpCost = c ? JSON.parse(c.value) : {}; }catch(e){ wpCost = {}; } }
+    if(!wpCost) wpCost = await costSpecLoad();
     await recipeLoad();
     wpLoaded = mk;
   }
@@ -23396,7 +23426,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   async function prCostLoad(force){
     await recipeLoad(force);
     if(prCost && !force && Date.now() - prCostAt < 600000) return;
-    try{ const c = await window.storage.get('cost-config', true); prCost = c ? JSON.parse(c.value) : {}; prCostAt = Date.now(); }catch(e){ if(!prCost) prCost = {}; }
+    prCost = await costSpecLoad(); prCostAt = Date.now();
   }
   async function prLoad(dk, force){
     if(!dk) return;
