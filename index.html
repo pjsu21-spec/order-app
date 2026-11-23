@@ -23651,15 +23651,24 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       return { r, i, lbl: r.lbl || `${i + 1}차`, raw: r.raw || a.raw, name: item ? (item.shortName || item.name) : '', kg, ct: prVal(r.ct, ctAuto), a, ctAuto, note: r.note || '', extra: prBox(extra), loss: prPct(loss), base: a.base };
     });
   }
-  function prSums(dk, doc){
-    const v = prInstView(dk, doc);
-    return { kg: prR(v.reduce((s, x) => s + (Number(x.kg) || 0), 0)), ct: prR(v.reduce((s, x) => s + (Number(x.ct) || 0), 0)), base: prR(v.reduce((s, x) => s + (Number(x.base) || 0), 0)) };
+  // 원물별 합계 (생산지시 순서대로, 작업kg·ct·필요kg 중 하나라도 있는 원물만)
+  function prSumByRaw(dk, doc){
+    const m = new Map();
+    prInstView(dk, doc).forEach(x => {
+      const k = String(x.raw || '').trim(), g = m.get(k) || (m.set(k, { raw: k, kg: 0, ct: 0, base: 0 }).get(k));
+      g.kg += Number(x.kg) || 0; g.ct += Number(x.ct) || 0; g.base += Number(x.base) || 0;
+    });
+    return [...m.values()].map(g => ({ raw: g.raw, kg: prR(g.kg), ct: prR(g.ct), base: prR(g.base) })).filter(g => g.kg || g.ct || g.base);
+  }
+  const prSumLbl = g => (g ? (g.raw || '원물 미지정') + ' ' : '') + '합계';
+  function prSumRowsHtml(dk, doc){
+    const gs = prSumByRaw(dk, doc), n = v => v ? v.toLocaleString() : '';
+    return (gs.length ? gs : [null]).map(g => `<tr class="pr-sumr"><td colspan="3" style="text-align:center;font-weight:700;">${escapeHtml(prSumLbl(g))}</td><td style="text-align:right;color:var(--muted);">${g ? n(g.base) : ''}</td><td></td><td></td><td style="font-weight:700;">${g ? n(g.kg) : ''}</td><td style="font-weight:700;">${g ? n(g.ct) : ''}</td><td colspan="2"></td></tr>`).join('');
   }
   function prRenderSums(){
     const doc = prCache[currentDateKey]; if(!doc) return;
-    const s = prSums(currentDateKey, doc);
-    const a = document.getElementById('pr-sum-kg'), b = document.getElementById('pr-sum-ct');
-    if(a) a.textContent = s.kg ? s.kg.toLocaleString() : ''; if(b) b.textContent = s.ct ? s.ct.toLocaleString() : '';
+    const nr = document.getElementById('pr-sum-note-row');
+    if(nr){ document.querySelectorAll('#pr-inst tr.pr-sumr').forEach(t => t.remove()); nr.insertAdjacentHTML('beforebegin', prSumRowsHtml(currentDateKey, doc)); }
     // 작업kg을 고치면 ct 자동값도 바뀜
     prInstView(currentDateKey, doc).forEach(x => {
       const tr = document.querySelector(`#pr-inst tr[data-id="${x.r.id}"]`); if(!tr) return;
@@ -23669,7 +23678,6 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const li = tr.querySelector('input[data-f="loss"]'); if(li) li.placeholder = prRates.loss ? String(prRates.loss) : '0';
       const bc = tr.querySelector('.pr-base'); if(bc) bc.textContent = x.base === '' ? '' : Number(x.base).toLocaleString();
     });
-    const sb = document.getElementById('pr-sum-base'); if(sb) sb.textContent = s.base ? s.base.toLocaleString() : '';
   }
   function prRenderOrder(){
     const el = document.getElementById('pr-order'); if(!el || !currentDateKey) return;
@@ -23707,8 +23715,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
         <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
     });
-    const s = prSums(dk, doc);
-    h += `<tr><td colspan="3" style="text-align:center;font-weight:700;">합계</td><td id="pr-sum-base" style="text-align:right;color:var(--muted);">${s.base ? s.base.toLocaleString() : ''}</td><td></td><td></td><td id="pr-sum-kg" style="font-weight:700;">${s.kg ? s.kg.toLocaleString() : ''}</td><td id="pr-sum-ct" style="font-weight:700;">${s.ct ? s.ct.toLocaleString() : ''}</td><td colspan="2"><input id="pr-inst-note" value="${escapeHtml(doc.instNote)}" placeholder="합계 비고 (예: 가압 0.8bar)" style="width:220px;"></td></tr></tbody></table></div>`;
+    h += prSumRowsHtml(dk, doc) + `<tr id="pr-sum-note-row"><td colspan="8" style="text-align:right;color:var(--muted);font-size:12px;">원물별 합계 · 합계 비고 →</td><td colspan="2"><input id="pr-inst-note" value="${escapeHtml(doc.instNote)}" placeholder="합계 비고 (예: 가압 0.8bar)" style="width:220px;"></td></tr></tbody></table></div>`;
     instEl.innerHTML = h;
     view.forEach(x => { const sel = instEl.querySelector(`tr[data-id="${x.r.id}"] select`); if(sel) sel.value = x.r.item || ''; });
     const ctk = document.getElementById('pr-ctkg'); if(ctk && document.activeElement !== ctk) ctk.value = doc.ctKg || '';
@@ -23856,8 +23863,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       let n = 0; if(first){ n = 1; while(v[i + n] && v[i + n].raw === x.raw) n++; }
       t2 += `<tr><td>${e(x.lbl)}</td>${first ? `<td rowspan="${n}" class="raw">${e(x.raw)}</td>` : ''}<td>${e(x.name)}</td><td>${x.kg === '' ? '' : Number(x.kg).toLocaleString()}</td><td>${x.ct === '' ? '' : x.ct}</td><td class="nt">${e(x.note)}</td></tr>`;
     });
-    const s = prSums(dk, doc);
-    t2 += `<tr class="sum"><td colspan="3">합계</td><td>${s.kg ? s.kg.toLocaleString() : ''}</td><td>${s.ct ? s.ct.toLocaleString() : ''}</td><td class="nt">${e(doc.instNote)}</td></tr></tbody></table>`;
+    { const gs = prSumByRaw(dk, doc), rs = gs.length ? gs : [null];
+      rs.forEach((g, i) => { t2 += `<tr class="sum"><td colspan="3">${e(prSumLbl(g))}</td><td>${g && g.kg ? g.kg.toLocaleString() : ''}</td><td>${g && g.ct ? g.ct.toLocaleString() : ''}</td>${i === 0 ? `<td class="nt" rowspan="${rs.length}">${e(doc.instNote)}</td>` : ''}</tr>`; });
+      t2 += '</tbody></table>'; }
     const staff = doc.staff.filter(x => (x.label || '').trim() || (x.names || '').trim());
     const std = String(prStd == null ? PR_STD_DEFAULT : prStd).split('\n');
     const [y, mo, da] = dk.split('-');
