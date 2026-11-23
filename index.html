@@ -9697,20 +9697,40 @@ function mnShow(id, keepScroll) {
       const m = L[c] || (L[c] = {}); m[l.itemId] = r2((m[l.itemId] || 0) + (Number(l.qty) || 0));
     });
     const set3 = new Set(threePlNames), out = [];
-    const itemNm = id => { const d = dict.find(x => x.id === id); return d ? (d.shortName || d.name) : '(삭제된 품목)'; };
+    const itemNm = id => { const d = dict.find(x => x.id === id); return d ? d.name : '(삭제된 품목)'; };
+    const canFix = window.accessLevel('order') === 'full' && !isProdClosed(currentDateKey);
+    const btn = (act, c, label) => canFix ? ` <button type="button" class="btn-ghost small-btn" data-tpl-fix="${act}" data-co="${escapeHtml(c)}" style="padding:1px 8px;">${label}</button>` : '';
     const who = m => { if(!m) return ''; const at = m.updatedAt ? new Date(m.updatedAt) : null; const s = [m.enteredBy || '', at && !isNaN(at) ? `${at.getMonth() + 1}/${at.getDate()} ${pad2(at.getHours())}:${pad2(at.getMinutes())}` : ''].filter(Boolean).join(' '); return s ? ` <span class="sub" style="margin:0;">(마지막 입력: ${escapeHtml(s)})</span>` : ''; };
     new Set([...threePlNames.filter(n => orders[n]), ...Object.keys(cnt)]).forEach(c => {
       const O = orders[c] || {}, Lc = L[c] || {}, ok = Object.keys(O).filter(k => k !== '_meta');
       const sumO = r2(ok.reduce((s, k) => s + (Number(O[k]) || 0), 0));
       const nm = `<b>${escapeHtml(c || '(업체 없음)')}</b>`;
       if(!set3.has(c)){ out.push(`${nm}: 개별 주문 ${cnt[c]}건이 있는데 이 업체가 <b>3PL로 체크돼 있지 않아</b> 품목별 합계에서 빠졌습니다 → 매출처 정보에서 3PL 체크`); return; }
-      if(!cnt[c]){ if(sumO > 0) out.push(`${nm}: 개별 주문 없이 <b>합계만 ${sumO}팩</b> 있습니다${who(O._meta)} → 발주 입력·발주표에서 들어간 수량입니다. 실제 택배 주문이면 개별 주문 엑셀을 올리고, 잘못 들어갔으면 위 발주표에서 이 업체 줄을 지우세요`); return; }
+      if(!cnt[c]){ if(sumO > 0) out.push(`${nm}: 개별 주문 없이 <b>합계만 ${sumO}팩</b> 있습니다${who(O._meta)} → 택배 주문 엑셀이 아니라 발주 입력(붙여넣기·이미지·직접 입력)으로 들어간 수량입니다. 실제 택배 주문이면 개별 주문 엑셀을 올리세요(이 합계를 먼저 지우지 않으면 두 배가 됩니다). 잘못 들어갔으면 지우세요` + btn('del', c, '🗑 이 업체 합계 지우기')); return; }
       const diffs = [...new Set([...ok, ...Object.keys(Lc)])].filter(k => r2(Number(O[k]) || 0) !== r2(Lc[k] || 0));
-      if(diffs.length) out.push(`${nm}: ` + diffs.map(k => `${escapeHtml(itemNm(k))} 합계 ${r2(Number(O[k]) || 0)} / 개별 ${r2(Lc[k] || 0)}팩`).join(' · ') + who(O._meta) + ' → 개별 주문 엑셀 외에 발주 입력·발주표로 따로 고친 수량이 있습니다');
+      if(diffs.length) out.push(`${nm}: ` + diffs.map(k => `${escapeHtml(itemNm(k))} 합계 ${r2(Number(O[k]) || 0)} / 개별 ${r2(Lc[k] || 0)}팩`).join(' · ') + who(O._meta) + ' → 개별 주문 리스트가 실제 택배 건이면 합계를 그에 맞추세요' + btn('sync', c, '↻ 개별 주문 기준으로 합계 맞추기'));
     });
     if(!out.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.cssText = 'margin:0 0 10px; padding:10px 12px; border:1px solid var(--danger,#c0392b); border-radius:8px; background:rgba(192,57,43,0.06); font-size:13px; line-height:1.6;';
     box.innerHTML = `<div style="font-weight:700; color:var(--danger,#c0392b); margin-bottom:4px;">⚠ 품목별 합계와 개별 주문 리스트가 맞지 않는 업체 ${out.length}곳</div><ul style="margin:0; padding-left:18px;">${out.map(s => `<li>${s}</li>`).join('')}</ul>`;
+    box.querySelectorAll('[data-tpl-fix]').forEach(b => b.addEventListener('click', () => {
+      const c = b.dataset.co, dk = currentDateKey;
+      if(prodCloseBlocked(dk)) return;
+      if(b.dataset.tplFix === 'del'){
+        if(!confirm(`${c} 의 ${dk} 3PL 합계(개별 주문 없이 입력된 수량)를 지울까요?
+실제 주문이면 지우지 말고 개별 주문 엑셀을 올리세요.`)) return;
+        aggDeleteCompany(dk, c);
+        try{ writeLog('order_company_delete', `${dk} ${c} 3PL 합계만 있던 발주 삭제`); }catch(e){}
+        toast(`${c} 합계를 지웠습니다`);
+      } else {
+        const m = {}; (currentLineItems() || []).forEach(l => { if(l && !l.sampleKey && l.company === c && l.itemId) m[l.itemId] = r2((m[l.itemId] || 0) + (Number(l.qty) || 0)); });
+        if(!confirm(`${c} 의 ${dk} 품목별 합계를 개별 주문 리스트 수량으로 바꿀까요?`)) return;
+        const o = currentOrders(); o[c] = Object.assign(m, { _meta: { enteredBy: getStaffName(), updatedAt: new Date().toISOString() } });
+        saveOrdersByDate(); renderAggTable(); renderThirdPartyAggTable();
+        try{ writeLog('order_edit', `${dk} ${c} 3PL 합계를 개별 주문 기준으로 맞춤`); }catch(e){}
+        toast(`${c} 합계를 개별 주문에 맞췄습니다`);
+      }
+    }));
   }
 
   function itemNameById(itemId){
