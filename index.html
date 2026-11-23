@@ -2763,6 +2763,11 @@
       </div></details>
       <div id="lab-body"></div>
     </div>
+    <div class="card" id="lab-mail-card" style="display:none;">
+      <h2>📧 메일 알림 <span class="badge">관리자 설정</span></h2>
+      <div class="sub" style="margin:0 0 8px;">연구실 생산 샘플이 새로 신청되거나, 내용이 바뀌거나, 취소되면 아래 주소로 메일을 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
+      <div id="lab-mail-body"></div>
+    </div>
     <div class="card">
       <h2>💰 연구비 비용 취합 <span class="badge">준비 중</span></h2>
       <div class="sub" style="margin:0;">연구소에서 쓰는 비용 양식을 받으면 이 자리에 만듭니다 (의뢰 샘플별 재료비 등 연구비 처리 자료).</div>
@@ -4890,9 +4895,58 @@ function applyUserUI() {
     try{ const [rows] = await Promise.all([fetchLab(L.from, L.to), loadState()]); L.rows = rows; L.loaded = true; render(); }
     catch(e){ if(body) body.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; }
   }
+  // ── 메일 알림 (하이웍스) — 서버 함수 lab-notify (supabase/functions/lab-notify) ──
+  //  샘플 신청을 저장하면 그 신청 id로 부름 → 연구실 생산 품목이 있으면 신규·변경·취소 메일 (같은 내용은 다시 안 보냄, 서버가 판단)
+  //  받는 사람: kv 'lab-mail-settings' = { on, to:[메일 주소], at, by } — 관리자가 이 탭에서 설정
+  const K_MAIL = 'lab-mail-settings';
+  async function callFn(body){
+    const tok = (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
+    const res = await fetch(`${SB_URL}/functions/v1/lab-notify`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY, 'x-app-token': tok }, body: JSON.stringify(body) });
+    let j = null; try{ j = await res.json(); }catch(e){}
+    if(!res.ok || !j || j.ok === false) throw new Error((j && (j.error || j.message)) || `서버 함수 응답 ${res.status}${res.status === 404 ? ' — 서버 함수(lab-notify)가 아직 배포되지 않았습니다' : ''}`);
+    return j;
+  }
+  window.labNotify = function(id){
+    if(window.TEST_MODE || id == null || id === '') return;   // 테스트 모드는 샘플 신청을 저장하지 않으므로 메일도 안 보냄
+    callFn({ id: String(id) }).catch(e => console.warn('연구소 메일 알림 실패:', (e && e.message) || e));
+  };
+  window.labHasLab = r => labItems(r).length > 0;
+  async function renderMail(){
+    const card = $('lab-mail-card'), box = $('lab-mail-body'); if(!card || !box) return;
+    card.style.display = isAdminU() ? '' : 'none';
+    if(!isAdminU()) return;
+    let st = {};
+    try{ const r = await window.storage.get(K_MAIL, true); st = r && r.value ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
+    const to = Array.isArray(st.to) ? st.to : [];
+    box.innerHTML = `<div class="row" style="margin:0 0 6px;align-items:flex-start;">
+        <textarea id="lab-mail-to" rows="2" placeholder="받는 메일 주소 (여러 명은 줄을 바꾸거나 쉼표로)" style="width:340px;max-width:100%;">${esc(to.join('\n'))}</textarea>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="lab-mail-on"${st.on ? ' checked' : ''}> 메일 보내기</label>
+        <button type="button" class="btn-primary small-btn" id="lab-mail-save">저장</button>
+        <button type="button" class="btn-ghost small-btn" id="lab-mail-test" title="저장된 받는 사람에게 시험 메일을 보냅니다">✉ 테스트 메일</button>
+      </div><div class="sub" id="lab-mail-msg" style="margin:0;">${st.at ? `마지막 저장: ${esc(st.by || '')} ${atText(st.at)}` : '아직 설정하지 않았습니다.'}</div>`;
+    const msg = (m, bad) => { const el = $('lab-mail-msg'); if(el){ el.textContent = m; el.style.color = bad ? 'var(--danger,#c0392b)' : ''; } };
+    $('lab-mail-save').addEventListener('click', async () => {
+      const list = [...new Set($('lab-mail-to').value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean))];
+      const bad = list.filter(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+      if(bad.length){ msg('메일 주소 형식이 맞지 않습니다: ' + bad.join(', '), true); return; }
+      const on = $('lab-mail-on').checked;
+      if(on && !list.length){ msg('받는 메일 주소를 넣어 주세요', true); return; }
+      try{ await window.storage.set(K_MAIL, JSON.stringify({ on, to: list, at: Date.now(), by: who() }), true); }
+      catch(e){ msg('저장하지 못했습니다: ' + ((e && e.message) || e), true); return; }
+      writeLog('lab_mail', `연구소 메일 알림 ${on ? '켬' : '끔'} (${list.length}명)`).catch(() => {});
+      toastL('메일 알림 설정을 저장했습니다'); renderMail();
+    });
+    $('lab-mail-test').addEventListener('click', async () => {
+      const b = $('lab-mail-test'); b.disabled = true; msg('테스트 메일을 보내는 중…');
+      try{ const j = await callFn({ test: true }); msg(`테스트 메일을 보냈습니다 (${j.to}명). 받은편지함(스팸함 포함)을 확인해 주세요.`); }
+      catch(e){ msg('테스트 메일을 보내지 못했습니다: ' + ((e && e.message) || e), true); }
+      finally{ b.disabled = false; }
+    });
+  }
   window.labOpen = async function(){
     if(!canSee()){ const b = $('lab-body'); if(b) b.innerHTML = '<div class="sub">볼 수 있는 권한이 없습니다.</div>'; return; }
     if(!L.from){ const t = dkey(new Date()); L.from = addDays(t, -7); L.to = addDays(t, 30); }
+    renderMail();
     await load();
   };
 })();
@@ -14926,7 +14980,9 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
       method: 'PATCH', headers: { ...sbHeaders, 'Prefer': 'return=representation' }, body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() })
     });
     if(!res.ok){ const t = await res.text().catch(() => ''); throw new Error(`저장 실패 (${res.status}) ${t.slice(0, 80)}`); }
-    return res.json();
+    const out = await res.json();
+    if(window.labNotify && Array.isArray(out)) out.forEach(r => window.labNotify(r.id));   // 연구소 메일 알림 (신규·변경·취소는 서버가 판단)
+    return out;
   }
 
   // ── 화면 전환 ──
@@ -15191,10 +15247,11 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
         if(!out.length){ toast('이미 확인되었거나 취소된 신청이라 수정할 수 없습니다'); }
         else { await writeLog('sample_edit', `샘플 신청 수정: ${reqName} ${sampleFmtShip(fields.ship_at)}`); toast('수정했습니다'); }
       } else {
-        await sbInsert('sample_requests', {
+        const ins = await sbInsert('sample_requests', {
           requester_id: reqId, requester_name: reqName, created_by_id: me.id, created_by_name: me.display_name,
           ship_at: new Date(shipVal).toISOString(), ship_method: method, requester_dept: dept, production_method: prod, items, note, status: '신청'
         });
+        if(window.labNotify && Array.isArray(ins)) ins.filter(r => window.labHasLab && window.labHasLab(r)).forEach(r => window.labNotify(r.id));   // 연구실 생산 품목이 있으면 연구소 메일
         await writeLog('sample_request', `샘플 신청: ${reqName}${reqId !== me.id ? ' (대리)' : ''} ${items.map(i => i.name + ' ' + i.packs + '팩').join(', ')}`);
         toast(reqId !== me.id ? `${reqName} 님 대신 신청했습니다` : '신청했습니다');
       }
