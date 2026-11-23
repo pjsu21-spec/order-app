@@ -2387,7 +2387,7 @@
     <div class="sub" style="margin:6px 0 0;">출하창고 · 거래유형 · 담당자 · 부서는 위 <b>이카운트 설정</b>에서 정합니다.</div>
     <div class="row">
       <button class="btn-primary small-btn" id="export-ecount-btn">매출 엑셀 다운로드</button>
-      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외)과 발주 입력의 샘플 동봉(SP 거래처 제외)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
+      <button class="small-btn" id="export-selfuse-btn" title="그날 출고하는 샘플 신청(취소 제외), 발주 입력의 샘플 동봉(SP 거래처 제외), 품질 확인용 샘플(생산본부)을 이카운트 자가사용입력 양식으로 — 거래처 00031 · 수량은 박스 · 금액 0 · 적요는 신청자 이름 · 택배 샘플은 운송장 기준 규격별 택배비 건수 포함">이카운트 자가사용 엑셀 다운로드</button>
       <span id="ecount-date-warn" style="font-size:12px;color:var(--warn);"></span>
     </div>
     <div class="sub" id="ecount-group-note" style="margin:4px 0 0;"></div>
@@ -3174,7 +3174,7 @@
 <h3>이카운트 자가사용 엑셀 다운로드</h3>
 <p>매출 엑셀 버튼 옆 <span class="mn-b">이카운트 자가사용 엑셀 다운로드</span>. 샘플을 이카운트 <b>자가사용</b>으로 올리는 파일입니다(자가사용입력 양식).</p>
 <ul>
-  <li><b>들어가는 것</b>: 다운로드 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외) + 발주 입력의 샘플 동봉(SP 거래처 제외).</li>
+  <li><b>들어가는 것</b>: 다운로드 일자에 출고하는(출고일시 기준) 샘플 신청(취소 제외) + 발주 입력의 샘플 동봉(SP 거래처 제외) + <b>품질 확인용 샘플</b>(발주취합의 '생산본부' 줄 — 생산하는 품목마다 설정 박스, 적요 "품질 확인용 샘플(생산본부)").</li>
   <li><b>칸</b>: 거래처코드 00031 고정 · 수량은 <b>박스</b>(박스입수 없는 품목은 팩) · 금액 0 · 적요는 신청자 이름(샘플 동봉은 "거래처명 샘플 동봉") · 출하창고·담당자는 위 칸 값 · 한 전표(순번 1).</li>
   <li><b>택배비</b>: 택배 샘플이 있으면 규격별 건수 줄이 <b>택배비 품목코드</b>와 함께 붙습니다(금액 0, 코드는 3PL 택배비 품목 설정). 운송장번호가 적힌 건은 운송장 기준, 아직 없으면 상자 수(8팩 단위)로 셉니다.</li>
   <li>확인 안 된 신청이 섞여 있거나 품목코드가 없는 품목이 있으면 다운로드할 때 알려 줍니다.</li>
@@ -12154,6 +12154,12 @@ function mnShow(id, keepScroll) {
         const sm = sampleOf(dateKey, c);
         dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', selfUseBoxes(item, packs), 0, '', c + ' 샘플 동봉']); warn.enc++; });
       }); }
+    // 품질 확인용 샘플 (생산하는 품목마다 설정 박스, 발주취합 '생산본부' 줄) — 적요 '품질 확인용 샘플(생산본부)'
+    warn.qc = 0;
+    try{
+      const qc = await qcBoxesForDate(dateKey);
+      dict.forEach(item => { const b = Math.round((Number(qc[item.id]) || 0) * 100) / 100; if(!(b > 0)) return; if(!item.code) warn.noCode.add(item.name); rows.push([dateKey, 1, SELFUSE_CUST, '', warehouse, manager, item.code || '', item.name, '', b, 0, '', '품질 확인용 샘플(' + QC_ENTRY_NAME + ')']); warn.qc++; });
+    }catch(e){ console.error(e); warn.qcFail = true; }
     // 택배비: 택배 발송 샘플이 있으면 규격별 건수 줄 (품목코드 = 3PL 택배비 품목 설정의 코드)
     //  운송장번호가 적힌 줄은 운송장별로 합쳐 1건, 아직 운송장이 없으면 상자(3PL 개별 주문 줄 / 아직 줄이 없으면 8팩 단위로 나눈 상자)마다 1건
     const parcelReqs = reqs.filter(sampleIsParcel);
@@ -12200,13 +12206,15 @@ function mnShow(id, keepScroll) {
     try{
       try{ await uploadSyncLatest(); }catch(e){}   // 다른 직원이 넣은 운송장번호까지
       const { rows, warn } = await ecountSelfUseRows(dateKey, warehouse, manager);
-      if(!rows.length){ toast(`${ecountDateText(dateKey)}에 출고하는 샘플 신청·샘플 동봉이 없습니다`); return; }
+      if(!rows.length){ toast(`${ecountDateText(dateKey)}에 출고하는 샘플 신청·샘플 동봉·품질 확인용 샘플이 없습니다` + (warn.qcFail ? ' (품질 확인용 샘플은 샘플 신청을 불러오지 못해 계산하지 못했습니다)' : '')); return; }
       const header = ['일자','순번','거래처코드','거래처명','출하창고','담당자','품목코드','품목명','규격','수량','금액1','사용유형','적요'];
       const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
       ws['!cols'] = header.map(() => ({ wch: 15 }));
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '자가사용입력');
       XLSX.writeFile(wb, `이카운트_자가사용_${dateKey.replace(/-/g, '')}.xlsx`);
       const msgs = [];
+      if(warn.qc) msgs.push(`품질 확인용 샘플 ${warn.qc}개 품목 포함`);
+      if(warn.qcFail) msgs.push('품질 확인용 샘플은 계산하지 못해 빠졌습니다 (새로고침 후 다시 받아 주세요)');
       if(warn.unconfirmed) msgs.push(`아직 확인 안 된 신청 ${warn.unconfirmed}건 포함`);
       if(warn.noTrack.length) msgs.push(`운송장번호가 아직 없는 택배 샘플은 상자 수로 택배비를 셌습니다: ${warn.noTrack.slice(0, 3).join(', ')}${warn.noTrack.length > 3 ? ' 외 ' + (warn.noTrack.length - 3) + '건' : ''}`);
       if(warn.noCode.size) msgs.push(`품목코드 없음: ${[...warn.noCode].slice(0, 3).join(', ')}${[...warn.noCode].some(x => /^택배비/.test(x)) ? ' (택배비는 3PL 택배비 품목 설정에서 코드를 넣어 주세요)' : ''}`);
@@ -20199,6 +20207,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!items.length) return [];
     built.entries.push({ name: QC_ENTRY_NAME, category: '샘플', region: '본사', corp: '', isThirdParty: false, colQty });
     return items;
+  }
+  // 그 날짜 품질 확인용 샘플 { 품목 id: 박스 } — 발주취합 '생산본부' 줄과 같은 계산 (출고 합계 − 전일 재고 > 0 인 품목마다 설정 박스)
+  async function qcBoxesForDate(dk){
+    if(!qcSettings.enabled) return {};
+    let samples = [];
+    if(typeof window.getSampleRequestsForDate === 'function') samples = (await window.getSampleRequestsForDate(dk, { productionMethod: '생산본부 생산' })) || [];
+    const colMap = {}; dict.forEach(d => { colMap[d.id] = d.id; });
+    ensureCarryOver(dk);   // 계산만 하고 저장하지 않음
+    const built = buildProductionOrderEntries({ dict, companies, orders: ordersPhys(dk), stockPacks: (previousStock[dk] && previousStock[dk].product) || {}, colMap, dispatch: dispatchByDate[dk] || [], samples, splits: splitByDate[dk] || {}, dateKey: dk });
+    addQcSampleEntry(built, colMap);
+    const e = built.entries.find(x => x.name === QC_ENTRY_NAME);
+    return e ? Object.assign({}, e.colQty) : {};
   }
   async function qcSave(){
     try{ await window.storage.set('qc-sample-settings', JSON.stringify(qcSettings), true); return true; }
