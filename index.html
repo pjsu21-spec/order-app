@@ -7772,6 +7772,13 @@ function mnShow(id, keepScroll) {
     if(pn.includes(en)) return pn; if(en.includes(pn)) return en;
     return en + ' / ' + pn;
   }
+  // 배차·적재에서 출고일을 '명일'로 고른 업체 → 거래명세서 · 송품장 · 이카운트 매출 일자를 다음 날로 (발주 자료는 그 날짜 그대로)
+  function spIsNext(dk, company){ const r = (((typeof shipPlanCache !== 'undefined' && shipPlanCache[dk]) || {}).rows || {})[company]; return !!(r && r.next); }
+  function shipDayOf(dk, company){
+    if(!dk || !spIsNext(dk, company)) return dk;
+    const [y, m, d] = dk.split('-').map(Number), x = new Date(y, m - 1, d + 1);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  }
   const noteCanEdit = () => window.sectionLevel('plan') === 'full';   // 비고는 배차·적재 자료라 생산/물류 전체 권한 기준
   // 업체 비고 저장 (집계 / 출고 · 배차·적재 어느 쪽에서 고쳐도 같은 값). 예전 집계표 비고는 지움(발주 권한이 있을 때)
   function unitNoteSet(dateKey, company, v){
@@ -13484,6 +13491,7 @@ function mnShow(id, keepScroll) {
   document.getElementById('export-ecount-btn').addEventListener('click', async ()=>{
     renderEcountDateSelect();
     const dateKey = ecountDateKey();
+    try{ await spLoad(dateKey); }catch(e){ /* 배차 입력(명일 출고)을 못 읽으면 발주 일자 그대로 */ }
     const orders = ordersByDate[dateKey] || {};
     const dateLabel = dateKey;
     const warehouse = document.getElementById('ecount-warehouse').value.trim();
@@ -13518,6 +13526,7 @@ function mnShow(id, keepScroll) {
     const groupSlips = new Map();   // '일자|규격|코드' → { date, spec, code, items: Map('품목id|단가' → { item, packs, price }), names:Set, fees:{} }
     const groupWarn = [];
     orderCompanies.forEach(companyName => {
+      const dateLabel = shipDayOf(dateKey, companyName);   // 명일 출고 업체는 다음 날 일자
       const g = ecGroupOf(companyName);
       if(!g) return;
       const code = g.ec.code || g.c.code || '';
@@ -13557,6 +13566,7 @@ function mnShow(id, keepScroll) {
     const salesKeyOf = new Map();   // 행 → 매출 집계용 이름 (거래처명 칸을 비우므로 따로 기억)
     const noCodeWarn = [];
     orderCompanies.filter(n => !groupedNames.has(n)).forEach(companyName=>{
+      const dateLabel = shipDayOf(dateKey, companyName);   // 명일 출고 업체는 다음 날 일자
       const companyObj = companies.find(c=>c.name===companyName);
       const companyCode = companyObj?.code || '';
       // 이카운트는 거래처코드로 거래처를 찾으므로 거래처명은 비움. 코드가 없는 거래처만 이름으로 찾도록 이름을 넣음
@@ -13827,7 +13837,7 @@ function mnShow(id, keepScroll) {
 
   // 한 업체의 명세서 내용: 품목 줄 + 택배비 줄 + 합계
   function stmBuild(companyName, feeCounts){
-    const dateLabel = stmDate();
+    const dateLabel = shipDayOf(stmDate(), companyName);   // 명일 출고 업체는 다음 날 날짜
     const day = dateLabel.slice(5).replace('-', '/');
     const co = companies.find(c => c.name === companyName) || {};
     const priceMap = effectivePriceMap(co);   // 업체 예외 단가 → 없으면 거래 방식 단가
@@ -13906,6 +13916,7 @@ function mnShow(id, keepScroll) {
   async function stmRenderList(){
     await stmLoad();
     const dateLabel = stmDate();
+    try{ await spLoad(dateLabel); }catch(e){ /* 배차 입력이 없어도 만들 수 있음 */ }
     document.getElementById('stm-date').textContent = dateLabel;
     const wrap = document.getElementById('stm-list');
     const checked = new Set(Array.from(wrap.querySelectorAll('input[type=checkbox]:checked')).map(c => c.dataset.name));
@@ -13918,9 +13929,9 @@ function mnShow(id, keepScroll) {
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.name = x.name;
       cb.checked = first ? true : checked.has(x.name);
       const warns = [...x.st.warn]; if(!x.co.tel) warns.push('전화번호 없음');
-      const num = stmSeqNo(dateLabel, x.name, false);
+      const dl = x.st.dateLabel || dateLabel, num = stmSeqNo(dl, x.name, false);
       row.innerHTML = `<span class="nm">${escapeHtml(x.co.ecName || x.name)}</span>
-        <span class="meta">${x.st.lines.length}줄 · 합계 ₩${stmFmt(x.st.totals.total)} · 일련번호 ${escapeHtml(stmSeqLabel(dateLabel, num))}${(stmSeq[dateLabel] || {})[x.name] ? '' : ' (예정)'}</span>
+        <span class="meta">${dl !== dateLabel ? `<b style="color:var(--accent);">명일 출고 ${escapeHtml(dl.slice(5).replace('-', '/'))}</b> · ` : ''}${x.st.lines.length}줄 · 합계 ₩${stmFmt(x.st.totals.total)} · 일련번호 ${escapeHtml(stmSeqLabel(dl, num))}${(stmSeq[dl] || {})[x.name] ? '' : ' (예정)'}</span>
         ${warns.length ? `<span class="warn">⚠ ${escapeHtml(warns.join(' / '))}</span>` : ''}
         <span class="acts"></span>`;
       row.prepend(cb);
@@ -13961,7 +13972,8 @@ function mnShow(id, keepScroll) {
 
   async function stmDownloadOne(name){
     await stmLoad();
-    const dateLabel = stmDate();
+    try{ await spLoad(stmDate()); }catch(e){}
+    const dateLabel = shipDayOf(stmDate(), name);
     const n = stmSeqNo(dateLabel, name, true);
     try{
       stmSaveBlob(await stmRenderBlob(name, n), stmFileName(name, dateLabel));
@@ -13977,11 +13989,12 @@ function mnShow(id, keepScroll) {
     if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
     const dateLabel = stmDate(), zip = new JSZip(), msg = document.getElementById('stm-zip-msg'), btn = document.getElementById('stm-zip-btn');
     btn.disabled = true;
+    try{ await spLoad(dateLabel); }catch(e){}
     try{
       for(let i = 0; i < names.length; i++){
         msg.textContent = `만드는 중… ${i + 1}/${names.length}`;
-        const n = stmSeqNo(dateLabel, names[i], true);
-        zip.file(stmFileName(names[i], dateLabel), await stmRenderBlob(names[i], n));
+        const dl = shipDayOf(dateLabel, names[i]), n = stmSeqNo(dl, names[i], true);
+        zip.file(stmFileName(names[i], dl), await stmRenderBlob(names[i], n));
       }
       stmSaveBlob(await zip.generateAsync({ type: 'blob' }), `거래명세서_${dateLabel.replace(/-/g, '')}_${stmTabLabel()}.zip`);
       await stmSaveSeq(); msg.textContent = `${names.length}개 업체 명세서를 저장했습니다`; stmRenderList();
