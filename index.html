@@ -281,6 +281,16 @@
   .lab-tbl td.lab-note{ max-width:260px; white-space:pre-wrap; }
   .lab-tbl tr.lab-cancel td{ opacity:.55; }
   .lab-btns{ display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .lab-sec{ font-weight:700; font-size:14px; margin:14px 0 6px; padding:4px 8px; background:var(--hover,#f6f0ec); border-radius:6px; }
+  .lab-fgrid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px 12px; }
+  .lab-f{ display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--muted); }
+  .lab-f.wide{ grid-column:span 2; }
+  .lab-f input{ font-size:13px; color:var(--fg); }
+  .lab-cost input{ width:100%; box-sizing:border-box; font-size:13px; }
+  .lab-cost td.lab-cat{ background:var(--hover,#f6f0ec); white-space:nowrap; }
+  .lab-cost td.lab-ln-amt{ text-align:right; font-weight:600; white-space:nowrap; }
+  .lab-dev-sum{ margin-top:8px; font-size:13px; }
+  @media (max-width: 760px){ .lab-fgrid{ grid-template-columns:1fr; } .lab-f.wide{ grid-column:auto; } }
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
@@ -2832,9 +2842,18 @@
       <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 이 권한 부여 (메일 알림 설정은 통합시스템 관리자만). 차단하면 연구소 탭이 안 보입니다.</div>
       <div id="lab-acc-body"></div>
     </div>
-    <div class="card">
-      <h2>💰 연구비 비용 취합 <span class="badge">준비 중</span></h2>
-      <div class="sub" style="margin:0;">연구소에서 쓰는 비용 양식을 받으면 이 자리에 만듭니다 (의뢰 샘플별 재료비 등 연구비 처리 자료).</div>
+    <div class="card" id="lab-dev-card">
+      <h2>📝 샘플개발 산출서 <span class="badge">요청 정보 · 요구 스펙 · 투입 비용 · 연구비 취합</span></h2>
+      <details class="help" style="margin:0 0 10px;"><summary>ⓘ 사용 방법</summary><div class="sub" style="margin:6px 0 0;">
+        위 의뢰 목록의 <b>📝 산출서</b>를 누르면 요청 부서·요청자·대상 품목·수량이 채워진 산출서가 열립니다(의뢰 없이 <b>+ 새 산출서</b>로도 만듭니다).
+        ① 요청 정보 ② 샘플 요구 스펙을 적고, ③ 투입 비용은 구분마다 <b>+ 줄 추가</b> → 항목을 아래 <b>단가 기준표</b>에서 고르면 단가가 들어가고 수량/시간을 넣으면 금액·합계가 자동 계산됩니다(원재료·부재료·포장재는 실비).
+        <b>📥 엑셀 (양식)</b>은 연구소 양식과 같은 배치로, <b>📥 기간 취합 엑셀</b>은 기간 안 산출서의 구분별 금액과 부서별 합계로 내려받습니다. 담당 이상이 작성합니다.
+      </div></details>
+      <div id="lab-dev-body"></div>
+    </div>
+    <div class="card" id="lab-price-card">
+      <h2>💰 단가 기준표 <span class="badge">연구소 관리자가 고침</span></h2>
+      <div id="lab-price-body"></div>
     </div>
   </div>
 
@@ -4956,7 +4975,7 @@ function applyUserUI() {
         : !s ? '<button type="button" class="btn-primary small-btn" data-lab="recv">접수</button><button type="button" class="btn-ghost small-btn" data-lab="done">바로 완료</button>'
         : s === 'recv' ? '<button type="button" class="btn-primary small-btn" data-lab="done">제작 완료</button><button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>'
         : '<button type="button" class="btn-ghost small-btn" data-lab="recv">제작 중으로</button>';
-      return `<tr data-id="${esc(r.id)}"${cancel ? ' class="lab-cancel"' : ''}><td>${shipText(r.ship_at)}</td><td>${esc(r.requester_name || '')}${r.requester_dept ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.requester_dept)}</div>` : ''}</td><td>${esc(purposeOf(r))}</td><td>${items}</td><td>${esc(r.ship_method || '')}</td><td class="lab-note">${esc(noteOf(r))}</td><td>${pill}</td><td>${stPill}<div class="lab-btns">${btns}</div></td></tr>`;
+      return `<tr data-id="${esc(r.id)}"${cancel ? ' class="lab-cancel"' : ''}><td>${shipText(r.ship_at)}</td><td>${esc(r.requester_name || '')}${r.requester_dept ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.requester_dept)}</div>` : ''}</td><td>${esc(purposeOf(r))}</td><td>${items}</td><td>${esc(r.ship_method || '')}</td><td class="lab-note">${esc(noteOf(r))}</td><td>${pill}</td><td>${stPill}<div class="lab-btns">${btns}${(() => { const sh = sheetByReq(r.id); return sh ? `<button type="button" class="btn-ghost small-btn" data-sheet title="샘플개발 산출서 열기">📝 산출서 ${won(sheetTotal(sh))}원</button>` : (canEdit() && !cancel ? '<button type="button" class="btn-ghost small-btn" data-sheet title="이 의뢰의 샘플개발 산출서 만들기 (요청 정보 자동 채움)">📝 산출서</button>' : ''); })()}</div></td></tr>`;
     }).join('')}</tbody></table></div>`;
     body.innerHTML = h;
     const reload = async () => { L.from = $('lab-from').value || L.from; L.to = $('lab-to').value || L.to; if(L.to < L.from) L.to = L.from; await load(); };
@@ -4965,6 +4984,7 @@ function applyUserUI() {
     $('lab-reload').addEventListener('click', reload);
     $('lab-f').addEventListener('change', e => { L.f = e.target.value; render(); });
     $('lab-q').addEventListener('input', e => { L.q = e.target.value; clearTimeout(L.qt); L.qt = setTimeout(() => { render(); const el = $('lab-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
+    body.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => window.labOpenSheetForReq(b.closest('tr').dataset.id)));
     body.querySelectorAll('[data-lab]').forEach(b => b.addEventListener('click', async () => {
       const tr = b.closest('tr'), r = L.rows.find(x => String(x.id) === tr.dataset.id); if(!r) return;
       const a = b.dataset.lab, st = a === 'clear' ? '' : a;
@@ -4977,8 +4997,298 @@ function applyUserUI() {
   async function load(){
     const body = $('lab-body');
     L.loaded = false; render();
-    try{ const [rows] = await Promise.all([fetchLab(L.from, L.to), loadState()]); L.rows = rows; L.loaded = true; render(); }
+    try{ const [rows] = await Promise.all([fetchLab(L.from, L.to), loadState(), loadSheets()]); L.rows = rows; L.loaded = true; render(); renderDev(); }
     catch(e){ if(body) body.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; }
+  }
+  // ══════════ 📝 샘플개발 산출서 · 💰 단가 기준표 (연구소 양식 '샘플개발 신청 및 비용 산출 내역서' · '단가 기준표') ══════════
+  //  kv 'lab-price-table' = { v:1, rows:[{ id, cat(구분), item(항목), detail(세부 내용), price(기준 단가), note(비고) }], at, by } — 연구소 관리자가 고침 (엑셀 가져오기 · 줄 추가)
+  //    회사 단가라 코드(공개 저장소)에는 넣지 않음 — 처음 한 번 연구소 엑셀을 '엑셀에서 가져오기'로 올림
+  //  kv 'lab-dev-sheets'  = { [id]: 산출서 } — 담당 이상이 작성 (저장할 때 서버 최신본과 합침)
+  //    산출서 = { id, reqId(연결한 샘플 신청 id, 없으면 ''), dept, requester, reqDate, purpose, due, item, qty, solution, conc, time, us, memo,
+  //              lines:[{ id, cat(산출 구분), name, qty, price, note, pid(단가 기준표 줄 id) }], status:'draft'|'done', createdAt, createdBy, at, by }
+  //    단가는 고를 때 값을 산출서에 복사해 둠 → 나중에 기준표를 바꿔도 지난 산출서 금액은 그대로
+  const K_PRICE = 'lab-price-table', K_DEV = 'lab-dev-sheets';
+  const DEV_CATS = ['인건비', '장비사용료', '공정운영비(용액/초음파)', '원물 전처리비', '원재료비', '부재료비', '포장재비', '기타비용'];
+  const DEV_ACTUAL = new Set(['원재료비', '부재료비', '포장재비']);   // 실비 청구
+  const devCatOfPrice = c => { c = String(c || ''); return /인건/.test(c) ? '인건비' : /장비/.test(c) ? '장비사용료' : /연구\s*항목|변수|공정|용액|초음파/.test(c) ? '공정운영비(용액/초음파)' : /전처리|원물/.test(c) ? '원물 전처리비' : /원재료/.test(c) ? '원재료비' : /부재료/.test(c) ? '부재료비' : /포장/.test(c) ? '포장재비' : '기타비용'; };
+  const D = { price: null, sheets: null, edit: null, from: '', to: '', q: '', f: 'all', pe: null };
+  const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const won = n => Math.round(Number(n) || 0).toLocaleString();
+  const num = v => { const x = Number(String(v == null ? '' : v).replace(/[,\s원]/g, '')); return isFinite(x) ? x : 0; };
+  const permHint = m => /40[13]|권한|42501|policy/i.test(m) ? ' — 관리자에게 「연구소_산출서_SQL.sql」 실행을 요청하세요' : '';
+  async function kvRead(k){ const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; }
+  async function loadPrice(){ try{ const v = await kvRead(K_PRICE); D.price = (v && Array.isArray(v.rows)) ? v.rows : []; D.priceMeta = v ? { at: v.at, by: v.by } : null; }catch(e){ if(!D.price) D.price = []; } return D.price; }
+  async function savePrice(rows, msg){
+    const clean = rows.map(r => ({ id: r.id || rid(), cat: String(r.cat || '').trim(), item: String(r.item || '').trim(), detail: String(r.detail || '').trim(), price: num(r.price), note: String(r.note || '').trim() })).filter(r => r.item || r.cat);
+    try{ await window.storage.set(K_PRICE, JSON.stringify({ v: 1, rows: clean, at: Date.now(), by: who() }), true); }
+    catch(e){ const m = String((e && e.message) || e); toastL('단가 기준표를 저장하지 못했습니다: ' + m + permHint(m)); return false; }
+    D.price = clean; D.priceMeta = { at: Date.now(), by: who() };
+    writeLog('lab_price', msg || `연구소 단가 기준표 저장 (${clean.length}줄)`).catch(() => {});
+    return true;
+  }
+  async function loadSheets(){ try{ const v = await kvRead(K_DEV); D.sheets = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; }catch(e){ if(!D.sheets) D.sheets = {}; } return D.sheets; }
+  async function saveSheet(sh, del){
+    let cur;
+    try{ cur = await kvRead(K_DEV); }catch(e){ toastL('산출서 목록을 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+    if(!cur || typeof cur !== 'object' || Array.isArray(cur)) cur = {};
+    if(del) delete cur[sh.id]; else cur[sh.id] = Object.assign({}, sh, { at: Date.now(), by: who() });
+    try{ await window.storage.set(K_DEV, JSON.stringify(cur), true); }
+    catch(e){ const m = String((e && e.message) || e); toastL('저장하지 못했습니다: ' + m + permHint(m)); return false; }
+    D.sheets = cur;
+    writeLog('lab_dev', `샘플개발 산출서 ${del ? '삭제' : '저장'}: ${sh.requester || ''} ${sh.purpose || ''} (${won(sheetTotal(sh))}원)`).catch(() => {});
+    return true;
+  }
+  const sheetTotal = sh => (sh.lines || []).reduce((s, l) => s + num(l.qty) * num(l.price), 0);
+  const sheetCat = (sh, c) => (sh.lines || []).filter(l => l.cat === c).reduce((s, l) => s + num(l.qty) * num(l.price), 0);
+  const sheetByReq = id => Object.values(D.sheets || {}).find(s => s.reqId && String(s.reqId) === String(id));
+  function newSheet(r){
+    const today = dkey(new Date());
+    const sh = { id: rid(), reqId: r ? String(r.id) : '', dept: '', requester: '', reqDate: today, purpose: '', due: '', item: '', qty: '', solution: '', conc: '', time: '', us: '', memo: '', lines: [], status: 'draft', createdAt: Date.now(), createdBy: who() };
+    if(r){
+      sh.dept = r.requester_dept || ''; sh.requester = r.requester_name || ''; sh.purpose = purposeOf(r);
+      if(r.created_at){ const c = new Date(r.created_at); if(!isNaN(c)) sh.reqDate = dkey(c); }
+      if(r.ship_at){ const s = new Date(r.ship_at); if(!isNaN(s)) sh.due = dkey(s); }
+      const its = labItems(r).map(i => { const d = items_().find(x => x.id === i.skuId); return { n: d ? (d.shortName || d.name) : (i.name || ''), p: Number(i.packs) || 0, u: d ? Number(d.boxUnitCount) || 0 : 0 }; });
+      sh.item = its.map(x => x.n).join(', ');
+      sh.qty = its.map(x => `${x.n} ${x.p}팩${x.u > 0 ? ` (${Math.round(x.p / x.u * 100) / 100}박스)` : ''}`).join(', ');
+      sh.memo = noteOf(r);
+    }
+    return sh;
+  }
+  function openSheet(sh){ D.edit = JSON.parse(JSON.stringify(sh)); renderDev(); const c = $('lab-dev-card'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  window.labOpenSheetForReq = id => { const r = L.rows.find(x => String(x.id) === String(id)); const ex = sheetByReq(id); if(ex) openSheet(ex); else if(r && canEdit()) openSheet(newSheet(r)); };
+
+  // ── 산출서 목록 · 연구비 취합 ──
+  function renderDev(){
+    const box = $('lab-dev-body'); if(!box) return;
+    if(D.sheets == null){ box.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
+    if(D.edit) return renderEditor();
+    if(!D.from){ const t = new Date(); D.from = dkey(new Date(t.getFullYear(), t.getMonth(), 1)); D.to = dkey(t); }
+    const q = D.q.trim().toLowerCase();
+    const all = Object.values(D.sheets).sort((a, b) => String(b.reqDate || '').localeCompare(String(a.reqDate || '')) || (b.createdAt || 0) - (a.createdAt || 0));
+    const list = all.filter(s => (!D.from || (s.reqDate || '') >= D.from) && (!D.to || (s.reqDate || '') <= D.to) && (D.f === 'all' || (s.status || 'draft') === D.f)
+      && (!q || [s.dept, s.requester, s.purpose, s.item, s.solution].some(x => String(x || '').toLowerCase().includes(q))));
+    const total = list.reduce((x, s) => x + sheetTotal(s), 0);
+    const byDept = {}; list.forEach(s => { const k = s.dept || '(부서 없음)'; const e = byDept[k] = byDept[k] || { n: 0, sum: 0 }; e.n++; e.sum += sheetTotal(s); });
+    let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
+      <span class="sub" style="margin:0;">요청 일자</span><input type="date" id="lab-dev-from" value="${esc(D.from)}"><span class="sub" style="margin:0;">~</span><input type="date" id="lab-dev-to" value="${esc(D.to)}">
+      <select id="lab-dev-f">${[['all', '전체 상태'], ['draft', '작성 중'], ['done', '확정']].map(([v, t]) => `<option value="${v}"${v === D.f ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <input type="search" id="lab-dev-q" placeholder="부서·요청자·목적·품목 검색" value="${esc(D.q)}" style="width:180px;">
+      ${canEdit() ? '<button type="button" class="btn-primary small-btn" id="lab-dev-new">+ 새 산출서</button>' : ''}
+      <button type="button" class="btn-ghost small-btn" id="lab-dev-xls"${list.length ? '' : ' disabled'}>📥 기간 취합 엑셀</button></div>`;
+    if(!list.length) h += `<div class="sub">${all.length ? '조건에 맞는 산출서가 없습니다.' : '아직 산출서가 없습니다. 위 의뢰 목록의 <b>📝 산출서</b> 또는 <b>+ 새 산출서</b>로 만드세요.'}</div>`;
+    else {
+      h += `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>요청 일자</th><th>요청 부서</th><th>요청자</th><th>개발 목적</th><th>대상 품목</th><th style="text-align:right;">합계 금액(원)</th><th>상태</th><th></th></tr></thead><tbody>${list.map(s => `<tr data-sid="${esc(s.id)}">
+        <td>${esc(s.reqDate || '')}</td><td>${esc(s.dept || '')}</td><td>${esc(s.requester || '')}</td><td>${esc(s.purpose || '')}</td><td>${esc(s.item || '')}</td>
+        <td style="text-align:right;font-weight:600;">${won(sheetTotal(s))}</td>
+        <td><span class="lab-st ${s.status === 'done' ? 'lab-st-done' : 'lab-st-recv'}">${s.status === 'done' ? '확정' : '작성 중'}</span>${s.reqId ? '<div class="sub" style="margin:2px 0 0;font-size:11px;">샘플 의뢰 연결</div>' : ''}</td>
+        <td><button type="button" class="btn-ghost small-btn" data-dev-open>열기</button></td></tr>`).join('')}</tbody></table></div>
+        <div class="lab-dev-sum"><b>${list.length}건 · 합계 ${won(total)}원</b>${Object.keys(byDept).length ? ' — ' + Object.entries(byDept).sort((a, b) => b[1].sum - a[1].sum).map(([k, e]) => `${esc(k)} ${won(e.sum)}원(${e.n}건)`).join(' · ') : ''}</div>`;
+    }
+    box.innerHTML = h;
+    const re = () => { D.from = $('lab-dev-from').value; D.to = $('lab-dev-to').value; renderDev(); };
+    $('lab-dev-from').addEventListener('change', re); $('lab-dev-to').addEventListener('change', re);
+    $('lab-dev-f').addEventListener('change', e => { D.f = e.target.value; renderDev(); });
+    $('lab-dev-q').addEventListener('input', e => { D.q = e.target.value; clearTimeout(D.qt); D.qt = setTimeout(() => { renderDev(); const el = $('lab-dev-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
+    if($('lab-dev-new')) $('lab-dev-new').addEventListener('click', () => openSheet(newSheet(null)));
+    $('lab-dev-xls').addEventListener('click', () => exportPeriod(list));
+    box.querySelectorAll('[data-dev-open]').forEach(b => b.addEventListener('click', () => { const s = D.sheets[b.closest('tr').dataset.sid]; if(s) openSheet(s); }));
+  }
+
+  // ── 산출서 작성 (양식과 같은 순서) ──
+  function renderEditor(){
+    const box = $('lab-dev-body'), sh = D.edit, ro = !canEdit();
+    const dis = ro ? ' disabled' : '';
+    const f = (k, label, type, wide) => `<label class="lab-f${wide ? ' wide' : ''}"><span>${label}</span><input type="${type || 'text'}" data-k="${k}" value="${esc(sh[k] || '')}"${dis}></label>`;
+    const priceOf = c => (D.price || []).filter(p => devCatOfPrice(p.cat) === c);
+    const lineRow = (l, head) => `<tr data-lid="${esc(l.id)}">${head || ''}<td><input type="text" class="lab-ln-name" list="lab-dl-${DEV_CATS.indexOf(l.cat)}" value="${esc(l.name || '')}" placeholder="${priceOf(l.cat).length ? '기준표에서 고르거나 직접 입력' : '항목'}"${dis}></td>
+      <td><input type="text" inputmode="decimal" class="lab-ln-qty" value="${esc(l.qty == null ? '' : l.qty)}" placeholder="0"${dis}></td>
+      <td><input type="text" inputmode="numeric" class="lab-ln-price" value="${l.price === '' || l.price == null ? '' : won(l.price)}" placeholder="0"${dis}></td>
+      <td class="lab-ln-amt">${won(num(l.qty) * num(l.price))}</td>
+      <td><input type="text" class="lab-ln-note" value="${esc(l.note || '')}"${dis}></td>
+      <td>${ro ? '' : '<button type="button" class="btn-ghost small-btn lab-ln-del" title="이 줄 지우기">✕</button>'}</td></tr>`;
+    let h = `<div class="row" style="margin:0 0 10px;align-items:center;"><button type="button" class="btn-ghost small-btn" id="lab-ed-back">← 목록</button>
+      <b style="font-size:15px;">샘플개발 신청 및 비용 산출 내역서</b>${sh.reqId ? '<span class="sub" style="margin:0;">샘플 의뢰와 연결됨</span>' : ''}${ro ? '<span class="sub" style="margin:0;">(보기 전용)</span>' : ''}</div>
+      <div class="lab-sec">1. 요청 정보</div><div class="lab-fgrid">${f('dept', '요청 부서')}${f('requester', '요청자')}${f('reqDate', '요청 일자', 'date')}${f('purpose', '개발 목적', 'text', true)}${f('due', '요구 기한', 'date')}</div>
+      <div class="lab-sec">2. 샘플 요구 스펙</div><div class="lab-fgrid">${f('item', '대상 품목')}${f('qty', '요구 수량/중량')}${f('solution', '투입 용액/물질')}${f('conc', '목표 용액 농도')}${f('time', '목표 처리 시간')}${f('us', '요구 초음파/압력')}${f('memo', '메모 (신청 비고 등)', 'text', true)}</div>
+      <div class="lab-sec">3. 투입 비용 산출 <span class="sub" style="margin:0;font-weight:400;">(연구소 작성란 — 항목은 단가 기준표에서 고르면 단가가 들어갑니다)</span></div>
+      ${DEV_CATS.map((c, i) => `<datalist id="lab-dl-${i}">${priceOf(c).map(p => `<option value="${esc(p.item + (p.detail ? ' — ' + p.detail : ''))}">${won(p.price)}원${p.note ? ' · ' + esc(p.note) : ''}</option>`).join('')}</datalist>`).join('')}
+      <div style="overflow-x:auto;"><table class="lab-tbl lab-cost"><thead><tr><th>구분</th><th>항목</th><th style="width:90px;">수량/시간</th><th style="width:110px;">단가(원)</th><th style="width:110px;text-align:right;">금액(원)</th><th>비고</th><th></th></tr></thead><tbody>
+      ${DEV_CATS.map(c => { const ls = (sh.lines || []).filter(l => l.cat === c); const n = Math.max(1, ls.length) + (ro ? 0 : 1);
+        const head = `<td rowspan="${n}" class="lab-cat"><b>${esc(c)}</b><div class="sub" style="margin:2px 0 0;font-size:11px;">소계 <span data-catsum="${esc(c)}">${won(sheetCat(sh, c))}</span>원${DEV_ACTUAL.has(c) ? ' · 실비 청구' : ''}</div></td>`;
+        const rows = ls.length ? ls.map((l, j) => lineRow(l, j === 0 ? head : '')) : [`<tr class="lab-empty">${head}<td colspan="6" class="sub">—</td></tr>`];
+        if(!ro) rows.push(`<tr><td colspan="6"><button type="button" class="btn-ghost small-btn" data-add="${esc(c)}">+ ${esc(c)} 줄 추가</button></td></tr>`);
+        return rows.join('');
+      }).join('')}
+      </tbody><tfoot><tr><td colspan="4" style="text-align:right;"><b>합계 금액</b></td><td style="text-align:right;"><b id="lab-ed-total">${won(sheetTotal(sh))}</b></td><td colspan="2"></td></tr></tfoot></table></div>
+      <div class="row" style="margin-top:10px;align-items:center;">
+        <label class="sub" style="margin:0;display:flex;align-items:center;gap:4px;">상태 <select id="lab-ed-status"${dis}><option value="draft"${sh.status !== 'done' ? ' selected' : ''}>작성 중</option><option value="done"${sh.status === 'done' ? ' selected' : ''}>확정</option></select></label>
+        ${ro ? '' : '<button type="button" class="btn-primary small-btn" id="lab-ed-save">저장</button>'}
+        <button type="button" class="btn-ghost small-btn" id="lab-ed-xls">📥 엑셀 (양식)</button>
+        ${!ro && D.sheets[sh.id] && (canAdmin() || sh.createdBy === who()) ? '<button type="button" class="btn-ghost small-btn" id="lab-ed-del" style="color:var(--danger,#c0392b);">삭제</button>' : ''}
+        <span class="sub" style="margin:0;">${sh.at ? `마지막 저장: ${esc(sh.by || '')} ${atText(sh.at)}` : '아직 저장하지 않았습니다'}</span></div>`;
+    box.innerHTML = h;
+    const back = () => { D.edit = null; renderDev(); };
+    $('lab-ed-back').addEventListener('click', back);
+    $('lab-ed-xls').addEventListener('click', () => exportSheet(D.edit));
+    if(ro) return;
+    box.querySelectorAll('.lab-fgrid input[data-k]').forEach(inp => inp.addEventListener('input', () => { sh[inp.dataset.k] = inp.value; }));
+    $('lab-ed-status').addEventListener('change', e => { sh.status = e.target.value; });
+    const recalc = () => {
+      DEV_CATS.forEach(c => { const el = box.querySelector(`[data-catsum="${CSS.escape(c)}"]`); if(el) el.textContent = won(sheetCat(sh, c)); });
+      $('lab-ed-total').textContent = won(sheetTotal(sh));
+    };
+    box.querySelectorAll('tr[data-lid]').forEach(tr => {
+      const l = (sh.lines || []).find(x => x.id === tr.dataset.lid); if(!l) return;
+      const amt = tr.querySelector('.lab-ln-amt'), pIn = tr.querySelector('.lab-ln-price');
+      const upd = () => { amt.textContent = won(num(l.qty) * num(l.price)); recalc(); };
+      tr.querySelector('.lab-ln-name').addEventListener('input', e => {
+        l.name = e.target.value;
+        const p = (D.price || []).find(x => devCatOfPrice(x.cat) === l.cat && (x.item + (x.detail ? ' — ' + x.detail : '')) === l.name);
+        if(p){ l.pid = p.id; l.price = p.price; pIn.value = won(p.price); if(!l.note && p.note) { l.note = p.note; tr.querySelector('.lab-ln-note').value = p.note; } if(l.qty === '' || l.qty == null){ l.qty = 1; tr.querySelector('.lab-ln-qty').value = 1; } upd(); }
+      });
+      tr.querySelector('.lab-ln-qty').addEventListener('input', e => { l.qty = e.target.value; upd(); });
+      pIn.addEventListener('input', e => { l.price = num(e.target.value); l.pid = ''; upd(); });
+      pIn.addEventListener('blur', () => { pIn.value = l.price === '' ? '' : won(l.price); });
+      tr.querySelector('.lab-ln-note').addEventListener('input', e => { l.note = e.target.value; });
+      tr.querySelector('.lab-ln-del').addEventListener('click', () => { sh.lines = sh.lines.filter(x => x !== l); renderEditor(); });
+    });
+    box.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { (sh.lines = sh.lines || []).push({ id: rid(), cat: b.dataset.add, name: '', qty: '', price: '', note: DEV_ACTUAL.has(b.dataset.add) ? '실비 청구' : '' }); renderEditor(); const ins = box.querySelectorAll('tr[data-lid] .lab-ln-name'); if(ins.length) ins[ins.length - 1].focus(); }));
+    $('lab-ed-save').addEventListener('click', async () => {
+      const b = $('lab-ed-save'); b.disabled = true;
+      sh.lines = (sh.lines || []).filter(l => String(l.name || '').trim() || num(l.qty) || num(l.price));
+      if(await saveSheet(sh)){ D.edit = JSON.parse(JSON.stringify(D.sheets[sh.id])); toastL('산출서를 저장했습니다'); renderEditor(); try{ render(); }catch(e){} }
+      else b.disabled = false;
+    });
+    if($('lab-ed-del')) $('lab-ed-del').addEventListener('click', async () => {
+      if(!confirm('이 산출서를 지울까요? 되돌릴 수 없습니다.')) return;
+      if(await saveSheet(sh, true)){ toastL('산출서를 지웠습니다'); D.edit = null; renderDev(); try{ render(); }catch(e){} }
+    });
+  }
+
+  // ── 엑셀: 산출서 한 장 (연구소 양식과 같은 배치) · 기간 취합 ──
+  function exportSheet(sh){
+    if(typeof XLSX === 'undefined'){ toastL('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const A = [], M = [], F = [];   // 줄 · 병합 · 수식 칸
+    const push = r => { A.push(r); return A.length - 1; };
+    const mg = (r1, c1, r2, c2) => M.push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
+    mg(push(['샘플개발 신청 및 비용 산출 내역서', '', '', '', '', '']), 0, A.length - 1, 5);
+    mg(push(['1. 요청 정보', '', '', '', '', '']), 0, A.length - 1, 5);
+    push(['요청 부서', sh.dept || '', '요청자', sh.requester || '', '요청 일자', sh.reqDate || '']);
+    mg(push(['개발 목적', sh.purpose || '', '', '', '요구 기한', sh.due || '']), 1, A.length - 1, 3);
+    mg(push(['2. 샘플 요구 스펙', '', '', '', '', '']), 0, A.length - 1, 5);
+    push(['대상 품목', sh.item || '', '요구 수량/중량', sh.qty || '', '투입 용액/물질', sh.solution || '']);
+    push(['목표 용액 농도', sh.conc || '', '목표 처리 시간', sh.time || '', '요구 초음파/압력', sh.us || '']);
+    if(sh.memo){ mg(push(['메모', sh.memo, '', '', '', '']), 1, A.length - 1, 5); }
+    mg(push(['3. 투입 비용 산출 (연구소 작성란)', '', '', '', '', '']), 0, A.length - 1, 5);
+    push(['구분', '항목', '수량/시간', '단가(원)', '금액(원)', '비고']);
+    const first = A.length;
+    DEV_CATS.forEach(c => {
+      const ls = (sh.lines || []).filter(l => l.cat === c);
+      const start = A.length;
+      if(!ls.length){ push([c, '', '', '', '', DEV_ACTUAL.has(c) ? '실비 청구' : '']); return; }
+      ls.forEach((l, j) => { const r = push([j ? '' : c, l.name || '', num(l.qty), num(l.price), num(l.qty) * num(l.price), l.note || '']); F.push({ r, c: 4, f: `C${r + 1}*D${r + 1}` }); });
+      if(ls.length > 1) mg(start, 0, A.length - 1, 0);
+    });
+    const last = A.length - 1;
+    const tr = push(['합계 금액', '', '', '', sheetTotal(sh), '']); mg(tr, 0, tr, 3); F.push({ r: tr, c: 4, f: `SUM(E${first + 1}:E${last + 1})` });
+    const ws = XLSX.utils.aoa_to_sheet(A);
+    ws['!merges'] = M; ws['!cols'] = [{ wch: 20 }, { wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 22 }];
+    F.forEach(x => { const a = XLSX.utils.encode_cell({ r: x.r, c: x.c }); if(ws[a]){ ws[a].f = x.f; ws[a].z = '#,##0'; } });
+    for(let r = first; r <= last; r++){ const a = XLSX.utils.encode_cell({ r, c: 3 }); if(ws[a] && ws[a].t === 'n') ws[a].z = '#,##0'; }
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '샘플개발 신청 및 비용 산출서');
+    XLSX.writeFile(wb, `샘플개발_산출서_${(sh.reqDate || '').replace(/-/g, '')}_${String(sh.requester || '').replace(/[\\/:*?"<>|\s]+/g, '')}.xlsx`);
+  }
+  function exportPeriod(list){
+    if(typeof XLSX === 'undefined'){ toastL('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const head = ['요청 일자', '요청 부서', '요청자', '개발 목적', '대상 품목', ...DEV_CATS, '합계 금액', '상태'];
+    const rows = list.map(s => [s.reqDate || '', s.dept || '', s.requester || '', s.purpose || '', s.item || '', ...DEV_CATS.map(c => sheetCat(s, c)), sheetTotal(s), s.status === 'done' ? '확정' : '작성 중']);
+    rows.push(['합계', '', '', '', '', ...DEV_CATS.map(c => list.reduce((x, s) => x + sheetCat(s, c), 0)), list.reduce((x, s) => x + sheetTotal(s), 0), '']);
+    const ws = XLSX.utils.aoa_to_sheet([head, ...rows]);
+    ws['!cols'] = head.map((h, i) => ({ wch: i < 5 ? 16 : 14 }));
+    const byDept = {}; list.forEach(s => { const k = s.dept || '(부서 없음)'; const e = byDept[k] = byDept[k] || { n: 0, sum: 0, cat: {} }; e.n++; e.sum += sheetTotal(s); DEV_CATS.forEach(c => { e.cat[c] = (e.cat[c] || 0) + sheetCat(s, c); }); });
+    const ws2 = XLSX.utils.aoa_to_sheet([['요청 부서', '건수', ...DEV_CATS, '합계 금액'], ...Object.entries(byDept).map(([k, e]) => [k, e.n, ...DEV_CATS.map(c => e.cat[c] || 0), e.sum])]);
+    ws2['!cols'] = [{ wch: 16 }, { wch: 8 }, ...DEV_CATS.map(() => ({ wch: 14 })), { wch: 14 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '산출서 목록'); XLSX.utils.book_append_sheet(wb, ws2, '부서별 취합');
+    XLSX.writeFile(wb, `연구비_취합_${(D.from || '').replace(/-/g, '')}-${(D.to || '').replace(/-/g, '')}.xlsx`);
+  }
+
+  // ── 💰 단가 기준표 ──
+  function renderPrice(){
+    const box = $('lab-price-body'); if(!box) return;
+    if(D.price == null){ box.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
+    const adm = canAdmin();
+    if(D.pe) return renderPriceEdit();
+    const rows = D.price;
+    let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
+      ${adm ? '<button type="button" class="btn-primary small-btn" id="lab-pr-edit">✏ 고치기 · 줄 추가</button><label class="btn-ghost small-btn" style="cursor:pointer;">📂 엑셀에서 가져오기<input type="file" id="lab-pr-file" accept=".xlsx,.xls" style="display:none;"></label>' : ''}
+      <button type="button" class="btn-ghost small-btn" id="lab-pr-xls"${rows.length ? '' : ' disabled'}>📥 엑셀로 받기</button>
+      <span class="sub" style="margin:0;">${D.priceMeta && D.priceMeta.at ? `마지막 수정: ${esc(D.priceMeta.by || '')} ${atText(D.priceMeta.at)}` : ''}</span></div>`;
+    if(!rows.length) h += `<div class="sub">아직 단가 기준표가 없습니다.${adm ? ' 연구소 엑셀(단가 기준표 시트)을 <b>📂 엑셀에서 가져오기</b>로 올리거나 <b>✏ 고치기 · 줄 추가</b>로 직접 넣으세요.' : ' 연구소 관리자가 등록합니다.'}</div>`;
+    else {
+      let prev = null;
+      h += `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>구분</th><th>항목</th><th>세부 내용</th><th style="text-align:right;">기준 단가(원)</th><th>비고</th><th>산출서 구분</th></tr></thead><tbody>${rows.map(r => { const same = r.cat === prev; prev = r.cat;
+        return `<tr><td>${same ? '' : `<b>${esc(r.cat)}</b>`}</td><td>${esc(r.item)}</td><td>${esc(r.detail)}</td><td style="text-align:right;">${won(r.price)}</td><td>${esc(r.note)}</td><td class="sub" style="margin:0;font-size:11.5px;">${esc(devCatOfPrice(r.cat))}</td></tr>`; }).join('')}</tbody></table></div>`;
+    }
+    box.innerHTML = h;
+    if($('lab-pr-edit')) $('lab-pr-edit').addEventListener('click', () => { D.pe = JSON.parse(JSON.stringify(D.price)); if(!D.pe.length) D.pe.push({ id: rid(), cat: '', item: '', detail: '', price: '', note: '' }); renderPrice(); });
+    if($('lab-pr-file')) $('lab-pr-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) importPrice(f); });
+    $('lab-pr-xls').addEventListener('click', () => {
+      if(typeof XLSX === 'undefined') return;
+      const ws = XLSX.utils.aoa_to_sheet([['구분', '항목', '세부 내용', '기준 단가(원)', '비고'], ...D.price.map(r => [r.cat, r.item, r.detail, r.price, r.note])]);
+      ws['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 14 }, { wch: 28 }];
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '단가 기준표'); XLSX.writeFile(wb, '연구소_단가_기준표.xlsx');
+    });
+  }
+  function renderPriceEdit(){
+    const box = $('lab-price-body'), rows = D.pe;
+    const cats = [...new Set(rows.map(r => r.cat).concat((D.price || []).map(r => r.cat)).filter(Boolean))];
+    box.innerHTML = `<datalist id="lab-pr-cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+      <div class="sub" style="margin:0 0 6px;">구분은 산출서의 구분으로 자동 연결됩니다 (인건비 → 인건비 · 장비 → 장비사용료 · 연구 항목/용액/초음파 → 공정운영비 · 전처리/원물 → 원물 전처리비 · 그 밖은 기타비용).</div>
+      <div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th></th><th>구분</th><th>항목</th><th>세부 내용</th><th>기준 단가(원)</th><th>비고</th><th></th></tr></thead><tbody>${rows.map((r, i) => `<tr data-i="${i}">
+        <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-mv="-1"${i ? '' : ' disabled'}>▲</button><button type="button" class="btn-ghost small-btn" data-mv="1"${i < rows.length - 1 ? '' : ' disabled'}>▼</button></td>
+        <td><input type="text" data-f="cat" list="lab-pr-cats" value="${esc(r.cat)}" style="width:130px;"></td><td><input type="text" data-f="item" value="${esc(r.item)}" style="width:140px;"></td>
+        <td><input type="text" data-f="detail" value="${esc(r.detail)}" style="width:200px;"></td><td><input type="text" inputmode="numeric" data-f="price" value="${r.price === '' ? '' : won(r.price)}" style="width:100px;text-align:right;"></td>
+        <td><input type="text" data-f="note" value="${esc(r.note)}" style="width:180px;"></td><td><button type="button" class="btn-ghost small-btn" data-del title="이 줄 지우기">✕</button></td></tr>`).join('')}</tbody></table></div>
+      <div class="row" style="margin-top:8px;"><button type="button" class="btn-ghost small-btn" id="lab-pr-add">+ 줄 추가</button><button type="button" class="btn-primary small-btn" id="lab-pr-save">저장</button><button type="button" class="btn-ghost small-btn" id="lab-pr-cancel">취소</button></div>`;
+    box.querySelectorAll('tr[data-i]').forEach(tr => {
+      const r = rows[Number(tr.dataset.i)];
+      tr.querySelectorAll('input[data-f]').forEach(inp => inp.addEventListener('input', () => { r[inp.dataset.f] = inp.dataset.f === 'price' ? num(inp.value) : inp.value; }));
+      tr.querySelectorAll('[data-mv]').forEach(b => b.addEventListener('click', () => { const i = Number(tr.dataset.i), j = i + Number(b.dataset.mv); [rows[i], rows[j]] = [rows[j], rows[i]]; renderPriceEdit(); }));
+      tr.querySelector('[data-del]').addEventListener('click', () => { rows.splice(Number(tr.dataset.i), 1); renderPriceEdit(); });
+    });
+    $('lab-pr-add').addEventListener('click', () => { const lastCat = rows.length ? rows[rows.length - 1].cat : ''; rows.push({ id: rid(), cat: lastCat, item: '', detail: '', price: '', note: '' }); renderPriceEdit(); const ins = box.querySelectorAll('tr[data-i] input[data-f="item"]'); if(ins.length) ins[ins.length - 1].focus(); });
+    $('lab-pr-cancel').addEventListener('click', () => { D.pe = null; renderPrice(); });
+    $('lab-pr-save').addEventListener('click', async () => {
+      const b = $('lab-pr-save'); b.disabled = true;
+      if(await savePrice(rows, `연구소 단가 기준표 수정 (${rows.filter(r => r.item || r.cat).length}줄)`)){ D.pe = null; toastL('단가 기준표를 저장했습니다'); renderPrice(); if(D.edit) renderEditor(); }
+      else b.disabled = false;
+    });
+  }
+  // 연구소 엑셀의 '단가 기준표' 시트(머리글: 구분 · 항목 · 세부 내용 · 기준 단가 · 비고)를 읽어 기준표로
+  function importPrice(file){
+    if(typeof XLSX === 'undefined'){ toastL('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const rd = new FileReader();
+    rd.onload = async () => {
+      let wb; try{ wb = XLSX.read(new Uint8Array(rd.result), { type: 'array' }); }catch(e){ toastL('엑셀 파일을 읽지 못했습니다'); return; }
+      const name = wb.SheetNames.find(n => /단가/.test(n)) || wb.SheetNames[0];
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: true });
+      const hi = aoa.findIndex(r => r.some(v => /단가/.test(String(v))) && r.some(v => /항목/.test(String(v))));
+      if(hi < 0){ toastL(`「${name}」 시트에서 머리글(항목 · 기준 단가)을 찾지 못했습니다`); return; }
+      const H = aoa[hi].map(v => String(v).replace(/\s/g, ''));
+      const col = re => H.findIndex(h => re.test(h));
+      const ci = { cat: col(/^구분/), item: col(/^항목/), detail: col(/세부|내용/), price: col(/단가/), note: col(/비고/) };
+      let lastCat = '';
+      const rows = aoa.slice(hi + 1).map(r => {
+        const g = k => ci[k] >= 0 ? String(r[ci[k]] == null ? '' : r[ci[k]]).trim() : '';
+        const cat = g('cat') || lastCat; lastCat = cat;
+        return { id: rid(), cat, item: g('item'), detail: g('detail'), price: num(ci.price >= 0 ? r[ci.price] : 0), note: g('note') };
+      }).filter(r => r.item);
+      if(!rows.length){ toastL('가져올 단가 줄이 없습니다'); return; }
+      if((D.price || []).length && !confirm(`「${name}」 시트의 ${rows.length}줄로 단가 기준표를 바꿉니다.\n지금 기준표 ${D.price.length}줄은 지워집니다 (지난 산출서 금액은 그대로).\n\n계속할까요?`)) return;
+      if(await savePrice(rows, `연구소 단가 기준표 엑셀 가져오기: ${file.name} (${rows.length}줄)`)){ toastL(`단가 기준표 ${rows.length}줄을 가져왔습니다`); renderPrice(); if(D.edit) renderEditor(); }
+    };
+    rd.readAsArrayBuffer(file);
   }
   // ── 메일 알림 (하이웍스) — 서버 함수 lab-notify (supabase/functions/lab-notify) ──
   //  샘플 신청을 저장하면 그 신청 id로 부름 → 확인된 신청에 연구실 생산 품목이 있으면 신규·변경·취소 메일 (확인 전에는 안 보냄, 같은 내용은 다시 안 보냄 — 서버가 판단)
@@ -5062,6 +5372,7 @@ function applyUserUI() {
     if(!canSee()){ const b = $('lab-body'); if(b) b.innerHTML = '<div class="sub">볼 수 있는 권한이 없습니다.</div>'; return; }
     if(!L.from){ const t = dkey(new Date()); L.from = addDays(t, -7); L.to = addDays(t, 30); }
     renderAcc();
+    loadPrice().then(() => { renderPrice(); if(D.edit) renderEditor(); });
     await load();
   };
 })();
