@@ -2759,12 +2759,17 @@
         <b>🧪 샘플 신청</b>에서 품목의 생산 방식을 <b>연구실 생산</b>으로 고른 신청이 여기에 모입니다. 따로 연락하지 않아도 됩니다.
         아직 접수하지 않은 의뢰가 있으면 홈 화면 <b>연구소</b> 타일에 빨간 숫자가 뜹니다.
         의뢰를 확인하면 <b>접수</b>, 다 만들면 <b>제작 완료</b>를 누르세요 (누가 언제 눌렀는지 남습니다). 신청 내용을 고치거나 취소하는 것은 샘플 신청 탭에서 합니다.
-        이 탭은 관리자와 <b>🛠 관리자 → 사용자 권한</b>의 '연구소' 칸에서 허용한 직원에게만 보입니다.
+        이 탭은 권한이 있는 직원에게만 보입니다. 권한(보기 · 담당 · 연구소 관리자)은 아래 <b>👥 연구소 권한</b>(연구소 관리자) 또는 <b>🛠 관리자 → 사용자 권한</b>의 '연구소' 칸에서 줍니다.
       </div></details>
       <div id="lab-body"></div>
     </div>
+    <div class="card" id="lab-acc-card" style="display:none;">
+      <h2>👥 연구소 권한 <span class="badge">연구소 관리자</span></h2>
+      <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 메일 알림 설정 · 이 권한 부여. 차단하면 연구소 탭이 안 보입니다.</div>
+      <div id="lab-acc-body"></div>
+    </div>
     <div class="card" id="lab-mail-card" style="display:none;">
-      <h2>📧 메일 알림 <span class="badge">관리자 설정</span></h2>
+      <h2>📧 메일 알림 <span class="badge">연구소 관리자</span></h2>
       <div class="sub" style="margin:0 0 8px;">연구실 생산 샘플이 새로 신청되거나, 내용이 바뀌거나, 취소되면 아래 주소로 메일을 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
       <div id="lab-mail-body"></div>
     </div>
@@ -4769,24 +4774,45 @@ function applyUserUI() {
   const shipText = s => { const d = new Date(s); if(isNaN(d)) return esc(s || ''); return `${p2(d.getMonth() + 1)}/${p2(d.getDate())}(${KO_DOW[d.getDay()]}) ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const atText = t => { const d = new Date(t); return isNaN(d) ? '' : `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 
-  // ── 볼 수 있는 사람 ──
-  async function loadAcc(){ try{ const r = await window.storage.get(K_ACC, true); const v = r && r.value ? JSON.parse(r.value) : null; L.acc = { users: Array.isArray(v && v.users) ? v.users.map(String) : [] }; }catch(e){ L.acc = { users: [] }; } return L.acc; }
-  const canSee = () => { const u = window.currentUser; if(!u) return false; return isAdminU() || !!(L.acc && L.acc.users.includes(String(u.id))); };
-  window.labGetAccess = async () => (await loadAcc()).users.slice();
-  window.labSetAccess = async (userId, on, name) => {
-    if(!isAdminU()) throw new Error('관리자만 바꿀 수 있습니다');
-    const cur = (await loadAcc()).users.filter(x => x !== String(userId));
-    if(on) cur.push(String(userId));
-    await window.storage.set(K_ACC, JSON.stringify({ users: cur, at: Date.now(), by: who() }), true);
-    L.acc = { users: cur };
-    await writeLog('perm_change', `${name || userId} 연구소: ${on ? '허용' : '차단'}`);
+  // ── 연구소 권한 ── kv 'lab-access' = { levels: { 사용자 id: 'view'(보기) | 'edit'(담당) | 'admin'(연구소 관리자) }, users:[권한 있는 id] }
+  //  보기: 의뢰 목록만 / 담당: + 접수·제작 완료 / 연구소 관리자: + 메일 알림 설정 · 연구소 권한 부여.  시스템 관리자는 항상 연구소 관리자.
+  //  예전 형식(users 만 있음)의 직원은 '담당'으로 봄. 서버 규칙(연구소탭_SQL.sql · 연구소권한_SQL.sql)도 같은 기준.
+  const LV = ['none', 'view', 'edit', 'admin'];
+  const LV_NAME = { none: '차단', view: '보기', edit: '담당', admin: '연구소 관리자' };
+  async function loadAcc(){
+    try{
+      const r = await window.storage.get(K_ACC, true); const v = r && r.value ? JSON.parse(r.value) : null;
+      const levels = {};
+      if(v && v.levels && typeof v.levels === 'object') Object.entries(v.levels).forEach(([k, x]) => { if(LV.includes(x) && x !== 'none') levels[String(k)] = x; });
+      (Array.isArray(v && v.users) ? v.users : []).map(String).forEach(id => { if(!levels[id] && !(v && v.levels && v.levels[id] === 'none')) levels[id] = 'edit'; });
+      L.acc = { levels };
+    }catch(e){ L.acc = { levels: {} }; }
+    return L.acc;
+  }
+  const levelOf = id => { if(id == null) return 'none'; return (L.acc && L.acc.levels[String(id)]) || 'none'; };
+  const myLevel = () => { const u = window.currentUser; if(!u) return 'none'; return isAdminU() ? 'admin' : levelOf(u.id); };
+  const canSee = () => myLevel() !== 'none';
+  const canEdit = () => ['edit', 'admin'].includes(myLevel());
+  const canAdmin = () => myLevel() === 'admin';
+  window.labGetAccess = async () => Object.keys((await loadAcc()).levels);   // (예전 호환) 권한 있는 직원 id
+  window.labGetLevels = async () => Object.assign({}, (await loadAcc()).levels);
+  window.labSetLevel = async (userId, level, name) => {
+    if(!(isAdminU() || canAdmin())) throw new Error('관리자 또는 연구소 관리자만 바꿀 수 있습니다');
+    if(!LV.includes(level)) throw new Error('알 수 없는 권한');
+    const levels = Object.assign({}, (await loadAcc()).levels);
+    if(level === 'none') delete levels[String(userId)]; else levels[String(userId)] = level;
+    await window.storage.set(K_ACC, JSON.stringify({ levels, users: Object.keys(levels), at: Date.now(), by: who() }), true);
+    L.acc = { levels };
+    await writeLog('perm_change', `${name || userId} 연구소: ${LV_NAME[level]}`);
   };
+  window.labSetAccess = (userId, on, name) => window.labSetLevel(userId, on ? 'edit' : 'none', name);   // (예전 호환)
+  window.labLevelNames = LV_NAME;
   window.labApplyAccess = async function(){
     const u = window.currentUser, btn = $('main-nav-btn-lab');
     if(!btn) return;
     if(!u){ btn.style.display = 'none'; return; }
     if(L.uid !== u.id){ L.uid = u.id; L.pendAt = 0; L.pend = 0; }
-    if(!isAdminU()) await loadAcc();
+    await loadAcc();
     const show = canSee();
     btn.style.display = show ? '' : 'none';
     const panel = $('panel-lab');
@@ -4820,6 +4846,7 @@ function applyUserUI() {
   setInterval(() => { const app = $('app'); if(window.currentUser && canSee() && app && app.style.display !== 'none' && !document.hidden) refreshPending(true); }, 180000);
 
   async function setState(id, st, label){
+    if(!canEdit()){ toastL('접수·제작 완료는 연구소 담당 이상 권한이 필요합니다'); return false; }
     const key = String(id);
     let cur;
     try{ const r = await window.storage.get(K_ST, true); cur = r && r.value ? JSON.parse(r.value) : {}; if(!cur || typeof cur !== 'object' || Array.isArray(cur)) cur = {}; }
@@ -4867,7 +4894,7 @@ function applyUserUI() {
       }).join('');
       const pill = cancel ? '<span class="sample-pill off">취소됨</span>' : r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : '<span class="sample-pill">미확인</span>';
       const stPill = `<span class="lab-st lab-st-${s || 'none'}">${stName(s)}</span>${s ? `<div class="sub" style="margin:2px 0 0;font-size:11px;">${esc(info.by || '')} ${atText(info.at)}</div>` : ''}`;
-      const btns = cancel ? (s ? '<button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>' : '')
+      const btns = !canEdit() ? '' : cancel ? (s ? '<button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>' : '')
         : !s ? '<button type="button" class="btn-primary small-btn" data-lab="recv">접수</button><button type="button" class="btn-ghost small-btn" data-lab="done">바로 완료</button>'
         : s === 'recv' ? '<button type="button" class="btn-primary small-btn" data-lab="done">제작 완료</button><button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>'
         : '<button type="button" class="btn-ghost small-btn" data-lab="recv">제작 중으로</button>';
@@ -4911,10 +4938,38 @@ function applyUserUI() {
     callFn({ id: String(id) }).catch(e => console.warn('연구소 메일 알림 실패:', (e && e.message) || e));
   };
   window.labHasLab = r => labItems(r).length > 0;
+  // 연구소 권한 부여 (연구소 관리자 · 시스템 관리자) — 직원마다 차단 / 보기 / 담당 / 연구소 관리자
+  async function renderAcc(){
+    const card = $('lab-acc-card'), box = $('lab-acc-body'); if(!card || !box) return;
+    card.style.display = canAdmin() ? '' : 'none';
+    if(!canAdmin()) return;
+    box.innerHTML = '<div class="sub">불러오는 중…</div>';
+    let users = [];
+    try{ users = isAdminU() ? await apiUsersAdmin() : await apiUsersBasic(); }catch(e){ box.innerHTML = '<div class="sub" style="color:var(--danger,#c0392b);">직원 목록을 불러오지 못했습니다: ' + esc((e && e.message) || e) + '</div>'; return; }
+    await loadAcc();
+    users = (users || []).filter(u => u && u.is_active !== false).sort((a, b) => String(a.display_name || a.username || '').localeCompare(String(b.display_name || b.username || ''), 'ko'));
+    const me = window.currentUser || {};
+    const opts = cur => LV.map(v => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + LV_NAME[v] + '</option>').join('');
+    const nOf = v => users.filter(u => u.role !== 'admin' && levelOf(u.id) === v).length;
+    box.innerHTML = '<div class="sub" style="margin:0 0 6px;">보기 ' + nOf('view') + '명 · 담당 ' + nOf('edit') + '명 · 연구소 관리자 ' + nOf('admin') + '명 (시스템 관리자는 항상 연구소 관리자)</div>'
+      + '<div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table class="lab-tbl"><thead><tr><th>이름</th><th>부서</th><th>연구소 권한</th></tr></thead><tbody>'
+      + users.map(u => {
+          const sys = u.role === 'admin', self = String(u.id) === String(me.id);
+          const cell = sys ? '<span class="sub" style="margin:0;">연구소 관리자 (시스템 관리자)</span>'
+            : '<select data-lab-uid="' + esc(u.id) + '" data-lab-name="' + esc(u.display_name || u.username || '') + '"' + (self ? ' disabled title="자기 권한은 바꿀 수 없습니다"' : '') + '>' + opts(levelOf(u.id)) + '</select>';
+          return '<tr><td>' + esc(u.display_name || u.username || '') + '</td><td>' + esc(u.department || '') + '</td><td>' + cell + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    box.querySelectorAll('select[data-lab-uid]').forEach(sel => sel.addEventListener('change', async () => {
+      const lv = sel.value; sel.disabled = true;
+      try{ await window.labSetLevel(sel.dataset.labUid, lv, sel.dataset.labName); toastL(sel.dataset.labName + ': 연구소 ' + LV_NAME[lv]); }
+      catch(e){ const m = String((e && e.message) || e); toastL('권한을 바꾸지 못했습니다: ' + m + (/40[13]|권한|42501|policy/i.test(m) ? ' — 「연구소권한_SQL.sql」 실행이 필요합니다' : '')); }
+      renderAcc();
+    }));
+  }
   async function renderMail(){
     const card = $('lab-mail-card'), box = $('lab-mail-body'); if(!card || !box) return;
-    card.style.display = isAdminU() ? '' : 'none';
-    if(!isAdminU()) return;
+    card.style.display = canAdmin() ? '' : 'none';
+    if(!canAdmin()) return;
     let st = {};
     try{ const r = await window.storage.get(K_MAIL, true); st = r && r.value ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
     const to = Array.isArray(st.to) ? st.to : [];
@@ -4946,7 +5001,7 @@ function applyUserUI() {
   window.labOpen = async function(){
     if(!canSee()){ const b = $('lab-body'); if(b) b.innerHTML = '<div class="sub">볼 수 있는 권한이 없습니다.</div>'; return; }
     if(!L.from){ const t = dkey(new Date()); L.from = addDays(t, -7); L.to = addDays(t, 30); }
-    renderMail();
+    renderMail(); renderAcc();
     await load();
   };
 })();
@@ -22049,7 +22104,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{
       const rows = await apiUsersAdmin();
       const vaultUsers = window.vaultGetAccess ? new Set(await window.vaultGetAccess()) : new Set();
-      const labUsers = window.labGetAccess ? new Set(await window.labGetAccess()) : new Set();
+      const labLevels = window.labGetLevels ? await window.labGetLevels() : {};
       try{ await renderDeptPerms(rows); }catch(e){ console.error(e); }
       const rowsView = permsDeptFilter ? rows.filter(u => dpDeptOf(u) === permsDeptFilter) : rows;
       const table = document.createElement('table');
@@ -22209,20 +22264,21 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
             tdV.appendChild(b);
           }
           tr.appendChild(tdV); }
-        // 연구소 (🔬 연구소 의뢰 샘플 · 연구비): 관리자는 항상 허용, 직원은 켠 사람만 탭이 보임
+        // 연구소 (🔬 연구소 의뢰 샘플 · 연구비): 시스템 관리자는 항상 연구소 관리자, 직원은 차단 / 보기 / 담당 / 연구소 관리자
         { const tdL = document.createElement('td');
-          if(u.role === 'admin'){ const span = document.createElement('span'); span.textContent = '허용 (관리자)'; span.style.cssText = 'font-size:12px; color:var(--muted);'; tdL.appendChild(span); }
+          if(u.role === 'admin'){ const span = document.createElement('span'); span.textContent = '연구소 관리자'; span.style.cssText = 'font-size:12px; color:var(--muted);'; tdL.appendChild(span); }
           else {
-            const on = labUsers.has(String(u.id)), b = document.createElement('button');
-            b.className = on ? 'btn-primary small-btn' : 'btn-ghost small-btn'; b.textContent = on ? '✅ 허용' : '⛔ 차단';
-            b.title = '허용하면 이 직원에게 🔬 연구소 탭이 보이고 연구소 의뢰 샘플 알림을 받습니다';
-            b.addEventListener('click', async () => {
-              b.disabled = true;
-              try{ await window.labSetAccess(u.id, !on, u.display_name || u.username); }
-              catch(e){ b.disabled = false; alert('권한 변경에 실패했습니다: ' + ((e && e.message) || e)); return; }
+            const names = window.labLevelNames || { none: '차단', view: '보기', edit: '담당', admin: '연구소 관리자' };
+            const cur = labLevels[String(u.id)] || 'none', sel = document.createElement('select');
+            ['none', 'view', 'edit', 'admin'].forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = names[v]; if(v === cur) o.selected = true; sel.appendChild(o); });
+            sel.title = '보기: 의뢰 목록만 · 담당: 접수·제작 완료 · 연구소 관리자: 메일 알림 설정·연구소 권한 부여';
+            sel.addEventListener('change', async () => {
+              sel.disabled = true;
+              try{ await window.labSetLevel(u.id, sel.value, u.display_name || u.username); }
+              catch(e){ sel.disabled = false; alert('권한 변경에 실패했습니다: ' + ((e && e.message) || e)); return; }
               loadAdminPerms();
             });
-            tdL.appendChild(b);
+            tdL.appendChild(sel);
           }
           tr.appendChild(tdL); }
         tbody.appendChild(tr);
