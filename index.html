@@ -290,6 +290,7 @@
   .lab-cost td.lab-cat{ background:var(--hover,#f6f0ec); white-space:nowrap; }
   .lab-cost td.lab-ln-amt{ text-align:right; font-weight:600; white-space:nowrap; }
   .lab-dev-sum{ margin-top:8px; font-size:13px; }
+  .lab-auto{ margin:0 0 8px; padding:7px 10px; border-radius:7px; background:#fff7e0; color:#7a5a00; font-size:12.5px; }
   @media (max-width: 760px){ .lab-fgrid{ grid-template-columns:1fr; } .lab-f.wide{ grid-column:auto; } }
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
@@ -2839,7 +2840,7 @@
     <div class="card" id="lab-dev-card">
       <h2>📝 샘플개발 산출서 <span class="badge">요청 정보 · 요구 스펙 · 투입 비용 · 연구비 취합</span></h2>
       <details class="help" style="margin:0 0 10px;"><summary>ⓘ 사용 방법</summary><div class="sub" style="margin:6px 0 0;">
-        위 의뢰 목록의 <b>📝 산출서</b>를 누르면 요청 부서·요청자·대상 품목·수량이 채워진 산출서가 열립니다(의뢰 없이 <b>+ 새 산출서</b>로도 만듭니다).
+        위 의뢰 목록의 <b>📝 산출서</b>를 누르면 요청 부서·요청자·요청 일자(신청일)·개발 목적(용도)·요구 기한(출고일)·대상 품목·수량이 채워진 산출서가 열립니다(<b>+ 새 산출서</b>로 만들면 '샘플 의뢰 연결'에서 의뢰를 골라 채웁니다). 같은 품목의 이전 산출서가 있으면 요구 스펙과 비용 줄을 불러오고, 로그인한 담당자의 <b>인건비</b> 줄(아래 '연구원별 인건비 직급')이 들어가니 작업 시간만 넣으면 됩니다.
         ① 요청 정보 ② 샘플 요구 스펙을 적고, ③ 투입 비용은 구분마다 <b>+ 줄 추가</b> → 항목을 아래 <b>단가 기준표</b>에서 고르면 단가가 들어가고 수량/시간을 넣으면 금액·합계가 자동 계산됩니다(원재료·부재료·포장재는 실비).
         <b>📥 엑셀 (양식)</b>은 연구소 양식과 같은 배치로, <b>📥 기간 취합 엑셀</b>은 기간 안 산출서의 구분별 금액과 부서별 합계로 내려받습니다. 담당 이상이 작성합니다.
       </div></details>
@@ -5011,12 +5012,14 @@ function applyUserUI() {
   const num = v => { const x = Number(String(v == null ? '' : v).replace(/[,\s원]/g, '')); return isFinite(x) ? x : 0; };
   const permHint = m => /40[13]|권한|42501|policy/i.test(m) ? ' — 관리자에게 「연구소_산출서_SQL.sql」 실행을 요청하세요' : '';
   async function kvRead(k){ const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; }
-  async function loadPrice(){ try{ const v = await kvRead(K_PRICE); D.price = (v && Array.isArray(v.rows)) ? v.rows : []; D.priceMeta = v ? { at: v.at, by: v.by } : null; }catch(e){ if(!D.price) D.price = []; } return D.price; }
-  async function savePrice(rows, msg){
+  async function loadPrice(){ try{ const v = await kvRead(K_PRICE); D.price = (v && Array.isArray(v.rows)) ? v.rows : []; D.staff = (v && v.staff && typeof v.staff === 'object') ? v.staff : {}; D.priceMeta = v ? { at: v.at, by: v.by } : null; }catch(e){ if(!D.price) D.price = []; if(!D.staff) D.staff = {}; } return D.price; }
+  async function savePrice(rows, msg, staff){
+    const st = staff || D.staff || {};
     const clean = rows.map(r => ({ id: r.id || rid(), cat: String(r.cat || '').trim(), item: String(r.item || '').trim(), detail: String(r.detail || '').trim(), price: num(r.price), note: String(r.note || '').trim() })).filter(r => r.item || r.cat);
-    try{ await window.storage.set(K_PRICE, JSON.stringify({ v: 1, rows: clean, at: Date.now(), by: who() }), true); }
+    const ids = new Set(clean.map(r => r.id)), stc = {}; Object.entries(st).forEach(([u, pid]) => { if(ids.has(pid)) stc[u] = pid; });   // 지운 줄을 가리키는 직급은 뺌
+    try{ await window.storage.set(K_PRICE, JSON.stringify({ v: 1, rows: clean, staff: stc, at: Date.now(), by: who() }), true); }
     catch(e){ const m = String((e && e.message) || e); toastL('단가 기준표를 저장하지 못했습니다: ' + m + permHint(m)); return false; }
-    D.price = clean; D.priceMeta = { at: Date.now(), by: who() };
+    D.price = clean; D.staff = stc; D.priceMeta = { at: Date.now(), by: who() };
     writeLog('lab_price', msg || `연구소 단가 기준표 저장 (${clean.length}줄)`).catch(() => {});
     return true;
   }
@@ -5047,7 +5050,34 @@ function applyUserUI() {
       sh.qty = its.map(x => `${x.n} ${x.p}팩${x.u > 0 ? ` (${Math.round(x.p / x.u * 100) / 100}박스)` : ''}`).join(', ');
       sh.memo = noteOf(r);
     }
+    devAuto(sh);
     return sh;
+  }
+  const priceName = p => p.item + (p.detail ? ' — ' + p.detail : '');
+  // 로그인한 담당자의 인건비 기준표 줄 (단가 기준표 칸의 '연구원별 인건비 직급')
+  const myGrade = () => { const u = window.currentUser; const pid = u && (D.staff || {})[String(u.id)]; return pid ? (D.price || []).find(p => p.id === pid) : null; };
+  // 의뢰 정보(요청 부서 · 요청자 · 요청 일자 · 개발 목적 · 요구 기한 · 대상 품목 · 수량 · 메모)를 산출서에 채움
+  function fillFromReq(sh, r){
+    const n = newSheet(r);
+    ['reqId', 'dept', 'requester', 'reqDate', 'purpose', 'due', 'item', 'qty', 'memo'].forEach(k => { sh[k] = n[k]; });
+    if(!D.sheets[sh.id] || !(sh.lines || []).length){ ['solution', 'conc', 'time', 'us'].forEach(k => { sh[k] = n[k]; }); sh.lines = n.lines; sh.autoNote = n.autoNote; }   // 아직 저장 전이면 그 의뢰 기준 자동 채움으로 다시
+  }
+  function devAuto(sh){
+    const notes = [];
+    const prev = sh.item ? Object.values(D.sheets || {}).filter(s => s.id !== sh.id && s.item === sh.item).sort((a, b) => (b.at || b.createdAt || 0) - (a.at || a.createdAt || 0))[0] : null;
+    if(prev){
+      ['solution', 'conc', 'time', 'us'].forEach(k => { if(!sh[k]) sh[k] = prev[k] || ''; });
+      sh.lines = (prev.lines || []).filter(l => l.cat !== '인건비').map(l => Object.assign({}, l, { id: rid() }));
+      notes.push(`같은 품목의 이전 산출서(${prev.reqDate || ''} ${prev.requester || ''})에서 스펙 · 비용`);
+    } else if(sh.item){
+      const tok = p => String(p.item || '').split(/[()（）\s,·\/]+|등$/).map(t => t.replace(/등$/, '').trim()).filter(t => t.length >= 2);
+      const hay = sh.item + ' ' + sh.qty;
+      const pre = (D.price || []).filter(p => devCatOfPrice(p.cat) === '원물 전처리비').find(p => tok(p).some(t => hay.includes(t)));
+      if(pre){ sh.lines = (sh.lines || []).concat([{ id: rid(), cat: '원물 전처리비', name: priceName(pre), qty: 1, price: pre.price, note: pre.note || '', pid: pre.id }]); notes.push(`원물 전처리비(${pre.item})`); }
+    }
+    const g = myGrade();
+    if(g){ sh.lines = [{ id: rid(), cat: '인건비', name: priceName(g), qty: '', price: g.price, note: `담당 ${who()}`, pid: g.id }].concat(sh.lines || []); notes.push(`인건비(${g.item} — 작업 시간만 넣으세요)`); }
+    sh.autoNote = notes.length ? '자동으로 넣은 것: ' + notes.join(' · ') : '';
   }
   function openSheet(sh){ D.edit = JSON.parse(JSON.stringify(sh)); renderDev(); const c = $('lab-dev-card'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   window.labOpenSheetForReq = id => { const r = L.rows.find(x => String(x.id) === String(id)); const ex = sheetByReq(id); if(ex) openSheet(ex); else if(r && canEdit()) openSheet(newSheet(r)); };
@@ -5096,13 +5126,15 @@ function applyUserUI() {
     const f = (k, label, type, wide) => `<label class="lab-f${wide ? ' wide' : ''}"><span>${label}</span><input type="${type || 'text'}" data-k="${k}" value="${esc(sh[k] || '')}"${dis}></label>`;
     const priceOf = c => (D.price || []).filter(p => devCatOfPrice(p.cat) === c);
     const lineRow = (l, head) => `<tr data-lid="${esc(l.id)}">${head || ''}<td><input type="text" class="lab-ln-name" list="lab-dl-${DEV_CATS.indexOf(l.cat)}" value="${esc(l.name || '')}" placeholder="${priceOf(l.cat).length ? '기준표에서 고르거나 직접 입력' : '항목'}"${dis}></td>
-      <td><input type="text" inputmode="decimal" class="lab-ln-qty" value="${esc(l.qty == null ? '' : l.qty)}" placeholder="0"${dis}></td>
+      <td><input type="text" inputmode="decimal" class="lab-ln-qty" value="${esc(l.qty == null ? '' : l.qty)}" placeholder="${l.cat === '인건비' ? '시간' : '0'}"${dis}></td>
       <td><input type="text" inputmode="numeric" class="lab-ln-price" value="${l.price === '' || l.price == null ? '' : won(l.price)}" placeholder="0"${dis}></td>
       <td class="lab-ln-amt">${won(num(l.qty) * num(l.price))}</td>
       <td><input type="text" class="lab-ln-note" value="${esc(l.note || '')}"${dis}></td>
       <td>${ro ? '' : '<button type="button" class="btn-ghost small-btn lab-ln-del" title="이 줄 지우기">✕</button>'}</td></tr>`;
     let h = `<div class="row" style="margin:0 0 10px;align-items:center;"><button type="button" class="btn-ghost small-btn" id="lab-ed-back">← 목록</button>
       <b style="font-size:15px;">샘플개발 신청 및 비용 산출 내역서</b>${sh.reqId ? '<span class="sub" style="margin:0;">샘플 의뢰와 연결됨</span>' : ''}${ro ? '<span class="sub" style="margin:0;">(보기 전용)</span>' : ''}</div>
+      ${sh.autoNote && !D.sheets[sh.id] ? `<div class="lab-auto">✨ ${esc(sh.autoNote)} — 확인하고 고친 뒤 저장하세요</div>` : ''}
+      ${!ro && !sh.reqId ? `<div class="row" style="margin:0 0 6px;align-items:center;"><span class="sub" style="margin:0;">샘플 의뢰 연결</span><select id="lab-ed-req"><option value="">— 의뢰를 고르면 요청 정보가 채워집니다 —</option>${L.rows.filter(r => r.status !== '취소' && !sheetByReq(r.id)).map(r => `<option value="${esc(r.id)}">${esc(shipText(r.ship_at))} · ${esc(r.requester_name || '')} · ${esc(purposeOf(r) || labItems(r).map(i => (items_().find(x => x.id === i.skuId) || {}).name || '').join(', '))}</option>`).join('')}</select></div>` : ''}
       <div class="lab-sec">1. 요청 정보</div><div class="lab-fgrid">${f('dept', '요청 부서')}${f('requester', '요청자')}${f('reqDate', '요청 일자', 'date')}${f('purpose', '개발 목적', 'text', true)}${f('due', '요구 기한', 'date')}</div>
       <div class="lab-sec">2. 샘플 요구 스펙</div><div class="lab-fgrid">${f('item', '대상 품목')}${f('qty', '요구 수량/중량')}${f('solution', '투입 용액/물질')}${f('conc', '목표 용액 농도')}${f('time', '목표 처리 시간')}${f('us', '요구 초음파/압력')}${f('memo', '메모 (신청 비고 등)', 'text', true)}</div>
       <div class="lab-sec">3. 투입 비용 산출 <span class="sub" style="margin:0;font-weight:400;">(연구소 작성란 — 항목은 단가 기준표에서 고르면 단가가 들어갑니다)</span></div>
@@ -5127,6 +5159,7 @@ function applyUserUI() {
     $('lab-ed-xls').addEventListener('click', () => exportSheet(D.edit));
     if(ro) return;
     box.querySelectorAll('.lab-fgrid input[data-k]').forEach(inp => inp.addEventListener('input', () => { sh[inp.dataset.k] = inp.value; }));
+    if($('lab-ed-req')) $('lab-ed-req').addEventListener('change', e => { const r = L.rows.find(x => String(x.id) === e.target.value); if(r){ fillFromReq(sh, r); renderEditor(); } });
     $('lab-ed-status').addEventListener('change', e => { sh.status = e.target.value; });
     const recalc = () => {
       DEV_CATS.forEach(c => { const el = box.querySelector(`[data-catsum="${CSS.escape(c)}"]`); if(el) el.textContent = won(sheetCat(sh, c)); });
@@ -5151,6 +5184,7 @@ function applyUserUI() {
     $('lab-ed-save').addEventListener('click', async () => {
       const b = $('lab-ed-save'); b.disabled = true;
       sh.lines = (sh.lines || []).filter(l => String(l.name || '').trim() || num(l.qty) || num(l.price));
+      delete sh.autoNote;
       if(await saveSheet(sh)){ D.edit = JSON.parse(JSON.stringify(D.sheets[sh.id])); toastL('산출서를 저장했습니다'); renderEditor(); try{ render(); }catch(e){} }
       else b.disabled = false;
     });
@@ -5224,7 +5258,9 @@ function applyUserUI() {
       h += `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>구분</th><th>항목</th><th>세부 내용</th><th style="text-align:right;">기준 단가(원)</th><th>비고</th><th>산출서 구분</th></tr></thead><tbody>${rows.map(r => { const same = r.cat === prev; prev = r.cat;
         return `<tr><td>${same ? '' : `<b>${esc(r.cat)}</b>`}</td><td>${esc(r.item)}</td><td>${esc(r.detail)}</td><td style="text-align:right;">${won(r.price)}</td><td>${esc(r.note)}</td><td class="sub" style="margin:0;font-size:11.5px;">${esc(devCatOfPrice(r.cat))}</td></tr>`; }).join('')}</tbody></table></div>`;
     }
+    h += '<div id="lab-staff-box" style="margin-top:14px;"></div>';
     box.innerHTML = h;
+    renderStaff();
     if($('lab-pr-edit')) $('lab-pr-edit').addEventListener('click', () => { D.pe = JSON.parse(JSON.stringify(D.price)); if(!D.pe.length) D.pe.push({ id: rid(), cat: '', item: '', detail: '', price: '', note: '' }); renderPrice(); });
     if($('lab-pr-file')) $('lab-pr-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) importPrice(f); });
     $('lab-pr-xls').addEventListener('click', () => {
@@ -5233,6 +5269,30 @@ function applyUserUI() {
       ws['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 14 }, { wch: 28 }];
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '단가 기준표'); XLSX.writeFile(wb, '연구소_단가_기준표.xlsx');
     });
+  }
+  // 👤 연구원별 인건비 직급 — 산출서를 새로 만들면 로그인한 담당자의 직급 단가로 인건비 줄이 자동으로 들어감
+  async function renderStaff(){
+    const box = $('lab-staff-box'); if(!box) return;
+    const grades = (D.price || []).filter(p => devCatOfPrice(p.cat) === '인건비');
+    const adm = canAdmin();
+    let levels = {}, users = [];
+    try{ levels = window.labGetLevels ? await window.labGetLevels() : {}; }catch(e){}
+    try{ users = await apiUsersBasic(); }catch(e){ users = []; }
+    const me = window.currentUser || {};
+    const ids = [...new Set(Object.entries(levels).filter(([, v]) => v === 'edit' || v === 'admin').map(([k]) => k).concat(Object.keys(D.staff || {})).concat(me.role === 'admin' ? [String(me.id)] : []))];
+    const nameOf = id => { const u = users.find(x => String(x.id) === String(id)); return u ? (u.display_name || u.username || id) : (String(id) === String(me.id) ? (me.display_name || id) : id); };
+    let h = `<div style="font-weight:700;font-size:13.5px;margin:0 0 4px;">👤 연구원별 인건비 직급 <span class="sub" style="font-weight:400;margin:0;">— 산출서를 새로 만들면 로그인한 담당자의 직급 단가로 인건비 줄이 자동으로 들어갑니다</span></div>`;
+    if(!grades.length) h += '<div class="sub">단가 기준표에 인건비 줄이 있어야 지정할 수 있습니다.</div>';
+    else if(!ids.length) h += '<div class="sub">연구소 담당 이상 권한이 있는 직원이 없습니다.</div>';
+    else h += `<div style="overflow-x:auto;"><table class="lab-tbl" style="width:auto;"><thead><tr><th>연구원</th><th>인건비 직급</th></tr></thead><tbody>${ids.sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ko')).map(id => { const cur = (D.staff || {})[id] || ''; const g = grades.find(x => x.id === cur);
+      return `<tr><td>${esc(nameOf(id))}</td><td>${adm ? `<select data-staff="${esc(id)}"><option value="">(지정 안 함)</option>${grades.map(x => `<option value="${esc(x.id)}"${x.id === cur ? ' selected' : ''}>${esc(x.item)} · ${won(x.price)}원</option>`).join('')}</select>` : (g ? `${esc(g.item)} · ${won(g.price)}원` : '<span class="sub" style="margin:0;">지정 안 함</span>')}</td></tr>`; }).join('')}</tbody></table></div>`;
+    box.innerHTML = h;
+    box.querySelectorAll('select[data-staff]').forEach(sel => sel.addEventListener('change', async () => {
+      const st = Object.assign({}, D.staff || {}); if(sel.value) st[sel.dataset.staff] = sel.value; else delete st[sel.dataset.staff];
+      sel.disabled = true;
+      if(await savePrice(D.price, `연구원 인건비 직급: ${nameOf(sel.dataset.staff)} → ${sel.value ? (grades.find(x => x.id === sel.value) || {}).item : '지정 안 함'}`, st)) toastL('인건비 직급을 저장했습니다');
+      sel.disabled = false;
+    }));
   }
   function renderPriceEdit(){
     const box = $('lab-price-body'), rows = D.pe;
