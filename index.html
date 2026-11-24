@@ -284,6 +284,22 @@
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
+  /* 기준정보: 왼쪽 메뉴 · 오른쪽 내용 */
+  .mt-layout{ display:grid; grid-template-columns:200px minmax(0, 1fr); gap:14px; align-items:start; }
+  .mt-nav{ position:sticky; top:64px; display:flex; flex-direction:column; gap:3px; background:var(--card,#fff); border:1px solid var(--line); border-radius:10px; padding:8px; }
+  .mt-tab{ text-align:left; background:transparent; color:var(--fg); font-weight:600; font-size:13.5px; padding:9px 12px; border-radius:7px; }
+  .mt-tab:hover{ background:var(--accent-soft); opacity:1; }
+  .mt-tab.active{ background:var(--accent); color:#fff; }
+  .mt-body{ min-width:0; }
+  .mt-body > .mt-sec-card{ margin-top:0; overflow-x:auto; }
+  .mt-body details.mt-sec > summary{ list-style:none; pointer-events:none; cursor:default; font-size:17px; font-weight:700; color:var(--fg); margin-bottom:6px; }
+  .mt-body details.mt-sec > summary::-webkit-details-marker{ display:none; }
+  .mt-body details.mt-sec > summary::marker{ content:''; }
+  @media (max-width: 760px){
+    .mt-layout{ display:block; }
+    .mt-nav{ position:static; flex-direction:row; overflow-x:auto; margin-bottom:10px; padding:6px; }
+    .mt-tab{ white-space:nowrap; flex:0 0 auto; padding:8px 10px; }
+  }
   .row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
   table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   th, td{ border:1px solid var(--line); padding:6px 8px; text-align:center; }
@@ -1123,7 +1139,7 @@
   .dropzone.dragover{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .dropzone .fname{ font-weight:700; color:var(--ink); margin-top:4px; }
 </style>
-<script src="assets/icons.js?v=20261119"></script>
+<script src="assets/icons.js?v=20261124"></script>
 </head>
 <body style="margin:0;">
 <div id="load-fail-banner" role="alert">⚠ 서버에서 일부 데이터를 불러오지 못했습니다. 기존 데이터 보호를 위해 해당 항목은 저장되지 않습니다 — 인터넷 연결을 확인하고 새로고침해 주세요.<button type="button" onclick="location.reload()">새로고침</button></div>
@@ -5006,6 +5022,61 @@ function applyUserUI() {
   };
 })();
 
+// ── 🗂 기준정보: 하위 메뉴를 왼쪽 목록으로, 고른 칸만 오른쪽에 ──
+//  각 칸은 원래의 접는 상자(details)를 그대로 쓰고 펼친 채로 보여 줌 → 다른 화면의 '→ 우리 회사 정보' 같은 이동 버튼(상자를 펼침)도 그대로 그 메뉴로 바뀜
+//  고른 메뉴는 이 브라우저에 기억 (localStorage 'master-tab')
+(function(){
+  const panel = document.getElementById('panel-master'); if(!panel) return;
+  const SECS = [
+    ['sku', 'SKU 관리', 'sku-manage-details'],
+    ['items', '원물·부자재·품목 구성', null, 'master-items-card'],
+    ['check', '품목 통합 점검', 'item-check-fold'],
+    ['company', '매출처 정보', 'company-manage-details'],
+    ['vendor', '구매처 정보', 'pv-fold'],
+    ['ourco', '우리 회사 정보', 'our-co-fold'],
+    ['spco', '관계사 정보', 'sp-co-fold'],
+    ['price', '단가 설정', 'price-manage-details'],
+    ['fee', '서비스 품목', 'fee-manage-details']
+  ];
+  const secs = SECS.map(([k, label, did, cid]) => {
+    const d = did ? document.getElementById(did) : null;
+    const card = d ? d.closest('.card') : (cid ? document.getElementById(cid) : null);
+    return card && panel.contains(card) ? { k, label, d, card } : null;
+  }).filter(Boolean);
+  if(secs.length < 2) return;
+  const wrap = document.createElement('div'); wrap.className = 'mt-layout';
+  const nav = document.createElement('nav'); nav.className = 'mt-nav'; nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', '기준정보 메뉴');
+  const body = document.createElement('div'); body.className = 'mt-body';
+  wrap.append(nav, body);
+  secs[0].card.parentNode.insertBefore(wrap, secs[0].card);
+  let cur = '', ready = false;
+  function show(k, opt){
+    const s = secs.find(x => x.k === k) || secs[0]; cur = s.k;
+    secs.forEach(x => { const on = x === s; x.card.style.display = on ? '' : 'none'; x.btn.classList.toggle('active', on); x.btn.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    if(ready && s.d && !s.d.open) s.d.open = true;   // 펼치면 각 칸의 처음 그리기(toggle) 동작이 그대로 돎
+    try{ localStorage.setItem('master-tab', s.k); }catch(e){}
+    if(opt && opt.scroll){ const top = wrap.getBoundingClientRect().top; if(top < 0) wrap.scrollIntoView({ block: 'start' }); }
+  }
+  secs.forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mt-tab'; b.textContent = s.label; b.setAttribute('role', 'tab');
+    b.addEventListener('click', () => show(s.k, { scroll: true }));
+    nav.appendChild(b); s.btn = b;
+    s.card.classList.add('mt-sec-card'); body.appendChild(s.card);
+    if(s.d){
+      s.d.classList.add('mt-sec');
+      // 다른 곳에서 이 상자를 펼치면(이동 버튼 등) 그 메뉴로 바꿈. 메뉴 칸은 접히지 않게
+      s.d.addEventListener('toggle', () => { if(!ready) return; if(s.d.open && cur !== s.k) show(s.k); else if(!s.d.open && cur === s.k) s.d.open = true; });
+    }
+  });
+  let saved = ''; try{ saved = localStorage.getItem('master-tab') || ''; }catch(e){}
+  show(secs.some(x => x.k === saved) ? saved : secs[0].k);
+  // 처음 기준정보를 열 때 고른 칸을 펼침 (각 칸의 그리기 코드가 다 준비된 뒤)
+  const navBtn = document.getElementById('main-nav-btn-master');
+  const activate = () => { if(!ready){ ready = true; show(cur); } };
+  if(navBtn) navBtn.addEventListener('click', activate);
+  if(panel.classList.contains('active')) setTimeout(activate, 0);
+})();
+
 // ── 홈 화면 (프로그램 타일) ──
 //  - nav: 기존 상단 탭 버튼(숨김 처리됨)의 선택자. 그 버튼이 화면에 보이는(=권한 있는) 경우에만 타일을 보여주고, 누르면 그 버튼을 눌러 이동한다.
 //  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
@@ -5013,7 +5084,7 @@ function applyUserUI() {
 const HOME_TILES = [
   { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20261117a' },
   { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
-  { key: 'lab', icon: '🔬', name: '연구소', desc: '연구소 의뢰 샘플 · 연구비 비용', nav: '#main-nav-btn-lab' },   // 관리자 + 허용한 직원만
+  { key: 'lab', icon: '🔬', img: 'assets/ic-lab.png', name: '연구소', desc: '연구소 의뢰 샘플 · 연구비 비용', nav: '#main-nav-btn-lab' },   // 관리자 + 허용한 직원만
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'mat', icon: '🗃', img: 'assets/ic-mat.png', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
