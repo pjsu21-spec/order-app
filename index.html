@@ -5665,12 +5665,20 @@ function applyUserUI() {
     try{ cur = (await kvGet(K_CODE)) || {}; }catch(e){ toastE('ERP 코드를 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
     const map = Object.assign({}, cur.map || {});
     Object.entries(patch).forEach(([k, v]) => { if(v) map[k] = Object.assign({}, v, { at: Date.now(), by: who() }); else delete map[k]; });
+    // '코드만 등록'(erp:코드) 줄과 같은 코드를 품목에 지정 → 그 품목으로 옮기고 코드만 줄은 지움
+    Object.entries(patch).forEach(([k, v]) => {
+      if(!v || isFree(k)) return;
+      const fk = FREE + up(v.code), f = map[fk];
+      if(f && fk !== k){ map[k] = Object.assign({ name: f.name, spec: f.spec, old: f.old }, map[k]); ['name', 'spec', 'old'].forEach(x => { if(!map[k][x] && f[x]) map[k][x] = f[x]; }); delete map[fk]; }
+    });
     try{ await window.storage.set(K_CODE, JSON.stringify({ map, at: Date.now(), by: who() }), true); }
     catch(e){ toastE('ERP 코드를 저장하지 못했습니다: ' + ((e && e.message) || e)); return false; }
     E.map = map; writeLog('erp_code', msg).catch(() => {});
     return true;
   }
-  const dupOf = (code, exceptKey) => { code = up(code); if(!code) return null; const hit = Object.entries(E.map || {}).find(([k, v]) => k !== exceptKey && up(v.code) === code); return hit ? (E.items || []).find(i => i.key === hit[0]) || { name: hit[0] } : null; };
+  const FREE = 'erp:', isFree = k => String(k).startsWith(FREE);   // 품목과 연결하지 않고 코드만 등록한 줄: map['erp:코드'] = { code, name, spec, old, free: true }
+  const freeRows = () => Object.entries(E.map || {}).filter(([k]) => isFree(k)).map(([k, v]) => Object.assign({ key: k }, v));
+  const dupOf = (code, exceptKey) => { code = up(code); if(!code) return null; const hit = Object.entries(E.map || {}).find(([k, v]) => k !== exceptKey && !isFree(k) && up(v.code) === code); return hit ? (E.items || []).find(i => i.key === hit[0]) || { name: hit[0] } : null; };
 
   // ── 화면 ──
   function render(){
@@ -5782,17 +5790,20 @@ function applyUserUI() {
   function renderItems(){
     const adm = isAdminU(), q = norm(E.q);
     const rows = (E.items || []).filter(i => !q || norm(i.name + i.code + ((E.map[i.key] || {}).code || '')).includes(q));
-    const done = (E.items || []).filter(i => E.map[i.key]).length;
+    const done = (E.items || []).filter(i => E.map[i.key]).length, frees = freeRows(), fq = frees.filter(f => !q || norm((f.name || '') + (f.spec || '') + (f.old || '') + f.code).includes(q));
     let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
       ${adm ? '<label class="btn-primary small-btn" style="cursor:pointer;">📂 코드 리스트 엑셀 업로드<input type="file" id="erp-up-file" accept=".xlsx,.xls" style="display:none;"></label>' : ''}
       <button type="button" class="btn-ghost small-btn" id="erp-xls">📥 코드표 엑셀 받기</button>
       <input type="search" id="erp-q" placeholder="품목·코드 검색" value="${esc(E.q)}" style="width:170px;">
-      <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정 · 이카운트 품목코드는 아직 그대로 (전환은 이카운트 코드를 바꾸는 날 따로)</span></div>`;
+      <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정${frees.length ? ` · 코드만 등록 ${frees.length}개` : ''} · 이카운트 품목코드는 아직 그대로 (전환은 이카운트 코드를 바꾸는 날 따로)</span></div>`;
     if(E.up) h += renderUpload();
     h += `<div style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
       return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}</td>
         <td>${adm ? `<input type="text" class="erp-in" value="${esc(m ? m.code : '')}" maxlength="12" placeholder="—">` : `<span class="erp-code">${esc(m ? m.code : '')}</span>`}</td>
-        <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
+        <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}${fq.map(f => { const ck = check(f.code), free = (E.items || []).filter(i => !E.map[i.key]);
+      return `<tr data-free="${esc(f.key)}" style="background:#fffaf0;"><td>코드만<div class="sub" style="margin:0;font-size:11px;">품목 연결 전</div></td><td>${esc(f.name || '')}${f.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(f.spec)}</div>` : ''}${adm ? `<div style="margin-top:3px;"><select class="erp-link" style="max-width:260px;"><option value="">— 품목과 연결 —</option>${free.map(i => `<option value="${esc(i.key)}">[${esc(i.type)}] ${esc(i.name)}</option>`).join('')}</select> <button type="button" class="btn-ghost small-btn erp-free-del" title="이 코드 지우기">✕</button></div>` : ''}</td>
+        <td class="erp-code">${esc(f.old || '')}${f.old ? '<div class="sub" style="margin:0;font-size:11px;">변경 전 코드</div>' : ''}</td><td><span class="erp-code">${esc(f.code)}</span></td>
+        <td>${ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
     return h;
   }
   function bindItems(){
@@ -5800,6 +5811,7 @@ function applyUserUI() {
     $('erp-q').addEventListener('input', e => { E.q = e.target.value; clearTimeout(E.qt); E.qt = setTimeout(() => { render(); const el = $('erp-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
     $('erp-xls').addEventListener('click', () => {
       const ws = XLSX.utils.aoa_to_sheet([['구분', '품목명', '지금 코드(이카운트)', 'ERP CODE', 'ERP 품명', 'ERP 규격', '검사'], ...(E.items || []).map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null; return [i.type, i.name, i.code, m ? m.code : '', m ? m.name || '' : '', m ? m.spec || '' : '', !m ? '' : ck.ok && !ck.warn.length ? 'OK' : ck.err.concat(ck.warn).join(' / ')]; })]);
+      XLSX.utils.sheet_add_aoa(ws, freeRows().map(f => { const ck = check(f.code); return ['코드만(품목 연결 전)', '', f.old || '', f.code, f.name || '', f.spec || '', ck.ok && !ck.warn.length ? 'OK' : ck.err.concat(ck.warn).join(' / ')]; }), { origin: -1 });
       ws['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 18 }, { wch: 16 }, { wch: 30 }, { wch: 40 }, { wch: 30 }];
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ERP 코드'); XLSX.writeFile(wb, `ERP_코드표_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`);
     });
@@ -5809,6 +5821,19 @@ function applyUserUI() {
       if(await saveMap({ [key]: c ? Object.assign({}, E.map[key] || {}, { code: c }) : null }, `ERP 코드 ${c ? '지정' : '삭제'}: ${it.name}${c ? ' → ' + c : ''}`)) render();
     }));
     const f = $('erp-up-file'); if(f) f.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; e.target.value = ''; if(file) readUpload(file); });
+    box.querySelectorAll('tr[data-free]').forEach(tr => {
+      const fk = tr.dataset.free, fv = E.map[fk]; if(!fv) return;
+      const sel = tr.querySelector('select.erp-link'), del = tr.querySelector('.erp-free-del');
+      if(sel) sel.addEventListener('change', async () => {
+        const it = E.items.find(i => i.key === sel.value); if(!it) return;
+        if(!confirm(`${fv.code} (${fv.name || ''})\n→ ${it.name}에 연결할까요?`)){ sel.value = ''; return; }
+        if(await saveMap({ [it.key]: { code: fv.code, name: fv.name, spec: fv.spec, old: fv.old } }, `ERP 코드 연결: ${fv.code} → ${it.name}`)){ toastE(`${it.name} → ${fv.code}`); render(); }
+      });
+      if(del) del.addEventListener('click', async () => {
+        if(!confirm(`코드만 등록한 ${fv.code} (${fv.name || ''})를 지울까요?`)) return;
+        if(await saveMap({ [fk]: null }, `ERP 코드 삭제(코드만): ${fv.code}`)) render();
+      });
+    });
     bindUpload();
   }
   // 코드 리스트 엑셀: 'ERP CODE · 품명 · 규격 · 변경 전 코드' (신규 코드 리스트) 또는 '품목코드 … 변경 코드' (재고현황) 시트를 찾아 읽음
@@ -5848,9 +5873,13 @@ function applyUserUI() {
         if(!it && r.name){ const nn = norm(r.name); const c = E.items.filter(i => !used.has(i.key) && nn.length >= 2 && (norm(i.name).includes(nn) || nn.includes(norm(i.name)))); if(c.length === 1){ it = c[0]; how = '이름 비슷'; } }
         if(it){ r.key = it.key; r.how = how; used.add(it.key); }
       });
-      E.up = { file: file.name, rows }; render();
+      E.up = { file: file.name, rows, free: true }; render();
     };
     rd.readAsArrayBuffer(file);
+  }
+  function upFreeRows(){
+    const seen = new Set(), taken = new Set((E.up ? E.up.rows : []).filter(r => r.key).map(r => r.code));
+    return (E.up ? E.up.rows : []).filter(r => { if(r.key || taken.has(r.code) || seen.has(r.code) || dupOf(r.code)) return false; seen.add(r.code); return true; });
   }
   function renderUpload(){
     const U = E.up, codes = {};
@@ -5858,9 +5887,11 @@ function applyUserUI() {
     const st = r => { const ck = check(r.code), dupF = codes[r.code] > 1, dupS = dupOf(r.code, r.key); return { ck, dup: dupF ? '파일 안에서 중복' : dupS ? `이미 ${dupS.name}에 지정됨` : '' }; };
     const n = { ok: 0, nok: 0, err: 0 };
     U.rows.forEach(r => { const s = st(r); if(!r.key) n.nok++; else if(!s.ck.ok || s.dup) n.err++; else n.ok++; });
+    const fr = upFreeRows(), nGo = U.rows.filter(r => r.key).length + (U.free ? fr.length : 0);
     return `<div class="erp-up"><div class="row" style="margin:0 0 6px;align-items:center;"><b>📂 ${esc(U.file)}</b><span class="sub" style="margin:0;">${U.rows.length}줄 · 품목 맞춤 ${U.rows.filter(r => r.key).length} · 못 찾음 ${n.nok} · 규칙 오류/중복 ${n.err}</span>
-      <button type="button" class="btn-primary small-btn" id="erp-up-apply">맞춘 ${U.rows.filter(r => r.key).length}개 적용</button><button type="button" class="btn-ghost small-btn" id="erp-up-cancel">취소</button></div>
-      <div class="sub" style="margin:0 0 6px;">품목은 '변경 전 코드 = 지금 코드' → 같은 이름 순으로 자동으로 맞춥니다. 못 찾은 줄은 오른쪽에서 직접 고르세요. 규칙 오류가 있는 코드도 적용은 되고 표에 표시됩니다.</div>
+      <label class="sub" style="margin:0;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="erp-up-free"${U.free ? ' checked' : ''}> 못 찾은 ${fr.length}개는 코드만 등록 (품목은 나중에 연결)</label>
+      <button type="button" class="btn-primary small-btn" id="erp-up-apply">${nGo}개 적용</button><button type="button" class="btn-ghost small-btn" id="erp-up-cancel">취소</button></div>
+      <div class="sub" style="margin:0 0 6px;">품목은 '변경 전 코드 = 지금 코드' → 같은 이름 순으로 자동으로 맞춥니다. 못 찾은 줄은 오른쪽에서 직접 고르거나, 코드만 등록해 두고 나중에 품목과 연결하세요 (시스템에 아직 없는 원자재 등). 규칙 오류가 있는 코드도 적용은 되고 표에 표시됩니다.</div>
       <div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>ERP CODE</th><th>품명 · 규격</th><th>변경 전 코드</th><th>검사</th><th>맞출 품목</th></tr></thead><tbody>${U.rows.map((r, i) => { const s = st(r);
         return `<tr><td class="erp-code">${esc(r.code)}</td><td>${esc(r.name)}${r.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.spec)}</div>` : ''}</td><td class="erp-code">${esc(r.old)}</td>
           <td>${s.dup ? `<span class="erp-err">❌ ${esc(s.dup)}</span>` : ''}${s.ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ')}${s.ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}${!s.dup && s.ck.ok && !s.ck.warn.length ? '<span class="erp-ok">✅</span>' : ''}</td>
@@ -5871,13 +5902,15 @@ function applyUserUI() {
     const box = $('erp-body');
     box.querySelectorAll('select[data-up]').forEach(s => s.addEventListener('change', () => { const r = E.up.rows[Number(s.dataset.up)]; E.up.rows.forEach(x => { if(x !== r && x.key === s.value) { x.key = ''; x.how = ''; } }); r.key = s.value; r.how = s.value ? '직접 고름' : ''; render(); }));
     $('erp-up-cancel').addEventListener('click', () => { E.up = null; render(); });
+    $('erp-up-free').addEventListener('change', e => { E.up.free = e.target.checked; render(); });
     $('erp-up-apply').addEventListener('click', async () => {
-      const go = E.up.rows.filter(r => r.key);
-      if(!go.length){ toastE('맞춘 품목이 없습니다'); return; }
+      const go = E.up.rows.filter(r => r.key), fr = E.up.free ? upFreeRows() : [];
+      if(!go.length && !fr.length){ toastE('맞춘 품목이 없습니다 — 못 찾은 줄을 코드만 등록하려면 체크를 켜세요'); return; }
       const over = go.filter(r => E.map[r.key] && up(E.map[r.key].code) !== r.code);
-      if(!confirm(`${go.length}개 품목에 ERP 코드를 지정합니다.${over.length ? `\n이미 다른 코드가 있는 ${over.length}개는 새 코드로 바뀝니다.` : ''}\n\n이카운트 품목코드는 그대로입니다. 적용할까요?`)) return;
+      if(!confirm(`${go.length ? `${go.length}개 품목에 ERP 코드를 지정합니다.` : ''}${over.length ? `\n이미 다른 코드가 있는 ${over.length}개는 새 코드로 바뀝니다.` : ''}${fr.length ? `\n품목을 못 찾은 ${fr.length}개는 코드만 등록합니다 (나중에 품목과 연결).` : ''}\n\n이카운트 품목코드는 그대로입니다. 적용할까요?`)) return;
       const patch = {}; go.forEach(r => { patch[r.key] = { code: r.code, name: r.name, spec: r.spec, old: r.old }; });
-      if(await saveMap(patch, `ERP 코드 일괄 업로드: ${E.up.file} (${go.length}개)`)){ toastE(`${go.length}개 품목에 ERP 코드를 지정했습니다`); E.up = null; render(); }
+      fr.forEach(r => { patch[FREE + r.code] = { code: r.code, name: r.name, spec: r.spec, old: r.old, kind: r.kind || '', free: true }; });
+      if(await saveMap(patch, `ERP 코드 일괄 업로드: ${E.up.file} (품목 ${go.length}개 · 코드만 ${fr.length}개)`)){ toastE(`품목 ${go.length}개 지정 · 코드만 ${fr.length}개 등록했습니다`); E.up = null; render(); }
     });
   }
 
