@@ -464,10 +464,13 @@
   .ib-box{ border:1px solid var(--line, #e5e7eb); border-radius:10px; padding:8px 10px; margin:0 0 10px; background:var(--bg-soft, #fafafa); }
   .ib-box .ib-hd{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; }
   .ib-box .ib-list{ margin-top:6px; display:flex; flex-direction:column; gap:4px; }
-  .ib-box .ib-it{ display:flex; align-items:center; gap:8px; font-size:12.5px; background:#fff; border:1px solid var(--line, #e5e7eb); border-radius:8px; padding:4px 8px; }
+  .ib-box .ib-it{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; font-size:12.5px; background:#fff; border:1px solid var(--line, #e5e7eb); border-radius:8px; padding:4px 8px; }
+  .ib-box .ib-it > button{ white-space:nowrap; }
+  .ib-box .ib-meta{ order:20; flex:1 1 100%; display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding-left:24px; }
+  .ib-box .ib-meta:empty{ display:none; }
   .ib-box .ib-it.done{ opacity:.65; }
   .ib-box .ib-src{ font-size:11px; color:var(--muted); white-space:nowrap; }
-  .ib-box .ib-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .ib-box .ib-nm{ flex:1 1 160px; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   .ib-box .ib-t{ font-size:11px; color:var(--muted); white-space:nowrap; }
   .ib-box .ib-done{ font-size:11px; color:#15803d; white-space:nowrap; }
   .ib-box .ib-it.dup, .ib-box .ib-it.dup-part{ border-color:#f59e0b; background:#fffbeb; }
@@ -10981,7 +10984,7 @@ function mnShow(id, keepScroll) {
     let body = '';
     if(list.length){
       const opts = '<option value="">(업체 선택)</option>' + ibMapped().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(companyDisplayName(c))}</option>`).join('');
-      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const img = ibIsImg(x); const chk = img ? false : (ibChk.has(x.key) ? ibChk.get(x.key) : !d); return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder && !img ? '' : ' disabled'} title="${img ? '이미지는 [열기]로 읽습니다' : '한 번에 불러오기에 넣기'}">${img ? '<span class="ib-co" style="font-size:12px;color:var(--muted);">🖼 발주표 이미지</span>' : `<select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select>`}<span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done" title="이 PC에서 이 파일을 불러온 시각">이 PC 불러온 시각 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const img = ibIsImg(x); const chk = img ? false : (ibChk.has(x.key) ? ibChk.get(x.key) : !d); return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder && !img ? '' : ' disabled'} title="${img ? '이미지는 [열기]로 읽습니다' : '한 번에 불러오기에 넣기'}">${img ? '<span class="ib-co" style="font-size:12px;color:var(--muted);">🖼 발주표 이미지</span>' : `<select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select>`}<span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span><span class="ib-meta">${d ? `<span class="ib-done" title="이 PC에서 이 파일을 불러온 시각">이 PC 불러온 시각 ${t(d)}</span>` : ''}</span><button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
       if(canOrder) body += `<div class="ib-bar"><button type="button" class="btn-primary small-btn" data-ib="batch">✅ 체크한 파일 한 번에 불러오기</button><span class="sub" style="margin:0;">업체가 골라진 파일은 저장된 양식(매핑)으로 바로 불러옵니다. 겹치는 주문은 자동으로 빠집니다</span></div>`;
     } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
     else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
@@ -11186,7 +11189,7 @@ function mnShow(id, keepScroll) {
         const st = info.state || (info.all ? 'all' : 'part');
         el.classList.remove('dup', 'dup-all', 'dup-part');
         if(st !== 'none') el.classList.add(st === 'all' ? 'dup-all' : 'dup-part');
-        let b = el.querySelector('.ib-dup'); if(!b){ b = document.createElement('span'); el.querySelector('.ib-nm').after(b); }
+        let b = el.querySelector('.ib-dup'); if(!b){ b = document.createElement('span'); const meta = el.querySelector('.ib-meta'); if(meta) meta.prepend(b); else el.querySelector('.ib-nm').after(b); }
         b.className = 'ib-dup ' + st;
         b.textContent = (st === 'all' ? '✅ ' : st === 'part' ? '⚠ ' : '') + info.text;
         b.title = st === 'all' ? `${info.company} — 이 파일의 주문은 이미 발주서에 들어가 있습니다 (다른 직원이 불러온 경우 포함)` : st === 'part' ? `${info.company} — 새 주문만 발주서에 더해지고, 이미 들어간 주문은 자동으로 빠집니다` : `${info.company} — 아직 발주서에 들어가지 않은 파일입니다`;
