@@ -1437,6 +1437,7 @@
       <div class="row" style="margin-top:0;align-items:center;gap:8px;flex-wrap:wrap;">
         <span id="agg-board-meta" class="sub" style="margin:0;">불러오는 중…</span>
         <button type="button" class="btn-ghost small-btn" id="agg-board-refresh">🔄 새로고침</button>
+        <button type="button" class="btn-ghost small-btn" id="agg-rs-btn" title="납품담당으로 고른 기사님별 운행표 (이미지 · 엑셀 · 인쇄)">🚚 운행표</button>
         <label class="sub" style="margin:0;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="agg-board-fit" checked> 화면 폭에 맞추기</label>
         <span class="sub" style="margin:0;">파란 테두리가 생기는 칸은 눌러서 바로 고칠 수 있습니다 (Enter 저장 · Esc 취소). 잠긴 칸은 마우스를 올리면 어디서 고치는지 나옵니다</span>
       </div>
@@ -1524,6 +1525,7 @@
       <button class="btn-ghost small-btn" id="pg-xlsx-btn" title="서식 파일 없이 프로그램이 지금 서식과 같은 모양으로 발주취합 엑셀을 만듭니다 (시험 중 — 기존 다운로드와 숫자가 같은지 비교해 주세요). 출력·공유용이라 수식 없이 값만 들어갑니다">🆕 새 방식 다운로드 (시험)</button>
       <button class="btn-ghost small-btn" id="pg-img-btn" title="발주서를 이미지로 만들어 복사·저장·공유합니다 (단체 카톡방 공유용)">🖼 공유용 이미지</button>
       <button class="btn-ghost small-btn" id="pg-print-btn" title="발주서를 A4 가로 한 장 폭에 맞춰 바로 인쇄합니다">🖨 인쇄</button>
+      <button class="btn-ghost small-btn" id="rs-btn" title="고정 기사님 운행표 — 배차·적재에서 그 기사님으로 고른 업체만 모아 이미지 · 엑셀 · 인쇄">🚚 운행표</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
       <button class="btn-ghost small-btn" id="po-draft-save-btn" title="지금 상태를 초안 공유본으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명 칸이 노란색으로 표시됩니다">📌 초안 공유본으로 저장</button>
       <button class="btn-ghost small-btn" id="po-draft-clear-btn" style="display:none;" title="저장된 초안 공유본을 해제합니다">초안 해제</button>
@@ -9558,7 +9560,7 @@ function mnShow(id, keepScroll) {
         const kind = sb.kind;
         const cat = kind === 'doma' || (kind === 'jik' && sb.label === '오프라인') ? '오프라인' : kind === 'tpl' ? '3PL' : (sb.label || '');
         const name = kind === 'tpl' ? (x.parcel ? x.name : (x.label || '')) : x.name;
-        rows.push({ key: 'g' + (n++), cat, region: kind === 'smp' ? (x.group || '') : (x.region || ''), name, qty: x.qty, boxes: x.boxes, changed: x.changed, market: x.market || '', p: x.plan, raw: { driver: x.plan.driver || '', load: x.plan.load || '' } });
+        rows.push({ key: 'g' + (n++), cat, region: kind === 'smp' ? (x.group || '') : (x.region || ''), name, qty: x.qty, boxes: x.boxes, changed: x.changed, market: x.market || '', p: x.plan, raw: { driver: x.plan.driver || '', load: x.plan.load || '' }, note: x.plan.note || '', corp: x.corp || '' });
         const type = kind === 'tpl' ? (x.parcel ? 'psmp' : x.qc ? 'other' : 'tpl') : kind === 'smp' ? (x.name === QC_ENTRY_NAME ? 'qc' : 'smp') : 'co';
         metas.push({ type, company: x.name, key: x._key || x.name, part: !!x._part, split: !!((splitByDate[dk] || {})[x.name] || []).length, cq: x.qty || {} });
       }));
@@ -21472,8 +21474,147 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     };
     paint();
   }
+  // ══════════════════ 🚚 운행표 (고정 기사님께 보내는 표) ══════════════════
+  //  배차·적재(현황판 형태)에서 납품담당을 그 기사님으로 고른 업체만 · 그날 실린 품목 열만 · 기사님별 동선 순서대로
+  //  업체명(시장 · 업체 · 상장청과) / 품목별 박스 / 합계 / 파렛트(=적재방식) / 특이사항(=비고), 맨 위에 기사님 · 'N파렛트 / 까대기 M박스'
+  //  동선 순서: kv 'ship-plan-routes' = { 기사: [하차지(시장, 없으면 업체명) 순서] } — 생산/물류 전체 권한이 고침, 새 하차지는 뒤에 붙음
+  const RS_KEY = 'ship-plan-routes';
+  let rsRoutes = null;
+  async function rsLoadRoutes(){ try{ const r = await window.storage.get(RS_KEY, true); const v = r && r.value ? JSON.parse(r.value) : null; rsRoutes = v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }catch(e){ rsRoutes = rsRoutes || {}; } return rsRoutes; }
+  const rsStop = x => String(x.market || x.region || x.name || '').trim();
+  const rsR2 = v => Math.round((Number(v) || 0) * 100) / 100;
+  const rsFmt = v => { const r = rsR2(v); return r ? (Number.isInteger(r) ? String(r) : String(r)) : ''; };
+  const rsPal = load => { const lm = /^(일회용|KPP)\s*(?:\*\s*(\d+))?$/i.exec(String(load || '').trim()); return lm ? (lm[2] ? Number(lm[2]) : 1) : 0; };
+  function rsDrivers(m){
+    const set = new Set();
+    m.blocks.forEach(b => b.rows.forEach(x => { const d = String(x.raw.driver || '').trim(); if(d) set.add(d); }));
+    (m.dispatch || []).forEach(x => { const d = String((x.p && x.p.driver) || '').trim(); if(d) set.add(d); });
+    const ord = new Map(shipPlanOpts.drivers.map((x, i) => [x, i]));
+    return [...set].sort((a, b) => (ord.has(a) ? ord.get(a) : 1e6) - (ord.has(b) ? ord.get(b) : 1e6) || a.localeCompare(b, 'ko'));
+  }
+  function rsBuild(m, drv){
+    const rows = [];
+    m.blocks.forEach(b => b.rows.forEach(x => { if(String(x.raw.driver || '').trim() === drv) rows.push({ market: x.market || '', region: x.region || '', corp: x.corp || '', name: x.name || '', qty: x.qty || {}, boxes: x.boxes, load: x.raw.load || '', note: x.note || '' }); }));
+    (m.dispatch || []).forEach(x => { if(String((x.p && x.p.driver) || '').trim() === drv) rows.push({ market: '', region: x.warehouse || '', corp: '', name: x.name || '', qty: x.qty || {}, boxes: null, load: (x.p && x.p.load) || '', note: [x.ship ? x.ship + ' 출고' : '', (x.p && x.p.note) || ''].filter(Boolean).join(' / ') }); });
+    const order = (rsRoutes && rsRoutes[drv]) || [];
+    const rank = s => { const i = order.indexOf(s); return i < 0 ? 1e6 : i; };
+    rows.forEach((r, i) => { r._i = i; });
+    rows.sort((a, b) => rank(rsStop(a)) - rank(rsStop(b)) || a._i - b._i);
+    const cols = m.cols.filter(c => rows.some(r => (Number(r.qty[c.L]) || 0) > 0));
+    rows.forEach(r => { r.sum = rsR2(cols.reduce((a, c) => a + (Number(r.qty[c.L]) || 0), 0)); if(r.boxes == null) r.boxes = r.sum; });
+    const tot = Object.fromEntries(cols.map(c => [c.L, rsR2(rows.reduce((a, r) => a + (Number(r.qty[c.L]) || 0), 0))]));
+    const sum = rsR2(rows.reduce((a, r) => a + r.sum, 0));
+    const pallets = rows.reduce((a, r) => a + rsPal(r.load), 0);
+    const ggd = rsR2(rows.filter(r => String(r.load).trim() === '까대기').reduce((a, r) => a + (r.boxes || 0), 0));
+    const stops = [...new Set(rows.map(rsStop).filter(Boolean))];
+    // 품목 이름: 같은 이름이 여러 묶음에 있으면 묶음 이름을 붙임
+    const dup = {}; cols.forEach(c => { dup[c.header] = (dup[c.header] || 0) + 1; });
+    const label = c => dup[c.header] > 1 && c.group ? `${c.header} (${c.group})` : c.header;
+    return { drv, rows, cols, tot, sum, pallets, ggd, stops, label };
+  }
+  const rsSummary = d => [d.pallets ? `${d.pallets}파렛트` : '', d.ggd ? `까대기 ${rsFmt(d.ggd)}박스` : ''].filter(Boolean).join(' / ') || `${rsFmt(d.sum)}박스`;
+  const rsDateText = dk => { const [y, mo, da] = dk.split('-').map(Number); return `${y}/${String(mo).padStart(2, '0')}/${String(da).padStart(2, '0')} (${PO_DAYS[new Date(y, mo - 1, da).getDay()]})`; };
+  const RS_CSS = `.rs-sheet{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111;background:#fff;display:inline-block;}
+    .rs-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:6px;}
+    .rs-date{font-size:15px;font-weight:700;}
+    .rs-drv{border:2px solid #111;padding:6px 14px;text-align:center;min-width:220px;}
+    .rs-drv b{font-size:18px;display:block;}
+    .rs-drv span{font-size:14px;font-weight:700;color:#c0392b;}
+    .rs-tbl{border-collapse:collapse;font-size:13px;}
+    .rs-tbl th,.rs-tbl td{border:1px solid #333;padding:5px 7px;}
+    .rs-tbl th{background:#e9e9e9;font-weight:700;text-align:center;white-space:nowrap;}
+    .rs-tbl td.n{text-align:right;min-width:52px;}
+    .rs-tbl td.s{text-align:right;font-weight:700;background:#fafafa;}
+    .rs-tbl td.mk{font-weight:700;text-align:center;background:#f6f6f6;white-space:nowrap;}
+    .rs-tbl td.nm{white-space:nowrap;}
+    .rs-tbl td.ld{text-align:center;white-space:nowrap;}
+    .rs-tbl td.nt{min-width:180px;}
+    .rs-tbl tr.rs-tot td{font-weight:800;background:#e9e9e9;}`;
+  function rsHtml(d, dk){
+    const e = escapeHtml;
+    const head = `<tr><th colspan="3">업체명</th>${d.cols.map(c => `<th>${e(d.label(c))}</th>`).join('')}<th>합계</th><th>파렛트</th><th>특이사항</th></tr>`;
+    let body = '';
+    d.rows.forEach((r, i) => {
+      const mk = r.market || r.region || '';
+      const first = i === 0 || (d.rows[i - 1].market || d.rows[i - 1].region || '') !== mk;
+      let span = 1; if(first){ for(let j = i + 1; j < d.rows.length && (d.rows[j].market || d.rows[j].region || '') === mk; j++) span++; }
+      body += `<tr>${first ? `<td class="mk" rowspan="${span}">${e(mk)}</td>` : ''}<td class="nm">${e(r.name)}</td><td class="nm">${e(r.corp)}</td>${d.cols.map(c => `<td class="n">${rsFmt(r.qty[c.L])}</td>`).join('')}<td class="s">${rsFmt(r.sum)}</td><td class="ld">${e(r.load)}</td><td class="nt">${e(r.note)}</td></tr>`;
+    });
+    body += `<tr class="rs-tot"><td colspan="3" style="text-align:center;">합계</td>${d.cols.map(c => `<td class="n">${rsFmt(d.tot[c.L])}</td>`).join('')}<td class="n">${rsFmt(d.sum)}</td><td colspan="2"></td></tr>`;
+    return `<div class="rs-sheet"><div class="rs-top"><div class="rs-date">${e(rsDateText(dk))}</div><div class="rs-drv"><b>${e(d.drv)}${/기사/.test(d.drv) ? '' : ' 기사님'}</b><span>${e(rsSummary(d))}</span></div></div><table class="rs-tbl"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+  function rsXlsx(d, dk){
+    if(typeof XLSX === 'undefined'){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const nC = d.cols.length, W = 3 + nC + 3;
+    const A = [], M = [], blank = () => new Array(W).fill('');
+    const r0 = blank(); r0[W - 2] = `${d.drv}${/기사/.test(d.drv) ? '' : ' 기사님'}\n\n${rsSummary(d)}`; A.push(r0); M.push({ s: { r: 0, c: W - 2 }, e: { r: 0, c: W - 1 } });
+    const r1 = blank(); r1[0] = rsDateText(dk); A.push(r1);
+    A.push(['업체명', '', '', ...d.cols.map(c => d.label(c)), '합계', '파렛트', '특이사항']); M.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
+    const start = A.length;
+    d.rows.forEach((r, i) => {
+      const mk = r.market || r.region || '';
+      const first = i === 0 || (d.rows[i - 1].market || d.rows[i - 1].region || '') !== mk;
+      A.push([first ? mk : '', r.name, r.corp, ...d.cols.map(c => rsR2(r.qty[c.L]) || ''), r.sum, r.load, r.note]);
+      if(first){ let j = i + 1; while(j < d.rows.length && (d.rows[j].market || d.rows[j].region || '') === mk) j++; if(j - i > 1) M.push({ s: { r: start + i, c: 0 }, e: { r: start + j - 1, c: 0 } }); }
+    });
+    const end = A.length - 1;
+    A.push(['', '', '합계', ...d.cols.map(c => d.tot[c.L] || 0), d.sum, '', '']);
+    const ws = XLSX.utils.aoa_to_sheet(A);
+    const enc = (r, c) => XLSX.utils.encode_cell({ r, c }), colL = c => XLSX.utils.encode_col(c);
+    for(let r = start; r <= end; r++){ const a = enc(r, 3 + nC); ws[a] = { t: 'n', v: d.rows[r - start].sum, f: nC ? `SUM(${colL(3)}${r + 1}:${colL(2 + nC)}${r + 1})` : undefined }; }
+    for(let c = 3; c <= 3 + nC; c++){ const a = enc(end + 1, c); if(end >= start) ws[a] = { t: 'n', v: ws[a] ? ws[a].v : 0, f: `SUM(${colL(c)}${start + 1}:${colL(c)}${end + 1})` }; }
+    ws['!merges'] = M;
+    ws['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 18 }, ...d.cols.map(() => ({ wch: 10 })), { wch: 9 }, { wch: 14 }, { wch: 34 }];
+    ws['!rows'] = [{ hpt: 48 }];
+    if(ws[enc(0, W - 2)]) ws[enc(0, W - 2)].s = { alignment: { wrapText: true } };
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '운행표');
+    XLSX.writeFile(wb, `${d.drv.replace(/[\\/:*?"<>|\s]+/g, '')}운행표_${dk.slice(2).replace(/-/g, '')}.xlsx`);
+  }
+  // 운행표 창: 기사님 고르기 → 미리보기 · 공유용 이미지 · 엑셀 · 인쇄 · 동선 순서
+  async function rsOpen(){
+    const dk = currentDateKey; if(!dk) return;
+    toast('운행표를 만드는 중...');
+    let m;
+    try{ await rsLoadRoutes(); await spLoad(dk, true); m = (await aggBoardModel(dk)).m; }catch(e){ console.error(e); toast('운행표를 만들지 못했습니다: ' + (e.message || e)); return; }
+    const drvs = rsDrivers(m);
+    if(!drvs.length){ toast('이 날짜에 납품담당(기사님)을 고른 업체가 없습니다. 현황판 형태 또는 배차·적재에서 납품담당을 먼저 고르세요'); return; }
+    const wrap = document.createElement('div');
+    let cur = drvs[0], editRoute = false;
+    const canRoute = window.sectionLevel ? window.sectionLevel('plan') === 'full' : true;
+    const paint = () => {
+      const d = rsBuild(m, cur);
+      wrap.innerHTML = `<div class="row" style="margin:0 0 10px;align-items:center;flex-wrap:wrap;gap:6px;">
+          <span class="sub" style="margin:0;">기사님</span>${drvs.map(x => `<button type="button" class="${x === cur ? 'btn-primary' : 'btn-ghost'} small-btn" data-drv="${escapeHtml(x)}">${escapeHtml(x)}</button>`).join('')}
+          <span class="sub" style="margin:0;">· 업체 ${d.rows.length}곳 · ${escapeHtml(rsSummary(d))}</span>
+          ${canRoute ? `<button type="button" class="btn-ghost small-btn" data-route>${editRoute ? '✓ 순서 고치기 닫기' : '↕ 동선 순서'}</button>` : ''}</div>
+        ${editRoute ? `<div class="rs-route" style="margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--hover,#f6f0ec);"><div class="sub" style="margin:0 0 6px;">하차지 순서를 ▲▼로 바꾸면 이 기사님 운행표가 그 순서로 나옵니다 (다음부터 계속 적용, 새 하차지는 뒤에 붙음)</div>${d.stops.map((s, i) => `<span style="display:inline-flex;align-items:center;gap:2px;margin:2px 8px 2px 0;"><b>${i + 1}. ${escapeHtml(s)}</b><button type="button" class="btn-ghost small-btn" data-mv="${i}:-1"${i ? '' : ' disabled'}>▲</button><button type="button" class="btn-ghost small-btn" data-mv="${i}:1"${i < d.stops.length - 1 ? '' : ' disabled'}>▼</button></span>`).join('')}</div>` : ''}
+        <style>${RS_CSS}</style><div style="overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;">${rsHtml(d, dk)}</div>`;
+      wrap.querySelectorAll('[data-drv]').forEach(b => b.addEventListener('click', () => { cur = b.dataset.drv; paint(); }));
+      const rb = wrap.querySelector('[data-route]'); if(rb) rb.addEventListener('click', () => { editRoute = !editRoute; paint(); });
+      wrap.querySelectorAll('[data-mv]').forEach(b => b.addEventListener('click', async () => {
+        const [i, dir] = b.dataset.mv.split(':').map(Number), st = d.stops.slice(), j = i + dir;
+        [st[i], st[j]] = [st[j], st[i]];
+        const old = (rsRoutes[cur] || []).filter(x => !st.includes(x));
+        rsRoutes[cur] = st.concat(old);
+        try{ await window.storage.set(RS_KEY, JSON.stringify(rsRoutes), true); }catch(err){ toast('동선 순서를 저장하지 못했습니다: ' + (err.message || err)); }
+        paint();
+      }));
+    };
+    paint();
+    const fileBase = () => `${cur.replace(/[\\/:*?"<>|\s]+/g, '')}운행표_${pgDateLabel(dk)}`;
+    pgModal('🚚 운행표 — ' + rsDateText(dk), wrap, [
+      { text: '닫기', fn: c => c() },
+      { text: '📥 엑셀', fn: () => { rsXlsx(rsBuild(m, cur), dk); writeLog('run_sheet', `운행표 엑셀 ${cur} ${dk}`).catch(() => {}); } },
+      { text: '🖨 인쇄', fn: async () => { const d = rsBuild(m, cur); await pgPrint(rsHtml(d, dk), 900, RS_CSS, `${cur} 운행표 ${dk}`); } },
+      { text: '🖼 공유용 이미지', primary: true, fn: async () => { const d = rsBuild(m, cur); try{ await pgCapture(rsHtml(d, dk), Math.max(700, 420 + d.cols.length * 70), fileBase(), RS_CSS); writeLog('run_sheet', `운행표 이미지 ${cur} ${dk}`).catch(() => {}); }catch(e){ toast('이미지를 만들지 못했습니다: ' + (e.message || e)); } } }
+    ]);
+  }
+  window.rsOpen = rsOpen;
+  window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
   (function wirePoGen(){
     const $ = id => document.getElementById(id);
+    if($('rs-btn')) $('rs-btn').addEventListener('click', () => rsOpen());
+    if($('agg-rs-btn')) $('agg-rs-btn').addEventListener('click', () => rsOpen());
     if($('pg-xlsx-btn')) $('pg-xlsx-btn').addEventListener('click', () => pgRun('xlsx'));
     if($('pg-img-btn')) $('pg-img-btn').addEventListener('click', () => pgRun('img'));
     if($('pg-print-btn')) $('pg-print-btn').addEventListener('click', () => pgRun('print'));
