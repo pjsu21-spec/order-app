@@ -470,8 +470,11 @@
   .ib-box .ib-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   .ib-box .ib-t{ font-size:11px; color:var(--muted); white-space:nowrap; }
   .ib-box .ib-done{ font-size:11px; color:#15803d; white-space:nowrap; }
-  .ib-box .ib-it.dup{ border-color:#f59e0b; background:#fffbeb; }
+  .ib-box .ib-it.dup, .ib-box .ib-it.dup-part{ border-color:#f59e0b; background:#fffbeb; }
+  .ib-box .ib-it.dup-all{ border-color:#86efac; background:#f0fdf4; }
   .ib-box .ib-dup{ font-size:11px; font-weight:700; color:#b45309; white-space:nowrap; }
+  .ib-box .ib-dup.all{ color:#15803d; }
+  .ib-box .ib-dup.none{ color:var(--muted); font-weight:600; }
   .ib-box .ib-chk{ margin:0; flex:0 0 auto; }
   .ib-box .ib-co{ flex:0 0 150px; max-width:150px; font-size:12px; padding:2px 4px; }
   .ib-box .ib-co.auto{ border-color:#16a34a; background:#f0fdf4; }
@@ -3034,7 +3037,7 @@
   <li><b>PC</b>(크롬·엣지): <span class="mn-b">📂 카톡 받은 파일 폴더 연결</span>로 한 번 연결해 두면 새 파일이 목록에 자동으로 뜹니다. 브라우저를 다시 열면 <span class="mn-b">📂 폴더 다시 허용 (한 번)</span>, 폴더 이름을 바꿨거나 못 찾으면 <span class="mn-b">📂 폴더 다시 고르기</span>.</li>
   <li><b>업체 자동 선택</b>: 파일 이름에 있는 거래처명으로 업체가 먼저 골라집니다(농업회사법인·주식회사·(주) 같은 법인 형태와 괄호 글자는 빼고 비교). 안 맞으면 드롭다운에서 한 번 골라 주면 다음부터 기억합니다.</li>
   <li><b>여러 파일 한 번에</b>: 파일을 체크하고 위쪽 업체 드롭다운에서 고르면 한꺼번에 매칭됩니다. 주문 파일 양식이 저장된 업체만 매칭되고, 못 맞춘 파일은 팝업으로 알려 줍니다.</li>
-  <li><b>이미 불러온 파일</b>은 목록에 표시됩니다(주문번호가 있는 3PL은 주문번호로, 나머지는 파일 내용으로 비교).</li>
+  <li>목록의 파일마다 상태가 표시됩니다: <b>✅ 발주서 반영 완료</b>(이미 다 들어감 — 한 번에 불러오기에서 자동으로 체크 해제) · <b>⚠ 발주서 미반영 n건</b>(일부만 들어감 — 불러오면 이미 반영된 주문은 자동 중복 제외) · <b>발주서 미반영</b>(아직 안 들어감). 주문번호가 있는 3PL은 주문번호로, 나머지는 파일 내용으로 비교합니다.</li>
 </ul>
 
 <div class="mn-tip"><b>팁</b>발주와 함께 샘플을 보낼 때는 확정하기 전에 <b>🎁 샘플 동봉</b>을 펼쳐 품목과 수량을 넣으세요(선택). 예: 스테비아 10박스 + 샘플 2박스 → 매출은 10박스, 송품장에는 10박스와 샘플 2박스가 따로 나옵니다. 출고일을 따로 지정하는 업체와 3PL 업체는 쓸 수 없습니다.</div>
@@ -10972,7 +10975,7 @@ function mnShow(id, keepScroll) {
     let body = '';
     if(list.length){
       const opts = '<option value="">(업체 선택)</option>' + ibMapped().map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(companyDisplayName(c))}</option>`).join('');
-      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const img = ibIsImg(x); const chk = img ? false : (ibChk.has(x.key) ? ibChk.get(x.key) : !d); return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder && !img ? '' : ' disabled'} title="${img ? '이미지는 [열기]로 읽습니다' : '한 번에 불러오기에 넣기'}">${img ? '<span class="ib-co" style="font-size:12px;color:var(--muted);">🖼 발주표 이미지</span>' : `<select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select>`}<span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done">불러옴 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
+      body = '<div class="ib-list">' + list.map((x, i) => { const d = done[ibKeyOf(x.file)]; const img = ibIsImg(x); const chk = img ? false : (ibChk.has(x.key) ? ibChk.get(x.key) : !d); return `<div class="ib-it${d ? ' done' : ''}" data-k="${escapeHtml(x.key)}"><input type="checkbox" class="ib-chk" data-ib-chk="${i}"${chk ? ' checked' : ''}${canOrder && !img ? '' : ' disabled'} title="${img ? '이미지는 [열기]로 읽습니다' : '한 번에 불러오기에 넣기'}">${img ? '<span class="ib-co" style="font-size:12px;color:var(--muted);">🖼 발주표 이미지</span>' : `<select class="ib-co" data-ib-co="${i}"${canOrder ? '' : ' disabled'} title="이 파일의 업체 (주문 파일 양식이 저장된 업체만)">${opts}</select>`}<span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span>${d ? `<span class="ib-done" title="이 PC에서 이 파일을 불러온 시각">이 PC 불러온 시각 ${t(d)}</span>` : ''}<button type="button" class="btn-ghost small-btn" data-ib-load="${i}" title="이 파일만 업로드 칸에 넣고 매핑을 확인한 뒤 불러오기">열기</button>${x.remove ? `<button type="button" class="ib-x" data-ib-del="${i}" title="목록에서 빼기">✕</button>` : ''}</div>`; }).join('') + '</div>';
       if(canOrder) body += `<div class="ib-bar"><button type="button" class="btn-primary small-btn" data-ib="batch">✅ 체크한 파일 한 번에 불러오기</button><span class="sub" style="margin:0;">업체가 골라진 파일은 저장된 양식(매핑)으로 바로 불러옵니다. 겹치는 주문은 자동으로 빠집니다</span></div>`;
     } else if(st === 'ok') body = '<div class="sub" style="margin:4px 0 0;">최근 3일 안에 폴더에 들어온 엑셀 발주서가 없습니다.</div>';
     else if(st === 'unsupported' && !ibShared.length) body = '<div class="sub" style="margin:4px 0 0;">휴대폰(안드로이드)은 통합 시스템을 앱으로 설치한 뒤 카톡에서 파일을 <b>공유 → 다름달음 오더</b>로 보내면 여기에 뜹니다.</div>';
@@ -10980,7 +10983,7 @@ function mnShow(id, keepScroll) {
     box.style.display = (st === 'unsupported' && !list.length && !ibInstallEvt) ? 'none' : '';
     box.querySelectorAll('[data-ib-co]').forEach(s => { const x = list[+s.dataset.ibCo]; if(ibCo.has(x.key)) s.value = ibCo.get(x.key); s.addEventListener('change', () => { ibCo.set(x.key, s.value); ibCoUser.add(x.key); s.classList.remove('auto'); }); });
     box.querySelectorAll('[data-ib-chk]').forEach(c => { const x = list[+c.dataset.ibChk]; c.addEventListener('change', () => ibChk.set(x.key, c.checked)); });
-    box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(!x) return; if(x.dup && !confirm(`${x.name}\n\n${x.dup.company}: ${x.dup.text}\n\n다른 직원이 이미 불러왔을 수 있습니다. 그래도 열까요?`)) return; ibUse(x); }));
+    box.querySelectorAll('[data-ib-load]').forEach(b => b.addEventListener('click', () => { const x = list[+b.dataset.ibLoad]; if(!x) return; if(x.dup && x.dup.state !== 'none' && !confirm(`${x.name}\n\n${x.dup.company}: ${x.dup.text}\n\n${x.dup.state === 'all' ? '이미 발주서에 들어간 파일입니다 (다른 직원이 불러온 경우 포함). 그래도 열까요?' : '불러오면 새 주문만 더해지고 이미 들어간 주문은 자동으로 빠집니다. 열까요?'}`)) return; ibUse(x); }));
     box.querySelectorAll('[data-ib-del]').forEach(b => b.addEventListener('click', async () => { const x = list[+b.dataset.ibDel]; if(x && x.remove){ await x.remove(); await ibRefresh(false); } }));
     const on = (k, fn) => { const b = box.querySelector(`[data-ib="${k}"]`); if(b) b.addEventListener('click', fn); };
     on('connect', ibPick); on('change', ibPick);
@@ -11130,15 +11133,16 @@ function mnShow(id, keepScroll) {
       if(!mine.size) return null;
       const have = new Set(); Object.values(thirdPartyLineItems).forEach(rows => (rows || []).forEach(l => { if(l.company === co.name && l.orderNo) have.add(String(l.orderNo).trim()); }));
       const n = [...mine].filter(v => have.has(v)).length;
-      if(!n) return null;
-      return { company: co.name, text: n === mine.size ? `이미 불러온 주문 (${n}건 모두)` : `일부 이미 불러옴 (${n}/${mine.size}건 — 불러오면 겹치는 주문은 자동으로 빠짐)`, all: n === mine.size };
+      if(!n) return { company: co.name, state: 'none', text: `발주서 미반영 (${mine.size}건)`, all: false };
+      if(n === mine.size) return { company: co.name, state: 'all', text: `발주서 반영 완료 (${n}건)`, all: true };
+      return { company: co.name, state: 'part', text: `발주서 미반영 ${mine.size - n}건 — 불러오면 이미 반영된 ${n}건은 자동 중복 제외`, all: false };
     }
     const keep = uploadedSheetData; let fp = '';
     try{ uploadedSheetData = aoa; fp = fileFingerprint(startRow); }finally{ uploadedSheetData = keep; }
     const hit = (uploadFingerprints[co.name] || []).find(e => e.h === fp);
-    if(!hit) return null;
+    if(!hit) return { company: co.name, state: 'none', text: '발주서 미반영', all: false };
     const at = new Date(hit.at), t = isNaN(at) ? '' : `${at.getMonth() + 1}/${at.getDate()} ${pad2(at.getHours())}:${pad2(at.getMinutes())}`;
-    return { company: co.name, text: `이미 불러옴 · ${hit.by ? hit.by + ' ' : ''}${t}`.trim(), all: true };
+    return { company: co.name, state: 'all', text: `발주서 반영 완료 · ${hit.by ? hit.by + ' ' : ''}${t}`.trim(), all: true };
   }
   // 목록의 파일마다: 업체 미리 고르기(파일 이름·양식 — 저장된 양식이 있는 업체만) + 이미 불러온 파일 표시
   async function ibMarkDups(list){
@@ -11159,10 +11163,14 @@ function mnShow(id, keepScroll) {
       }
       let info = null; try{ info = await ibDupInfo(x); }catch(e){}
       x.dup = info;
-      if(el && info && !el.querySelector('.ib-dup')){
-        el.classList.add('dup');
-        const b = document.createElement('span'); b.className = 'ib-dup'; b.textContent = '⚠ ' + info.text; b.title = `${info.company} — 다른 직원이 이미 불러왔을 수 있습니다`;
-        el.querySelector('.ib-nm').after(b);
+      if(el && info){
+        const st = info.state || (info.all ? 'all' : 'part');
+        el.classList.remove('dup', 'dup-all', 'dup-part');
+        if(st !== 'none') el.classList.add(st === 'all' ? 'dup-all' : 'dup-part');
+        let b = el.querySelector('.ib-dup'); if(!b){ b = document.createElement('span'); el.querySelector('.ib-nm').after(b); }
+        b.className = 'ib-dup ' + st;
+        b.textContent = (st === 'all' ? '✅ ' : st === 'part' ? '⚠ ' : '') + info.text;
+        b.title = st === 'all' ? `${info.company} — 이 파일의 주문은 이미 발주서에 들어가 있습니다 (다른 직원이 불러온 경우 포함)` : st === 'part' ? `${info.company} — 새 주문만 발주서에 더해지고, 이미 들어간 주문은 자동으로 빠집니다` : `${info.company} — 아직 발주서에 들어가지 않은 파일입니다`;
         if(info.all && !ibChk.has(x.key)){ ibChk.set(x.key, false); const c = el.querySelector('.ib-chk'); if(c) c.checked = false; }   // 이미 모두 불러온 파일은 한 번에 불러오기에서 빼 둠
       }
     }
