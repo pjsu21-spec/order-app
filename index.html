@@ -2766,7 +2766,6 @@
       <button class="tab-btn active" id="admin-tab-log">활동 로그</button>
       <button class="tab-btn" id="admin-tab-users">사용자 관리</button>
       <button class="tab-btn" id="admin-tab-perms">권한 관리</button>
-      <button class="tab-btn" id="admin-tab-lab">연구소 설정</button>
     </div>
 
     <!-- 활동 로그 -->
@@ -2811,16 +2810,6 @@
       <div id="admin-perms-wrap" style="overflow-x:auto;"></div>
     </div>
 
-    <!-- 연구소 설정 (🔬 연구소 탭의 통합시스템 관리자 설정) -->
-    <div id="admin-section-lab" style="display:none;">
-      <div id="lab-mail-card">
-        <h3 style="margin:0 0 4px;">📧 연구소 의뢰 샘플 메일 알림</h3>
-        <div class="sub" style="margin:0 0 8px;">주문 취합 담당자가 연구실 생산 샘플 신청을 <b>확인</b>하면 아래 주소로 메일을 보냅니다. 확인 뒤 내용이 바뀌거나 취소되면 다시 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
-        <div id="lab-mail-body"></div>
-      </div>
-      <h3 style="margin:18px 0 4px;">👥 연구소 권한</h3>
-      <div class="sub" style="margin:0;">직원별 연구소 권한(차단 · 보기 · 담당 · 연구소 관리자)은 <b>권한 관리</b> 표의 '연구소' 칸에서 정합니다. 연구소 관리자는 🔬 연구소 탭의 <b>👥 연구소 권한</b> 칸에서도 줄 수 있습니다.</div>
-    </div>
   </div>
 
   </div><!-- /panel-admin -->
@@ -2837,9 +2826,14 @@
       </div></details>
       <div id="lab-body"></div>
     </div>
+    <div class="card" id="lab-mail-card" style="display:none;">
+      <h2>📧 메일 알림 <span class="badge">연구소 의뢰 샘플</span></h2>
+      <div class="sub" style="margin:0 0 8px;">주문 취합 담당자가 연구실 생산 샘플 신청을 <b>확인</b>하면 아래 주소로 메일을 보냅니다. 확인 뒤 내용이 바뀌거나 취소되면 다시 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
+      <div id="lab-mail-body"></div>
+    </div>
     <div class="card" id="lab-acc-card" style="display:none;">
       <h2>👥 연구소 권한 <span class="badge">연구소 관리자</span></h2>
-      <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 이 권한 부여 (메일 알림 설정은 통합시스템 관리자만). 차단하면 연구소 탭이 안 보입니다.</div>
+      <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 이 권한 부여. 메일 알림 설정은 연구소 탭을 볼 수 있는 사람 누구나. 차단하면 연구소 탭이 안 보입니다.</div>
       <div id="lab-acc-body"></div>
     </div>
     <div class="card" id="lab-dev-card">
@@ -4852,7 +4846,7 @@ function applyUserUI() {
   const atText = t => { const d = new Date(t); return isNaN(d) ? '' : `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 
   // ── 연구소 권한 ── kv 'lab-access' = { levels: { 사용자 id: 'view'(보기) | 'edit'(담당) | 'admin'(연구소 관리자) }, users:[권한 있는 id] }
-  //  보기: 의뢰 목록만 / 담당: + 접수·제작 완료 / 연구소 관리자: + 연구소 권한 부여.  시스템 관리자는 항상 연구소 관리자. 메일 알림 설정은 통합시스템 관리자만.
+  //  보기: 의뢰 목록만 / 담당: + 접수·제작 완료 / 연구소 관리자: + 연구소 권한 부여.  시스템 관리자는 항상 연구소 관리자. 메일 알림 설정은 연구소 탭을 볼 수 있는 사람 누구나.
   //  예전 형식(users 만 있음)의 직원은 '담당'으로 봄. 서버 규칙(연구소탭_SQL.sql · 연구소권한_SQL.sql)도 같은 기준.
   const LV = ['none', 'view', 'edit', 'admin'];
   const LV_NAME = { none: '차단', view: '보기', edit: '담당', admin: '연구소 관리자' };
@@ -5338,8 +5332,8 @@ function applyUserUI() {
   window.labRenderMail = () => renderMail();
   async function renderMail(){
     const card = $('lab-mail-card'), box = $('lab-mail-body'); if(!card || !box) return;
-    card.style.display = isAdminU() ? '' : 'none';   // 메일 알림 설정은 통합시스템 관리자만 (🛠 관리자 → 연구소 설정)
-    if(!isAdminU()) return;
+    card.style.display = canSee() ? '' : 'none';   // 메일 알림 설정은 연구소 탭을 볼 수 있는 사람 누구나
+    if(!canSee()) return;
     let st = {};
     try{ const r = await window.storage.get(K_MAIL, true); st = r && r.value ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
     const to = Array.isArray(st.to) ? st.to : [];
@@ -5371,7 +5365,7 @@ function applyUserUI() {
   window.labOpen = async function(){
     if(!canSee()){ const b = $('lab-body'); if(b) b.innerHTML = '<div class="sub">볼 수 있는 권한이 없습니다.</div>'; return; }
     if(!L.from){ const t = dkey(new Date()); L.from = addDays(t, -7); L.to = addDays(t, 30); }
-    renderAcc();
+    renderAcc(); renderMail();
     loadPrice().then(() => { renderPrice(); if(D.edit) renderEditor(); });
     await load();
   };
@@ -22281,11 +22275,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.getElementById('admin-section-log').style.display = sec==='log' ? 'block' : 'none';
     document.getElementById('admin-section-users').style.display = sec==='users' ? 'block' : 'none';
     document.getElementById('admin-section-perms').style.display = sec==='perms' ? 'block' : 'none';
-    document.getElementById('admin-section-lab').style.display = sec==='lab' ? 'block' : 'none';
     document.getElementById('admin-tab-log').classList.toggle('active', sec==='log');
     document.getElementById('admin-tab-users').classList.toggle('active', sec==='users');
     document.getElementById('admin-tab-perms').classList.toggle('active', sec==='perms');
-    document.getElementById('admin-tab-lab').classList.toggle('active', sec==='lab');
   }
 
   document.getElementById('admin-tab-log').addEventListener('click', ()=>{
@@ -22296,9 +22288,6 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   });
   document.getElementById('admin-tab-perms').addEventListener('click', ()=>{
     showAdminSection('perms'); loadAdminPerms();
-  });
-  document.getElementById('admin-tab-lab').addEventListener('click', ()=>{
-    showAdminSection('lab'); if(window.labRenderMail) window.labRenderMail();   // 연구소 메일 알림 설정
   });
 
   async function loadAdminLog(){
