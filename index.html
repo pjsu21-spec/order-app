@@ -30,6 +30,7 @@
   body{ color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
   /* 검색 가능한 업체 선택 */
   .ss-wrap{ position:relative; display:inline-block; vertical-align:middle; }
+  .erp-mkbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 8px; padding:8px 10px; border:1px solid #f0dcae; background:#fffaf0; border-radius:8px; font-size:13px; }
   .erp-tag{ display:inline-block; font:600 11px/1.5 ui-monospace,Consolas,monospace; color:#5b4a8a; background:#f1edfb; border:1px solid #ddd3f5; border-radius:5px; padding:0 5px; white-space:nowrap; vertical-align:middle; }
   .ss-input{ width:100%; box-sizing:border-box; padding-right:26px !important; cursor:pointer;
     background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238c8280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center; }
@@ -5688,6 +5689,56 @@ window.erpCodesLoad = (() => { let p = null; return force => {
   }
   const FREE = 'erp:', isFree = k => String(k).startsWith(FREE);   // 품목과 연결하지 않고 코드만 등록한 줄: map['erp:코드'] = { code, name, spec, old, free: true }
   const freeRows = () => Object.entries(E.map || {}).filter(([k]) => isFree(k)).map(([k, v]) => Object.assign({ key: k }, v));
+  // 코드만 줄 → 새 품목: 구분 추천 (W·G 제품 SKU, S 반제품, M은 원자재 대분류 이름으로 부자재/소모품/원물)
+  const MK_KINDS = [['produce', '원물'], ['pack', '부자재'], ['supply', '소모품'], ['semi', '반제품'], ['sku', '제품(SKU)']];
+  function mkGuess(f){
+    const c = up(f.code), a = c[0];
+    if(a === 'W' || a === 'G') return 'sku';
+    if(a === 'S') return 'semi';
+    const big = (((E.rules || {}).raw || {}).bigs || []).find(b => b.code === c.slice(1, 3)), t = big ? (big.ko || '') + ' ' + (big.name || '') : '';
+    if(c.slice(1, 3) === 'PK' || /포장|부자재|라벨|스티커|박스|용기|트레이|필름|packag/i.test(t)) return 'pack';
+    if(/소모/.test(t)) return 'supply';
+    return 'produce';
+  }
+  const mkUnit = k => k === 'pack' || k === 'supply' ? '개' : k === 'sku' ? '' : 'kg';
+  const mkState = f => { E.mk = E.mk || {}; if(!E.mk[f.key]){ const k = mkGuess(f); E.mk[f.key] = { kind: k, unit: mkUnit(k), on: false }; } return E.mk[f.key]; };
+  async function mkRegister(keys){
+    const list = keys.map(k => Object.assign({ key: k }, E.map[k] || {})).filter(f => f.code), patch = {}, skip = [];
+    const skus = list.filter(f => mkState(f).kind === 'sku'), mats = list.filter(f => mkState(f).kind !== 'sku');
+    // 품목명: ERP 품명. 같은 이름이 이미 있거나(액상 향료처럼 규격만 다른 코드) 이번에 겹치면 규격 앞부분 → 규격 전체를 붙여 구분
+    const taken = { mat: new Set((((window.__MAT || {}).MAT || {}).master || { items: [] }).items.map(i => String(i.name || '').trim())), sku: new Set(((window.__dictList && window.__dictList()) || []).map(d => String(d.name || '').trim())) };
+    const nameOf = new Map(), nameCnt = {}; Object.values(E.map || {}).forEach(v => { const b = String(v.name || '').trim(); if(b) nameCnt[b] = (nameCnt[b] || 0) + 1; });   // ERP 품명이 여러 코드에 겹치면 처음부터 규격 앞부분을 붙임 (액상 향료 자몽향 · 액상 향료 망고향)
+    [...mats.map(f => ['mat', f]), ...skus.map(f => ['sku', f])].forEach(([t, f]) => {
+      const base = String(f.name || f.code).trim(), sp = String(f.spec || '').trim(), first = sp.split(/[_s]+/)[0];
+      const cands = [nameCnt[base] > 1 && first ? '' : base, first && base + ' ' + first, sp && base + ' (' + sp + ')', base + ' ' + f.code].filter(Boolean);
+      const nm = cands.find(c => !taken[t].has(c)) || '';
+      if(nm) taken[t].add(nm);
+      nameOf.set(f.key, nm);
+    });
+    if(mats.some(f => !String(mkState(f).unit || '').trim())){ toastE('원물·부자재·소모품·반제품은 단위를 넣어 주세요 (예: kg, 개, 장)'); return false; }
+    if(!confirm(`${list.length}개 코드를 새 품목으로 등록합니다.\n${MK_KINDS.map(([k, t]) => [t, list.filter(f => mkState(f).kind === k).length]).filter(x => x[1]).map(x => `· ${x[0]} ${x[1]}개`).join('\n')}\n\n품목명 = ERP 품명 (같은 이름이 이미 있으면 규격을 붙여 구분), 이카운트 품목코드 = 변경 전 코드(있으면). 이미 있는 품목이면 등록 대신 '품목과 연결'을 쓰세요.`)) return false;
+    // 자재
+    if(mats.length){
+      const MM = window.__MAT; if(!MM || !MM.matAddItems){ toastE('자재 목록을 쓸 수 없습니다 — 화면을 새로고침해 주세요'); return false; }
+      let added;
+      try{ added = await MM.matAddItems(mats.filter(f => nameOf.get(f.key)).map(f => ({ name: nameOf.get(f.key), kind: mkState(f).kind, unit: mkState(f).unit, code: f.old || '' }))); }catch(e){ toastE((e && e.message) || String(e)); return false; }
+      mats.forEach(f => { const it = added.find(a => a.name === nameOf.get(f.key)); if(it) patch['mat:' + it.id] = { code: f.code, name: f.name, spec: f.spec, old: f.old }; else skip.push(f.name || f.code); });
+    }
+    // 제품(SKU)
+    for(const f of skus){
+      const nm = nameOf.get(f.key);
+      if(!nm){ skip.push(f.name || f.code); continue; }
+      if(!window.__dictAdd){ skip.push(nm); continue; }
+      const it = await window.__dictAdd({ name: nm, code: f.old || '' });
+      patch['sku:' + it.id] = { code: f.code, name: f.name, spec: f.spec, old: f.old };
+    }
+    const n = Object.keys(patch).length;
+    if(n && !(await saveMap(patch, `ERP 코드 → 새 품목 등록 ${n}개`))) return false;
+    keys.forEach(k => { if(E.mk) delete E.mk[k]; });
+    await loadItems(); render();
+    toastE(`새 품목 ${n}개를 등록하고 ERP 코드를 연결했습니다${skip.length ? ` · 건너뜀 ${skip.length}개 (${skip.slice(0, 3).join(', ')}${skip.length > 3 ? ' …' : ''})` : ''}`);
+    return true;
+  }
   const dupOf = (code, exceptKey) => { code = up(code); if(!code) return null; const hit = Object.entries(E.map || {}).find(([k, v]) => k !== exceptKey && !isFree(k) && up(v.code) === code); return hit ? (E.items || []).find(i => i.key === hit[0]) || { name: hit[0] } : null; };
 
   // ── 화면 ──
@@ -5807,11 +5858,17 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       <input type="search" id="erp-q" placeholder="품목·코드 검색" value="${esc(E.q)}" style="width:170px;">
       <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정${frees.length ? ` · 코드만 등록 ${frees.length}개` : ''} · 이카운트 품목코드는 아직 그대로 (전환은 이카운트 코드를 바꾸는 날 따로)</span></div>`;
     if(E.up) h += renderUpload();
+    if(adm && frees.length){ const onN = frees.filter(f => mkState(f).on).length;
+      h += `<div class="erp-mkbar"><label><input type="checkbox" id="erp-mk-all"${onN && onN === fq.length ? ' checked' : ''}> 코드만 ${fq.length}개 전체 선택</label>
+        <span class="sub" style="margin:0;">선택 ${onN}개 →</span><select id="erp-mk-setkind"><option value="">구분 한꺼번에 바꾸기</option>${MK_KINDS.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select>
+        <button type="button" class="btn-primary small-btn" id="erp-mk-bulk"${onN ? '' : ' disabled'}>선택한 ${onN}개 새 품목으로 등록</button>
+        <span class="sub" style="margin:0;">구분은 코드 첫 자리·대분류로 추천해 두었습니다 (W·G 제품, S 반제품, M 원물/부자재). 품목명 = ERP 품명, 이카운트 품목코드 = 변경 전 코드</span></div>`; }
     h += `<div style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
       return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}</td>
         <td>${adm ? `<input type="text" class="erp-in" value="${esc(m ? m.code : '')}" maxlength="12" placeholder="—">` : `<span class="erp-code">${esc(m ? m.code : '')}</span>`}</td>
-        <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}${fq.map(f => { const ck = check(f.code), free = (E.items || []).filter(i => !E.map[i.key]);
-      return `<tr data-free="${esc(f.key)}" style="background:#fffaf0;"><td>코드만<div class="sub" style="margin:0;font-size:11px;">품목 연결 전</div></td><td>${esc(f.name || '')}${f.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(f.spec)}</div>` : ''}${adm ? `<div style="margin-top:3px;"><select class="erp-link" style="max-width:260px;"><option value="">— 품목과 연결 —</option>${free.map(i => `<option value="${esc(i.key)}">[${esc(i.type)}] ${esc(i.name)}</option>`).join('')}</select> <button type="button" class="btn-ghost small-btn erp-free-del" title="이 코드 지우기">✕</button></div>` : ''}</td>
+        <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}${fq.map(f => { const ck = check(f.code), free = (E.items || []).filter(i => !E.map[i.key]), ms = mkState(f);
+      return `<tr data-free="${esc(f.key)}" style="background:#fffaf0;"><td>${adm ? `<input type="checkbox" class="erp-mk-on"${ms.on ? ' checked' : ''}> ` : ''}코드만<div class="sub" style="margin:0;font-size:11px;">품목 연결 전</div></td><td>${esc(f.name || '')}${f.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(f.spec)}</div>` : ''}${adm ? `<div style="margin-top:3px;"><select class="erp-link" style="max-width:260px;"><option value="">— 품목과 연결 —</option>${free.map(i => `<option value="${esc(i.key)}">[${esc(i.type)}] ${esc(i.name)}</option>`).join('')}</select> <button type="button" class="btn-ghost small-btn erp-free-del" title="이 코드 지우기">✕</button></div>
+        <div style="margin-top:3px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span class="sub" style="margin:0;font-size:11px;">또는 새 품목으로</span><select class="erp-mk-kind">${MK_KINDS.map(([k, t]) => `<option value="${k}"${ms.kind === k ? ' selected' : ''}>${t}</option>`).join('')}</select>${ms.kind === 'sku' ? '' : `<input type="text" class="erp-mk-unit" value="${esc(ms.unit || '')}" placeholder="단위" style="width:52px;">`}<button type="button" class="btn-ghost small-btn erp-mk-go">등록</button></div>` : ''}</td>
         <td class="erp-code">${esc(f.old || '')}${f.old ? '<div class="sub" style="margin:0;font-size:11px;">변경 전 코드</div>' : ''}</td><td><span class="erp-code">${esc(f.code)}</span></td>
         <td>${ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
     return h;
@@ -5831,6 +5888,11 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       if(await saveMap({ [key]: c ? Object.assign({}, E.map[key] || {}, { code: c }) : null }, `ERP 코드 ${c ? '지정' : '삭제'}: ${it.name}${c ? ' → ' + c : ''}`)) render();
     }));
     const f = $('erp-up-file'); if(f) f.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; e.target.value = ''; if(file) readUpload(file); });
+    const mkAll = $('erp-mk-all'), mkSet = $('erp-mk-setkind'), mkBulk = $('erp-mk-bulk');
+    const shownFree = () => [...box.querySelectorAll('tr[data-free]')].map(tr => tr.dataset.free).filter(k => E.map[k]);
+    if(mkAll) mkAll.addEventListener('change', () => { shownFree().forEach(k => { mkState(Object.assign({ key: k }, E.map[k])).on = mkAll.checked; }); render(); });
+    if(mkSet) mkSet.addEventListener('change', () => { const k = mkSet.value; if(!k) return; shownFree().forEach(fk => { const ms = mkState(Object.assign({ key: fk }, E.map[fk])); if(ms.on){ ms.kind = k; ms.unit = mkUnit(k); } }); render(); });
+    if(mkBulk) mkBulk.addEventListener('click', async () => { const keys = shownFree().filter(k => mkState(Object.assign({ key: k }, E.map[k])).on); if(!keys.length) return; mkBulk.disabled = true; if(!(await mkRegister(keys))) mkBulk.disabled = false; });
     box.querySelectorAll('tr[data-free]').forEach(tr => {
       const fk = tr.dataset.free, fv = E.map[fk]; if(!fv) return;
       const sel = tr.querySelector('select.erp-link'), del = tr.querySelector('.erp-free-del');
@@ -5839,6 +5901,11 @@ window.erpCodesLoad = (() => { let p = null; return force => {
         if(!confirm(`${fv.code} (${fv.name || ''})\n→ ${it.name}에 연결할까요?`)){ sel.value = ''; return; }
         if(await saveMap({ [it.key]: { code: fv.code, name: fv.name, spec: fv.spec, old: fv.old } }, `ERP 코드 연결: ${fv.code} → ${it.name}`)){ toastE(`${it.name} → ${fv.code}`); render(); }
       });
+      const ms = mkState(Object.assign({ key: fk }, fv)), kSel = tr.querySelector('.erp-mk-kind'), uIn = tr.querySelector('.erp-mk-unit'), on = tr.querySelector('.erp-mk-on'), go = tr.querySelector('.erp-mk-go');
+      if(kSel) kSel.addEventListener('change', () => { const prevAuto = ms.unit === mkUnit(ms.kind) || !ms.unit; ms.kind = kSel.value; if(prevAuto) ms.unit = mkUnit(ms.kind); render(); });
+      if(uIn) uIn.addEventListener('change', () => { ms.unit = uIn.value.trim(); });
+      if(on) on.addEventListener('change', () => { ms.on = on.checked; render(); });
+      if(go) go.addEventListener('click', async () => { if(uIn) ms.unit = uIn.value.trim(); go.disabled = true; if(!(await mkRegister([fk]))) go.disabled = false; });
       if(del) del.addEventListener('click', async () => {
         if(!confirm(`코드만 등록한 ${fv.code} (${fv.name || ''})를 지울까요?`)) return;
         if(await saveMap({ [fk]: null }, `ERP 코드 삭제(코드만): ${fv.code}`)) render();
@@ -12715,6 +12782,13 @@ function mnShow(id, keepScroll) {
     document.getElementById('pp-parcel-box').style.display = ppMethod() === 'parcel' ? 'block' : 'none';
   }));
 
+  // 기준정보 › ERP 코드에서 '코드만 등록' 코드를 새 SKU로 만들 때 (관리자)
+  window.__dictAdd = async it => {
+    const item = Object.assign({ id: cryptoId(), name: '새 품목', aliases: [], code: '', boxUnitCount: '', shortName: '' }, it);
+    dict.push(item); await saveDict();
+    try{ renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); ppRenderItems(); renderPriceMapEditor(); }catch(e){ /* 화면 갱신은 부가 */ }
+    return item;
+  };
   document.getElementById('add-item-btn').addEventListener('click', ()=>{
     dict.push({ id: cryptoId(), name: '새 품목', aliases: [], code: '', boxUnitCount: '', shortName: '' });
     saveDict(); renderDict(); renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); renderSkuColumnMapEditor(); ppRenderItems(); renderPriceMapEditor();
@@ -26973,7 +27047,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     matEl('mat-reload').addEventListener('click', () => matLoad(true));
     const df = matEl('mat-ded-fold');
     if(df){ df.addEventListener('toggle', () => { if(df.open){ if(!MAT.loaded) matLoad(false); matRenderDedCard(); } }); matEl('mat-d-reload').addEventListener('click', () => { MAT.ded = null; matLoad(true); }); }
-    window.__MAT = { MAT, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster, matBuildPurchaseSheet, matComputeDeduct, matExplodeGross, matShipPacks };
+    async function matAddItems(list){
+      if(!MAT.loaded) await matLoad(false);
+      let cur; try{ const r = await window.storage.get(MAT_K_MASTER, true); cur = r && r.value ? JSON.parse(r.value) : {}; }catch(e){ throw new Error('자재 목록을 불러오지 못했습니다 — 인터넷 연결을 확인해주세요'); }
+      const items = Array.isArray(cur.items) ? cur.items : [], vendors = Array.isArray(cur.vendors) ? cur.vendors : [];
+      const names = new Set(items.map(i => String(i.name || '').trim()));
+      const added = [];
+      for(const x of list){
+        const name = String(x.name || '').trim();
+        if(!name || names.has(name)) continue;
+        names.add(name);
+        added.push({ id: matRid('m'), name, kind: ['produce', 'pack', 'supply', 'semi'].includes(x.kind) ? x.kind : 'pack', unit: String(x.unit || '').trim() || '개', code: String(x.code || '').trim(), vendor: '', price: 0, safety: 0, vat: false, off: false });
+      }
+      if(!added.length) return added;
+      const all = items.concat(added);
+      await window.storage.set(MAT_K_MASTER, JSON.stringify({ items: all, vendors }), true);
+      MAT.master = { items: all, vendors: MAT.master.vendors && MAT.master.vendors.length ? MAT.master.vendors : vendors };
+      MAT.mdraft = MAT.mdirty ? MAT.mdraft.concat(JSON.parse(JSON.stringify(added))) : JSON.parse(JSON.stringify(all));
+      try{ matRender(); }catch(e){ /* 화면 갱신은 부가 */ }
+      return added;
+    }
+    window.__MAT = { MAT, matAddItems, matLoad, matRender, matExplode, matPossible, matStockMap, matLedAdd, matParseQty, matUsages, matSaveBom, matSaveMaster, matBuildPurchaseSheet, matComputeDeduct, matExplodeGross, matShipPacks };
   })();
 
   // ── 테스트 모드 띠: 이 날짜 되돌리기 / 모두 지우기 / 나가기 ──
