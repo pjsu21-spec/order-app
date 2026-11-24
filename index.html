@@ -30,6 +30,7 @@
   body{ color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
   /* 검색 가능한 업체 선택 */
   .ss-wrap{ position:relative; display:inline-block; vertical-align:middle; }
+  .erp-tag{ display:inline-block; font:600 11px/1.5 ui-monospace,Consolas,monospace; color:#5b4a8a; background:#f1edfb; border:1px solid #ddd3f5; border-radius:5px; padding:0 5px; white-space:nowrap; vertical-align:middle; }
   .ss-input{ width:100%; box-sizing:border-box; padding-right:26px !important; cursor:pointer;
     background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238c8280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center; }
   .ss-list{ display:none; position:absolute; left:0; top:calc(100% + 2px); min-width:100%; max-width:340px; max-height:280px; overflow-y:auto; z-index:60;
@@ -5542,6 +5543,15 @@ function applyUserUI() {
 //  코드 형식 (12자리): 제품 W·상품 G = 계정1 + 제품군2 + 제품분류2 + 고객사2 + 중량4(10g 단위) + 원산지1
 //                     반제품 S = 계정1 + 제품군2 + 제품분류2 + 공정2 + 중량4 + 원산지1
 //                     원자재 M = 계정1 + 대분류2 + 중소분류2 + 용량·규격4 + 순번2(01~99 → A1~Z9) + 원산지1
+// 다른 탭에서 새 ERP 코드 보여 주기 (보기만 — 고치기는 기준정보 › ERP 코드). id = 제품 id 또는 자재 id
+window.__erpCodes = null;
+window.erpCodeOf = id => { const m = window.__erpCodes; if(!m || !id) return ''; const v = m['sku:' + id] || m['mat:' + id]; return v && v.code ? String(v.code) : ''; };
+window.erpCodeTag = id => { const c = window.erpCodeOf(id); return c ? `<span class="erp-tag" title="새 ERP 코드 (기준정보 › ERP 코드에서 지정 · 이카운트 품목코드는 아직 그대로)">ERP ${escapeHtmlSimple(c)}</span>` : ''; };
+window.erpCodesLoad = (() => { let p = null; return force => {
+  if(p && !force) return p;
+  p = (async () => { try{ const r = await window.storage.get('erp-codes', true); const v = r && r.value ? JSON.parse(r.value) : null; window.__erpCodes = (v && v.map) || {}; }catch(e){ window.__erpCodes = window.__erpCodes || {}; } window.dispatchEvent(new Event('erp-codes-changed')); })();
+  return p;
+}; })();
 (function(){
   const K_RULE = 'erp-code-rules', K_CODE = 'erp-codes';
   const E = { rules: null, map: null, items: null, tab: 'make', gen: { acc: 'W' }, up: null, q: '' };
@@ -5657,7 +5667,7 @@ function applyUserUI() {
   }
   async function loadAll(){
     try{ E.rules = await kvGet(K_RULE); }catch(e){ E.rules = E.rules || null; }
-    try{ const v = await kvGet(K_CODE); E.map = (v && v.map) || {}; }catch(e){ E.map = E.map || {}; }
+    try{ const v = await kvGet(K_CODE); E.map = (v && v.map) || {}; window.__erpCodes = E.map; }catch(e){ E.map = E.map || {}; }
     await loadItems();
   }
   async function saveMap(patch, msg){
@@ -5673,7 +5683,7 @@ function applyUserUI() {
     });
     try{ await window.storage.set(K_CODE, JSON.stringify({ map, at: Date.now(), by: who() }), true); }
     catch(e){ toastE('ERP 코드를 저장하지 못했습니다: ' + ((e && e.message) || e)); return false; }
-    E.map = map; writeLog('erp_code', msg).catch(() => {});
+    E.map = map; window.__erpCodes = map; window.dispatchEvent(new Event('erp-codes-changed')); writeLog('erp_code', msg).catch(() => {});
     return true;
   }
   const FREE = 'erp:', isFree = k => String(k).startsWith(FREE);   // 품목과 연결하지 않고 코드만 등록한 줄: map['erp:코드'] = { code, name, spec, old, free: true }
@@ -8268,7 +8278,10 @@ function mnShow(id, keepScroll) {
     }
   }
 
+  // 새 ERP 코드가 바뀌면 SKU 목록 다시 그림 (처음 그릴 때 한 번 불러옴)
+  window.addEventListener('erp-codes-changed', () => { try{ if(document.getElementById('dict-editor')) renderDict(); }catch(e){ /* 표시는 부가 */ } });
   function renderDict(){
+    if(window.erpCodesLoad && window.__erpCodes == null && window.currentUser) window.erpCodesLoad();
     const wrap = document.getElementById('dict-editor');
     wrap.innerHTML = '';
     // 순서 바꾸기: 끌어서 놓기 또는 ▲▼. dict 배열 순서가 곧 모든 품목 선택 목록의 순서
@@ -8416,6 +8429,7 @@ function mnShow(id, keepScroll) {
       row.appendChild(nameInput);
       row.appendChild(aliasInput);
       row.appendChild(codeInput);
+      if(window.erpCodeOf && window.erpCodeOf(item.id)){ const et = document.createElement('span'); et.innerHTML = window.erpCodeTag(item.id); row.appendChild(et.firstChild); }
       row.appendChild(boxUnitLabel);
       row.appendChild(boxUnitInput);
       row.appendChild(shortNameInput);
@@ -25868,7 +25882,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
 
   // ── 화면 ──
+  window.addEventListener('erp-codes-changed', () => { try{ const b = matEl('mat-body'); if(b && b.offsetParent && (MAT.tab === 'master' || MAT.tab === 'master2' || MAT.tab === 'bom')) matRender(); }catch(e){ /* 표시는 부가 */ } });
   function matRender(){
+    if(window.erpCodesLoad && window.__erpCodes == null && window.currentUser) window.erpCodesLoad();
     const body = matEl('mat-body'); if(!body) return;
     document.querySelectorAll('#mat-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mt === MAT.tab));
     if(!MAT.loaded){ body.innerHTML = MAT.loading ? '<div class="sub">불러오는 중…</div>' : `<div class="sub">${MAT.err ? '불러오기에 실패했습니다. [↻ 새로고침]을 눌러 다시 시도하세요.' : '아래 탭을 누르면 불러옵니다.'}</div>`; return; }
@@ -26139,7 +26155,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const sm = matStockMap();
     const lineHtml = (pid, l, idx) => {
       const opts = items.filter(i => i.id !== pid);
-      return `<tr data-p="${escapeHtml(pid)}" data-i="${idx}"><td><select class="mat-b-m">${matOpt(opts, l.m, '자재 선택')}</select></td><td><input type="text" class="mat-b-q" inputmode="decimal" placeholder="예: 0.25 또는 1/4" value="${l.q ? escapeHtml(String(l.q)) : ''}" style="width:130px;"> <span class="mat-b-u">${escapeHtml(matUnitOf(l.m))}</span></td><td><input type="text" class="mat-b-l" inputmode="decimal" placeholder="0" value="${Number(l.l) ? escapeHtml(String(l.l)) : ''}" style="width:60px;"> %</td><td><button type="button" class="btn-ghost small-btn mat-b-del" title="이 줄 삭제">✕</button></td></tr>`;
+      return `<tr data-p="${escapeHtml(pid)}" data-i="${idx}"><td><select class="mat-b-m">${matOpt(opts, l.m, '자재 선택')}</select>${l.m && window.erpCodeTag ? ' ' + window.erpCodeTag(l.m) : ''}</td><td><input type="text" class="mat-b-q" inputmode="decimal" placeholder="예: 0.25 또는 1/4" value="${l.q ? escapeHtml(String(l.q)) : ''}" style="width:130px;"> <span class="mat-b-u">${escapeHtml(matUnitOf(l.m))}</span></td><td><input type="text" class="mat-b-l" inputmode="decimal" placeholder="0" value="${Number(l.l) ? escapeHtml(String(l.l)) : ''}" style="width:60px;"> %</td><td><button type="button" class="btn-ghost small-btn mat-b-del" title="이 줄 삭제">✕</button></td></tr>`;
     };
     const calcRows = prods.filter(p => matGoodLines(p.id).length);
     body.innerHTML = `<div id="mat-bom-wrap"><div id="mat-dirty" class="mat-dirty" style="display:${MAT.bomDirty ? 'flex' : 'none'}; align-items:center; gap:10px; flex-wrap:wrap;">저장하지 않은 변경이 있습니다. <button type="button" class="btn-primary small-btn" id="mat-bom-save">정전개 구성 저장</button></div>
@@ -26152,7 +26168,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       <div class="sub" style="margin:0 0 6px;">제품을 눌러 펼치고 자재와 <b>1팩당 소요량</b>을 입력하세요. 외박스는 박스 입수(예: 4팩)가 있으면 <b>1/4</b>처럼 분수로 적어도 됩니다. 로스%는 불량·손실 여유분입니다(원물 선별 손실 등).</div>
       <div id="mat-bom-list">${parents.map(p => {
         const ls = MAT.bom[p.id] || [], pr = matPossible(p.id, sm);
-        return `<details class="mat-bomd" data-p="${escapeHtml(p.id)}"${MAT.openP.has(p.id) ? ' open' : ''}><summary>${escapeHtml(p.name)} <span class="sub" style="margin:0 0 0 6px;">구성 ${ls.filter(l => l.m).length}개${pr ? ` · 지금 ${matN(pr.packs)}${p.semi ? '' : '팩'} 생산 가능` : ''}</span></summary>
+        return `<details class="mat-bomd" data-p="${escapeHtml(p.id)}"${MAT.openP.has(p.id) ? ' open' : ''}><summary>${escapeHtml(p.name)}${window.erpCodeTag ? ' ' + window.erpCodeTag(p.id) : ''} <span class="sub" style="margin:0 0 0 6px;">구성 ${ls.filter(l => l.m).length}개${pr ? ` · 지금 ${matN(pr.packs)}${p.semi ? '' : '팩'} 생산 가능` : ''}</span></summary>
           ${p.box ? `<div class="sub" style="margin:4px 0;">박스 입수 ${p.box}팩 → 외박스는 1/${p.box} 로 입력</div>` : ''}
           ${p.semi ? '' : `<label style="font-size:12.5px; display:block; margin:4px 0;"><input type="checkbox" class="mat-b-skip" data-p="${escapeHtml(p.id)}"${MAT.skip[p.id] ? '' : ' checked'}> 출고 시 자재 자동 차감 사용 <span class="sub" style="margin:0;">(끄면 이 제품은 출고 차감에서 빠집니다)</span></label>`}
           <table class="mat-t" style="margin:6px 0;"><thead><tr><th>자재</th><th>${p.semi ? '1단위당' : '1팩당'} 소요량</th><th>로스</th><th></th></tr></thead><tbody>${ls.map((l, i) => lineHtml(p.id, l, i)).join('')}</tbody></table>
@@ -26389,7 +26405,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const rowHtml = (r, i) => `<tr data-i="${i}"><td><input type="text" class="mat-m-name" value="${escapeHtml(r.name || '')}" placeholder="자재명" style="width:160px;"></td>
       <td><select class="mat-m-kind"${['produce', 'pack', 'supply', 'semi'].includes(r.kind) ? '' : ' style="border-color:var(--accent);background:#fff4d6;" title="원물·부자재·소모품·반제품 중에서 골라 주세요"'}>${['produce', 'pack', 'supply', 'semi'].includes(r.kind) ? '' : '<option value="raw" selected>원자재 → 구분 필요</option>'}<option value="produce"${r.kind === 'produce' ? ' selected' : ''}>원물</option><option value="pack"${r.kind === 'pack' ? ' selected' : ''}>부자재</option><option value="supply"${r.kind === 'supply' ? ' selected' : ''}>소모품</option><option value="semi"${r.kind === 'semi' ? ' selected' : ''}>반제품</option></select></td>
       <td><input type="text" class="mat-m-unit" value="${escapeHtml(r.unit || '')}" placeholder="개/장/kg" style="width:60px;"></td>
-      <td><input type="text" class="mat-m-code" value="${escapeHtml(r.code || '')}" placeholder="이카운트 품목코드" style="width:110px;"></td>
+      <td><input type="text" class="mat-m-code" value="${escapeHtml(r.code || '')}" placeholder="이카운트 품목코드" style="width:110px;">${r.id && window.erpCodeOf && window.erpCodeOf(r.id) ? '<div style="margin-top:2px;">' + window.erpCodeTag(r.id) + '</div>' : ''}</td>
       <td><input type="text" class="mat-m-vendor" list="mat-pv-dl" value="${escapeHtml(r.vendor || '')}" placeholder="기본 거래처" style="width:110px;"></td>
       <td><input type="text" class="mat-m-price" inputmode="decimal" value="${r.price ? escapeHtml(String(r.price)) : ''}" placeholder="단가" style="width:70px;"></td>
       <td><input type="text" class="mat-m-safety" inputmode="decimal" value="${r.safety ? escapeHtml(String(r.safety)) : ''}" placeholder="안전재고" style="width:70px;"></td>
