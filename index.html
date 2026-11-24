@@ -5820,7 +5820,7 @@ function mnShow(id, keepScroll) {
   let deliveryCourierName = ''; // 3PL 택배사명(예: CJ대한통운) - 택배사 칸이 따로 있는 업체 회신 파일에 자동 입력
   let salesByDate = {};      // { 'YYYY-MM-DD': { companyName: [{ itemName, qty, unitPrice, supplyAmt, note }] } }
   let internalOrderCounters = {}; // { 'YYYY-MM-DD': lastUsedSeq } - 사내관리번호(YYYYMMDD-001..) 발번 카운터
-  let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: { aoa: [...raw rows...], startRow } } } - 업체 원본파일 보관(운송장 반영 회신용)
+  let uploadedOriginalFiles = {}; // { 'YYYY-MM-DD': { 업체명: [{ batchId, startRow, key, rows, aoa(화면에 읽어 둔 경우) }] } } - 업체 원본파일 목록(운송장 반영 회신용). 원본 내용은 kv 'orig-file:날짜:batchId'
   let productionTemplateB64 = ''; // base64-encoded 발주취합 서식 xlsx
   let skuGroupMap = {};            // { itemId: 머리글 묶음 기준 열(예: 'J') } - 위쪽 묶음 머리글을 다른 묶음으로 지정
   let skuColumnMap = {};           // { itemId: colLetter } - SKU -> column in production template
@@ -6507,11 +6507,45 @@ function mnShow(id, keepScroll) {
       if(Object.keys(L).length) uploadedOriginalFiles[d] = L; else if(d in uploadedOriginalFiles) delete uploadedOriginalFiles[d];
     });
   }
+  // ── 업체 원본 엑셀은 묶음(업로드 1번)마다 따로 저장: kv 'orig-file:<날짜>:<batchId>' = { company, aoa, startRow, at, by }
+  //    목록('uploaded-original-files')에는 { batchId, startRow, key, rows }만 → 목록이 작아 저장이 실패하지 않고, 화면을 열 때 원본 전체를 내려받지 않음
+  //    (예전에는 보관 기간의 모든 원본 엑셀을 한 덩어리로 저장 → 커질수록 저장이 실패해 원본이 사라지는 일이 잦았음. 예전 묶음은 다음 저장 때 따로 옮김)
+  const ofKeyOf = (d, b) => `orig-file:${d}:${b.batchId}`;
+  async function ofPutBatch(d, company, b){
+    if(!b || !Array.isArray(b.aoa) || b.key) return true;
+    if(!b.batchId) b.batchId = cryptoId();
+    const key = ofKeyOf(d, b);
+    try{
+      await window.storage.set(key, JSON.stringify({ company, aoa: b.aoa, startRow: b.startRow, at: Date.now(), by: (typeof getStaffName === 'function' && getStaffName()) || '' }), true);
+      b.key = key; b.rows = b.aoa.length; return true;
+    }catch(e){ console.error('원본 파일 저장 실패', key, e); return false; }
+  }
+  // 목록에만 있는 묶음(다른 화면에서 올린 것)의 원본 내용을 서버에서 읽어 옴
+  async function ofEnsureAoa(b){
+    if(!b || Array.isArray(b.aoa) || !b.key) return b;
+    try{ const r = await window.storage.get(b.key, true); const v = r && r.value ? JSON.parse(r.value) : null; if(v && Array.isArray(v.aoa)){ b.aoa = v.aoa; if(!b.startRow) b.startRow = v.startRow; } }
+    catch(e){ console.error('원본 파일 읽기 실패', b.key, e); }
+    return b;
+  }
+  async function ofDeleteKeys(keys){ for(const k of keys){ try{ await window.storage.delete(k, true); }catch(e){ /* 남아도 쓰이지 않음 */ } } }
+  const ofBatchKeys = entry => ofArr(entry).map(b => b && b.key).filter(Boolean);
   async function saveOriginalFiles(){
-    // 업체 원본 파일도 한 덩어리로 저장됨 → 화면을 연 뒤 다른 직원이 올린 원본을 지우지 않게, 서버 최신본과 묶음(batch) 단위로 합쳐 저장
+    // 화면을 연 뒤 다른 직원이 올린 원본을 지우지 않게, 서버 최신 목록과 묶음(batch) 단위로 합쳐 저장
     const run = async () => {
       try{ const srv = await kvReadJson('uploaded-original-files'); if(srv && typeof srv === 'object') ofMerge(srv); }catch(e){ /* 최신본 확인 실패 → 내 화면 그대로 저장 */ }
-      try{ await window.storage.set('uploaded-original-files', JSON.stringify(uploadedOriginalFiles), true); kvMergeBase.orig = ofSnap(uploadedOriginalFiles); }catch(e){ console.error(e); }
+      let failed = 0;
+      for(const d of Object.keys(uploadedOriginalFiles)){
+        const day = uploadedOriginalFiles[d] || {};
+        for(const c of Object.keys(day)){
+          if(!Array.isArray(day[c])) day[c] = ofArr(day[c]);
+          for(const b of day[c]) if(!(await ofPutBatch(d, c, b))) failed++;
+        }
+      }
+      // 따로 저장된 묶음은 목록에 원본 내용(aoa)을 빼고 저장 (따로 저장 못 한 묶음은 잃지 않게 목록에 그대로)
+      const json = JSON.stringify(uploadedOriginalFiles, function(k, v){ return (k === 'aoa' && this && this.key) ? undefined : v; });
+      try{ await window.storage.set('uploaded-original-files', json, true); kvMergeBase.orig = ofSnap(uploadedOriginalFiles); }
+      catch(e){ console.error(e); toast('⚠ 업체 원본 파일 목록을 서버에 저장하지 못했습니다 — 인터넷 연결을 확인한 뒤 같은 원본 엑셀을 다시 올려 주세요', { error: true }); }
+      if(failed) toast(`⚠ 업체 원본 엑셀 ${failed}개를 서버에 따로 저장하지 못해 목록에 함께 넣었습니다 (다음 저장 때 다시 시도)`);
       try{ renderOriginalFileSelect(); }catch(e){ /* 화면 갱신은 부가 */ }
     };
     return (kvOrigChain = kvOrigChain.then(run, run));
@@ -6598,6 +6632,8 @@ function mnShow(id, keepScroll) {
       if(hit) save();
     });
     renderSavedDatesBar();
+    // 따로 저장한 업체 원본 엑셀(orig-file:날짜:…)도 보관 기간이 지난 것은 지움
+    window.storage.list('orig-file:', true).then(r => ofDeleteKeys((r.keys || []).filter(k => { const m = /^orig-file:(\d{4}-\d{2}-\d{2}):/.exec(k); return m && m[1] < cutoff && m[1] !== currentDateKey; }))).catch(() => {});
 
     const msg = `${cutoff} 이전 날짜 ${toRemove.length}일치 데이터를 정리했습니다`;
     toast(msg);
@@ -9268,13 +9304,14 @@ function mnShow(id, keepScroll) {
     document.getElementById('original-courier-name').placeholder = deliveryCourierName ? `비우면 ${deliveryCourierName}` : '택배사 이름 (예: CJ대한통운)';
     const companyName = document.getElementById('original-file-company-select').value;
     if(companyName.startsWith('#miss:')){
-      wrap.innerHTML = `<div class="empty" style="text-align:left;line-height:1.7;">⚠ <b>${escapeHtml(companyName.slice(6))}</b>의 원본 엑셀이 저장돼 있지 않아 업체 양식으로 내려받을 수 없습니다 (예전에 다른 직원 화면에서 저장하면서 덮어써진 경우).<br>발주 입력에서 이 업체를 고르고 <b>같은 원본 엑셀을 다시 올리면</b> 주문은 늘지 않고 원본 파일만 다시 붙습니다.</div>`;
+      wrap.innerHTML = `<div class="empty" style="text-align:left;line-height:1.7;">💡 원본이 없어도 <b>[업체 양식으로 다운로드]</b>를 누르면 <b>주문번호 · 수령인 · 품목 · 운송장번호 목록</b>으로 받을 수 있습니다.<br>⚠ <b>${escapeHtml(companyName.slice(6))}</b>의 원본 엑셀이 저장돼 있지 않아 업체 양식으로 내려받을 수 없습니다 (예전에 다른 직원 화면에서 저장하면서 덮어써진 경우).<br>발주 입력에서 이 업체를 고르고 <b>같은 원본 엑셀을 다시 올리면</b> 주문은 늘지 않고 원본 파일만 다시 붙습니다.</div>`;
       if(note) note.textContent = ''; return;
     }
     const entry = companyName ? currentOriginalFiles()[companyName] : null;
     if(!entry){ wrap.innerHTML = ''; if(note) note.textContent = ''; return; }
     const batches = Array.isArray(entry) ? entry : [entry];
     const batch = batches[batches.length - 1];
+    if(!Array.isArray(batch.aoa) && batch.key){ wrap.innerHTML = '<div class="sub">원본 파일을 불러오는 중…</div>'; ofEnsureAoa(batch).then(() => { if(Array.isArray(batch.aoa)) renderOriginalPreview(); else wrap.innerHTML = '<div class="empty">원본 파일을 서버에서 읽지 못했습니다. 새로고침 후 다시 시도해주세요</div>'; }); return; }
     const aoa = batch.aoa || [];
     const startRow = batch.startRow || 1;
     const from = Math.max(0, startRow - 3);
@@ -14619,16 +14656,32 @@ function mnShow(id, keepScroll) {
     renderOriginalPreview();
   });
 
+  // 원본 엑셀이 없는 업체: 주문번호 · 수령인 · 품목 · 수량 · 운송장번호 목록으로 (업체에 주문번호 기준으로 회신)
+  function ofExportList(companyName){
+    const rows = currentLineItems().filter(r => r && r.company === companyName && !r.sampleKey);
+    if(!rows.length){ toast('이 업체의 개별 주문이 없습니다'); return; }
+    const courier = (document.getElementById('original-courier-name').value || '').trim() || deliveryCourierName || '';
+    const head = ['주문번호', '사내관리번호', '수령인', '연락처', '주소', '품목', '수량', '택배사', '운송장번호'];
+    const aoa = [head, ...rows.map(r => [r.orderNo || '', r.internalOrderNo || '', r.recipientName || '', r.recipientPhone || '', r.address || '', r.itemNameRaw || ((dict.find(d => d.id === r.itemId) || {}).name || ''), Number(r.qty) || 0, r.trackingNo ? courier : '', r.trackingNo || ''])];
+    const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 28 }, { wch: 6 }, { wch: 12 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '운송장');
+    XLSX.writeFile(wb, `${companyName.replace(/[\\/:*?"<>|]/g, '')}_운송장_${currentDateKey.replace(/-/g, '')}.xlsx`);
+    const no = rows.filter(r => !r.trackingNo).length;
+    toast(`원본 양식이 없어 주문번호 · 운송장번호 목록으로 받았습니다 (${rows.length}줄${no ? `, 운송장 없음 ${no}줄` : ''})`);
+  }
   // 업체 원본 양식 그대로 + 운송장번호만 채워서 그 업체에 회신할 파일
-  document.getElementById('export-original-format-btn').addEventListener('click', ()=>{
+  document.getElementById('export-original-format-btn').addEventListener('click', async ()=>{
     const companyName = document.getElementById('original-file-company-select').value;
     if(!companyName){ toast('원본 파일이 있는 업체를 선택해주세요'); return; }
-    if(companyName.startsWith('#miss:')){ toast('이 업체는 원본 파일이 없습니다 — 같은 원본 엑셀을 발주 입력에서 다시 올려 주세요'); return; }
+    if(companyName.startsWith('#miss:')){ ofExportList(companyName.slice(6)); return; }
     let origEntry = currentOriginalFiles()[companyName];
     if(!origEntry){ toast('해당 업체의 원본 업로드 파일을 찾을 수 없습니다'); return; }
 
     // normalise: may be a single object (legacy) or array of batches
     const batches = Array.isArray(origEntry) ? origEntry : [origEntry];
+    await Promise.all(batches.map(ofEnsureAoa));   // 다른 화면에서 올린 묶음은 원본 내용을 서버에서 읽어 옴
+    const lost = batches.filter(b => !Array.isArray(b.aoa));
+    if(lost.length === batches.length){ toast('원본 파일 내용을 서버에서 읽지 못했습니다 — 인터넷 연결 확인 후 다시 시도하거나, 같은 원본 엑셀을 다시 올려 주세요'); return; }
 
     const trackingColRaw = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
     const courierCol = (document.getElementById('original-courier-col').value || '').trim().toUpperCase();
@@ -14964,7 +15017,7 @@ function mnShow(id, keepScroll) {
       delete currentOrders()[company];
       if(extrasRemove(currentDateKey, company)) saveOrderExtras();
       const origFiles = currentOriginalFiles();
-      if(origFiles[company]){ delete origFiles[company]; saveOriginalFiles(); }
+      if(origFiles[company]){ ofDeleteKeys(ofBatchKeys(origFiles[company])); delete origFiles[company]; saveOriginalFiles(); }
       saveOrdersByDate();
       saveLineItems();
       renderAggTable();
