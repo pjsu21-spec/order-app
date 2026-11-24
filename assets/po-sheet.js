@@ -360,7 +360,9 @@
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const NF_ID = { '': 0, date: 14, acc0: 41 };
   const NF_CUSTOM = { acc2: '_-* #,##0.00_-;\\-* #,##0.00_-;_-* "-"_-;_-@_-', '0.000': '0.000', md: 'm"월" d"일";@', 'm/d': 'm"/"d;@', '0"팩"': '0"팩"', '0"박스"': '0"박스"', '0"kg"': '0"kg"', '0"병"': '0"병"', '0.00"팩"': '0.00"팩"' };
+  // g: 표 하나 또는 여러 시트 [{ grid, name }] (시트마다 탭 하나, 서식은 함께 씀). 표에 zoom을 주면 그 배율로 열림(기본 70%)
   async function toXlsx(g, sheetName){
+    const list = Array.isArray(g) ? g : [{ grid: g, name: sheetName }];
     const fonts = [], fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'], borders = [], xfs = [];
     const fK = new Map(), flK = new Map(), bK = new Map(), xK = new Map(), nfK = new Map();
     const idx = (map, arr, key, xml) => { if(!map.has(key)){ map.set(key, arr.length); arr.push(xml); } return map.get(key); };
@@ -381,6 +383,7 @@
       return idx(xK, xfs, key, `<xf numFmtId="${nf}" fontId="${fi}" fillId="${fli}" borderId="${bi}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${al}</xf>`);
     };
     // 시트
+    const sheetXmlOf = (g, first) => {
     let rowsXml = '';
     for(let r = 1; r <= g.rows.length - 1 || r <= (g.maxRow || 0); r++){
       const R = g.rows[r]; if(!R) continue;
@@ -400,15 +403,21 @@
     }
     const colsXml = '<cols>' + g.cols.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.w || 9}" customWidth="1"${c.hidden ? ' hidden="1"' : ''}/>`).join('') + '</cols>';
     const mergesXml = g.merges.length ? `<mergeCells count="${g.merges.length}">${g.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '';
-    const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView showGridLines="0" showZeros="0" tabSelected="1" zoomScale="70" zoomScaleNormal="70" workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="9" defaultRowHeight="15"/>${colsXml}<sheetData>${rowsXml}</sheetData>${mergesXml}<pageMargins left="0.236" right="0.236" top="0.748" bottom="0.748" header="0.315" footer="0.315"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/></worksheet>`;
+    const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView showGridLines="0" showZeros="0"${first ? ' tabSelected="1"' : ''} zoomScale="${g.zoom || 70}" zoomScaleNormal="${g.zoom || 70}" workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="9" defaultRowHeight="15"/>${colsXml}<sheetData>${rowsXml}</sheetData>${mergesXml}<pageMargins left="0.236" right="0.236" top="0.748" bottom="0.748" header="0.315" footer="0.315"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/></worksheet>`;
+    return sheet;
+    };
+    const sheets = list.map((x, i) => sheetXmlOf(x.grid, i === 0));
+    // 시트 이름: 엑셀 규칙(31자, []:*?/ 안 됨, 겹치지 않게)
+    const used = new Set();
+    const names = list.map((x, i) => { let b = String(x.name || (i ? 'Sheet' + (i + 1) : '왓더프룻 발주서')).replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Sheet' + (i + 1), n = b, k = 2; while(used.has(n.toLowerCase())){ n = b.slice(0, 28) + ' ' + k++; } used.add(n.toLowerCase()); return n; });
     const numFmtsXml = nfK.size ? `<numFmts count="${nfK.size}">${[...nfK.entries()].map(([k, id]) => `<numFmt numFmtId="${id}" formatCode="${esc(NF_CUSTOM[k])}"/>`).join('')}</numFmts>` : '';
     const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${numFmtsXml}<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="표준" xfId="0" builtinId="0"/></cellStyles><dxfs count="0"/><tableStyles count="0"/></styleSheet>`;
     const zip = new JSZip();
-    zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+    zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' + sheets.map((x, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
     zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-    zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="${esc(sheetName || '왓더프룻 발주서')}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
-    zip.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-    zip.file('xl/worksheets/sheet1.xml', sheet);
+    zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${names.map((n, i) => `<sheet name="${esc(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`);
+    zip.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map((x, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') + `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+    sheets.forEach((x, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, x));
     zip.file('xl/styles.xml', styles);
     return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
   }

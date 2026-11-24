@@ -22309,7 +22309,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261119d'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261125a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -22641,7 +22641,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const L = n => { let t = ''; while(n > 0){ const m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };
     const T = 'thin', M2 = 'medium';
     const st = o => Object.assign({ fn: '맑은 고딕', sz: 11, b: 0, fc: '#000000', fill: '', bd: [T, T, T, T], h: '', v: 'center', w: 0, nf: '' }, o);
-    const g = { rows: [], merges: [], cols: [], maxRow: 0 };
+    const g = { rows: [], merges: [], cols: [], maxRow: 0, zoom: 100 };
     const row = (r, h) => { const R = g.rows[r] || (g.rows[r] = { h: 21, hidden: false, cells: {} }); if(h) R.h = h; return R; };
     const put = (r, c, v, o) => { row(r).cells[L(c)] = { v: v == null ? '' : v, st: st(o) }; if(r > g.maxRow) g.maxRow = r; };
     // 합친 칸은 안쪽 칸마다 같은 테두리를 넣어야 엑셀에서 선이 끊기지 않음
@@ -22689,6 +22689,15 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const blob = await window.PoSheet.toXlsx(rsGrid(d, dk), '운행표');
     pgDownloadBlob(blob, d.drv.replace(/[\\/:*?"<>|\s]+/g, '') + '운행표_' + dk.slice(2).replace(/-/g, '') + '.xlsx');
   }
+  // 그날 기사님 전부를 한 파일로 — 기사님마다 탭(시트) 하나
+  async function rsXlsxAll(m, drvs, dk){
+    try{ await pgEnsure(); }catch(e){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    if(typeof JSZip === 'undefined'){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const sheets = drvs.map(x => ({ grid: rsGrid(rsBuild(m, x), dk), name: x }));
+    const blob = await window.PoSheet.toXlsx(sheets);
+    pgDownloadBlob(blob, '운행표_전체_' + dk.slice(2).replace(/-/g, '') + '.xlsx');
+    toast(`기사님 ${drvs.length}명 운행표를 한 파일(탭 ${drvs.length}개)로 받았습니다`);
+  }
   // 운행표 창: 기사님 고르기 → 미리보기 · 공유용 이미지 · 엑셀 · 인쇄 · 동선 순서
   async function rsOpen(dkArg){
     const dk = dkArg || currentDateKey; if(!dk) return;
@@ -22724,12 +22733,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     pgModal('🚚 운행표 — ' + rsDateText(dk), wrap, [
       { text: '닫기', fn: c => c() },
       { text: '📥 엑셀', fn: () => { rsXlsx(rsBuild(m, cur), dk); writeLog('run_sheet', `운행표 엑셀 ${cur} ${dk}`).catch(() => {}); } },
+      ...(drvs.length > 1 ? [{ text: `📚 전체 엑셀 (기사님 ${drvs.length}명 · 탭별)`, fn: () => { rsXlsxAll(m, drvs, dk); writeLog('run_sheet', `운행표 엑셀 전체 ${drvs.length}명 ${dk}`).catch(() => {}); } }] : []),
       { text: '🖨 인쇄', fn: async () => { const d = rsBuild(m, cur); await pgPrint(rsHtml(d, dk), 900, RS_CSS, `${cur} 운행표 ${dk}`); } },
       { text: '🖼 공유용 이미지', primary: true, fn: async () => { const d = rsBuild(m, cur); try{ await pgCapture(rsHtml(d, dk), Math.max(700, 420 + d.cols.length * 70), fileBase(), RS_CSS); writeLog('run_sheet', `운행표 이미지 ${cur} ${dk}`).catch(() => {}); }catch(e){ toast('이미지를 만들지 못했습니다: ' + (e.message || e)); } } }
     ]);
   }
   window.rsOpen = rsOpen;
-  window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, grid: rsGrid, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
+  window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, xlsxAll: rsXlsxAll, grid: rsGrid, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
   (function wirePoGen(){
     const $ = id => document.getElementById(id);
     if($('rs-btn')) $('rs-btn').addEventListener('click', () => rsOpen(typeof stmDate === 'function' ? stmDate() : currentDateKey));   // 송장/명세서의 대상 일자
