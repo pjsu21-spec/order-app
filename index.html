@@ -5277,15 +5277,14 @@ function applyUserUI() {
     const box = $('lab-staff-box'); if(!box) return;
     const grades = (D.price || []).filter(p => devCatOfPrice(p.cat) === '인건비');
     const adm = canAdmin();
-    let levels = {}, users = [];
-    try{ levels = window.labGetLevels ? await window.labGetLevels() : {}; }catch(e){}
+    let users = [];
     try{ users = await apiUsersBasic(); }catch(e){ users = []; }
     const me = window.currentUser || {};
-    const ids = [...new Set(Object.entries(levels).filter(([, v]) => v === 'edit' || v === 'admin').map(([k]) => k).concat(Object.keys(D.staff || {})).concat(me.role === 'admin' ? [String(me.id)] : []))];
+    const ids = users.filter(u => u && u.is_active !== false && /연구소/.test(String(u.department || ''))).map(u => String(u.id));   // 계정 정보의 부서가 '연구소'인 직원만
     const nameOf = id => { const u = users.find(x => String(x.id) === String(id)); return u ? (u.display_name || u.username || id) : (String(id) === String(me.id) ? (me.display_name || id) : id); };
     let h = `<div style="font-weight:700;font-size:13.5px;margin:0 0 4px;">👤 연구원별 인건비 직급 <span class="sub" style="font-weight:400;margin:0;">— 산출서를 새로 만들면 로그인한 담당자의 직급 단가로 인건비 줄이 자동으로 들어갑니다</span></div>`;
     if(!grades.length) h += '<div class="sub">단가 기준표에 인건비 줄이 있어야 지정할 수 있습니다.</div>';
-    else if(!ids.length) h += '<div class="sub">연구소 담당 이상 권한이 있는 직원이 없습니다.</div>';
+    else if(!ids.length) h += '<div class="sub">부서가 「연구소」인 직원이 없습니다. 🛠 관리자 → 사용자 관리에서 연구원의 부서를 「연구소」로 적어 주세요.</div>';
     else h += `<div style="overflow-x:auto;"><table class="lab-tbl" style="width:auto;"><thead><tr><th>연구원</th><th>인건비 직급</th></tr></thead><tbody>${ids.sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ko')).map(id => { const cur = (D.staff || {})[id] || ''; const g = grades.find(x => x.id === cur);
       return `<tr><td>${esc(nameOf(id))}</td><td>${adm ? `<select data-staff="${esc(id)}"><option value="">(지정 안 함)</option>${grades.map(x => `<option value="${esc(x.id)}"${x.id === cur ? ' selected' : ''}>${esc(x.item)} · ${won(x.price)}원</option>`).join('')}</select>` : (g ? `${esc(g.item)} · ${won(g.price)}원` : '<span class="sub" style="margin:0;">지정 안 함</span>')}</td></tr>`; }).join('')}</tbody></table></div>`;
     box.innerHTML = h;
