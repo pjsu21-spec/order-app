@@ -129,17 +129,15 @@ export async function handle(req, deps) {
 // ── 실제 서버(Deno)에서 실행 ──
 if (typeof Deno !== 'undefined' && Deno.serve) {
   const env = n => Deno.env.get(n) || '';
-  let transport = null;
+  // 보낼 때마다 비밀값을 새로 읽어 연결 (Secrets 를 바꾸면 바로 적용 — 예전 값을 기억해 두지 않음). 앞뒤 공백은 지움
   const send = async ({ to, subject, text, html }) => {
-    if (!transport) {
-      const port = Number(env('HIWORKS_SMTP_PORT') || 465);
-      transport = nodemailer.createTransport({
-        host: env('HIWORKS_SMTP_HOST') || 'smtps.hiworks.com', port, secure: port === 465,
-        auth: { user: env('HIWORKS_SMTP_USER'), pass: env('HIWORKS_SMTP_PASS') },
-      });
-    }
-    const from = `"${(env('MAIL_FROM_NAME') || '다름달음 통합시스템').replace(/"/g, '')}" <${env('HIWORKS_SMTP_USER')}>`;
-    await transport.sendMail({ from, to: to.join(', '), subject, text, html });
+    const user = env('HIWORKS_SMTP_USER').trim(), pass = env('HIWORKS_SMTP_PASS').trim();
+    if (!user || !pass) throw new Error('Supabase Secrets 에 HIWORKS_SMTP_USER / HIWORKS_SMTP_PASS 가 없습니다');
+    const port = Number(env('HIWORKS_SMTP_PORT') || 465);
+    const transport = nodemailer.createTransport({ host: env('HIWORKS_SMTP_HOST').trim() || 'smtps.hiworks.com', port, secure: port === 465, auth: { user, pass } });
+    const from = `"${(env('MAIL_FROM_NAME') || '다름달음 통합시스템').replace(/"/g, '')}" <${user}>`;
+    try { await transport.sendMail({ from, to: to.join(', '), subject, text, html }); }
+    finally { try { transport.close(); } catch (e) { /* 무시 */ } }
   };
   Deno.serve(req => handle(req, { env, fetch, send }));
 }
