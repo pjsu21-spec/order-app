@@ -3735,6 +3735,10 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
       if (/^(statement-|shipdoc-)/.test(key)) return 'invoice';
       if (/^sorting-/.test(key)) return 'sorting_master';   // 원물선별 설정(원물 종류 등)
       if (/^mat-(led-|master$|bom$)/.test(key)) return 'matled';   // 자재 입고·사용 기록·자재 마스터·정전개: 발주자동화 또는 생산/물류
+      // 연구소 저장값: 연구소 권한으로 판단 (서버 규칙 연구소_산출서_SQL.sql 과 같은 기준)
+      if (/^lab-(state|dev-sheets)$/.test(key)) return 'lab-edit';        // 접수·제작 완료 · 샘플개발 산출서 — 담당 이상
+      if (/^lab-(access|price-table)$/.test(key)) return 'lab-admin';     // 연구소 권한 · 단가 기준표 — 연구소 관리자
+      if (key === 'lab-mail-settings') return 'lab-any';                    // 메일 알림 설정 — 연구소 탭을 볼 수 있는 사람
     } catch (e) { /* 구분 못 하면 발주자동화로 */ }
     return null;
   }
@@ -3758,6 +3762,7 @@ window.canSaveStock = () => window.sectionLevel('plan') === 'full';
     if (table === 'kv_store') {
       const sec = kvSection(url, init);
       if (sec === 'sorting_master') { const u = window.currentUser || {}; lvl = (u.role === 'admin' || (window.accessLevel('sorting') === 'full' && u.sorting_master_edit === true)) ? 'full' : (window.accessLevel('sorting') === 'none' ? 'none' : 'read'); }
+      else if (sec === 'lab-edit' || sec === 'lab-admin' || sec === 'lab-any') { const lv = window.labMyLevel ? window.labMyLevel() : 'none'; const okLab = sec === 'lab-edit' ? (lv === 'edit' || lv === 'admin') : sec === 'lab-admin' ? lv === 'admin' : lv !== 'none'; lvl = okLab ? 'full' : 'none'; }
       else if (sec === 'matled') { const a = window.accessLevel('order'), b = window.sectionLevel('plan'); lvl = (a === 'full' || b === 'full') ? 'full' : ((a === 'read' || b === 'read') ? 'read' : 'none'); }
       else if (sec) lvl = window.sectionLevel(sec);
     }   // 생산/물류·송장/명세서 저장값은 그 세부 권한을 따름
@@ -4892,6 +4897,7 @@ function applyUserUI() {
   };
   window.labSetAccess = (userId, on, name) => window.labSetLevel(userId, on ? 'edit' : 'none', name);   // (예전 호환)
   window.labLevelNames = LV_NAME;
+  window.labMyLevel = () => myLevel();   // 저장 가드(writeBlocked)가 연구소 저장값 권한을 판단할 때 씀
   window.labApplyAccess = async function(){
     const u = window.currentUser, btn = $('main-nav-btn-lab');
     if(!btn) return;
