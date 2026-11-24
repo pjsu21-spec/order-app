@@ -5756,7 +5756,16 @@ window.erpCodesLoad = (() => { let p = null; return force => {
     let h = `<div class="row" style="margin:0 0 10px;">${tabs.map(([k, t]) => `<button type="button" class="${E.tab === k ? 'btn-primary' : 'btn-ghost'} small-btn" data-erp-tab="${k}">${t}</button>`).join('')}
       <span class="sub" style="margin:0;">${R ? `규칙: ${esc(R.file || '')} (${esc(R.by || '')} ${R.at ? new Date(R.at).toLocaleDateString('ko-KR') : ''})` : '<b style="color:var(--danger,#c0392b);">채번 규칙이 아직 없습니다 — [채번 규칙]에서 엑셀을 가져오세요</b>'}</span></div>`;
     h += E.tab === 'rules' ? renderRules() : E.tab === 'items' ? renderItems() : renderMake();
+    // 체크·선택할 때마다 다시 그려도 보던 자리 그대로: 표 안 스크롤과 바깥(화면) 스크롤 위치를 기억했다가 되돌림
+    const keepIn = [...box.querySelectorAll('[data-erp-scroll]')].map(el => [el.dataset.erpScroll, el.scrollTop, el.scrollLeft]);
+    const keepOut = []; for(let p = box.parentElement; p; p = p.parentElement) if(p.scrollTop) keepOut.push([p, p.scrollTop]);
+    const se = document.scrollingElement || document.documentElement, wy = se.scrollTop;
+    box.style.minHeight = box.offsetHeight + 'px';   // 잠깐 높이가 줄어 화면이 위로 튀지 않게
     box.innerHTML = h;
+    keepIn.forEach(([k, t, l]) => { const el = box.querySelector(`[data-erp-scroll="${k}"]`); if(el){ el.scrollTop = t; el.scrollLeft = l; } });
+    keepOut.forEach(([p, t]) => { if(p !== se && p.scrollTop !== t) p.scrollTop = t; });
+    if(se.scrollTop !== wy) se.scrollTop = wy;
+    box.style.minHeight = '';
     box.querySelectorAll('[data-erp-tab]').forEach(b => b.addEventListener('click', () => { E.tab = b.dataset.erpTab; render(); }));
     if(E.tab === 'rules') bindRules(); else if(E.tab === 'items') bindItems(); else bindMake();
   }
@@ -5869,7 +5878,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
         <span class="sub" style="margin:0;">선택 ${onN}개 →</span><select id="erp-mk-setkind"><option value="">구분 한꺼번에 바꾸기</option>${MK_KINDS.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select>
         <button type="button" class="btn-primary small-btn" id="erp-mk-bulk"${onN ? '' : ' disabled'}>선택한 ${onN}개 새 품목으로 등록</button>
         <span class="sub" style="margin:0;">구분은 코드 첫 자리·대분류로 추천해 두었습니다 (W·G 제품, S 반제품, M 원물/부자재). 품목명 = ERP 품명, 이카운트 품목코드 = 변경 전 코드</span></div>`; }
-    h += `<div style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
+    h += `<div data-erp-scroll="items" style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
       return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}</td>
         <td>${adm ? `<input type="text" class="erp-in" value="${esc(m ? m.code : '')}" maxlength="12" placeholder="—">` : `<span class="erp-code">${esc(m ? m.code : '')}</span>`}</td>
         <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}${fq.map(f => { const ck = check(f.code), free = (E.items || []).filter(i => !E.map[i.key]), ms = mkState(f);
@@ -5975,7 +5984,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       <label class="sub" style="margin:0;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="erp-up-free"${U.free ? ' checked' : ''}> 못 찾은 ${fr.length}개는 코드만 등록 (품목은 나중에 연결)</label>
       <button type="button" class="btn-primary small-btn" id="erp-up-apply">${nGo}개 적용</button><button type="button" class="btn-ghost small-btn" id="erp-up-cancel">취소</button></div>
       <div class="sub" style="margin:0 0 6px;">품목은 '변경 전 코드 = 지금 코드' → 같은 이름 순으로 자동으로 맞춥니다. 못 찾은 줄은 오른쪽에서 직접 고르거나, 코드만 등록해 두고 나중에 품목과 연결하세요 (시스템에 아직 없는 원자재 등). 규칙 오류가 있는 코드도 적용은 되고 표에 표시됩니다.</div>
-      <div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>ERP CODE</th><th>품명 · 규격</th><th>변경 전 코드</th><th>검사</th><th>맞출 품목</th></tr></thead><tbody>${U.rows.map((r, i) => { const s = st(r);
+      <div data-erp-scroll="up" style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>ERP CODE</th><th>품명 · 규격</th><th>변경 전 코드</th><th>검사</th><th>맞출 품목</th></tr></thead><tbody>${U.rows.map((r, i) => { const s = st(r);
         return `<tr><td class="erp-code">${esc(r.code)}</td><td>${esc(r.name)}${r.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.spec)}</div>` : ''}</td><td class="erp-code">${esc(r.old)}</td>
           <td>${s.dup ? `<span class="erp-err">❌ ${esc(s.dup)}</span>` : ''}${s.ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ')}${s.ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}${!s.dup && s.ck.ok && !s.ck.warn.length ? '<span class="erp-ok">✅</span>' : ''}</td>
           <td><select data-up="${i}"><option value="">${r.key ? '' : '⚠ '}— 품목 고르기 —</option>${E.items.map(it => `<option value="${esc(it.key)}"${it.key === r.key ? ' selected' : ''}>[${esc(it.type)}] ${esc(it.name)}</option>`).join('')}</select>${r.how ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.how)}로 맞춤</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div></div>`;
