@@ -30,6 +30,7 @@
   body{ color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
   /* 검색 가능한 업체 선택 */
   .ss-wrap{ position:relative; display:inline-block; vertical-align:middle; }
+  .ib-it.ib-track{ background:#eef5fd; }
   .pq-box{ margin:0 0 10px; padding:8px 10px; border:1px solid var(--line,#ddd); border-radius:8px; background:var(--soft,#f6f1e7); font-size:13px; }
   .pq-head{ margin-bottom:6px; }
   .pq-warn{ margin:0 0 6px; color:var(--danger,#c0392b); }
@@ -1521,11 +1522,13 @@
         <input type="text" id="sender-phone" style="width:130px;" value="02-406-1122">
         <button class="btn-primary small-btn" id="export-courier-form-btn">전체 발주서 다운로드 (.xls)</button>
         <button class="btn-ghost small-btn" id="export-courier-selected-btn">선택 건만 발주서 다운로드</button>
+        <button class="btn-ghost small-btn" id="share-courier-form-btn" title="제이엠로지스 발주서(.xls)를 휴대폰·PC 공유 창으로 보냅니다 → 카카오톡 선택. 개별 주문 리스트에 체크한 건이 있으면 그 건만 보낼지 묻습니다">📤 발주서 카톡 공유</button>
       </div>
       <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:4px; color:var(--accent);">※ 추가발주 등 일부 건만 출력할 때는 위 개별 주문 리스트에서 체크 후 "선택 건만" 버튼을 사용하세요.</div></details>
 
       <h3>운송장번호 업로드</h3>
-      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">택배사에서 발급된 운송장번호 파일을 업로드하면 개별 주문과 자동 매칭됩니다.</div></details>
+      <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">택배사에서 발급된 운송장번호 파일을 업로드하면 개별 주문과 자동 매칭됩니다. 휴대폰에서는 카톡으로 받은 송장 파일을 <b>공유 → 다름달음 오더</b>로 보내면 이 칸으로 바로 열리고, PC는 발주 입력의 <b>📂 카톡 받은 파일 폴더</b>를 연결해 두면 아래 <b>받은 송장 파일</b>에 뜹니다.</div></details>
+      <div id="inbox-track-box" class="ib-box" style="display:none;margin-bottom:8px;"></div>
       <div class="dropzone" id="tracking-dropzone">
         <div>운송장번호가 담긴 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요 (xlsx / xls / csv)</div>
         <div class="fname" id="tracking-fname"></div>
@@ -3156,6 +3159,8 @@
   <li><b>3PL 출고 집계</b> 탭에서 개별 주문을 확인합니다.</li>
   <li><b>택배사 발주서 다운로드</b>: 보내는 분 정보를 확인하고 <span class="mn-b">전체 발주서 다운로드 (.xls)</span>. 일부만 필요하면 목록에서 체크하고 <span class="mn-b">선택 건만 발주서 다운로드</span>.</li>
   <li>택배사가 운송장번호 파일을 주면 <b>운송장번호 업로드</b>에 올리고, 주문번호 열과 운송장번호 열을 지정해 <span class="mn-b">운송장번호 매칭 적용</span>을 누릅니다. <span class="mn-b">💾 이 설정 저장</span>으로 다음번엔 자동 지정됩니다.</li>
+  <li><b>카톡으로 주고받기</b>: <span class="mn-b">📤 발주서 카톡 공유</span>를 누르면 제이엠로지스 발주서(.xls)가 휴대폰·PC 공유 창으로 열립니다 → <b>카카오톡</b>을 골라 보냅니다(목록에서 체크한 건이 있으면 그 건만 보낼지 묻습니다). 브라우저가 엑셀 공유를 지원하지 않으면 파일로 내려받아지니, 다운로드한 파일을 카톡 대화창에 끌어다 놓거나(PC) 다운로드 알림에서 공유하세요(휴대폰).</li>
+  <li>제이엠에서 카톡으로 받은 <b>송장 파일</b>은 휴대폰에서 <b>공유 → 다름달음 오더</b>로 보내면 운송장번호 업로드 칸에 바로 열립니다. PC는 발주 입력의 <b>📂 카톡 받은 파일 폴더</b>를 연결해 두면 운송장번호 업로드 위 <b>📥 받은 송장 파일</b>에 뜨니 <span class="mn-b">송장으로 열기</span>를 누르세요. 운송장번호가 채워진 파일을 송장 파일로 알아봅니다(받은 발주서 목록에도 🚚 송장 파일로 표시).</li>
   <li><b>택배 건수 집계</b>에서 업체별·사이즈별(극소 1~4팩, 소 5~8팩) 건수를 보고 엑셀로 받아 택배비 청구에 씁니다.</li>
 </ol>
 <div class="mn-note"><b>샘플 택배</b>샘플 신청에서 "택배 발송 요청"을 고른 신청은 발주서 반영일의 3PL 개별 주문에 자동으로 들어갑니다. 업체명 <b>다름달음</b>, 업체 주문번호 빈칸, 담당자 = 신청자 이름, 배송 요청사항 = "샘플"(신청서에 적은 배송 요청사항이 있으면 앞에). 신청을 고치거나 취소하면 따라 바뀌고, 매출에는 잡히지 않습니다. 사내관리번호는 그날 3PL 줄 중 가장 큰 번호 다음으로 매겨져 다른 직원 주문과 겹치지 않습니다.</div>
@@ -11742,6 +11747,66 @@ function mnShow(id, keepScroll) {
   let ibShared = [], ibFolder = [], ibFolderState = '';   // ibFolderState: '' | 'none'(미연결) | 'prompt'(허용 필요) | 'missing'(폴더를 찾을 수 없음) | 'ok' | 'unsupported'
   const IB_ACCEPT = /\.(xlsx|xls|csv)$/i;
   const ibIsImg = x => !!x && (/^image\//.test((x.file && x.file.type) || '') || /\.(png|jpe?g|webp|gif|bmp|heic)$/i.test(x.name || ''));   // 카톡에서 공유한 발주표 이미지
+  const ibTrackCache = new Map();   // 파일 키 → true/false
+  function ibAoa(file){ return new Promise(ok => { const rd = new FileReader(); rd.onload = e => { try{ const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); ok(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' })); }catch(er){ ok(null); } }; rd.onerror = () => ok(null); rd.readAsArrayBuffer(file); }); }
+  function isTrackingAoa(aoa){
+    if(!aoa) return false;
+    for(let h = 0; h < Math.min(10, aoa.length); h++){
+      const row = (aoa[h] || []).map(v => String(v ?? '').replace(/\s+/g, ''));
+      const c = row.findIndex(v => v === '운송장번호' || v === '송장번호');
+      if(c < 0) continue;
+      let filled = 0;
+      for(let r = h + 1; r < aoa.length && filled < 1; r++){ const v = String((aoa[r] || [])[c] ?? '').replace(/[\s-]/g, ''); if(/^\d{8,}$/.test(v)) filled++; }
+      return filled > 0;
+    }
+    return false;
+  }
+  async function ibIsTracking(x){
+    if(!x || ibIsImg(x) || !IB_ACCEPT.test(x.name || '')) return false;
+    const k = x.key + '|' + (x.file && x.file.size);
+    if(ibTrackCache.has(k)) return ibTrackCache.get(k);
+    const v = isTrackingAoa(await ibAoa(x.file));
+    ibTrackCache.set(k, v);
+    return v;
+  }
+  window.__isTrackingAoa = isTrackingAoa;
+  // 운송장번호 업로드 칸에 넣기 (집계 / 출고 › 3PL 출고 집계)
+  function ibUseTracking(x){
+    const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-agg"]');
+    if(go && !go.classList.contains('active')) go.click();
+    const t = document.getElementById('tab-3pl-btn'); if(t) t.click();
+    handleTrackingFile(x.file);
+    ibMarkDone(x.file); ibRender();
+    const z = document.getElementById('tracking-dropzone'); if(z) setTimeout(() => z.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    toast(`송장 파일로 열었습니다: ${x.name} — 열 설정을 확인하고 [운송장번호 매칭 적용]을 누르세요`);
+  }
+  // 목록에서 송장 파일 표시 (읽어 본 뒤 비동기로)
+  async function ibMarkTracking(list){
+    for(const x of list){
+      if(!(await ibIsTracking(x))) continue;
+      document.querySelectorAll(`.ib-box .ib-it[data-k="${CSS.escape(x.key)}"]`).forEach(el => {
+        el.classList.add('ib-track');
+        const co = el.querySelector('.ib-co'); if(co && co.tagName === 'SELECT'){ const sp = document.createElement('span'); sp.className = 'ib-co'; sp.style.cssText = 'font-size:12px;font-weight:700;color:#1565c0;'; sp.textContent = '🚚 송장 파일'; co.replaceWith(sp); }
+        const ck = el.querySelector('.ib-chk'); if(ck){ ck.checked = false; ck.disabled = true; ck.title = '송장 파일은 [송장으로 열기]로 올립니다'; ibChk.set(x.key, false); }
+      });
+    }
+    ibRenderTrack(list);
+  }
+  // 운송장번호 업로드 칸 위: 받은 파일 중 송장 파일 목록
+  async function ibRenderTrack(list){
+    const box = document.getElementById('inbox-track-box'); if(!box) return;
+    list = list || [...ibShared, ...ibFolder];
+    const tr = [];
+    for(const x of list) if(await ibIsTracking(x)) tr.push(x);
+    tr.sort((a, b) => b.at - a.at);
+    const done = ibDone();
+    const t = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+    if(!tr.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = '';
+    box.innerHTML = '<div class="ib-hd"><b>📥 받은 송장 파일</b> <span class="sub" style="margin:0;">카톡에서 공유했거나 연결한 PC 폴더에 들어온 운송장번호 파일</span></div><div class="ib-list">'
+      + tr.map((x, i) => { const d = done[ibKeyOf(x.file)]; return `<div class="ib-it ib-track${d ? ' done' : ''}"><span class="ib-src">${x.src === 'share' ? '📱 공유' : '📂 PC'}</span><span class="ib-nm" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span><span class="ib-t">${t(x.at)}</span><span class="ib-meta">${d ? `<span class="ib-done">이 PC 불러온 시각 ${t(d)}</span>` : ''}</span><button type="button" class="btn-primary small-btn" data-ibt="${i}">송장으로 열기</button></div>`; }).join('') + '</div>';
+    box.querySelectorAll('[data-ibt]').forEach(b => b.addEventListener('click', () => { const x = tr[+b.dataset.ibt]; if(x) ibUseTracking(x); }));
+  }
   async function ibLoadShared(){
     ibShared = [];
     if(!('caches' in window)) return;
@@ -11819,6 +11884,7 @@ function mnShow(id, keepScroll) {
     on('install', async () => { try{ ibInstallEvt.prompt(); await ibInstallEvt.userChoice; }catch(e){} ibInstallEvt = null; ibRender(); });
     on('batch', () => ibBatch(list));
     ibMarkDups(list);
+    ibMarkTracking(list);
   }
   async function ibPick(){
     try{
@@ -11837,6 +11903,7 @@ function mnShow(id, keepScroll) {
   }
   // 받은 파일을 업로드 칸에 넣기 (업체는 자동 선택)
   async function ibUse(x){
+    if(await ibIsTracking(x)){ ibUseTracking(x); return; }   // 제이엠 등에서 온 운송장번호 파일 → 운송장번호 업로드
     const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-order"]');
     if(go && !go.classList.contains('active')) go.click();
     if(ibIsImg(x)){   // 발주표 이미지 → 이미지 읽기 (같은 날짜면 지금 인식 결과에 합침)
@@ -11876,6 +11943,7 @@ function mnShow(id, keepScroll) {
         return;
       }
       const first = mine[0] || ibShared[0];
+      if(first && IB_ACCEPT.test(first.name) && await ibIsTracking(first)){ const nav2 = document.querySelector('.main-nav-btn[data-panel="panel-order-group"]'); if(nav2) nav2.click(); ibUseTracking(first); if(mine.length > 1) toast(`공유받은 파일 ${mine.length}개 — 나머지는 받은 파일 목록에서 여세요`); return; }
       if(first && IB_ACCEPT.test(first.name)) ibUse(first);
       else if(first && ibIsImg(first)) ibUse(first);
       else if(first) toast('엑셀(xlsx·xls)·csv 파일이나 발주표 이미지만 불러올 수 있습니다');
@@ -12018,6 +12086,7 @@ function mnShow(id, keepScroll) {
   }
   // 체크한 파일을 골라 둔 업체의 저장된 양식(매핑)으로 차례로 불러오기 — 업체가 안 골라진 파일은 알려 줌
   async function ibBatch(list){
+    { const keep = []; for(const x of list) if(!(await ibIsTracking(x))) keep.push(x); list = keep; }
     const box = document.getElementById('inbox-box');
     const checked = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked && !ibIsImg(x); });
     if(!checked.length){ toast('불러올 파일을 체크해 주세요'); return; }
@@ -15649,6 +15718,57 @@ function mnShow(id, keepScroll) {
     const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
     XLSX.writeFile(wb, `${companyName}_운송장반영_${dateLabel}.xlsx`);
     toast(`${companyName} 원본 양식 + 운송장번호 파일이 다운로드되었습니다`);
+  });
+
+  // 제이엠로지스 발주서 엑셀 (다운로드·공유 공용): rows = 개별 주문 줄
+  function jmCourierBook(rows, extra){
+    const senderName = document.getElementById('sender-name').value.trim();
+    const senderPhone = document.getElementById('sender-phone').value.trim();
+    const header = ['예약구분','집하예정일','보내는분성명','보내는분전화번호','받는사람','주문자 연락처','수취인 연락처','받는분우편번호','주소','배송메세지1','운송장번호','고객주문번호','상품명(약자)','수량','판매처'];
+    const body = rows.map(r=>{
+      const itemName = r.itemId ? (dict.find(d=>d.id===r.itemId)?.shortName || itemNameById(r.itemId)) : r.itemNameRaw;
+      const customerOrderNo = r.orderNo || r.internalOrderNo;
+      const recipientLabel = (r.boxTotal && r.boxTotal > 1 && r.boxIndex > 1) ? `${r.recipientName} ${r.boxIndex - 1}` : r.recipientName;
+      return ['','',senderName,senderPhone,recipientLabel,r.recipientPhone,r.recipientPhone,'',r.address,r.note,r.trackingNo||'',customerOrderNo,itemName,r.qty,r.company];
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), 'Sheet');
+    const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
+    return { wb, name: `제이엠로지스_${extra ? '추가' : ''}발주서_${dateLabel}.xls` };
+  }
+  // 파일을 휴대폰·PC 공유 창으로 (카카오톡 선택). 이 브라우저가 이 파일 종류를 공유하지 못하면 내려받기로 대신하고 안내
+  //  → 'shared' | 'cancel' | 'download'
+  async function shareFileOrDownload(blob, name, title){
+    let file = null;
+    try{ file = new File([blob], name, { type: blob.type || 'application/vnd.ms-excel' }); }catch(e){ /* 아주 옛 브라우저 */ }
+    if(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+      try{ await navigator.share({ files: [file], title: title || name }); return 'shared'; }
+      catch(e){ if(e && e.name === 'AbortError') return 'cancel'; console.warn('share', e); }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+    return 'download';
+  }
+  window.shareFileOrDownload = shareFileOrDownload;
+  document.getElementById('share-courier-form-btn').addEventListener('click', async ()=>{
+    const all = currentLineItems();
+    if(all.length === 0){ toast('3PL 개별 주문 건이 없습니다'); return; }
+    const ids = new Set(Array.from(document.querySelectorAll('.detail-row-check:checked')).map(cb => cb.dataset.id));
+    let rows = all, extra = false;
+    if(ids.size){
+      const sel = all.filter(r => ids.has(r.id));
+      if(sel.length && confirm(`개별 주문 리스트에 체크한 ${sel.length}건이 있습니다.\n\n[확인] 체크한 건만 (추가 발주서)\n[취소] 전체 ${all.length}건`)){ rows = sel; extra = true; }
+    }
+    const { wb, name } = jmCourierBook(rows, extra);
+    const blob = new Blob([XLSX.write(wb, { bookType: 'biff8', type: 'array' })], { type: 'application/vnd.ms-excel' });
+    const r = await shareFileOrDownload(blob, name, '제이엠로지스 발주서');
+    if(r === 'shared') toast(`발주서(${rows.length}건)를 공유했습니다`);
+    else if(r === 'download'){
+      const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      toast(mobile
+        ? `이 브라우저는 엑셀 파일을 바로 공유하지 못해 파일로 받았습니다 — 다운로드 알림(또는 내 파일 › 다운로드)에서 ${name}을 길게 눌러 공유 → 카카오톡`
+        : `발주서를 내려받았습니다(${name}) — 다운로드 표시줄에서 카톡 대화창으로 끌어다 놓으면 바로 보내집니다`);
+    }
   });
 
   // 첨부해주신 제이엠로지스 발주서 양식 그대로, 오늘 3PL 전체 개별 주문을 담아 .xls로 다운로드
