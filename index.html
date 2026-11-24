@@ -332,6 +332,24 @@
   .pm-table tr.pm-grp td{ background:var(--hover,#f6f0ec); font-size:13px; padding-top:6px; padding-bottom:6px; }
   .pm-table tr.pm-grp td:last-child{ text-align:left; }
   .smp-tbl .smp-pd-col{ display:none; }   /* 신청자는 생산일·재고를 고르지 않음 (출고일 당일 생산이 기본, 재고 출고는 주문 취합 담당자가 신청 내역에서) */
+  .erp-tbl{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  .erp-tbl th, .erp-tbl td{ border-bottom:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+  .erp-tbl th{ font-size:12px; color:var(--muted); white-space:nowrap; position:sticky; top:0; background:var(--card,#fff); }
+  .erp-code{ font-family:Consolas, 'Courier New', monospace; letter-spacing:.5px; white-space:nowrap; }
+  .erp-code.big{ font-size:20px; font-weight:800; color:var(--accent); }
+  .erp-in{ font-family:Consolas, 'Courier New', monospace; width:130px; text-transform:uppercase; }
+  .erp-ok{ color:#15803d; font-weight:700; font-size:12px; }
+  .erp-err{ color:var(--danger,#c0392b); font-weight:700; font-size:12px; margin-right:6px; }
+  .erp-warn{ color:#b45309; font-size:12px; margin-right:6px; }
+  .erp-sec{ margin:6px 0; border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  .erp-sec > summary{ font-weight:700; font-size:13px; color:var(--fg); }
+  .erp-gen{ border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .erp-accs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .erp-fields{ display:flex; gap:10px 16px; flex-wrap:wrap; }
+  .erp-f{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--muted); }
+  .erp-f select{ max-width:240px; }
+  .erp-out{ margin-top:12px; padding:10px 12px; background:var(--hover,#f6f0ec); border-radius:8px; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .erp-up{ border:1px solid #f59e0b; background:#fffbeb; border-radius:10px; padding:10px 12px; margin:0 0 10px; }
   .row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
   table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   th, td{ border:1px solid var(--line); padding:6px 8px; text-align:center; }
@@ -2408,6 +2426,12 @@
     <div id="delivery-fee-editor"></div>
       </div>
     </details>
+  </div>
+
+  <div class="card" id="erp-card">
+    <h2 style="margin:0 0 4px;">🔢 ERP 코드 (채번)</h2>
+    <div class="sub" style="margin:0 0 8px;">회사 채번 규칙(엑셀)으로 새 ERP 품목코드를 만들고, 코드 리스트 엑셀을 한 번에 올려 품목마다 지정합니다. 지금은 <b>새 코드를 따로 보관</b>만 하고, 이카운트 품목코드(이카운트 엑셀에 들어가는 코드)는 그대로입니다 — 이카운트 코드를 바꾸는 날 전환합니다.</div>
+    <div id="erp-body"></div>
   </div>
 
   <div class="card">
@@ -5466,7 +5490,8 @@ function applyUserUI() {
     ['ourco', '우리 회사 정보', 'our-co-fold'],
     ['spco', '관계사 정보', 'sp-co-fold'],
     ['price', '단가 설정', 'price-manage-details'],
-    ['fee', '서비스 품목', 'fee-manage-details']
+    ['fee', '서비스 품목', 'fee-manage-details'],
+    ['erp', '🔢 ERP 코드 (채번)', null, 'erp-card']
   ];
   const secs = SECS.map(([k, label, did, cid]) => {
     const d = did ? document.getElementById(did) : null;
@@ -5484,6 +5509,7 @@ function applyUserUI() {
     const s = secs.find(x => x.k === k) || secs[0]; cur = s.k;
     secs.forEach(x => { const on = x === s; x.card.style.display = on ? '' : 'none'; x.btn.classList.toggle('active', on); x.btn.setAttribute('aria-selected', on ? 'true' : 'false'); });
     if(ready && s.d && !s.d.open) s.d.open = true;   // 펼치면 각 칸의 처음 그리기(toggle) 동작이 그대로 돎
+    if(ready && s.k === 'erp' && window.erpRender) window.erpRender();   // ERP 코드 칸은 열 때 그림
     try{ localStorage.setItem('master-tab', s.k); }catch(e){}
     if(opt && opt.scroll){ const top = wrap.getBoundingClientRect().top; if(top < 0) wrap.scrollIntoView({ block: 'start' }); }
   }
@@ -5505,6 +5531,358 @@ function applyUserUI() {
   const activate = () => { if(!ready){ ready = true; show(cur); } };
   if(navBtn) navBtn.addEventListener('click', activate);
   if(panel.classList.contains('active')) setTimeout(activate, 0);
+})();
+
+// ── 🗂 기준정보 › 🔢 ERP 코드 (회사 채번 규칙 · 코드 만들기 · 코드 리스트 일괄 업로드) ──
+//  규칙: kv 'erp-code-rules' — 채번 규칙 엑셀('채번 규칙' · '원자재 코드 규칙_Digit_1~9' 시트)을 가져와 저장
+//    { accounts:{ W|S|G: { groups:[{code,name,ko, items:[{code,name,ko,ex}]}] } }, customers, processes, origins, warehouses:[{code,name,ko}],
+//      raw:{ bigs:[{code,ko,name, mids:[{code,ko,name, specs:[{code,text,note}]}]}] }, file, at, by }
+//  코드: kv 'erp-codes' = { map:{ 'sku:<제품 id>' | 'mat:<자재 id>': { code, name, spec, at, by } } }
+//    품목 자료(이카운트 코드)는 그대로 둠 — 나중에 이카운트 품목코드를 바꾸는 날 전환 (원가 설정 · 원물선별 원물 코드 등 연결도 그때 함께)
+//  코드 형식 (12자리): 제품 W·상품 G = 계정1 + 제품군2 + 제품분류2 + 고객사2 + 중량4(10g 단위) + 원산지1
+//                     반제품 S = 계정1 + 제품군2 + 제품분류2 + 공정2 + 중량4 + 원산지1
+//                     원자재 M = 계정1 + 대분류2 + 중소분류2 + 용량·규격4 + 순번2(01~99 → A1~Z9) + 원산지1
+(function(){
+  const K_RULE = 'erp-code-rules', K_CODE = 'erp-codes';
+  const E = { rules: null, map: null, items: null, tab: 'make', gen: { acc: 'W' }, up: null, q: '' };
+  const $ = id => document.getElementById(id);
+  const esc = s => escapeHtmlSimple(s == null ? '' : s);
+  const toastE = (m, o) => window.showToast(m, o);
+  const isAdminU = () => !!(window.currentUser && window.currentUser.role === 'admin');
+  const who = () => (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+  const ACC = { W: '제품', S: '반제품', G: '상품', M: '원자재' };
+  const MK = { produce: '원물', pack: '부자재', supply: '소모품', semi: '반제품', raw: '원자재' };
+  const up = s => String(s == null ? '' : s).trim().toUpperCase();
+  const norm = s => String(s || '').replace(/[\s_\-()\[\]·.,/]+/g, '').toLowerCase();
+  async function kvGet(k){ const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; }
+
+  // ── 규칙 엑셀 읽기 ──
+  function parseRules(wb){
+    const R = { accounts: { W: { groups: [] }, S: { groups: [] }, G: { groups: [] } }, customers: [], processes: [], origins: [], warehouses: [], raw: { bigs: [] } };
+    const main = wb.Sheets[wb.SheetNames.find(n => /채번\s*규칙/.test(n)) || wb.SheetNames[0]];
+    if(!main) throw new Error('「채번 규칙」 시트를 찾지 못했습니다');
+    const rng = XLSX.utils.decode_range(main['!ref'] || 'A1:A1');
+    const v = (c, r) => { const x = main[c + r]; return x == null ? '' : String(x.w != null ? x.w : x.v).replace(/\s+/g, ' ').trim(); };
+    let sec = '', grp = null;
+    for(let r = rng.s.r + 1; r <= rng.e.r + 1; r++){
+      const b = v('B', r);
+      if(/^\s*\d\)\s*제품군\s*,\s*제품\s*분류/.test(b)) { sec = 'W'; grp = null; continue; }   // 표 제목(1) …)만 — 위쪽 설명 문장은 건너뜀
+      if(/^\s*\d\)\s*반제품\s*분류/.test(b)) { sec = 'S'; grp = null; continue; }
+      if(/^\s*\d\)\s*상품\s*분류/.test(b)) { sec = 'G'; grp = null; continue; }
+      if(/^\s*\d\)\s*고객사/.test(b)) { sec = 'cust'; continue; }
+      if(/^\s*\d\)\s*공정/.test(b)) { sec = 'proc'; continue; }
+      if(/원산지/.test(b) && /\d\)/.test(b)) { sec = 'orig'; continue; }
+      if(/전산\s*창고/.test(b)) { sec = 'wh'; continue; }
+      if(/^\s*\d\.\s*품목명/.test(b)) { sec = ''; continue; }
+      const c = up(v('C', r)), d = up(v('D', r));
+      if(sec === 'W' || sec === 'S' || sec === 'G'){
+        if(/^[A-Z0-9]$/.test(c) && /^[A-Z0-9]$/.test(d) && v('E', r)){ grp = { code: c + d, name: v('E', r), ko: '', items: [] }; R.accounts[sec].groups.push(grp); }
+        const h = up(v('H', r)), i = up(v('I', r));
+        if(grp && /^[A-Z0-9]$/.test(h) && /^[A-Z0-9]$/.test(i)) grp.items.push({ code: h + i, name: v('J', r), ko: v('M', r), ex: up(v('Q', r)), exName: v('R', r) });
+      } else if(sec === 'cust' || sec === 'proc'){
+        if(/^[A-Z0-9]$/.test(c) && /^[A-Z0-9]$/.test(d)) (sec === 'cust' ? R.customers : R.processes).push({ code: c + d, name: v('E', r), ko: v('H', r) });
+      } else if(sec === 'orig'){
+        if(/^[A-Z]$/.test(c)) R.origins.push({ code: c, name: v('E', r), ko: { K: '국내산', V: '베트남산', A: '미국산', C: '중국산' }[c] || '' });
+      } else if(sec === 'wh'){
+        const code = c + d + up(v('E', r)) + up(v('F', r));
+        if(/^[A-Z0-9]{4}$/.test(code)) R.warehouses.push({ code, name: v('G', r), ko: v('J', r) });
+      }
+    }
+    const rawName = wb.SheetNames.find(n => /원자재\s*코드\s*규칙/.test(n));
+    if(rawName){
+      const ws = wb.Sheets[rawName], rg = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      const w = (c, r) => { const x = ws[c + r]; return x == null ? '' : String(x.w != null ? x.w : x.v).replace(/\s+/g, ' ').trim(); };
+      for(let r = rg.s.r + 1; r <= rg.e.r + 1; r++){
+        if(up(w('B', r)) !== 'M') continue;
+        const bc = up(w('D', r)), mc = up(w('G', r)), sc = up(w('J', r));
+        if(!/^[A-Z]{2}$/.test(bc) || !/^[A-Z0-9]{2}$/.test(mc)) continue;
+        let big = R.raw.bigs.find(x => x.code === bc); if(!big){ big = { code: bc, ko: w('E', r), name: w('F', r), mids: [] }; R.raw.bigs.push(big); }
+        let mid = big.mids.find(x => x.code === mc); if(!mid){ mid = { code: mc, ko: w('H', r), name: w('I', r), specs: [] }; big.mids.push(mid); }
+        if(/^[A-Z0-9]{4}$/.test(sc) && !mid.specs.some(x => x.code === sc)) mid.specs.push({ code: sc, text: w('K', r), note: w('L', r) });
+      }
+    }
+    const n = Object.values(R.accounts).reduce((a, x) => a + x.groups.length, 0);
+    if(!n && !R.raw.bigs.length) throw new Error('규칙 표를 읽지 못했습니다 (채번 규칙 엑셀 양식인지 확인해주세요)');
+    return R;
+  }
+
+  // ── 코드 검사 ──
+  function weightCode(txt){
+    const m = /(\d+(?:\.\d+)?)\s*(kg|g)\b/i.exec(String(txt || '').replace(/,/g, ''));
+    if(!m) return '';
+    const g = Number(m[1]) * (/kg/i.test(m[2]) ? 1000 : 1), c = Math.round(g / 10);
+    return c > 0 && c <= 9999 ? String(c).padStart(4, '0') : '';
+  }
+  const weightText = c => { const g = Number(c) * 10; return !g ? '' : g >= 1000 ? (g / 1000) + 'kg' : g + 'g'; };
+  function check(code){
+    const R = E.rules || { accounts: {}, customers: [], processes: [], origins: [], raw: { bigs: [] } };
+    code = up(code); const err = [], warn = [];
+    if(!code) return { ok: false, err: ['코드 없음'], warn };
+    if(code.length !== 12) err.push(`${code.length}자리 (12자리여야 함)`);
+    const a = code[0];
+    if(!ACC[a]) { err.push(`첫 자리 ${a}: 품목계정(W·S·G·M)이 아님`); return { ok: false, err, warn }; }
+    if(a === 'M'){
+      if(!/^M[A-Z]{2}[A-Z0-9]{2}[A-Z0-9]{4}([0-9]{2}|[A-Z][1-9])[A-Z]$/.test(code)) err.push('형식: M + 대분류2 + 중소분류2 + 규격4 + 순번2(01~99·A1~Z9) + 원산지1');
+      const big = (R.raw.bigs || []).find(x => x.code === code.slice(1, 3));
+      if(R.raw.bigs && R.raw.bigs.length){
+        if(!big) warn.push(`대분류 ${code.slice(1, 3)} 규칙에 없음`);
+        else { const mid = big.mids.find(x => x.code === code.slice(3, 5)); if(!mid) warn.push(`중소분류 ${code.slice(3, 5)} 규칙에 없음 (${big.ko})`); }
+      }
+    } else {
+      if(!/^[WSG][A-Z0-9]{2}[A-Z0-9]{2}[A-Z0-9]{2}\d{4}[A-Z]$/.test(code)) err.push(`형식: ${a} + 제품군2 + 제품분류2 + ${a === 'S' ? '공정2' : '고객사2'} + 중량4 + 원산지1`);
+      const acc = (R.accounts || {})[a];
+      if(acc && acc.groups.length){
+        const g = acc.groups.find(x => x.code === code.slice(1, 3));
+        if(!g) warn.push(`제품군 ${code.slice(1, 3)} ${ACC[a]} 규칙에 없음`);
+        else if(!g.items.some(x => x.code === code.slice(3, 5))) warn.push(`제품분류 ${code.slice(3, 5)} 규칙에 없음 (${g.name})`);
+      }
+      const list = a === 'S' ? R.processes : R.customers;
+      if(list && list.length && !list.some(x => x.code === code.slice(5, 7))) warn.push(`${a === 'S' ? '공정' : '고객사'} ${code.slice(5, 7)} 규칙에 없음`);
+    }
+    if(R.origins && R.origins.length && code.length === 12 && !R.origins.some(x => x.code === code[11])) warn.push(`원산지 ${code[11]} 규칙에 없음`);
+    return { ok: !err.length, err, warn };
+  }
+  const SEQ = (() => { const s = []; for(let i = 1; i <= 99; i++) s.push(String(i).padStart(2, '0')); for(let c = 65; c <= 90; c++) for(let d = 1; d <= 9; d++) s.push(String.fromCharCode(c) + d); return s; })();
+  function nextSeq(prefix9, origin){
+    const used = new Set(Object.values(E.map || {}).map(x => up(x.code)).filter(c => c.startsWith(prefix9)).map(c => c.slice(9, 11)));
+    return SEQ.find(s => !used.has(s)) || '';
+  }
+
+  // ── 품목 목록 (제품 SKU + 자재 마스터) ──
+  async function loadItems(){
+    const out = ((window.__dictList ? window.__dictList() : []) || []).map(d => ({ key: 'sku:' + d.id, type: 'SKU(제품)', name: d.name || '', code: d.code || '' }));
+    const MM = window.__MAT;
+    if(MM){ try{ if(!MM.MAT.loaded) await MM.matLoad(false); }catch(e){} ((MM.MAT.master && MM.MAT.master.items) || []).filter(i => i && !i.off).forEach(i => out.push({ key: 'mat:' + i.id, type: MK[i.kind] || '원자재', name: i.name || '', code: i.code || '' })); }
+    E.items = out; return out;
+  }
+  async function loadAll(){
+    try{ E.rules = await kvGet(K_RULE); }catch(e){ E.rules = E.rules || null; }
+    try{ const v = await kvGet(K_CODE); E.map = (v && v.map) || {}; }catch(e){ E.map = E.map || {}; }
+    await loadItems();
+  }
+  async function saveMap(patch, msg){
+    let cur;
+    try{ cur = (await kvGet(K_CODE)) || {}; }catch(e){ toastE('ERP 코드를 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); return false; }
+    const map = Object.assign({}, cur.map || {});
+    Object.entries(patch).forEach(([k, v]) => { if(v) map[k] = Object.assign({}, v, { at: Date.now(), by: who() }); else delete map[k]; });
+    try{ await window.storage.set(K_CODE, JSON.stringify({ map, at: Date.now(), by: who() }), true); }
+    catch(e){ toastE('ERP 코드를 저장하지 못했습니다: ' + ((e && e.message) || e)); return false; }
+    E.map = map; writeLog('erp_code', msg).catch(() => {});
+    return true;
+  }
+  const dupOf = (code, exceptKey) => { code = up(code); if(!code) return null; const hit = Object.entries(E.map || {}).find(([k, v]) => k !== exceptKey && up(v.code) === code); return hit ? (E.items || []).find(i => i.key === hit[0]) || { name: hit[0] } : null; };
+
+  // ── 화면 ──
+  function render(){
+    const box = $('erp-body'); if(!box) return;
+    if(E.map == null){ box.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
+    const R = E.rules;
+    const tabs = [['make', '코드 만들기'], ['items', `품목별 ERP 코드 (${Object.keys(E.map).length})`], ['rules', '채번 규칙']];
+    let h = `<div class="row" style="margin:0 0 10px;">${tabs.map(([k, t]) => `<button type="button" class="${E.tab === k ? 'btn-primary' : 'btn-ghost'} small-btn" data-erp-tab="${k}">${t}</button>`).join('')}
+      <span class="sub" style="margin:0;">${R ? `규칙: ${esc(R.file || '')} (${esc(R.by || '')} ${R.at ? new Date(R.at).toLocaleDateString('ko-KR') : ''})` : '<b style="color:var(--danger,#c0392b);">채번 규칙이 아직 없습니다 — [채번 규칙]에서 엑셀을 가져오세요</b>'}</span></div>`;
+    h += E.tab === 'rules' ? renderRules() : E.tab === 'items' ? renderItems() : renderMake();
+    box.innerHTML = h;
+    box.querySelectorAll('[data-erp-tab]').forEach(b => b.addEventListener('click', () => { E.tab = b.dataset.erpTab; render(); }));
+    if(E.tab === 'rules') bindRules(); else if(E.tab === 'items') bindItems(); else bindMake();
+  }
+
+  // 채번 규칙
+  function renderRules(){
+    const R = E.rules, adm = isAdminU();
+    let h = `<div class="row" style="margin:0 0 8px;">${adm ? '<label class="btn-primary small-btn" style="cursor:pointer;">📂 채번 규칙 엑셀 가져오기<input type="file" id="erp-rule-file" accept=".xlsx,.xls" style="display:none;"></label>' : ''}<span class="sub" style="margin:0;">회사 채번 규칙 엑셀을 올리면 코드 만들기 · 검사에 씁니다 (규칙이 바뀌면 다시 올리세요${adm ? '' : ' — 관리자'}).</span></div>`;
+    if(!R) return h;
+    const tbl = (head, rows) => `<div style="overflow-x:auto;"><table class="erp-tbl"><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+    ['W', 'S', 'G'].forEach(a => {
+      const gs = (R.accounts[a] || {}).groups || [];
+      h += `<details class="erp-sec"><summary>${a} · ${ACC[a]} — 제품군 ${gs.length} · 제품분류 ${gs.reduce((x, g) => x + g.items.length, 0)}</summary>${tbl(['제품군', '', '제품분류', '', '이름', '예시 코드'], gs.flatMap(g => g.items.map((it, i) => `<tr><td>${i ? '' : `<b>${esc(g.code)}</b>`}</td><td>${i ? '' : esc(g.name)}</td><td><b>${esc(it.code)}</b></td><td>${esc(it.name)}</td><td>${esc(it.ko)}</td><td class="erp-code">${esc(it.ex)}</td></tr>`)))}</details>`;
+    });
+    h += `<details class="erp-sec"><summary>고객사 ${R.customers.length} · 공정 ${R.processes.length} · 원산지 ${R.origins.length}</summary>${tbl(['구분', '코드', '이름', ''], [...R.customers.map(x => ['고객사', x]), ...R.processes.map(x => ['공정', x]), ...R.origins.map(x => ['원산지', x])].map(([t, x]) => `<tr><td>${t}</td><td><b>${esc(x.code)}</b></td><td>${esc(x.name)}</td><td>${esc(x.ko)}</td></tr>`))}</details>`;
+    h += `<details class="erp-sec"><summary>원자재 — 대분류 ${R.raw.bigs.length} · 중소분류 ${R.raw.bigs.reduce((x, b) => x + b.mids.length, 0)}</summary>${tbl(['대분류', '', '중소분류', '', '용량·규격'], R.raw.bigs.flatMap(b => b.mids.map((m, i) => `<tr><td>${i ? '' : `<b>${esc(b.code)}</b>`}</td><td>${i ? '' : esc(b.ko)}</td><td><b>${esc(m.code)}</b></td><td>${esc(m.ko)}</td><td>${m.specs.map(s => `${esc(s.code)}(${esc(s.text)})`).join(' · ')}</td></tr>`)))}</details>`;
+    if(R.warehouses.length) h += `<details class="erp-sec"><summary>전산 창고 ${R.warehouses.length}</summary>${tbl(['코드', '이름', ''], R.warehouses.map(x => `<tr><td><b>${esc(x.code)}</b></td><td>${esc(x.name)}</td><td>${esc(x.ko)}</td></tr>`))}</details>`;
+    return h;
+  }
+  function bindRules(){
+    const f = $('erp-rule-file'); if(!f) return;
+    f.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0]; e.target.value = ''; if(!file) return;
+      const rd = new FileReader();
+      rd.onload = async () => {
+        let R; try{ R = parseRules(XLSX.read(new Uint8Array(rd.result), { type: 'array' })); }catch(err){ toastE('규칙을 읽지 못했습니다: ' + ((err && err.message) || err)); return; }
+        R.file = file.name; R.at = Date.now(); R.by = who();
+        try{ await window.storage.set(K_RULE, JSON.stringify(R), true); }catch(err){ toastE('규칙을 저장하지 못했습니다: ' + ((err && err.message) || err)); return; }
+        E.rules = R; writeLog('erp_rule', `ERP 채번 규칙 가져오기: ${file.name}`).catch(() => {});
+        toastE(`채번 규칙을 가져왔습니다 — 제품군 ${Object.values(R.accounts).reduce((a, x) => a + x.groups.length, 0)} · 고객사 ${R.customers.length} · 원자재 대분류 ${R.raw.bigs.length}`);
+        render();
+      };
+      rd.readAsArrayBuffer(file);
+    });
+  }
+
+  // 코드 만들기
+  function genCode(){
+    const g = E.gen, a = g.acc;
+    if(a === 'M'){
+      const p = 'M' + up(g.big) + up(g.mid) + up(g.spec);
+      if(p.length !== 9) return { code: '', parts: p };
+      const seq = up(g.seq) || nextSeq(p, g.org);
+      return { code: p + seq + up(g.org || ''), parts: p, seq };
+    }
+    const w = up(g.wcode) || weightCode(g.weight);
+    return { code: a + up(g.grp) + up(g.item) + up(g.cus) + (w || '') + up(g.org || ''), w };
+  }
+  function renderMake(){
+    const R = E.rules || { accounts: { W: { groups: [] }, S: { groups: [] }, G: { groups: [] } }, customers: [], processes: [], origins: [], raw: { bigs: [] } }, g = E.gen, a = g.acc;
+    const sel = (k, opts, ph) => `<select data-gen="${k}"><option value="">${ph}</option>${opts.map(o => `<option value="${esc(o.code)}"${up(g[k]) === o.code ? ' selected' : ''}>${esc(o.code)} · ${esc(o.ko || o.name || o.text || '')}</option>`).join('')}<option value="__">(직접 입력)</option></select>${g[k + '_free'] ? `<input type="text" data-genfree="${k}" value="${esc(g[k] || '')}" maxlength="${k === 'spec' ? 4 : k === 'org' ? 1 : 2}" style="width:56px;text-transform:uppercase;">` : ''}`;
+    const fld = (label, html) => `<label class="erp-f"><span>${label}</span><span>${html}</span></label>`;
+    let h = `<div class="erp-gen"><div class="erp-accs">${Object.entries(ACC).map(([k, t]) => `<button type="button" class="${a === k ? 'btn-primary' : 'btn-ghost'} small-btn" data-acc="${k}">${k} · ${t}</button>`).join('')}</div><div class="erp-fields">`;
+    if(a === 'M'){
+      const big = R.raw.bigs.find(x => x.code === up(g.big)), mid = big && big.mids.find(x => x.code === up(g.mid));
+      h += fld('대분류 (2·3)', sel('big', R.raw.bigs, '대분류'));
+      h += fld('중소분류 (4·5)', sel('mid', big ? big.mids : [], '중소분류'));
+      h += fld('용량·규격 (6~9)', sel('spec', mid ? mid.specs.map(s => ({ code: s.code, ko: s.text + (s.note ? ' · ' + s.note : '') })) : [], '규격'));
+      h += fld('순번 (10·11)', `<input type="text" data-genfree="seq" value="${esc(g.seq || '')}" maxlength="2" placeholder="자동" style="width:60px;text-transform:uppercase;">`);
+    } else {
+      const acc = R.accounts[a] || { groups: [] }, grp = acc.groups.find(x => x.code === up(g.grp));
+      h += fld('제품군 (2·3)', sel('grp', acc.groups, '제품군'));
+      h += fld('제품분류 (4·5)', sel('item', grp ? grp.items : [], '제품분류'));
+      h += fld(a === 'S' ? '공정 (6·7)' : '고객사 (6·7)', sel('cus', a === 'S' ? R.processes : R.customers, a === 'S' ? '공정' : '고객사'));
+      h += fld('중량 (8~11)', `<input type="text" data-genfree="weight" value="${esc(g.weight || '')}" placeholder="예: 2kg · 450g" style="width:100px;"> <span class="sub" style="margin:0;">→ ${esc(weightCode(g.weight) || '----')}</span>`);
+    }
+    h += fld('원산지 (12)', sel('org', R.origins, '원산지'));
+    const r = genCode(), c = r.code, chk = c.length === 12 ? check(c) : null, dup = c.length === 12 ? dupOf(c) : null;
+    const ex = a !== 'M' ? (((R.accounts[a] || { groups: [] }).groups.find(x => x.code === up(g.grp)) || { items: [] }).items.find(x => x.ex === c)) : null;
+    h += `</div><div class="erp-out"><span class="erp-code big">${esc(c || '—')}</span> <span class="sub" style="margin:0;">${c.length}/12자리</span>
+      ${chk ? (chk.ok && !chk.warn.length && !dup ? '<span class="erp-ok">✅ 규칙에 맞음</span>' : '') + chk.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join('') + chk.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join('') : ''}
+      ${dup ? `<span class="erp-err">❌ 이미 쓰는 코드: ${esc(dup.name)}</span>` : ''}${ex && ex.exName ? `<div class="sub" style="margin:4px 0 0;">규칙 예시: ${esc(ex.exName)}</div>` : ''}${a === 'M' && r.seq ? `<div class="sub" style="margin:4px 0 0;">순번 ${esc(r.seq)}: 같은 앞 9자리(${esc(r.parts)}) 중 아직 안 쓴 다음 번호</div>` : ''}</div>`;
+    if(isAdminU() && c.length === 12) h += `<div class="row" style="margin-top:8px;align-items:center;"><span class="sub" style="margin:0;">이 코드를 품목에 지정</span><select id="erp-gen-item"><option value="">— 품목 고르기 —</option>${(E.items || []).map(i => `<option value="${esc(i.key)}">${E.map[i.key] ? '✓ ' : ''}[${esc(i.type)}] ${esc(i.name)}${i.code ? ' (' + esc(i.code) + ')' : ''}</option>`).join('')}</select><button type="button" class="btn-primary small-btn" id="erp-gen-save"${chk && chk.ok && !dup ? '' : ' disabled'}>지정</button><button type="button" class="btn-ghost small-btn" id="erp-gen-copy">복사</button></div>`;
+    return h + '</div>';
+  }
+  function bindMake(){
+    const box = $('erp-body');
+    box.querySelectorAll('[data-acc]').forEach(b => b.addEventListener('click', () => { E.gen = { acc: b.dataset.acc, org: E.gen.org }; render(); }));
+    box.querySelectorAll('select[data-gen]').forEach(s => s.addEventListener('change', () => {
+      const k = s.dataset.gen, g = E.gen;
+      if(s.value === '__'){ g[k + '_free'] = true; g[k] = ''; }
+      else { g[k + '_free'] = false; g[k] = s.value; }
+      const reset = { grp: ['item'], big: ['mid', 'spec', 'seq'], mid: ['spec', 'seq'], spec: ['seq'] }[k] || [];
+      reset.forEach(x => { g[x] = ''; g[x + '_free'] = false; });
+      render();
+    }));
+    box.querySelectorAll('input[data-genfree]').forEach(inp => { inp.addEventListener('change', () => { E.gen[inp.dataset.genfree] = inp.dataset.genfree === 'weight' ? inp.value : up(inp.value); render(); }); });
+    const sv = $('erp-gen-save'); if(sv) sv.addEventListener('click', async () => {
+      const key = $('erp-gen-item').value; if(!key){ toastE('코드를 지정할 품목을 고르세요'); return; }
+      const it = E.items.find(i => i.key === key), c = genCode().code;
+      if(E.map[key] && !confirm(`${it.name}에는 이미 ERP 코드 ${E.map[key].code}가 있습니다. ${c}로 바꿀까요?`)) return;
+      if(await saveMap({ [key]: { code: c } }, `ERP 코드 지정: ${it.name} → ${c}`)){ toastE(`${it.name} → ${c}`); render(); }
+    });
+    const cp = $('erp-gen-copy'); if(cp) cp.addEventListener('click', async () => { try{ await navigator.clipboard.writeText(genCode().code); toastE('코드를 복사했습니다'); }catch(e){ toastE('복사하지 못했습니다'); } });
+  }
+
+  // 품목별 ERP 코드 · 일괄 업로드 · 엑셀 받기
+  function renderItems(){
+    const adm = isAdminU(), q = norm(E.q);
+    const rows = (E.items || []).filter(i => !q || norm(i.name + i.code + ((E.map[i.key] || {}).code || '')).includes(q));
+    const done = (E.items || []).filter(i => E.map[i.key]).length;
+    let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
+      ${adm ? '<label class="btn-primary small-btn" style="cursor:pointer;">📂 코드 리스트 엑셀 업로드<input type="file" id="erp-up-file" accept=".xlsx,.xls" style="display:none;"></label>' : ''}
+      <button type="button" class="btn-ghost small-btn" id="erp-xls">📥 코드표 엑셀 받기</button>
+      <input type="search" id="erp-q" placeholder="품목·코드 검색" value="${esc(E.q)}" style="width:170px;">
+      <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정 · 이카운트 품목코드는 아직 그대로 (전환은 이카운트 코드를 바꾸는 날 따로)</span></div>`;
+    if(E.up) h += renderUpload();
+    h += `<div style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
+      return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}</td>
+        <td>${adm ? `<input type="text" class="erp-in" value="${esc(m ? m.code : '')}" maxlength="12" placeholder="—">` : `<span class="erp-code">${esc(m ? m.code : '')}</span>`}</td>
+        <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return h;
+  }
+  function bindItems(){
+    const box = $('erp-body');
+    $('erp-q').addEventListener('input', e => { E.q = e.target.value; clearTimeout(E.qt); E.qt = setTimeout(() => { render(); const el = $('erp-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
+    $('erp-xls').addEventListener('click', () => {
+      const ws = XLSX.utils.aoa_to_sheet([['구분', '품목명', '지금 코드(이카운트)', 'ERP CODE', 'ERP 품명', 'ERP 규격', '검사'], ...(E.items || []).map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null; return [i.type, i.name, i.code, m ? m.code : '', m ? m.name || '' : '', m ? m.spec || '' : '', !m ? '' : ck.ok && !ck.warn.length ? 'OK' : ck.err.concat(ck.warn).join(' / ')]; })]);
+      ws['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 18 }, { wch: 16 }, { wch: 30 }, { wch: 40 }, { wch: 30 }];
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ERP 코드'); XLSX.writeFile(wb, `ERP_코드표_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`);
+    });
+    box.querySelectorAll('input.erp-in').forEach(inp => inp.addEventListener('change', async () => {
+      const key = inp.closest('tr').dataset.key, it = E.items.find(i => i.key === key), c = up(inp.value);
+      if(c){ const ck = check(c), dup = dupOf(c, key); if(dup){ toastE(`이미 ${dup.name}에 쓰는 코드입니다`); inp.value = (E.map[key] || {}).code || ''; return; } if(!ck.ok && !confirm(`${c}\n\n${ck.err.join('\n')}\n\n규칙에 맞지 않습니다. 그래도 저장할까요?`)){ inp.value = (E.map[key] || {}).code || ''; return; } }
+      if(await saveMap({ [key]: c ? Object.assign({}, E.map[key] || {}, { code: c }) : null }, `ERP 코드 ${c ? '지정' : '삭제'}: ${it.name}${c ? ' → ' + c : ''}`)) render();
+    }));
+    const f = $('erp-up-file'); if(f) f.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; e.target.value = ''; if(file) readUpload(file); });
+    bindUpload();
+  }
+  // 코드 리스트 엑셀: 'ERP CODE · 품명 · 규격 · 변경 전 코드' (신규 코드 리스트) 또는 '품목코드 … 변경 코드' (재고현황) 시트를 찾아 읽음
+  function readUpload(file){
+    const rd = new FileReader();
+    rd.onload = () => {
+      let wb; try{ wb = XLSX.read(new Uint8Array(rd.result), { type: 'array' }); }catch(e){ toastE('엑셀 파일을 읽지 못했습니다'); return; }
+      const rows = [];
+      const order = wb.SheetNames.slice().sort((x, y) => (/신규\s*코드/.test(y) ? 1 : 0) - (/신규\s*코드/.test(x) ? 1 : 0));
+      for(const n of order){
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '', raw: false });
+        const hi = aoa.findIndex(r => r.some(v => /ERP\s*CODE|ERP\s*코드|변경\s*코드|새\s*코드/i.test(String(v))));
+        if(hi < 0) continue;
+        const H = aoa[hi].map(v => String(v).replace(/\s+/g, ''));
+        const col = re => H.findIndex(h => re.test(h));
+        const ci = { code: col(/ERPCODE|ERP코드|변경코드|새코드/i), name: col(/^품명|^품목명/), spec: col(/규격/), old: col(/변경전코드|기존코드|^품목코드|이카운트/), kind: col(/품목구분|구분/) };
+        if(ci.code < 0) continue;
+        aoa.slice(hi + 1).forEach(r => { const c = up(r[ci.code]); if(!c || /미사용|^-$/.test(c) || c.length < 6) return; rows.push({ code: c, name: ci.name >= 0 ? String(r[ci.name]).trim() : '', spec: ci.spec >= 0 ? String(r[ci.spec]).trim() : '', old: ci.old >= 0 ? String(r[ci.old]).trim() : '', kind: ci.kind >= 0 ? String(r[ci.kind]).trim() : '', sheet: n }); });
+        if(rows.length) break;
+      }
+      if(!rows.length){ toastE('코드 리스트를 찾지 못했습니다 — ERP CODE(또는 변경 코드) 열이 있는 시트가 필요합니다'); return; }
+      // 변경 전 코드가 빈 줄은 같은 파일의 '품목코드 … 변경 코드' 시트(재고현황 등)에서 채움 → 지금 코드로 품목을 더 많이 자동으로 맞춤
+      const n2o = {};
+      wb.SheetNames.forEach(n => {
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '', raw: false });
+        const hi = aoa.findIndex(r => r.some(v => /^\s*품목\s*코드\s*$/.test(String(v))) && r.some(v => /변경\s*코드/.test(String(v))));
+        if(hi < 0) return;
+        const H = aoa[hi].map(v => String(v).replace(/\s+/g, '')), oc = H.findIndex(h => h === '품목코드'), nc = H.findIndex(h => /변경코드/.test(h));
+        aoa.slice(hi + 1).forEach(r => { const nw = up(r[nc]), od = String(r[oc] || '').trim(); if(nw && od && !/미사용/.test(nw) && !n2o[nw]) n2o[nw] = od; });
+      });
+      rows.forEach(r => { if(!r.old && n2o[r.code]) { r.old = n2o[r.code]; r.oldFrom = '재고현황'; } });
+      // 품목 맞추기: 변경 전 코드 = 지금 코드 → 이름이 같은 품목 → 직접 고르기
+      const used = new Set();
+      rows.forEach(r => {
+        let it = r.old ? E.items.find(i => i.code && String(i.code).trim() === r.old && !used.has(i.key)) : null, how = it ? '지금 코드' : '';
+        if(!it && r.name){ const nn = norm(r.name); it = E.items.find(i => !used.has(i.key) && norm(i.name) === nn); if(it) how = '이름'; }
+        if(!it && r.name){ const nn = norm(r.name); const c = E.items.filter(i => !used.has(i.key) && nn.length >= 2 && (norm(i.name).includes(nn) || nn.includes(norm(i.name)))); if(c.length === 1){ it = c[0]; how = '이름 비슷'; } }
+        if(it){ r.key = it.key; r.how = how; used.add(it.key); }
+      });
+      E.up = { file: file.name, rows }; render();
+    };
+    rd.readAsArrayBuffer(file);
+  }
+  function renderUpload(){
+    const U = E.up, codes = {};
+    U.rows.forEach(r => { codes[r.code] = (codes[r.code] || 0) + 1; });
+    const st = r => { const ck = check(r.code), dupF = codes[r.code] > 1, dupS = dupOf(r.code, r.key); return { ck, dup: dupF ? '파일 안에서 중복' : dupS ? `이미 ${dupS.name}에 지정됨` : '' }; };
+    const n = { ok: 0, nok: 0, err: 0 };
+    U.rows.forEach(r => { const s = st(r); if(!r.key) n.nok++; else if(!s.ck.ok || s.dup) n.err++; else n.ok++; });
+    return `<div class="erp-up"><div class="row" style="margin:0 0 6px;align-items:center;"><b>📂 ${esc(U.file)}</b><span class="sub" style="margin:0;">${U.rows.length}줄 · 품목 맞춤 ${U.rows.filter(r => r.key).length} · 못 찾음 ${n.nok} · 규칙 오류/중복 ${n.err}</span>
+      <button type="button" class="btn-primary small-btn" id="erp-up-apply">맞춘 ${U.rows.filter(r => r.key).length}개 적용</button><button type="button" class="btn-ghost small-btn" id="erp-up-cancel">취소</button></div>
+      <div class="sub" style="margin:0 0 6px;">품목은 '변경 전 코드 = 지금 코드' → 같은 이름 순으로 자동으로 맞춥니다. 못 찾은 줄은 오른쪽에서 직접 고르세요. 규칙 오류가 있는 코드도 적용은 되고 표에 표시됩니다.</div>
+      <div style="overflow-x:auto;max-height:360px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>ERP CODE</th><th>품명 · 규격</th><th>변경 전 코드</th><th>검사</th><th>맞출 품목</th></tr></thead><tbody>${U.rows.map((r, i) => { const s = st(r);
+        return `<tr><td class="erp-code">${esc(r.code)}</td><td>${esc(r.name)}${r.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.spec)}</div>` : ''}</td><td class="erp-code">${esc(r.old)}</td>
+          <td>${s.dup ? `<span class="erp-err">❌ ${esc(s.dup)}</span>` : ''}${s.ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ')}${s.ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}${!s.dup && s.ck.ok && !s.ck.warn.length ? '<span class="erp-ok">✅</span>' : ''}</td>
+          <td><select data-up="${i}"><option value="">${r.key ? '' : '⚠ '}— 품목 고르기 —</option>${E.items.map(it => `<option value="${esc(it.key)}"${it.key === r.key ? ' selected' : ''}>[${esc(it.type)}] ${esc(it.name)}</option>`).join('')}</select>${r.how ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.how)}로 맞춤</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div></div>`;
+  }
+  function bindUpload(){
+    if(!E.up) return;
+    const box = $('erp-body');
+    box.querySelectorAll('select[data-up]').forEach(s => s.addEventListener('change', () => { const r = E.up.rows[Number(s.dataset.up)]; E.up.rows.forEach(x => { if(x !== r && x.key === s.value) { x.key = ''; x.how = ''; } }); r.key = s.value; r.how = s.value ? '직접 고름' : ''; render(); }));
+    $('erp-up-cancel').addEventListener('click', () => { E.up = null; render(); });
+    $('erp-up-apply').addEventListener('click', async () => {
+      const go = E.up.rows.filter(r => r.key);
+      if(!go.length){ toastE('맞춘 품목이 없습니다'); return; }
+      const over = go.filter(r => E.map[r.key] && up(E.map[r.key].code) !== r.code);
+      if(!confirm(`${go.length}개 품목에 ERP 코드를 지정합니다.${over.length ? `\n이미 다른 코드가 있는 ${over.length}개는 새 코드로 바뀝니다.` : ''}\n\n이카운트 품목코드는 그대로입니다. 적용할까요?`)) return;
+      const patch = {}; go.forEach(r => { patch[r.key] = { code: r.code, name: r.name, spec: r.spec, old: r.old }; });
+      if(await saveMap(patch, `ERP 코드 일괄 업로드: ${E.up.file} (${go.length}개)`)){ toastE(`${go.length}개 품목에 ERP 코드를 지정했습니다`); E.up = null; render(); }
+    });
+  }
+
+  window.erpRender = async function(){ const box = $('erp-body'); if(!box) return; if(E.map == null) box.innerHTML = '<div class="sub">불러오는 중…</div>'; await loadAll(); render(); };
+  window.__erp = { parseRules, check, weightCode, nextSeq, E };   // (점검용)
 })();
 
 // ── 홈 화면 (프로그램 타일) ──
