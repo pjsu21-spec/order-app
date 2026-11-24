@@ -2429,7 +2429,7 @@
   </div>
 
   <div class="card" id="erp-card">
-    <h2 style="margin:0 0 4px;">🔢 ERP 코드 (채번)</h2>
+    <h2 style="margin:0 0 4px;">ERP 코드 (채번)</h2>
     <div class="sub" style="margin:0 0 8px;">회사 채번 규칙(엑셀)으로 새 ERP 품목코드를 만들고, 코드 리스트 엑셀을 한 번에 올려 품목마다 지정합니다. 지금은 <b>새 코드를 따로 보관</b>만 하고, 이카운트 품목코드(이카운트 엑셀에 들어가는 코드)는 그대로입니다 — 이카운트 코드를 바꾸는 날 전환합니다.</div>
     <div id="erp-body"></div>
   </div>
@@ -5491,7 +5491,7 @@ function applyUserUI() {
     ['spco', '관계사 정보', 'sp-co-fold'],
     ['price', '단가 설정', 'price-manage-details'],
     ['fee', '서비스 품목', 'fee-manage-details'],
-    ['erp', '🔢 ERP 코드 (채번)', null, 'erp-card']
+    ['erp', 'ERP 코드 (채번)', null, 'erp-card']
   ];
   const secs = SECS.map(([k, label, did, cid]) => {
     const d = did ? document.getElementById(did) : null;
@@ -5533,7 +5533,7 @@ function applyUserUI() {
   if(panel.classList.contains('active')) setTimeout(activate, 0);
 })();
 
-// ── 🗂 기준정보 › 🔢 ERP 코드 (회사 채번 규칙 · 코드 만들기 · 코드 리스트 일괄 업로드) ──
+// ── 🗂 기준정보 › ERP 코드 (회사 채번 규칙 · 코드 만들기 · 코드 리스트 일괄 업로드) ──
 //  규칙: kv 'erp-code-rules' — 채번 규칙 엑셀('채번 규칙' · '원자재 코드 규칙_Digit_1~9' 시트)을 가져와 저장
 //    { accounts:{ W|S|G: { groups:[{code,name,ko, items:[{code,name,ko,ex}]}] } }, customers, processes, origins, warehouses:[{code,name,ko}],
 //      raw:{ bigs:[{code,ko,name, mids:[{code,ko,name, specs:[{code,text,note}]}]}] }, file, at, by }
