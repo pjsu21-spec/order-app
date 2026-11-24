@@ -30,6 +30,17 @@
   body{ color:var(--ink); font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
   /* 검색 가능한 업체 선택 */
   .ss-wrap{ position:relative; display:inline-block; vertical-align:middle; }
+  .pq-box{ margin:0 0 10px; padding:8px 10px; border:1px solid var(--line,#ddd); border-radius:8px; background:var(--soft,#f6f1e7); font-size:13px; }
+  .pq-head{ margin-bottom:6px; }
+  .pq-warn{ margin:0 0 6px; color:var(--danger,#c0392b); }
+  .pq-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .pq-chip{ border:1px solid var(--line,#ccc); background:var(--card,#fff); color:inherit; border-radius:16px; padding:3px 10px; font-size:12.5px; cursor:pointer; text-align:left; }
+  .pq-chip span{ color:var(--muted); margin-left:4px; }
+  .pq-chip.pq-now{ border-color:var(--accent,#c0392b); box-shadow:0 0 0 2px rgba(192,57,43,.18); font-weight:600; }
+  .pq-chip.pq-prob span{ color:var(--danger,#c0392b); font-weight:700; }
+  .pq-chip.pq-done{ opacity:.6; cursor:default; }
+  .pq-chip.pq-done span{ color:#2e7d32; font-weight:700; }
+  .pq-chip.pq-skip{ opacity:.55; text-decoration:line-through; }
   .inv-exp{ display:inline-block; font-size:12px; font-weight:600; padding:1px 6px; border-radius:5px; background:#eef6ee; color:#2f6b3a; white-space:nowrap; }
   .inv-exp.soon{ background:#fff4d6; color:#8a5a00; } .inv-exp.warn{ background:#ffe3cc; color:#a24a00; } .inv-exp.bad{ background:#fde2e2; color:#b42318; }
   .inv-lots{ font-size:12px; margin-top:2px; } .inv-lots summary{ cursor:pointer; color:var(--muted); } .inv-lots table{ border-collapse:collapse; margin-top:3px; } .inv-lots td, .inv-lots th{ padding:1px 8px 1px 0; text-align:left; font-weight:400; }
@@ -1414,6 +1425,7 @@
 
   <div class="card" id="preview-card" style="display:none;">
     <h2>인식 결과 확인 <span class="badge">수정 후 확정</span></h2>
+    <div id="parse-queue" class="pq-box" style="display:none;"></div>
     <div class="row" style="margin-top:0;">
       <label style="font-size:13px;font-weight:600;">업체명 :</label>
       <select id="company-select" style="min-width:180px;"></select>
@@ -1424,6 +1436,11 @@
       <button class="btn-primary small-btn" id="save-new-company-btn">추가</button>
     </div>
     <div id="company-match-note" style="display:none; margin-top:8px; font-size:13px;"></div>
+    <div class="row" style="margin-top:8px;">
+      <label style="font-size:13px;font-weight:600;">비고 :</label>
+      <input type="text" id="parsed-note-input" placeholder="(선택) 예: 냉장고 안에 넣어주세요" style="flex:1;min-width:200px;">
+      <span class="sub" style="margin:0;">확정하면 그 업체의 집계표 비고에 들어갑니다 (메시지의 "-->" 줄은 자동으로)</span>
+    </div>
     <div class="row" id="ship-date-row" style="display:none; margin-top:8px;">
       <label style="font-size:13px;font-weight:600;">출고일 :</label>
       <input type="date" id="ship-date-input">
@@ -3044,6 +3061,14 @@
       <li>쿠팡처럼 출고일을 지정하는 업체를 <b>같은 출고일로 다시 입력</b>하면 <span class="mn-b">2차 출고로 구분</span> / <span class="mn-b">기존 출고에 합치기</span>를 묻습니다. 2차로 구분하면 발주취합 파일·생산 현황판·송품장에 줄이 따로 나오고, 소비기한이 1차보다 하루 늦게 표시됩니다(3차는 이틀).</li>
     </ul></li>
   <li>맞으면 <span class="mn-b">✓ 집계표에 확정 추가</span>를 누릅니다. 이때부터 집계에 반영됩니다.</li>
+  <li><b>여러 업체가 한 메시지에 있어도</b> 그대로 붙여넣으면 업체별로 나눠 읽습니다. 업체 줄 앞에 <b>*</b> 같은 표시가 있거나, 업체 이름 다음 줄부터 품목·수량이 오면 업체로 봅니다. 인식 결과 위에 업체 목록(<b>1. ○○ 2품목 · 확인됨</b>)이 나오고, 업체를 누르면 그 업체를 봅니다.
+    <ul>
+      <li><span class="mn-b">⏩ 확인된 업체 모두 확정</span>: 업체·품목·수량이 다 맞는 업체를 한 번에 확정합니다. <b>⚠ 확인 n줄 · 업체 확인 · 등록 필요</b>가 붙은 업체는 남겨 두니 고친 뒤 확정하세요. 확정하면 다음 업체로 자동으로 넘어갑니다.</li>
+      <li><span class="mn-b">이 업체 건너뛰기 →</span>: 그 업체는 넣지 않고 다음으로. 끝나면 몇 곳을 넣었는지, 건너뛴 곳은 어디인지 알려 줍니다.</li>
+      <li>맨 위 날짜 줄(예: 11/24(화))은 품목으로 읽지 않고, 지금 납품일과 다르면 경고와 <b>그 날짜로 바꾸기</b> 버튼이 나옵니다.</li>
+      <li><b>--&gt;</b>, <b>→</b>, <b>※</b>로 시작하는 줄(예: "--&gt; 냉장고 안에 넣어주세요")은 그 업체의 <b>비고</b> 칸으로 들어가고, 확정하면 집계표 비고에 남습니다.</li>
+      <li>"투맛토(망고향)-20박스", "용과~30박스"처럼 이름과 수량 사이에 -·~가 있어도 됩니다.</li>
+    </ul></li>
 </ol>
 <p><b>쿠팡처럼 표 이미지로 온 발주</b>는 글자 인식으로 읽어 인식 결과 확인 카드를 채웁니다. 넣는 방법은 세 가지입니다.</p>
 <ul>
@@ -6448,6 +6473,7 @@ function mnShow(id, keepScroll) {
   let skuColumnMap = {};           // { itemId: colLetter } - SKU -> column in production template
   let trackingColMappings = {};    // { headerKey: { orderNoCol, trackingNoCol, startRow } }
   let currentParsed = null;
+  let parsedQueue = null;          // 여러 업체 메시지: { list: [parsed…], idx, date, dateKey, st: ['wait'|'done'|'skip'|'part'], added: [] }
   let agg3plOpen = false;           // 전체 집계표에서 3PL 업체를 펼쳐 보는 중인지 (기본: 한 줄로 접힘)
   let currentDateKey = '';
   let uploadedSheetData = null;
@@ -7532,20 +7558,72 @@ function mnShow(id, keepScroll) {
   const SUMMARY_LINE_REGEX = /^(총|합계|계)\s*[:\-]?\s*\d/;
   const QTY_WITH_UNIT_REGEX = /\d+(?:\.\d+)?\s*(박스|개|팩|kg|Kg|KG|g|G|box|BOX)/;
 
-  function parseMessage(text){
-    const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-    if(lines.length===0) return null;
-
-    let company = lines[0];
-    let itemLines = lines.slice(1);
-    if(lines.length === 1 || QTY_WITH_UNIT_REGEX.test(company)){
-      company = '';
-      itemLines = lines;
+  // ── 여러 업체가 한 메시지에 섞여 온 발주 (예: "* 강서-경동유통 / 투맛토(망고향)-20박스 / … / * 범이네청과 / …") ──
+  //  - 업체 줄: 맨 앞에 *·•·■·▶ 같은 표시가 있는 줄, 또는 수량이 없는 줄 바로 다음에 수량 줄이 오는 경우(앞 업체 품목이 끝난 뒤)
+  //  - 날짜만 있는 줄("11/24(화)")은 날짜로 읽고 품목에서 뺌 → 지금 납품일과 다르면 알려 줌
+  //  - "-->", "→", "※"로 시작하는 줄은 그 업체 비고 (확정하면 집계표 비고에 들어감)
+  const MSG_DATE_LINE = /^(?:(\d{4})\s*[.\-/년]\s*)?(\d{1,2})\s*[./월\-]\s*(\d{1,2})\s*일?\s*(?:[(（]\s*[월화수목금토일]\s*(?:요일)?\s*[)）])?\s*$/;
+  const MSG_NOTE_LINE = /^(?:-+>|=+>|→|➡|➔|※|☞)\s*/;
+  const MSG_HEAD_MARK = /^[*＊•●■◆◇□▶▷►◎○★☆]+\s*/;
+  const msgIsItem = l => QTY_WITH_UNIT_REGEX.test(l) || /(?:^|[\s\-~:=xX×*])\d+(?:\.\d+)?\s*$/.test(l);
+  function splitOrderMessage(text){
+    const raw = String(text || '').split('\n').map(l => l.trim());
+    let date = '';
+    const blocks = [];
+    let cur = null;
+    const push = company => { cur = { company, lines: [], notes: [] }; blocks.push(cur); return cur; };
+    const nextLine = i => { for(let j = i + 1; j < raw.length; j++){ const l = raw[j].replace(MSG_HEAD_MARK, ''); if(!l || MSG_DATE_LINE.test(l) || MSG_NOTE_LINE.test(l)) continue; return raw[j]; } return ''; };
+    const meaningful = raw.filter(l => l && !MSG_DATE_LINE.test(l) && !MSG_NOTE_LINE.test(l) && !SUMMARY_LINE_REGEX.test(l));
+    for(let i = 0; i < raw.length; i++){
+      let l = raw[i];
+      if(!l) continue;
+      if(MSG_DATE_LINE.test(l)){ if(!date) date = l; continue; }
+      if(MSG_NOTE_LINE.test(l)){ const n = l.replace(MSG_NOTE_LINE, '').trim(); if(n) (cur || push('')).notes.push(n); continue; }
+      if(SUMMARY_LINE_REGEX.test(l)) continue;
+      const mk = MSG_HEAD_MARK.exec(l);
+      if(mk){
+        const name = l.slice(mk[0].length).trim();
+        if(name && !msgIsItem(name)){ if(cur && !cur.company && !cur.lines.length) cur.company = name; else push(name); continue; }
+        l = name; if(!l) continue;
+      } else if(!msgIsItem(l)){
+        const nx = nextLine(i), nxItem = !!nx && !MSG_HEAD_MARK.test(nx) && msgIsItem(nx);
+        // 맨 처음 줄은 예전처럼 수량이 없으면 업체명 (한 줄짜리 메시지는 품목)
+        if(!cur && meaningful.length > 1){ push(l); continue; }
+        if(cur && nxItem && (cur.lines.length || !cur.company)){ if(!cur.company && !cur.lines.length) cur.company = l; else push(l); continue; }
+      }
+      (cur || push('')).lines.push(l);
     }
-
-    itemLines = itemLines.filter(line => !SUMMARY_LINE_REGEX.test(line));
-
-    const items = itemLines.map(line=>{
+    const out = blocks.filter(b => b.company || b.lines.length || b.notes.length);
+    return out.length ? { date, blocks: out } : null;
+  }
+  // 메시지 날짜 줄 → 'YYYY-MM-DD' (연도가 없으면 지금 납품일에 가까운 해)
+  function msgDateKey(line){
+    const m = MSG_DATE_LINE.exec(String(line || '')); if(!m) return '';
+    const mo = +m[2], d = +m[3]; if(!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return '';
+    const base = parseDateKey(currentDateKey) || new Date();
+    let y = m[1] ? +m[1] : base.getFullYear();
+    if(!m[1]){ const t = new Date(y, mo - 1, d); if(t - base > 180 * 86400000) y--; else if(base - t > 180 * 86400000) y++; }
+    return `${y}-${pad2(mo)}-${pad2(d)}`;
+  }
+  function parseOrderBlock(b){
+    const items = b.lines.map(parseOrderLine).filter(p => p.itemText.length > 0);
+    const out = { company: b.company || '', items, note: (b.notes || []).join(' / ') };
+    if(out.company){
+      const m = matchCompanyName(out.company);
+      out.companyRaw = out.company;
+      out.companyMatch = m;
+      if(m.kind === 'exact' || m.kind === 'similar') out.company = m.name;
+      else if(m.kind === 'ambiguous') out.company = '';
+    }
+    return out;
+  }
+  function parseMessage(text){
+    const sp = splitOrderMessage(text);
+    if(!sp) return null;
+    return parseOrderBlock(sp.blocks[0]);
+  }
+  function parseOrderLine(line){
+    {
       const m = line.match(NUM_REGEX);
       let qty = null, unit = '박스', itemText = line;
       if(m){
@@ -7561,13 +7639,12 @@ function mnShow(id, keepScroll) {
         }
         itemText = (line.slice(0, idx) + line.slice(consumedEnd)).trim();
       }
-      itemText = itemText.replace(NOISE, '').replace(/^[-*·.\d\)]+\s*/, '').trim();
+      // '투맛토(망고향)-20박스', '용과~30박스'처럼 이름과 수량 사이 기호는 뺌
+      itemText = itemText.replace(NOISE, '').replace(/^[-*·.\d\)]+\s*/, '').replace(/[\s\-~:=,·*xX×]+$/, '').trim();
       const info = {};
       const matchedId = itemText ? matchItem(itemText, { preferWeight: PREFER_WEIGHT_G, info }) : null;
       return { raw: line, itemText, qty, unit, matchedId, prefWeight: !!(matchedId && info.pref) };
-    }).filter(p => p.itemText.length > 0);
-
-    return { company, items };
+    }
   }
 
   // Helper: get display label for a company (adds category if name is duplicated)
@@ -8267,9 +8344,121 @@ function mnShow(id, keepScroll) {
     return q;
   }
 
+  // ── 여러 업체 메시지: 업체 목록 · 건너뛰기 · 확인된 업체 모두 확정 ──
+  const pqName = p => p.company || p.companyRaw || '(업체명 없음)';
+  const pqLineOk = it => it.matchedId && it.qty != null && !isNaN(it.qty) && parsedItemPacks(it) != null;
+  // 그대로 확정해도 되는 업체: 등록된 업체로 인식됐고, 모든 줄이 품목·수량이 맞고 팩으로 환산됨
+  function pqReady(p){
+    if(!p || !p.company || !companies.some(c => c.name === p.company)) return false;
+    if(p.companyMatch && !(p.companyMatch.kind === 'exact' || p.companyMatch.kind === 'similar')) return false;
+    return p.items.length > 0 && p.items.every(pqLineOk);
+  }
+  function pqProblem(p){
+    if(!p.company) return p.companyRaw ? '업체 확인' : '업체명 없음';
+    if(!companies.some(c => c.name === p.company)) return '업체 등록 필요';
+    if(!p.items.length) return '품목 없음';
+    const n = p.items.filter(it => !pqLineOk(it)).length;
+    return n ? `확인 ${n}줄` : '';
+  }
+  function pqRender(){
+    const box = document.getElementById('parse-queue'); if(!box) return;
+    const q = parsedQueue;
+    const dw = !q && currentParsed && currentParsed.dateWarn;
+    if(!q && !dw){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = '';
+    const dateKey = q ? q.dateKey : dw.key, dateLine = q ? q.date : dw.line;
+    const dateNote = dateKey && currentDateKey && dateKey !== currentDateKey
+      ? `<div class="pq-warn">⚠ 메시지 날짜는 <b>${escapeHtml(dateLine)}</b>인데 지금 납품일은 <b>${escapeHtml(shortDate(currentDateKey))}</b>입니다. 다른 날 발주면 납품일을 먼저 바꾸세요. <button type="button" class="btn-ghost small-btn" id="pq-date">${escapeHtml(shortDate(dateKey))}로 바꾸기</button></div>` : '';
+    if(!q){ box.innerHTML = dateNote; pqBind(); if(!dateNote) box.style.display = 'none'; return; }
+    const cnt = k => q.st.filter(x => x === k).length;
+    const chips = q.list.map((p, i) => {
+      const st = q.st[i], now = i === q.idx && st !== 'done';
+      const prob = st === 'done' || st === 'skip' ? '' : pqProblem(p);
+      const tail = st === 'done' ? '✓ 추가됨' : st === 'skip' ? '건너뜀' : st === 'part' ? '일부 추가 · ' + (prob || '남은 줄') : (prob ? '⚠ ' + prob : '확인됨');
+      return `<button type="button" class="pq-chip pq-${st}${now ? ' pq-now' : ''}${prob ? ' pq-prob' : ''}" data-pq="${i}" title="${escapeHtml('메시지: ' + (p.companyRaw || '(업체명 없음)'))}"${st === 'done' ? ' disabled' : ''}><b>${i + 1}.</b> ${escapeHtml(pqName(p))} <span>${p.items.length}품목 · ${escapeHtml(tail)}</span></button>`;
+    }).join('');
+    const open = k => q.st[k] === 'wait' || q.st[k] === 'part';
+    const left = q.st.filter((x, k) => open(k)).length;
+    box.innerHTML = `<div class="pq-head">📋 여러 업체 발주 — <b>${q.list.length}곳</b>${q.date ? ' · ' + escapeHtml(q.date) : ''} · 추가 ${cnt('done')} · 남음 ${left}${cnt('skip') ? ' · 건너뜀 ' + cnt('skip') : ''}</div>${dateNote}
+      <div class="pq-chips">${chips}</div>
+      <div class="row" style="margin-top:6px;">
+        <button type="button" class="btn-primary small-btn" id="pq-all"${q.list.some((p, k) => open(k) && pqReady(p)) ? '' : ' disabled'}>⏩ 확인된 업체 모두 확정</button>
+        <button type="button" class="btn-ghost small-btn" id="pq-skip">이 업체 건너뛰기 →</button>
+        <span class="sub" style="margin:0;">지금 보는 업체: <b>${q.idx + 1}번</b> — 아래에서 고친 뒤 [✓ 집계표에 확정 추가]를 누르면 다음 업체로 넘어갑니다</span>
+      </div>`;
+    pqBind();
+  }
+  function pqBind(){
+    const box = document.getElementById('parse-queue'); if(!box) return;
+    box.querySelectorAll('[data-pq]').forEach(b => b.addEventListener('click', () => { const q = parsedQueue; if(!q) return; const i = +b.dataset.pq; if(q.st[i] === 'done') return; q.idx = i; renderParsed(q.list[i]); }));
+    const sk = document.getElementById('pq-skip'); if(sk) sk.addEventListener('click', () => { const q = parsedQueue; if(!q) return; q.st[q.idx] = 'skip'; if(pqNext() === 'end') pqFinish(); });
+    const al = document.getElementById('pq-all'); if(al) al.addEventListener('click', () => pqConfirmAll());
+    const dt = document.getElementById('pq-date'); if(dt) dt.addEventListener('click', () => {
+      const k = parsedQueue ? parsedQueue.dateKey : (currentParsed && currentParsed.dateWarn && currentParsed.dateWarn.key); if(!k) return;
+      const keepQ = parsedQueue, keepP = currentParsed;
+      switchToDateKey(k);
+      // 날짜를 바꿔도 읽은 내용은 그대로
+      parsedQueue = keepQ; if(keepP){ currentParsed = keepP; renderParsed(keepP); }
+    });
+  }
+  // 다음으로 확인할 업체로 (지금 다음 → 처음부터). 남은 업체가 없으면 'end'
+  function pqNext(){
+    const q = parsedQueue; if(!q) return null;
+    const open = i => q.st[i] === 'wait' || q.st[i] === 'part';
+    for(let k = 1; k <= q.list.length; k++){ const i = (q.idx + k) % q.list.length; if(open(i)){ q.idx = i; renderParsed(q.list[i]); return 'next'; } }
+    return 'end';
+  }
+  // 끝: 화면 닫고 요약
+  function pqFinish(){
+    const q = parsedQueue; if(!q) return '';
+    const skipped = q.list.filter((p, i) => q.st[i] === 'skip').map(pqName);
+    const msg = `여러 업체 발주 ${q.list.length}곳 중 ${q.added.length}곳을 집계표에 추가했습니다` + (skipped.length ? ` · 건너뜀: ${skipped.join(', ')}` : '');
+    parsedQueue = null;
+    document.getElementById('preview-card').style.display = 'none';
+    document.getElementById('msg-input').value = '';
+    document.getElementById('parse-status').textContent = '대기중';
+    currentParsed = null;
+    osReset();
+    renderUnmatchedAlert();
+    toast(msg);
+    return msg;
+  }
+  // 확정한 뒤: 여러 업체 목록이면 다음 업체로 → 'next' | 'end' | 'part' | null(목록 아님)
+  function pqAfterConfirm(company, partial){
+    const q = parsedQueue; if(!q) return null;
+    const i = q.list.indexOf(currentParsed); if(i < 0) return null;
+    if(!q.added.includes(company)) q.added.push(company);
+    q.st[i] = partial ? 'part' : 'done';
+    if(partial){ pqRender(); return 'part'; }
+    return pqNext();
+  }
+  // 확인된 업체(업체·품목·수량이 다 맞는 곳)를 차례로 확정. 같은 업체 기존 발주 질문 등은 평소처럼 물어봄. 확인이 필요한 업체는 남겨 둠
+  let pqBusy = false;
+  async function pqConfirmAll(){
+    const q = parsedQueue; if(!q || pqBusy) return;
+    pqBusy = true;
+    try{
+      let guard = q.list.length + 1;
+      while(parsedQueue === q && guard-- > 0){
+        const i = q.list.findIndex((p, k) => (q.st[k] === 'wait' || q.st[k] === 'part') && pqReady(p));
+        if(i < 0) break;
+        if(q.idx !== i || currentParsed !== q.list[i]){ q.idx = i; renderParsed(q.list[i]); }
+        const before = q.st[i];
+        await confirmParsed('');
+        if(parsedQueue === q && q.st[i] === before) break;   // 취소했거나 확정하지 못함
+      }
+    } finally { pqBusy = false; }
+    if(parsedQueue === q){
+      const left = q.list.filter((p, k) => q.st[k] === 'wait' || q.st[k] === 'part');
+      if(left.length){ pqRender(); toast(`확인이 필요한 업체 ${left.length}곳이 남았습니다: ${left.map(pqName).join(', ')}`); }
+    }
+  }
   function renderParsed(parsed){
     if(parsed !== currentParsed) osReset();   // 다른 발주로 바뀌면 샘플 동봉 입력을 비움 (엉뚱한 업체에 붙지 않게)
+    if(parsedQueue && !parsedQueue.list.includes(parsed)) parsedQueue = null;   // 이미지 읽기 등 다른 입력이면 여러 업체 목록은 끝
     currentParsed = parsed;
+    pqRender();
+    { const ni = document.getElementById('parsed-note-input'); if(ni) ni.value = parsed.note || ''; }
     renderUnmatchedAlert();
     document.getElementById('preview-card').style.display = 'block';
     document.getElementById('new-company-row').style.display = 'none';
@@ -12003,18 +12192,17 @@ function mnShow(id, keepScroll) {
 
   document.getElementById('parse-btn').addEventListener('click', ()=>{
     const text = document.getElementById('msg-input').value;
-    const parsed = parseMessage(text);
-    if(!parsed){ toast('입력된 메시지가 없습니다'); return; }
-    document.getElementById('parse-status').textContent = '입력 완료';
-    // 업체명: 가장 비슷한 등록 업체로 자동 선택. 애매하면 후보를 고르게 하고, 없으면 '등록 필요'로 안내
-    if(parsed.company){
-      const m = matchCompanyName(parsed.company);
-      parsed.companyRaw = parsed.company;
-      parsed.companyMatch = m;
-      if(m.kind === 'exact' || m.kind === 'similar') parsed.company = m.name;
-      else if(m.kind === 'ambiguous') parsed.company = '';
-    }
-    renderParsed(parsed);
+    // 업체명: 가장 비슷한 등록 업체로 자동 선택. 애매하면 후보를 고르게 하고, 없으면 '등록 필요'로 안내 (parseOrderBlock)
+    const sp = splitOrderMessage(text);
+    if(!sp){ toast('입력된 메시지가 없습니다'); return; }
+    const list = sp.blocks.map(parseOrderBlock);
+    document.getElementById('parse-status').textContent = list.length > 1 ? `업체 ${list.length}곳` : '입력 완료';
+    const dk = sp.date ? msgDateKey(sp.date) : '';
+    parsedQueue = list.length > 1 ? { list, idx: 0, date: sp.date, dateKey: dk, st: list.map(() => 'wait'), added: [] } : null;
+    if(!parsedQueue && dk && currentDateKey && dk !== currentDateKey) list[0].dateWarn = { line: sp.date, key: dk };
+    currentParsed = null;
+    renderParsed(list[0]);
+    if(parsedQueue) toast(`업체 ${list.length}곳을 읽었습니다. 한 곳씩 확인하고 확정하거나, [확인된 업체 모두 확정]을 누르세요`);
   });
 
   // ══════════════════ 발주표 이미지 읽기 (쿠팡처럼 표로 온 발주 캡처) ══════════════════
@@ -12311,14 +12499,17 @@ function mnShow(id, keepScroll) {
   });
 
   document.getElementById('cancel-preview-btn').addEventListener('click', ()=>{
+    if(parsedQueue && parsedQueue.added.length) toast(`여러 업체 발주 중 ${parsedQueue.added.length}곳은 이미 추가됐습니다 (${parsedQueue.added.join(', ')}) — 나머지만 취소합니다`);
+    parsedQueue = null;
     document.getElementById('preview-card').style.display = 'none';
     currentParsed = null;
     osReset();
     renderUnmatchedAlert();
   });
 
+  document.getElementById('parsed-note-input').addEventListener('input', (e)=>{ if(currentParsed) currentParsed.note = e.target.value; });
   document.getElementById('company-select').addEventListener('change', (e)=>{
-    if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); renderShipDateRow(); }
+    if(currentParsed){ currentParsed.company = e.target.value; currentParsed.companyMatch = null; renderCompanyMatchNote(); renderShipDateRow(); pqRender(); }
   });
 
   // 출고일을 바꾸면 납품일도 같은 날로 (납품일을 직접 바꾼 뒤에는 그대로 둠)
@@ -12462,6 +12653,9 @@ function mnShow(id, keepScroll) {
     if(!addedAny){ toast('추가된 품목이 없습니다. 매칭과 수량을 확인해주세요'); return; }
     orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
     saveOrdersByDate();
+    // 비고 (메시지의 "-->" 줄 또는 직접 적은 것): 이미 같은 글이 있으면 그대로
+    { const nt = String(currentParsed.note || '').trim();
+      if(nt){ const ex = extrasEnsure(currentDateKey, company), cur = String(ex.note || '').trim(); if(!cur.includes(nt)) ex.note = cur ? cur + ' / ' + nt : nt; currentParsed.note = ''; const ni = document.getElementById('parsed-note-input'); if(ni) ni.value = ''; if(!osLines.length) saveOrderExtras(); } }
     if(osLines.length){
       const ex = extrasEnsure(currentDateKey, company);
       osLines.forEach(l => { ex.sample[l.itemId] = Math.round(((Number(ex.sample[l.itemId]) || 0) + l.packs) * 100) / 100; });
@@ -12482,12 +12676,16 @@ function mnShow(id, keepScroll) {
       renderAggTable();
       renderThirdPartyAggTable();
       renderRawStockEditor();
+      pqAfterConfirm(company, true);
       toast(`${company} 발주를 추가했습니다. 품목 매칭이나 수량이 확인되지 않은 ${leftover.length}건은 아래에 남겨두었습니다`);
       return;
     }
     renderAggTable();
     renderThirdPartyAggTable();
     renderRawStockEditor();
+    { const qs = pqAfterConfirm(company, false);
+      if(qs === 'next'){ toast(`${company} 추가 → 다음 업체: ${pqName(currentParsed)} (${parsedQueue.idx + 1}/${parsedQueue.list.length})`); return; }
+      if(qs === 'end'){ pqFinish(); return; } }
     document.getElementById('preview-card').style.display = 'none';
     document.getElementById('msg-input').value = '';
     document.getElementById('parse-status').textContent = '대기중';
