@@ -33,6 +33,7 @@
   .inv-exp{ display:inline-block; font-size:12px; font-weight:600; padding:1px 6px; border-radius:5px; background:#eef6ee; color:#2f6b3a; white-space:nowrap; }
   .inv-exp.soon{ background:#fff4d6; color:#8a5a00; } .inv-exp.warn{ background:#ffe3cc; color:#a24a00; } .inv-exp.bad{ background:#fde2e2; color:#b42318; }
   .inv-lots{ font-size:12px; margin-top:2px; } .inv-lots summary{ cursor:pointer; color:var(--muted); } .inv-lots table{ border-collapse:collapse; margin-top:3px; } .inv-lots td, .inv-lots th{ padding:1px 8px 1px 0; text-align:left; font-weight:400; }
+  .erp-sw{ padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#faf8ff; margin:0 0 8px; } .erp-sw.on{ border-color:#bfe3c6; background:#f1fbf3; }
   .erp-mkbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 8px; padding:8px 10px; border:1px solid #f0dcae; background:#fffaf0; border-radius:8px; font-size:13px; }
   .erp-col{ font:600 12px/1.4 ui-monospace,Consolas,monospace; color:#4a3d78; white-space:nowrap; } .erp-col.none{ color:var(--muted); font-weight:400; }
   .dict-erp{ flex:0 0 104px; display:inline-flex; align-items:center; }
@@ -5561,7 +5562,9 @@ window.erpCodesLoad = (() => { let p = null; return force => {
 }; })();
 (function(){
   const K_RULE = 'erp-code-rules', K_CODE = 'erp-codes';
-  const E = { rules: null, map: null, items: null, tab: 'make', gen: { acc: 'W' }, up: null, q: '' };
+  const E = { rules: null, map: null, items: null, tab: 'make', gen: { acc: 'W' }, up: null, q: '', mode: null };
+  const K_MODE = 'erp-code-mode', K_BACK = 'erp-switch-backup';
+  const erpOn = () => !!(E.mode && E.mode.mode === 'erp');
   const $ = id => document.getElementById(id);
   const esc = s => escapeHtmlSimple(s == null ? '' : s);
   const toastE = (m, o) => window.showToast(m, o);
@@ -5667,14 +5670,15 @@ window.erpCodesLoad = (() => { let p = null; return force => {
 
   // ── 품목 목록 (제품 SKU + 자재 마스터) ──
   async function loadItems(){
-    const out = ((window.__dictList ? window.__dictList() : []) || []).map(d => ({ key: 'sku:' + d.id, type: 'SKU(제품)', name: d.name || '', code: d.code || '' }));
+    const out = ((window.__dictList ? window.__dictList() : []) || []).map(d => ({ key: 'sku:' + d.id, type: 'SKU(제품)', name: d.name || '', code: d.code || '', ecOld: d.ecOld || '' }));
     const MM = window.__MAT;
-    if(MM){ try{ if(!MM.MAT.loaded) await MM.matLoad(false); }catch(e){} ((MM.MAT.master && MM.MAT.master.items) || []).filter(i => i && !i.off).forEach(i => out.push({ key: 'mat:' + i.id, type: MK[i.kind] || '원자재', name: i.name || '', code: i.code || '' })); }
+    if(MM){ try{ if(!MM.MAT.loaded) await MM.matLoad(false); }catch(e){} ((MM.MAT.master && MM.MAT.master.items) || []).filter(i => i && !i.off).forEach(i => out.push({ key: 'mat:' + i.id, type: MK[i.kind] || '원자재', name: i.name || '', code: i.code || '', ecOld: i.ecOld || '' })); }
     E.items = out; return out;
   }
   async function loadAll(){
     try{ E.rules = await kvGet(K_RULE); }catch(e){ E.rules = E.rules || null; }
     try{ const v = await kvGet(K_CODE); E.map = (v && v.map) || {}; window.__erpCodes = E.map; }catch(e){ E.map = E.map || {}; }
+    try{ E.mode = (await kvGet(K_MODE)) || { mode: 'ecount' }; window.__erpMode = E.mode.mode; }catch(e){ E.mode = E.mode || { mode: 'ecount' }; }
     await loadItems();
   }
   async function saveMap(patch, msg){
@@ -5691,6 +5695,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
     try{ await window.storage.set(K_CODE, JSON.stringify({ map, at: Date.now(), by: who() }), true); }
     catch(e){ toastE('ERP 코드를 저장하지 못했습니다: ' + ((e && e.message) || e)); return false; }
     E.map = map; window.__erpCodes = map; window.dispatchEvent(new Event('erp-codes-changed')); writeLog('erp_code', msg).catch(() => {});
+    if(erpOn()) try{ await syncItemCodes(patch); }catch(e){ console.error('품목 코드 맞추기 실패', e); }
     return true;
   }
   const FREE = 'erp:', isFree = k => String(k).startsWith(FREE);   // 품목과 연결하지 않고 코드만 등록한 줄: map['erp:코드'] = { code, name, spec, old, free: true }
@@ -5722,12 +5727,12 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       nameOf.set(f.key, nm);
     });
     if(mats.some(f => !String(mkState(f).unit || '').trim())){ toastE('원물·부자재·소모품·반제품은 단위를 넣어 주세요 (예: kg, 개, 장)'); return false; }
-    if(!confirm(`${list.length}개 코드를 새 품목으로 등록합니다.\n${MK_KINDS.map(([k, t]) => [t, list.filter(f => mkState(f).kind === k).length]).filter(x => x[1]).map(x => `· ${x[0]} ${x[1]}개`).join('\n')}\n\n품목명 = ERP 품명 (같은 이름이 이미 있으면 규격을 붙여 구분), 이카운트 품목코드 = 변경 전 코드(있으면). 이미 있는 품목이면 등록 대신 '품목과 연결'을 쓰세요.`)) return false;
+    if(!confirm(`${list.length}개 코드를 새 품목으로 등록합니다.\n${MK_KINDS.map(([k, t]) => [t, list.filter(f => mkState(f).kind === k).length]).filter(x => x[1]).map(x => `· ${x[0]} ${x[1]}개`).join('\n')}\n\n품목명 = ERP 품명 (같은 이름이 이미 있으면 규격을 붙여 구분), 품목 코드 = ${erpOn() ? 'ERP 코드 (전환됨)' : '변경 전 코드(있으면)'}. 이미 있는 품목이면 등록 대신 '품목과 연결'을 쓰세요.`)) return false;
     // 자재
     if(mats.length){
       const MM = window.__MAT; if(!MM || !MM.matAddItems){ toastE('자재 목록을 쓸 수 없습니다 — 화면을 새로고침해 주세요'); return false; }
       let added;
-      try{ added = await MM.matAddItems(mats.filter(f => nameOf.get(f.key)).map(f => ({ name: nameOf.get(f.key), kind: mkState(f).kind, unit: mkState(f).unit, code: f.old || '' }))); }catch(e){ toastE((e && e.message) || String(e)); return false; }
+      try{ added = await MM.matAddItems(mats.filter(f => nameOf.get(f.key)).map(f => ({ name: nameOf.get(f.key), kind: mkState(f).kind, unit: mkState(f).unit, code: erpOn() ? f.code : (f.old || ''), ecOld: erpOn() ? (f.old || '') : '' }))); }catch(e){ toastE((e && e.message) || String(e)); return false; }
       mats.forEach(f => { const it = added.find(a => a.name === nameOf.get(f.key)); if(it) patch['mat:' + it.id] = { code: f.code, name: f.name, spec: f.spec, old: f.old }; else skip.push(f.name || f.code); });
     }
     // 제품(SKU)
@@ -5735,7 +5740,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       const nm = nameOf.get(f.key);
       if(!nm){ skip.push(f.name || f.code); continue; }
       if(!window.__dictAdd){ skip.push(nm); continue; }
-      const it = await window.__dictAdd({ name: nm, code: f.old || '' });
+      const it = await window.__dictAdd(erpOn() ? { name: nm, code: f.code, ...(f.old ? { ecOld: f.old } : {}) } : { name: nm, code: f.old || '' });
       patch['sku:' + it.id] = { code: f.code, name: f.name, spec: f.spec, old: f.old };
     }
     const n = Object.keys(patch).length;
@@ -5747,15 +5752,117 @@ window.erpCodesLoad = (() => { let p = null; return force => {
   }
   const dupOf = (code, exceptKey) => { code = up(code); if(!code) return null; const hit = Object.entries(E.map || {}).find(([k, v]) => k !== exceptKey && !isFree(k) && up(v.code) === code); return hit ? (E.items || []).find(i => i.key === hit[0]) || { name: hit[0] } : null; };
 
+  // ── 코드 전환: 품목의 코드(이카운트 품목코드 칸)를 ERP 코드로 바꿈 ──
+  //  품목 코드를 쓰는 모든 곳(이카운트 매출·자가사용·구매입력 엑셀, 코드표, 원물선별 원물 입고·원물 구분, 단가 확인 원물 연결, 재고·수불 …)은 이 칸을 읽으므로 함께 바뀜
+  //  같이 고치는 저장값: 'sorting-raw-settings'(선별 원물 코드), 'cost-config'.rawMaterials[].code(단가 확인 원물 연결)
+  //  예전 코드는 품목의 ecOld에 남김 → 예전 코드로 저장된 원물선별 입고·등급, 코드 엑셀도 같은 품목으로 맞춤 (DB 자료는 고치지 않음)
+  //  전환 직전 값은 'erp-switch-backup'에 남기고 [전환 되돌리기]로 되돌림
+  function switchPlan(){
+    const MM = window.__MAT, dl = (window.__dictList && window.__dictList()) || [], mats = (MM && MM.MAT.master && MM.MAT.master.items) || [];
+    const rows = [];
+    dl.forEach(d => { const c = up((E.map['sku:' + d.id] || {}).code); rows.push({ kind: 'SKU(제품)', id: d.id, name: d.name || '', cur: String(d.code || '').trim(), erp: c, st: !c ? 'none' : String(d.code || '').trim() === c ? 'same' : 'change' }); });
+    mats.forEach(i => { const c = up((E.map['mat:' + i.id] || {}).code); rows.push({ kind: MK[i.kind] || '원자재', id: i.id, mat: true, off: !!i.off, name: i.name || '', cur: String(i.code || '').trim(), erp: c, st: !c ? 'none' : String(i.code || '').trim() === c ? 'same' : 'change' }); });
+    return rows;
+  }
+  async function syncItemCodes(patch){
+    const sk = [], mk = [];
+    Object.entries(patch).forEach(([k, v]) => { if(!v || !v.code) return; if(k.startsWith('sku:')) sk.push([k.slice(4), up(v.code)]); else if(k.startsWith('mat:')) mk.push([k.slice(4), up(v.code)]); });
+    if(sk.length && window.__dictList){ let ch = false; window.__dictList().forEach(d => { const x = sk.find(p => p[0] === d.id); if(x && String(d.code || '').trim() !== x[1]){ if(!d.ecOld && d.code) d.ecOld = d.code; d.code = x[1]; ch = true; } }); if(ch && window.__dictSave) await window.__dictSave(); }
+    if(mk.length){
+      const mm = await kvGet('mat-master'); if(!mm || !Array.isArray(mm.items)) return;
+      let ch = false; mm.items.forEach(i => { const x = mk.find(p => p[0] === i.id); if(x && String(i.code || '').trim() !== x[1]){ if(!i.ecOld && i.code) i.ecOld = i.code; i.code = x[1]; ch = true; } });
+      if(ch){ await window.storage.set('mat-master', JSON.stringify(mm), true); try{ if(window.__MAT) await window.__MAT.matLoad(true); }catch(e){} }
+    }
+  }
+  async function afterSwitch(){
+    try{ if(window.__MAT) await window.__MAT.matLoad(true); }catch(e){}
+    try{ if(window.__srLoad) await window.__srLoad(true); }catch(e){}
+    window.dispatchEvent(new Event('erp-codes-changed'));
+    await loadItems(); render();
+  }
+  async function doSwitch(){
+    const MM = window.__MAT, dl = window.__dictList && window.__dictList();
+    if(!MM || !dl || !window.__dictSave){ toastE('품목 정보를 쓸 수 없습니다 — 화면을 새로고침해 주세요'); return; }
+    let mm, sr, cost = null;
+    try{ mm = (await kvGet('mat-master')) || { items: [], vendors: [] }; sr = await kvGet('sorting-raw-settings'); }catch(e){ toastE('자료를 불러오지 못했습니다 — 인터넷 연결을 확인해주세요'); return; }
+    try{ cost = await kvGet('cost-config'); }catch(e){ cost = null; }
+    const at = Date.now(), bk = { at, by: who(), dict: {}, mat: {}, sr: sr || null, costRaw: {} }, o2n = {};
+    dl.forEach(d => { const c = up((E.map['sku:' + d.id] || {}).code); if(c && String(d.code || '').trim() !== c) bk.dict[d.id] = { code: d.code || '', ecOld: d.ecOld || '' }; });
+    (mm.items || []).forEach(i => { const c = up((E.map['mat:' + i.id] || {}).code); if(c && String(i.code || '').trim() !== c){ bk.mat[i.id] = { code: i.code || '', ecOld: i.ecOld || '' }; if(String(i.code || '').trim()) o2n[String(i.code).trim()] = c; } });
+    if(cost && Array.isArray(cost.rawMaterials)) cost.rawMaterials.forEach(r => { if(o2n[String(r.code || '').trim()]) bk.costRaw[r.id] = r.code; });
+    const nD = Object.keys(bk.dict).length, nM = Object.keys(bk.mat).length;
+    if(!confirm(`품목 코드를 ERP 코드로 바꿉니다.\n· SKU ${nD}개 · 자재 ${nM}개 코드 변경${sr && (sr.codes || []).some(c => o2n[c]) ? '\n· 원물선별 선별 원물 코드' : ''}${Object.keys(bk.costRaw).length ? `\n· 단가 확인 원물 연결 ${Object.keys(bk.costRaw).length}개` : ''}\n\n바꾼 뒤에는 이카운트 매출·자가사용·구매입력 엑셀에 ERP 코드가 들어갑니다 (이카운트 품목코드도 바꾼 뒤에 하세요).\n다른 직원은 화면을 새로고침해야 합니다. 전환할까요?`)) return;
+    try{
+      await window.storage.set(K_BACK, JSON.stringify(bk), true);
+      if(nM){ (mm.items || []).forEach(i => { const b = bk.mat[i.id]; if(b){ if(b.code) i.ecOld = b.code; i.code = up(E.map['mat:' + i.id].code); } }); await window.storage.set('mat-master', JSON.stringify(mm), true); }
+      if(nD){ dl.forEach(d => { const b = bk.dict[d.id]; if(b){ if(b.code) d.ecOld = b.code; d.code = up(E.map['sku:' + d.id].code); } }); await window.__dictSave(); }
+      if(sr && Array.isArray(sr.codes) && (sr.codes.some(c => o2n[String(c)]) || o2n[String(sr.defaultCode || '')])){
+        await window.storage.set('sorting-raw-settings', JSON.stringify(Object.assign({}, sr, { codes: sr.codes.map(c => o2n[String(c)] || c), defaultCode: o2n[String(sr.defaultCode || '')] || sr.defaultCode || '', by: who(), at })), true);
+      }
+      if(cost && Object.keys(bk.costRaw).length){ cost.rawMaterials.forEach(r => { if(bk.costRaw[r.id] != null) r.code = o2n[String(r.code || '').trim()]; }); await window.storage.set('cost-config', JSON.stringify(cost), true); }
+      E.mode = { mode: 'erp', at, by: who() }; window.__erpMode = 'erp';
+      await window.storage.set(K_MODE, JSON.stringify(E.mode), true);
+    }catch(e){ toastE('전환 중 저장 실패: ' + ((e && e.message) || e) + ' — [전환 되돌리기]로 전환 전 상태로 돌릴 수 있습니다'); await afterSwitch(); return; }
+    writeLog('erp_switch', `ERP 코드 전환: SKU ${nD} · 자재 ${nM}`).catch(() => {});
+    toastE(`ERP 코드로 전환했습니다 (SKU ${nD} · 자재 ${nM})`);
+    await afterSwitch();
+  }
+  async function undoSwitch(){
+    let bk, mm, sr, cost = null;
+    try{ bk = await kvGet(K_BACK); mm = (await kvGet('mat-master')) || { items: [], vendors: [] }; sr = await kvGet('sorting-raw-settings'); }catch(e){ toastE('자료를 불러오지 못했습니다'); return; }
+    if(!bk){ toastE('되돌릴 전환 기록이 없습니다'); return; }
+    try{ cost = await kvGet('cost-config'); }catch(e){ cost = null; }
+    if(!confirm(`${new Date(bk.at).toLocaleString('ko-KR')} 전환(${bk.by || ''})을 되돌려 품목 코드를 전환 전 코드로 바꿉니다. 되돌릴까요?`)) return;
+    try{
+      const later = (it, key) => it.ecOld && up((E.map[key] || {}).code) === up(it.code);   // 전환 뒤에 지정해 바뀐 품목
+      (mm.items || []).forEach(i => { const b = (bk.mat || {})[i.id]; if(b){ i.code = b.code; if(b.ecOld) i.ecOld = b.ecOld; else delete i.ecOld; } else if(later(i, 'mat:' + i.id)){ i.code = i.ecOld; delete i.ecOld; } });
+      await window.storage.set('mat-master', JSON.stringify(mm), true);
+      const dl = (window.__dictList && window.__dictList()) || [];
+      dl.forEach(d => { const b = (bk.dict || {})[d.id]; if(b){ d.code = b.code; if(b.ecOld) d.ecOld = b.ecOld; else delete d.ecOld; } else if(later(d, 'sku:' + d.id)){ d.code = d.ecOld; delete d.ecOld; } });
+      if(window.__dictSave) await window.__dictSave();
+      if(bk.sr) await window.storage.set('sorting-raw-settings', JSON.stringify(Object.assign({}, bk.sr, { by: who(), at: Date.now() })), true);
+      if(cost && Array.isArray(cost.rawMaterials) && Object.keys(bk.costRaw || {}).length){ cost.rawMaterials.forEach(r => { if(bk.costRaw[r.id] != null) r.code = bk.costRaw[r.id]; }); await window.storage.set('cost-config', JSON.stringify(cost), true); }
+      E.mode = { mode: 'ecount', at: Date.now(), by: who(), undone: bk.at }; window.__erpMode = 'ecount';
+      await window.storage.set(K_MODE, JSON.stringify(E.mode), true);
+    }catch(e){ toastE('되돌리기 중 저장 실패: ' + ((e && e.message) || e)); await afterSwitch(); return; }
+    writeLog('erp_switch', 'ERP 코드 전환 되돌림').catch(() => {});
+    toastE('전환 전 코드로 되돌렸습니다'); await afterSwitch();
+  }
+  function renderSwitch(){
+    const on = erpOn(), rows = switchPlan(), adm = isAdminU();
+    const cnt = (k, st) => rows.filter(r => (k === 'sku' ? !r.mat : r.mat && !r.off) && (!st || r.st === st)).length;
+    const skuAll = cnt('sku'), skuHas = skuAll - cnt('sku', 'none'), matAll = cnt('mat'), matHas = matAll - cnt('mat', 'none');
+    const chg = rows.filter(r => r.st === 'change'), none = rows.filter(r => r.st === 'none' && !r.off);
+    let h = `<div class="erp-sw ${on ? 'on' : ''}"><b>지금 코드 기준: ${on ? 'ERP 코드 (전환됨)' : '이카운트 품목코드 (전환 전)'}</b>${E.mode && E.mode.at ? ` <span class="sub" style="margin:0;">${on ? '전환' : (E.mode.undone ? '되돌림' : '')} ${new Date(E.mode.at).toLocaleString('ko-KR')} ${esc(E.mode.by || '')}</span>` : ''}
+      <div class="sub" style="margin:4px 0 0;">ERP 코드 지정: SKU <b>${skuHas}/${skuAll}</b> · 자재 <b>${matHas}/${matAll}</b>${on ? ' — 전환 뒤 새로 지정하는 ERP 코드는 품목 코드에도 바로 들어갑니다' : ''}</div></div>
+      <details class="erp-sec" open><summary>전환하면 바뀌는 곳</summary><div class="sub" style="margin:6px 0;line-height:1.7;">
+        품목의 코드 칸(SKU 관리의 코드 · 자재 목록의 이카운트 품목코드)이 ERP 코드로 바뀌고, 이 칸을 읽는 곳이 모두 함께 바뀝니다.<br>
+        · <b>이카운트</b>: 매출 엑셀 · 자가사용 엑셀 · 구매입력 엑셀(구매 입고 · 원물선별 원물입고) · 코드표<br>
+        · <b>원물선별</b>: 원물 입고의 원물 선택 · 맨 위 원물 구분(선별 원물 코드도 같이 바꿈) · 등급의 원물<br>
+        · <b>단가 확인(원가)</b>: 원물 연결 코드(같이 바꿈) · <b>자재·재고 · 구매관리</b>: 재고 · 수불 · 정전개 · 원물선별 입고 합산<br>
+        · <b>3PL 수수료·택배비</b>: 서비스 품목에 코드를 따로 적지 않고 SKU 이름으로 찾는 줄은 SKU 코드를 따라감 (서비스 품목 자체 코드는 그대로)<br>
+        · 예전 코드는 품목에 '예전 코드'로 남아, 예전 코드로 저장된 원물선별 입고·등급과 예전 코드가 적힌 엑셀도 같은 품목으로 맞춥니다. ERP 코드가 없는 품목은 지금 코드 그대로입니다.
+      </div></details>`;
+    if(adm) h += `<div class="row" style="margin:8px 0;align-items:center;">${!on ? `<button type="button" class="btn-primary small-btn" id="erp-sw-go"${chg.length ? '' : ' disabled'}>ERP 코드로 전환 (${chg.length}개 품목)</button><span class="sub" style="margin:0;">이카운트 품목코드를 ERP 코드로 바꾸는 날 누르세요. 전에 바뀐 품목 목록을 아래에서 확인하세요</span>` : `${chg.length ? `<button type="button" class="btn-primary small-btn" id="erp-sw-go">남은 ${chg.length}개도 전환</button>` : ''}<button type="button" class="btn-ghost small-btn" id="erp-sw-undo">전환 되돌리기</button>`}</div>`;
+    const tbl = (list, title) => list.length ? `<details class="erp-sec"${title.open ? ' open' : ''}><summary>${title.t} (${list.length})</summary><div style="overflow-x:auto;max-height:420px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목</th><th>지금 코드</th><th>ERP 코드</th></tr></thead><tbody>${list.map(r => `<tr><td>${esc(r.kind)}</td><td>${esc(r.name)}</td><td class="erp-code">${esc(r.cur || '-')}</td><td class="erp-code">${esc(r.erp || '-')}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+    h += tbl(chg, { t: on ? '아직 ERP 코드와 다른 품목' : '전환하면 코드가 바뀌는 품목', open: true });
+    h += tbl(none, { t: 'ERP 코드가 없는 품목 (코드 그대로)' });
+    return h;
+  }
+  function bindSwitch(){
+    const go = $('erp-sw-go'), un = $('erp-sw-undo');
+    if(go) go.addEventListener('click', async () => { go.disabled = true; await doSwitch(); });
+    if(un) un.addEventListener('click', async () => { un.disabled = true; await undoSwitch(); });
+  }
   // ── 화면 ──
   function render(){
     const box = $('erp-body'); if(!box) return;
     if(E.map == null){ box.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
     const R = E.rules;
-    const tabs = [['make', '코드 만들기'], ['items', `품목별 ERP 코드 (${Object.keys(E.map).length})`], ['rules', '채번 규칙']];
+    const tabs = [['make', '코드 만들기'], ['items', `품목별 ERP 코드 (${Object.keys(E.map).length})`], ['rules', '채번 규칙'], ['switch', erpOn() ? '코드 전환 ✓' : '코드 전환']];
     let h = `<div class="row" style="margin:0 0 10px;">${tabs.map(([k, t]) => `<button type="button" class="${E.tab === k ? 'btn-primary' : 'btn-ghost'} small-btn" data-erp-tab="${k}">${t}</button>`).join('')}
       <span class="sub" style="margin:0;">${R ? `규칙: ${esc(R.file || '')} (${esc(R.by || '')} ${R.at ? new Date(R.at).toLocaleDateString('ko-KR') : ''})` : '<b style="color:var(--danger,#c0392b);">채번 규칙이 아직 없습니다 — [채번 규칙]에서 엑셀을 가져오세요</b>'}</span></div>`;
-    h += E.tab === 'rules' ? renderRules() : E.tab === 'items' ? renderItems() : renderMake();
+    h += E.tab === 'rules' ? renderRules() : E.tab === 'items' ? renderItems() : E.tab === 'switch' ? renderSwitch() : renderMake();
     // 체크·선택할 때마다 다시 그려도 보던 자리 그대로: 표 안 스크롤과 바깥(화면) 스크롤 위치를 기억했다가 되돌림
     const keepIn = [...box.querySelectorAll('[data-erp-scroll]')].map(el => [el.dataset.erpScroll, el.scrollTop, el.scrollLeft]);
     const keepOut = []; for(let p = box.parentElement; p; p = p.parentElement) if(p.scrollTop) keepOut.push([p, p.scrollTop]);
@@ -5767,7 +5874,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
     if(se.scrollTop !== wy) se.scrollTop = wy;
     box.style.minHeight = '';
     box.querySelectorAll('[data-erp-tab]').forEach(b => b.addEventListener('click', () => { E.tab = b.dataset.erpTab; render(); }));
-    if(E.tab === 'rules') bindRules(); else if(E.tab === 'items') bindItems(); else bindMake();
+    if(E.tab === 'rules') bindRules(); else if(E.tab === 'items') bindItems(); else if(E.tab === 'switch') bindSwitch(); else bindMake();
   }
 
   // 채번 규칙
@@ -5871,15 +5978,15 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       ${adm ? '<label class="btn-primary small-btn" style="cursor:pointer;">📂 코드 리스트 엑셀 업로드<input type="file" id="erp-up-file" accept=".xlsx,.xls" style="display:none;"></label>' : ''}
       <button type="button" class="btn-ghost small-btn" id="erp-xls">📥 코드표 엑셀 받기</button>
       <input type="search" id="erp-q" placeholder="품목·코드 검색" value="${esc(E.q)}" style="width:170px;">
-      <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정${frees.length ? ` · 코드만 등록 ${frees.length}개` : ''} · 이카운트 품목코드는 아직 그대로 (전환은 이카운트 코드를 바꾸는 날 따로)</span></div>`;
+      <span class="sub" style="margin:0;">품목 ${(E.items || []).length}개 중 ${done}개 지정${frees.length ? ` · 코드만 등록 ${frees.length}개` : ''} · ${erpOn() ? '<b>ERP 코드로 전환됨</b> — 품목 코드 = ERP 코드' : '이카운트 품목코드는 아직 그대로 (전환은 [코드 전환]에서)'}</span></div>`;
     if(E.up) h += renderUpload();
     if(adm && frees.length){ const onN = frees.filter(f => mkState(f).on).length;
       h += `<div class="erp-mkbar"><label><input type="checkbox" id="erp-mk-all"${onN && onN === fq.length ? ' checked' : ''}> 코드만 ${fq.length}개 전체 선택</label>
         <span class="sub" style="margin:0;">선택 ${onN}개 →</span><select id="erp-mk-setkind"><option value="">구분 한꺼번에 바꾸기</option>${MK_KINDS.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select>
         <button type="button" class="btn-primary small-btn" id="erp-mk-bulk"${onN ? '' : ' disabled'}>선택한 ${onN}개 새 품목으로 등록</button>
         <span class="sub" style="margin:0;">구분은 코드 첫 자리·대분류로 추천해 두었습니다 (W·G 제품, S 반제품, M 원물/부자재). 품목명 = ERP 품명, 이카운트 품목코드 = 변경 전 코드</span></div>`; }
-    h += `<div data-erp-scroll="items" style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>지금 코드(이카운트)</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
-      return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}</td>
+    h += `<div data-erp-scroll="items" style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table class="erp-tbl"><thead><tr><th>구분</th><th>품목명</th><th>${erpOn() ? '지금 코드' : '지금 코드(이카운트)'}</th><th>ERP 코드</th><th>검사</th></tr></thead><tbody>${rows.map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null, dup = m ? dupOf(m.code, i.key) : null;
+      return `<tr data-key="${esc(i.key)}"><td>${esc(i.type)}</td><td>${esc(i.name)}${m && m.name && norm(m.name) !== norm(i.name) ? `<div class="sub" style="margin:0;font-size:11px;">ERP 품명: ${esc(m.name)}${m.spec ? ' · ' + esc(m.spec) : ''}</div>` : ''}</td><td class="erp-code">${esc(i.code)}${i.ecOld ? `<div class="sub" style="margin:0;font-size:11px;">예전 ${esc(i.ecOld)}</div>` : ''}</td>
         <td>${adm ? `<input type="text" class="erp-in" value="${esc(m ? m.code : '')}" maxlength="12" placeholder="—">` : `<span class="erp-code">${esc(m ? m.code : '')}</span>`}</td>
         <td>${!m ? '' : dup ? `<span class="erp-err">❌ 중복 (${esc(dup.name)})</span>` : ck.ok && !ck.warn.length ? '<span class="erp-ok">✅</span>' : ck.err.map(x => `<span class="erp-err">❌ ${esc(x)}</span>`).join(' ') + ck.warn.map(x => `<span class="erp-warn">⚠ ${esc(x)}</span>`).join(' ')}</td></tr>`; }).join('')}${fq.map(f => { const ck = check(f.code), free = (E.items || []).filter(i => !E.map[i.key]), ms = mkState(f);
       return `<tr data-free="${esc(f.key)}" style="background:#fffaf0;"><td>${adm ? `<input type="checkbox" class="erp-mk-on"${ms.on ? ' checked' : ''}> ` : ''}코드만<div class="sub" style="margin:0;font-size:11px;">품목 연결 전</div></td><td>${esc(f.name || '')}${f.spec ? `<div class="sub" style="margin:0;font-size:11px;">${esc(f.spec)}</div>` : ''}${adm ? `<div style="margin-top:3px;"><select class="erp-link" style="max-width:260px;"><option value="">— 품목과 연결 —</option>${free.map(i => `<option value="${esc(i.key)}">[${esc(i.type)}] ${esc(i.name)}</option>`).join('')}</select> <button type="button" class="btn-ghost small-btn erp-free-del" title="이 코드 지우기">✕</button></div>
@@ -5960,7 +6067,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       // 품목 맞추기: 변경 전 코드 = 지금 코드 → 이름이 같은 품목 → 직접 고르기
       const used = new Set();
       rows.forEach(r => {
-        let it = r.old ? E.items.find(i => i.code && String(i.code).trim() === r.old && !used.has(i.key)) : null, how = it ? '지금 코드' : '';
+        let it = r.old ? E.items.find(i => ((i.code && String(i.code).trim() === r.old) || (i.ecOld && String(i.ecOld).trim() === r.old)) && !used.has(i.key)) : null, how = it ? '지금 코드' : '';
         if(!it && r.name){ const nn = norm(r.name); it = E.items.find(i => !used.has(i.key) && norm(i.name) === nn); if(it) how = '이름'; }
         if(!it && r.name){ const nn = norm(r.name); const c = E.items.filter(i => !used.has(i.key) && nn.length >= 2 && (norm(i.name).includes(nn) || nn.includes(norm(i.name)))); if(c.length === 1){ it = c[0]; how = '이름 비슷'; } }
         if(it){ r.key = it.key; r.how = how; used.add(it.key); }
@@ -8334,7 +8441,7 @@ function mnShow(id, keepScroll) {
     viewFillSelect(document.getElementById('dict-sort'), [['', '등록순(기본)'], ['name', '품목명순'], ['group', '단가그룹순'], ['box', '박스종류순'], ['unit', '박스입수순'], ['code', '코드순']]);
   }
   function dictMatchesView(d, v){
-    if(v.q && ![d.name, ...(d.aliases || []), d.code, d.shortName].some(x => viewKey(x).includes(v.q))) return false;
+    if(v.q && ![d.name, ...(d.aliases || []), d.code, d.shortName, d.ecOld, window.erpCodeOf ? window.erpCodeOf(d.id) : ''].some(x => viewKey(x).includes(v.q))) return false;
     if(v.box === VIEW_NONE ? !!d.boxType : (v.box && d.boxType !== v.box)) return false;
     if(v.group === VIEW_NONE ? !!d.priceGroup : (v.group && d.priceGroup !== v.group)) return false;
     if(v.flag === 'nobox' && d.boxUnitCount) return false;
@@ -12806,6 +12913,7 @@ function mnShow(id, keepScroll) {
   }));
 
   // 기준정보 › ERP 코드에서 '코드만 등록' 코드를 새 SKU로 만들 때 (관리자)
+  window.__dictSave = () => saveDict();   // ERP 코드 전환(기준정보 › ERP 코드)에서 품목 코드를 바꾼 뒤 저장
   window.__dictAdd = async it => {
     const item = Object.assign({ id: cryptoId(), name: '새 품목', aliases: [], code: '', boxUnitCount: '', shortName: '' }, it);
     dict.push(item); await saveDict();
@@ -12862,8 +12970,8 @@ function mnShow(id, keepScroll) {
   });
 
   document.getElementById('export-codes-btn').addEventListener('click', ()=>{
-    const itemHeader = ['품목명', '코드'];
-    const itemRows = dict.map(d=>[d.name, d.code || '']);
+    const itemHeader = ['품목명', '코드', 'ERP 코드', '예전 코드(전환 전)'];
+    const itemRows = dict.map(d=>[d.name, d.code || '', window.erpCodeOf ? window.erpCodeOf(d.id) : '', d.ecOld || '']);
     const companyHeader = ['업체명', '코드', '3PL 여부'];
     const companyRows = companies.map(c=>[c.name, c.code || '', c.isThirdParty ? 'Y' : '']);
 
@@ -18048,6 +18156,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // 저장: kv 'sorting-raw-settings' = { codes:[자재 코드], defaultCode } — defaultCode: 원물 칸이 빈 예전 입고·등급이 속하는 원물
   // 입고는 item_code로, 선별산출·출고는 등급(sorting_grades.item_code, 비어 있으면 기본 원물)으로 원물이 정해짐
   // 선별 원물을 하나도 고르지 않았으면 예전처럼 원물 구분 없이 동작
+  let srAlias = {};   // 예전(전환 전) 코드 → 지금 코드 (자재 목록의 ecOld)
   let srRaws = [], srDefault = '', srCur = '', srLoaded = false, srMatItems = [], srGradesCache = null, srLoading = null;
   // 출고처가 자사 생산 이관인지 (거래처 구분에 '자사'·'내부'): 자재 재고에서 원물 출고로 빼지 않음 (생산 마감 차감으로 빠짐)
   function srDestInternal(d){ return /자사|내부/.test(String((d && d.category) || '')); }
@@ -18056,7 +18165,8 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     if(srLoading && !force) return srLoading;
     srLoading = (async () => {
       let st = {}; try{ const r = await window.storage.get('sorting-raw-settings', true); st = r ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
-      let items = []; try{ const r = await window.storage.get('mat-master', true); items = ((r ? JSON.parse(r.value) : {}).items || []).filter(i => i && i.code && !i.off && matIsProduce(i)); }catch(e){ items = []; }
+      let items = [], allItems = []; try{ const r = await window.storage.get('mat-master', true); allItems = ((r ? JSON.parse(r.value) : {}).items || []).filter(Boolean); items = allItems.filter(i => i.code && !i.off && matIsProduce(i)); }catch(e){ items = []; }
+      srAlias = {}; allItems.forEach(i => { const o = String(i.ecOld || '').trim(), n = String(i.code || '').trim(); if(o && n && o !== n) srAlias[o] = n; });
       srMatItems = items;
       const codes = Array.isArray(st.codes) ? st.codes.map(String) : [];
       srRaws = codes.map(c => { const it = items.find(i => String(i.code) === c); return { code: c, name: it ? it.name : c }; });
@@ -18068,6 +18178,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     })();
     return srLoading;
   }
+  window.__srLoad = f => srLoad(f);
   const srOn = () => srRaws.length > 0;
   const srOverviewAll = () => srOn() && srCur === '*';
   // 입고·선별·출고 탭에서 쓰는 원물 (현황에서 '전체'를 골랐으면 기본 원물)
@@ -18076,12 +18187,15 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const c = srCur === '*' ? srDefault : srCur;
     return srRaws.find(r => r.code === c) || srRaws[0];
   }
-  const srCodeOf = code => (code ? String(code) : '') || srDefault;   // 원물 칸이 빈 예전 자료는 기본 원물
+  const srCodeOf = code => (code ? (srAlias[String(code)] || String(code)) : '') || srDefault;
+  const srOldCodes = c => Object.keys(srAlias).filter(o => srAlias[o] === c);   // 원물 칸이 빈 예전 자료는 기본 원물
   const srNameOf = code => { const r = srRaws.find(x => x.code === srCodeOf(code)); return r ? r.name : (code || ''); };
   // 입고 조회 조건 (기본 원물은 원물 칸이 빈 예전 입고도 포함)
   function srQ(field, raw){
     if(!raw) return '';
-    if(raw.code === srDefault){ const c = raw.code.replace(/"/g, ''); return '&or=' + encodeURIComponent(`(${field}.eq."${c}",${field}.is.null,${field}.eq."")`); }
+    const cs = [raw.code, ...srOldCodes(raw.code)].map(c => String(c).replace(/"/g, ''));   // 전환 전 코드로 저장된 예전 자료도 포함
+    if(raw.code === srDefault) return '&or=' + encodeURIComponent(`(${cs.map(c => `${field}.eq."${c}"`).join(',')},${field}.is.null,${field}.eq."")`);
+    if(cs.length > 1) return '&or=' + encodeURIComponent(`(${cs.map(c => `${field}.eq."${c}"`).join(',')})`);
     return `&${field}=eq.${encodeURIComponent(raw.code)}`;
   }
   async function srGrades(force){ if(!srGradesCache || force) srGradesCache = await sbQuery('sorting_grades', '?order=sort_order.asc,id.asc'); return srGradesCache; }
@@ -18533,7 +18647,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
     const farms = (farmRows || []).filter(f => f.is_active !== false || f.id === r.farm_id);
     if(!inboundMatItems.length) await inboundLoadMatItems();
     const items = inboundMatItems.slice().sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), 'ko'));
-    const curItem = items.find(i => r.item_code && String(i.code) === String(r.item_code)) || items.find(i => !r.item_code && r.item_name && i.name === r.item_name);
+    const curItem = items.find(i => r.item_code && (String(i.code) === String(r.item_code) || String(i.ecOld || '') === String(r.item_code))) || items.find(i => !r.item_code && r.item_name && i.name === r.item_name);
     const itemOpts = [['', '(원물 선택 안 함)']].concat(items.map(i => [i.id, (i.code ? i.code + ' · ' : '') + i.name]));
     if(!curItem && r.item_name) itemOpts.push(['__keep', (r.item_code ? r.item_code + ' · ' : '') + r.item_name + ' (지금 값 그대로)']);
     const fields = [
@@ -25821,7 +25935,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         (rows || []).forEach(r => { const k = String(r.item_code || r.item_name || '').trim(); if(!k) return; sums[k] = (sums[k] || 0) + (Number(r.weight_kg) || 0); if(r.work_date){ const dd = byDay[k] = byDay[k] || {}; dd[r.work_date] = (dd[r.work_date] || 0) + (Number(r.weight_kg) || 0); } });
         if(!rows || rows.length < 1000) break;
       }
-      MAT.master.items.forEach(it => { const k = String(it.code || it.name || '').trim(); if(sums[k]) MAT.rawIn[it.id] = Math.round(sums[k] * 100) / 100; if(byDay[k]) MAT.rawInLots[it.id] = Object.entries(byDay[k]).map(([d, q]) => ({ d, q: Math.round(q * 100) / 100 })); });
+      MAT.master.items.forEach(it => {   // 지금 코드(없으면 이름) + 전환 전 코드(ecOld)로 들어온 입고를 합침
+        const ks = [String(it.code || it.name || '').trim(), String(it.ecOld || '').trim()].filter((x, i, a) => x && a.indexOf(x) === i);
+        let tot = 0; const days = {};
+        ks.forEach(k => { tot += sums[k] || 0; Object.entries(byDay[k] || {}).forEach(([d, q]) => { days[d] = (days[d] || 0) + q; }); });
+        if(tot) MAT.rawIn[it.id] = Math.round(tot * 100) / 100;
+        if(Object.keys(days).length) MAT.rawInLots[it.id] = Object.entries(days).map(([d, q]) => ({ d, q: Math.round(q * 100) / 100 }));
+      });
     }catch(e){ MAT.rawErr = '원물선별 입고를 불러오지 못했습니다(입고 통합 SQL을 아직 실행하지 않았다면 실행해주세요): ' + ((e && e.message) || e); }
     await matLoadSortWaste();
     await matLoadSortShip();
@@ -25856,7 +25976,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
   // 원물선별 선별산출의 폐기 등급(판매 불가) kg → 그 원물 자재 재고에서 뺌 (등급의 원물 코드, 비어 있으면 기본 원물)
   //  MAT.rawWaste = { 자재id: kg }, MAT.rawWasteUnk = 원물을 알 수 없는 폐기 kg (선별 원물 설정이 없을 때)
-  const matSortCode = c => String(c || '').trim() || String(MAT.srDefault || '');
+  const matAliasCode = c => { c = String(c || '').trim(); if(!c) return ''; const it = MAT.master.items.find(i => String(i.ecOld || '').trim() === c && String(i.code || '').trim()); return it ? String(it.code).trim() : c; };   // 전환 전 코드 → 지금 코드
+  const matSortCode = c => matAliasCode(c) || String(MAT.srDefault || '');
   async function matSortWasteGrades(){ return ((await sbQuery('sorting_grades', '?select=id,name,sellable,item_code')) || []).filter(g => g.sellable === false); }
   async function matLoadSortWaste(){
     MAT.rawWaste = {}; MAT.rawWasteUnk = 0;
@@ -25943,7 +26064,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const srAll = new Set(MAT.mdraft.map(r => String(r.code || '').trim()).filter(Boolean));
     const srCodes = MAT.mdraft.filter(r => r._sr && !r.off && String(r.code || '').trim() && matIsProduce(r)).map(r => String(r.code).trim())
       .concat((MAT.srCodes || []).filter(c => !srAll.has(c)));   // 품목에 없는 선별 원물 코드는 그대로 둠
-    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: ['produce', 'pack', 'supply', 'semi'].includes(r.kind) ? r.kind : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, shelf: Number(r.shelf) > 0 ? Math.round(Number(r.shelf)) : 0, vat: !!r.vat, off: !!r.off }));
+    const rows = MAT.mdraft.map(r => ({ id: r.id, name: String(r.name || '').trim(), kind: ['produce', 'pack', 'supply', 'semi'].includes(r.kind) ? r.kind : 'raw', unit: String(r.unit || '').trim(), code: String(r.code || '').trim(), ...(r.ecOld ? { ecOld: String(r.ecOld).trim() } : {}), vendor: String(r.vendor || '').trim(), price: Number(r.price) > 0 ? Number(r.price) : 0, safety: Number(r.safety) > 0 ? Number(r.safety) : 0, shelf: Number(r.shelf) > 0 ? Math.round(Number(r.shelf)) : 0, vat: !!r.vat, off: !!r.off }));
     const vendors = MAT.vdraft.map(v => ({ name: String(v.name || '').trim(), code: String(v.code || '').trim() })).filter(v => v.name || v.code);
     { const vn = new Set(); for(const v of vendors){ if(!v.name){ matMsg('거래처명이 비어 있는 매입 거래처가 있습니다', true); return; } if(vn.has(v.name)){ matMsg(`매입 거래처 「${v.name}」이(가) 두 번 들어 있습니다`, true); return; } vn.add(v.name); } }
     const names = new Set();
@@ -26108,7 +26229,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <span class="sub" id="mat-k-sum" style="margin:0;"></span>
       </div>`;
     matEl('mat-k-type').value = B.t; matEl('mat-k-kind').value = B.kind;
-    const vis = () => { const q = B.q.trim().toLowerCase(); return matItems(false).filter(i => (!B.kind || (B.kind === 'produce' ? (matIsProduce(i) && i.kind !== 'supply') : i.kind === B.kind)) && (!q || String(i.name).toLowerCase().includes(q) || String(i.code || '').toLowerCase().includes(q))); };
+    const vis = () => { const q = B.q.trim().toLowerCase(); return matItems(false).filter(i => (!B.kind || (B.kind === 'produce' ? (matIsProduce(i) && i.kind !== 'supply') : i.kind === B.kind)) && (!q || String(i.name).toLowerCase().includes(q) || String(i.code || '').toLowerCase().includes(q) || (window.erpCodeOf && window.erpCodeOf(i.id).toLowerCase().includes(q)))); };
     const upd = () => {
       const sm = matStockMap(), sign = B.t === 'in' ? 1 : -1; let n = 0;
       document.querySelectorAll('#mat-k-tbl tr[data-id]').forEach(tr => {
@@ -26656,7 +26777,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       list.forEach(r => {
         const code = String(r.item_code || '').trim(), name = String(r.item_name || '').trim();
         if(!code && !name){ out.noItem++; return; }
-        const m = MAT.master.items.find(i => code && String(i.code || '').trim() === code) || MAT.master.items.find(i => name && i.name === name) || null;
+        const m = MAT.master.items.find(i => code && String(i.code || '').trim() === code) || MAT.master.items.find(i => code && String(i.ecOld || '').trim() === code) || MAT.master.items.find(i => name && i.name === name) || null;
         const it = m ? { code: m.code || code, name: m.name, vat: !!m.vat } : { code, name: name || code, vat: false };
         const viaFarm = !r.vendor_id && r.farm_id != null;   // 사입처 없이 농가에서 바로 산 원물
         out.rows.push({ rawId: r.id, svId: r.vendor_id, fId: viaFarm ? r.farm_id : null, d: r.work_date, m: m ? m.id : '', it, t: 'in', q: Number(r.weight_kg) || 0, price: Number(r.unit_price) > 0 ? Number(r.unit_price) : 0,
@@ -27157,7 +27278,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         const name = String(x.name || '').trim();
         if(!name || names.has(name)) continue;
         names.add(name);
-        added.push({ id: matRid('m'), name, kind: ['produce', 'pack', 'supply', 'semi'].includes(x.kind) ? x.kind : 'pack', unit: String(x.unit || '').trim() || '개', code: String(x.code || '').trim(), vendor: '', price: 0, safety: 0, shelf: 0, vat: false, off: false });
+        added.push({ id: matRid('m'), name, kind: ['produce', 'pack', 'supply', 'semi'].includes(x.kind) ? x.kind : 'pack', unit: String(x.unit || '').trim() || '개', code: String(x.code || '').trim(), ...(x.ecOld ? { ecOld: String(x.ecOld).trim() } : {}), vendor: '', price: 0, safety: 0, shelf: 0, vat: false, off: false });
       }
       if(!added.length) return added;
       const all = items.concat(added);
