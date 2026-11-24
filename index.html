@@ -19574,7 +19574,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
     }).join('');
 
     container.innerHTML = `
-      <div style="display:inline-block; background:#fff; padding:20px; font-family:'Malgun Gothic',sans-serif;">
+      <div style="display:inline-block; position:relative; background:#fff; padding:20px; font-family:'Malgun Gothic',sans-serif;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; gap:24px; margin-bottom:10px;">
           <div style="font-size:20px; font-weight:800; white-space:nowrap;">${escapeHtml(bizName)} ${escapeHtml(productName)} 출고 리스트</div>
           <div style="font-size:13px; white-space:nowrap;">출고일:${escapeHtml(date)}</div>
@@ -22435,7 +22435,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     holder.innerHTML = (extraCss ? `<style>${extraCss}</style>` : '') + html;
     document.body.appendChild(holder);
     try{
-      const canvas = await html2canvas(holder, { backgroundColor: '#ffffff', scale: 2, useCORS: true, windowWidth: width + 60 });
+      // 표가 정한 폭보다 넓으면(품목 열이 많거나 이름이 길 때) 잘리지 않게 실제 폭에 맞춤
+      const need = Math.ceil(holder.scrollWidth);
+      if(need > holder.offsetWidth) holder.style.width = need + 'px';
+      const canvas = await html2canvas(holder, { backgroundColor: '#ffffff', scale: 2, useCORS: true, windowWidth: Math.max(width + 60, holder.offsetWidth + 32) });
       const blob = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
       return { blob, w: canvas.width, h: canvas.height, canvas };
     } finally { holder.remove(); }
@@ -22603,7 +22606,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
   const rsSummary = d => [d.pallets ? `${d.pallets}파렛트` : '', d.ggd ? `까대기 ${rsFmt(d.ggd)}박스` : ''].filter(Boolean).join(' / ') || `${rsFmt(d.sum)}박스`;
   const rsDateText = dk => { const [y, mo, da] = dk.split('-').map(Number); return `${y}/${String(mo).padStart(2, '0')}/${String(da).padStart(2, '0')} (${PO_DAYS[new Date(y, mo - 1, da).getDay()]})`; };
-  const RS_CSS = `.rs-sheet{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111;background:#fff;display:inline-block;}
+  const RS_CSS = `.rs-sheet{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111;background:#fff;display:inline-block;position:relative;}
     .rs-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:6px;}
     .rs-date{font-size:15px;font-weight:700;}
     .rs-drv{border:2px solid #111;padding:6px 14px;text-align:center;min-width:220px;}
@@ -22632,32 +22635,59 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     body += `<tr class="rs-tot"><td colspan="3" style="text-align:center;">합계</td>${d.cols.map(c => `<td class="n">${rsFmt(d.tot[c.L])}</td>`).join('')}<td class="n">${rsFmt(d.sum)}</td><td colspan="2"></td></tr>`;
     return `<div class="rs-sheet"><div class="rs-top"><div class="rs-date">${e(rsDateText(dk))}</div><div class="rs-drv"><b>${e(d.drv)}${/기사/.test(d.drv) ? '' : ' 기사님'}</b><span>${e(rsSummary(d))}</span></div></div><table class="rs-tbl"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
-  function rsXlsx(d, dk){
-    if(typeof XLSX === 'undefined'){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+  // 표 모양 엑셀: 발주취합 새 방식과 같은 엑셀 만들기(PoSheet.toXlsx)에 표(grid)를 넘김 — 값만 들어감(수식 없음)
+  function rsGrid(d, dk){
     const nC = d.cols.length, W = 3 + nC + 3;
-    const A = [], M = [], blank = () => new Array(W).fill('');
-    const r0 = blank(); r0[W - 2] = `${d.drv}${/기사/.test(d.drv) ? '' : ' 기사님'}\n\n${rsSummary(d)}`; A.push(r0); M.push({ s: { r: 0, c: W - 2 }, e: { r: 0, c: W - 1 } });
-    const r1 = blank(); r1[0] = rsDateText(dk); A.push(r1);
-    A.push(['업체명', '', '', ...d.cols.map(c => d.label(c)), '합계', '파렛트', '특이사항']); M.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
-    const start = A.length;
-    d.rows.forEach((r, i) => {
-      const mk = r.market || r.region || '';
+    const L = n => { let t = ''; while(n > 0){ const m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };
+    const T = 'thin', M2 = 'medium';
+    const st = o => Object.assign({ fn: '맑은 고딕', sz: 11, b: 0, fc: '#000000', fill: '', bd: [T, T, T, T], h: '', v: 'center', w: 0, nf: '' }, o);
+    const g = { rows: [], merges: [], cols: [], maxRow: 0 };
+    const row = (r, h) => { const R = g.rows[r] || (g.rows[r] = { h: 21, hidden: false, cells: {} }); if(h) R.h = h; return R; };
+    const put = (r, c, v, o) => { row(r).cells[L(c)] = { v: v == null ? '' : v, st: st(o) }; if(r > g.maxRow) g.maxRow = r; };
+    // 합친 칸은 안쪽 칸마다 같은 테두리를 넣어야 엑셀에서 선이 끊기지 않음
+    const area = (r1, c1, r2, c2, v, o) => { for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) put(r, c, r === r1 && c === c1 ? v : '', o); if(r1 !== r2 || c1 !== c2) g.merges.push(L(c1) + r1 + ':' + L(c2) + r2); };
+    g.cols = [{ w: 10 }, { w: 18 }, { w: 16 }].concat(d.cols.map(() => ({ w: 12 })), [{ w: 9 }, { w: 11 }, { w: 36 }]);
+    // 1~2행: 날짜(왼쪽) · 기사님 상자(오른쪽 세 칸)
+    row(1, 27); row(2, 24); row(3, 8);
+    area(1, 1, 2, 3, rsDateText(dk), { sz: 14, b: 1, bd: ['', '', '', ''], h: 'left' });
+    const nm = d.drv + (/기사/.test(d.drv) ? '' : ' 기사님');
+    area(1, W - 2, 1, W, nm, { sz: 15, b: 1, h: 'center', bd: [M2, M2, M2, ''] });
+    area(2, W - 2, 2, W, rsSummary(d), { sz: 12, b: 1, fc: '#C0392B', h: 'center', bd: [M2, M2, '', M2] });
+    // 4행: 머리글
+    const H = 4, head = { b: 1, fill: '#E9E9E9', h: 'center', w: 1 };
+    row(H, 36);
+    area(H, 1, H, 3, '업체명', head);
+    d.cols.forEach((c, i) => put(H, 4 + i, d.label(c), head));
+    put(H, 4 + nC, '합계', head); put(H, 5 + nC, '파렛트', head); put(H, 6 + nC, '특이사항', head);
+    // 업체 줄 (같은 하차지는 첫 칸을 합침)
+    let r = H + 1;
+    d.rows.forEach((x, i) => {
+      const mk = x.market || x.region || '';
       const first = i === 0 || (d.rows[i - 1].market || d.rows[i - 1].region || '') !== mk;
-      A.push([first ? mk : '', r.name, r.corp, ...d.cols.map(c => rsR2(r.qty[c.L]) || ''), r.sum, r.load, r.note]);
-      if(first){ let j = i + 1; while(j < d.rows.length && (d.rows[j].market || d.rows[j].region || '') === mk) j++; if(j - i > 1) M.push({ s: { r: start + i, c: 0 }, e: { r: start + j - 1, c: 0 } }); }
+      let span = 1; if(first){ for(let j = i + 1; j < d.rows.length && (d.rows[j].market || d.rows[j].region || '') === mk; j++) span++; }
+      row(r, x.note && String(x.note).length > 22 ? 36 : 22);
+      if(first) area(r, 1, r + span - 1, 1, mk, { b: 1, fill: '#F6F6F6', h: 'center' });
+      put(r, 2, x.name, {}); put(r, 3, x.corp, {});
+      d.cols.forEach((c, k) => { const v = rsR2(x.qty[c.L]); put(r, 4 + k, v || '', { h: 'right' }); });
+      put(r, 4 + nC, x.sum || '', { b: 1, fill: '#FAFAFA', h: 'right' });
+      put(r, 5 + nC, x.load, { h: 'center' });
+      put(r, 6 + nC, x.note, { w: 1 });
+      r++;
     });
-    const end = A.length - 1;
-    A.push(['', '', '합계', ...d.cols.map(c => d.tot[c.L] || 0), d.sum, '', '']);
-    const ws = XLSX.utils.aoa_to_sheet(A);
-    const enc = (r, c) => XLSX.utils.encode_cell({ r, c }), colL = c => XLSX.utils.encode_col(c);
-    for(let r = start; r <= end; r++){ const a = enc(r, 3 + nC); ws[a] = { t: 'n', v: d.rows[r - start].sum, f: nC ? `SUM(${colL(3)}${r + 1}:${colL(2 + nC)}${r + 1})` : undefined }; }
-    for(let c = 3; c <= 3 + nC; c++){ const a = enc(end + 1, c); if(end >= start) ws[a] = { t: 'n', v: ws[a] ? ws[a].v : 0, f: `SUM(${colL(c)}${start + 1}:${colL(c)}${end + 1})` }; }
-    ws['!merges'] = M;
-    ws['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 18 }, ...d.cols.map(() => ({ wch: 10 })), { wch: 9 }, { wch: 14 }, { wch: 34 }];
-    ws['!rows'] = [{ hpt: 48 }];
-    if(ws[enc(0, W - 2)]) ws[enc(0, W - 2)].s = { alignment: { wrapText: true } };
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '운행표');
-    XLSX.writeFile(wb, `${d.drv.replace(/[\\/:*?"<>|\s]+/g, '')}운행표_${dk.slice(2).replace(/-/g, '')}.xlsx`);
+    // 합계 줄
+    const tot = { b: 1, fill: '#E9E9E9' };
+    row(r, 24);
+    area(r, 1, r, 3, '합계', Object.assign({ h: 'center' }, tot));
+    d.cols.forEach((c, k) => put(r, 4 + k, d.tot[c.L] || '', Object.assign({ h: 'right' }, tot)));
+    put(r, 4 + nC, d.sum || '', Object.assign({ h: 'right' }, tot));
+    area(r, 5 + nC, r, 6 + nC, '', tot);
+    return g;
+  }
+  async function rsXlsx(d, dk){
+    try{ await pgEnsure(); }catch(e){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    if(typeof JSZip === 'undefined'){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    const blob = await window.PoSheet.toXlsx(rsGrid(d, dk), '운행표');
+    pgDownloadBlob(blob, d.drv.replace(/[\\/:*?"<>|\s]+/g, '') + '운행표_' + dk.slice(2).replace(/-/g, '') + '.xlsx');
   }
   // 운행표 창: 기사님 고르기 → 미리보기 · 공유용 이미지 · 엑셀 · 인쇄 · 동선 순서
   async function rsOpen(dkArg){
@@ -22699,7 +22729,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     ]);
   }
   window.rsOpen = rsOpen;
-  window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
+  window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, grid: rsGrid, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
   (function wirePoGen(){
     const $ = id => document.getElementById(id);
     if($('rs-btn')) $('rs-btn').addEventListener('click', () => rsOpen(typeof stmDate === 'function' ? stmDate() : currentDateKey));   // 송장/명세서의 대상 일자
