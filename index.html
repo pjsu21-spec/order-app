@@ -2765,11 +2765,11 @@
     </div>
     <div class="card" id="lab-acc-card" style="display:none;">
       <h2>👥 연구소 권한 <span class="badge">연구소 관리자</span></h2>
-      <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 메일 알림 설정 · 이 권한 부여. 차단하면 연구소 탭이 안 보입니다.</div>
+      <div class="sub" style="margin:0 0 8px;"><b>보기</b>: 의뢰 목록만 · <b>담당</b>: 접수·제작 완료 표시 · <b>연구소 관리자</b>: + 이 권한 부여 (메일 알림 설정은 통합시스템 관리자만). 차단하면 연구소 탭이 안 보입니다.</div>
       <div id="lab-acc-body"></div>
     </div>
     <div class="card" id="lab-mail-card" style="display:none;">
-      <h2>📧 메일 알림 <span class="badge">연구소 관리자</span></h2>
+      <h2>📧 메일 알림 <span class="badge">통합시스템 관리자</span></h2>
       <div class="sub" style="margin:0 0 8px;">연구실 생산 샘플이 새로 신청되거나, 내용이 바뀌거나, 취소되면 아래 주소로 메일을 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
       <div id="lab-mail-body"></div>
     </div>
@@ -4775,7 +4775,7 @@ function applyUserUI() {
   const atText = t => { const d = new Date(t); return isNaN(d) ? '' : `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
 
   // ── 연구소 권한 ── kv 'lab-access' = { levels: { 사용자 id: 'view'(보기) | 'edit'(담당) | 'admin'(연구소 관리자) }, users:[권한 있는 id] }
-  //  보기: 의뢰 목록만 / 담당: + 접수·제작 완료 / 연구소 관리자: + 메일 알림 설정 · 연구소 권한 부여.  시스템 관리자는 항상 연구소 관리자.
+  //  보기: 의뢰 목록만 / 담당: + 접수·제작 완료 / 연구소 관리자: + 연구소 권한 부여.  시스템 관리자는 항상 연구소 관리자. 메일 알림 설정은 통합시스템 관리자만.
   //  예전 형식(users 만 있음)의 직원은 '담당'으로 봄. 서버 규칙(연구소탭_SQL.sql · 연구소권한_SQL.sql)도 같은 기준.
   const LV = ['none', 'view', 'edit', 'admin'];
   const LV_NAME = { none: '차단', view: '보기', edit: '담당', admin: '연구소 관리자' };
@@ -4968,8 +4968,8 @@ function applyUserUI() {
   }
   async function renderMail(){
     const card = $('lab-mail-card'), box = $('lab-mail-body'); if(!card || !box) return;
-    card.style.display = canAdmin() ? '' : 'none';
-    if(!canAdmin()) return;
+    card.style.display = isAdminU() ? '' : 'none';   // 메일 알림 설정은 통합시스템 관리자만
+    if(!isAdminU()) return;
     let st = {};
     try{ const r = await window.storage.get(K_MAIL, true); st = r && r.value ? JSON.parse(r.value) || {} : {}; }catch(e){ st = {}; }
     const to = Array.isArray(st.to) ? st.to : [];
@@ -10324,22 +10324,43 @@ function mnShow(id, keepScroll) {
   // 업체 이름 → 비교용 키 여러 개 (그대로 / 법인 형태 뺌 / 괄호 안 글자도 뺌)
   const udCoKeys = n => { const b = String(n || ''); return [...new Set([udCoKey(b), udCoKey(b.replace(UD_LEGAL, ' ')), udCoKey(b.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(UD_LEGAL, ' '))])].filter(k => k.length >= 2); };
   const udCoKey = n => String(n || '').replace(/\(주\)|㈜|주식회사|\(유\)|유한회사|\(상장\)|상장/g, '').replace(/[\s()_\-.]+/g, '').toLowerCase();
-  async function uploadDetectCompany(fileName, aoa){
+  // 순서: ① 파일 이름에 업체명이 분명히 있으면(법인 형태·괄호 뺀 이름 3글자 이상, 가장 긴 이름이 한 업체) 그 업체 — 같은 쇼핑몰 양식을 쓰는 다른 업체로 잘못 고르지 않게 맨 먼저
+  //       ② 예전에 같은 파일 이름 모양으로 불러온 업체 ③ 예전에 같은 머리글(양식)로 불러온 업체(그 양식을 쓰는 업체가 하나일 때만) ④ 파일 이름에 짧은 업체명·우리 회사 이름
+  //  opt.mappedOnly: 주문 파일 양식이 저장된 업체만 고름 (받은 발주서 목록 — 고를 수 있는 업체가 그것뿐). 이름이 분명한 업체가 양식이 없으면 다른 업체로 대신 고르지 않음
+  async function uploadDetectCompany(fileName, aoa, opt){
     const R = await udLoad();
-    const has = n => companies.some(c => c.name === n);
-    // ① 머리글(양식)
-    // 같은 양식을 쓰는 업체가 하나일 때만 (여러 업체가 같은 쇼핑몰 양식을 쓰면 양식으로는 고르지 않음)
-    const sigHits = Object.entries(R.sigs).filter(([co, sg]) => has(co) && sg && sg.sig && sg.sig.length >= 6 && udSig(aoa, sg.row) === sg.sig).map(([co]) => co);
-    if(sigHits.length === 1) return { company: sigHits[0], how: '예전에 불러온 같은 양식', strong: true };
-    // ② 파일 이름 모양
-    const nk = udNameKey(fileName);
-    if(nk && R.names[nk] && has(R.names[nk])) return { company: R.names[nk], how: '예전에 불러온 같은 파일 이름', strong: true };
-    // ③ 파일 이름에 업체명 — 법인 형태(농업회사법인·주식회사·(주) 등)와 괄호 안 글자를 뺀 이름으로도 비교
-    //    우리 회사 이름(다름달음)은 받는 쪽으로 파일 이름에 자주 붙으므로 다른 후보가 없을 때만, 그 밖에는 업로드 양식이 있는 업체 · 긴 이름 우선
+    const mappedOnly = !!(opt && opt.mappedOnly);
+    const usable = c => !!c && (!mappedOnly || !!(c.uploadMapping && Object.keys(c.uploadMapping).length));
+    const has = n => usable(companies.find(c => c.name === n));
+    // ① 파일 이름의 업체명 (모든 업체로 판단)
     const fk = udCoKey(fileName);
     const cands = companies.map(c => { const ks = udCoKeys(c.name).filter(k => fk.includes(k)).sort((a, b) => b.length - a.length); return ks.length ? { c, k: ks[0] } : null; }).filter(Boolean)
-      .sort((a, b) => (UD_OWN.has(a.k) ? 1 : 0) - (UD_OWN.has(b.k) ? 1 : 0) || (b.c.uploadMapping ? 1 : 0) - (a.c.uploadMapping ? 1 : 0) || b.k.length - a.k.length);
-    if(cands.length) return { company: cands[0].c.name, how: '파일 이름', strong: false };
+      .sort((a, b) => (UD_OWN.has(a.k) ? 1 : 0) - (UD_OWN.has(b.k) ? 1 : 0) || b.k.length - a.k.length || (b.c.uploadMapping ? 1 : 0) - (a.c.uploadMapping ? 1 : 0));
+    const named = cands.filter(x => !UD_OWN.has(x.k));
+    const top = named[0];
+    const nk = udNameKey(fileName);
+    const sigOk = (co, sg) => sg && sg.sig && sg.sig.length >= 6 && udSig(aoa, sg.row) === sg.sig;
+    if(top && top.k.length >= 3){
+      // 같은 길이로 이름이 맞은 업체들 (예: '카우펜' · '카우펜(휴게소)') 안에서만 고름 — 이름과 상관없는 업체로는 고르지 않음
+      const ok = named.filter(x => x.k.length === top.k.length && usable(x.c));
+      if(!ok.length) return null;
+      if(ok.length === 1) return { company: ok[0].c.name, how: '파일 이름의 업체명', strong: true };
+      const inG = new Set(ok.map(x => x.c.name));
+      if(nk && R.names[nk] && inG.has(R.names[nk])) return { company: R.names[nk], how: '파일 이름의 업체명 · 예전에 불러온 같은 파일 이름', strong: true };
+      const sh = Object.entries(R.sigs).filter(([co, sg]) => inG.has(co) && sigOk(co, sg)).map(([co]) => co);
+      if(sh.length === 1) return { company: sh[0], how: '파일 이름의 업체명 · 예전에 불러온 같은 양식', strong: true };
+      const mp = ok.filter(x => x.c.uploadMapping && Object.keys(x.c.uploadMapping).length);
+      if(mp.length === 1) return { company: mp[0].c.name, how: '파일 이름의 업체명 (양식이 저장된 업체)', strong: true };
+      return { company: ok[0].c.name, how: '파일 이름의 업체명 (이름이 비슷한 업체가 여럿)', strong: false };
+    }
+    // ② 파일 이름 모양
+    if(nk && R.names[nk] && has(R.names[nk])) return { company: R.names[nk], how: '예전에 불러온 같은 파일 이름', strong: true };
+    // ③ 머리글(양식) — 같은 양식을 쓰는 업체가 하나일 때만 (여러 업체가 같은 쇼핑몰 양식을 쓰면 양식으로는 고르지 않음)
+    const sigHits = Object.entries(R.sigs).filter(([co, sg]) => has(co) && sigOk(co, sg)).map(([co]) => co);
+    if(sigHits.length === 1) return { company: sigHits[0], how: '예전에 불러온 같은 양식', strong: true };
+    // ④ 짧은 업체명(2글자) · 우리 회사 이름 — 약한 추정
+    const weak = cands.filter(x => usable(x.c));
+    if(weak.length) return { company: weak[0].c.name, how: '파일 이름', strong: false };
     return null;
   }
   async function uploadLearn(company, fileName, startRow){
@@ -10568,8 +10589,10 @@ function mnShow(id, keepScroll) {
   const ibReadAoa = file => new Promise(ok => { try{ readSheetFile(file, aoa => ok(aoa || [])); }catch(e){ ok([]); } setTimeout(() => ok(null), 8000); });
   async function ibDupInfo(x){
     const aoa = await ibReadAoa(x.file); if(!aoa || !aoa.length) return null;
-    const det = await uploadDetectCompany(x.name, aoa); if(!det) return null;
-    const co = companies.find(c => c.name === det.company), mp = (co && co.uploadMapping) || null;
+    // 목록에서 고른 업체(직접 고른 값 또는 자동 선택) 기준 — 없으면 자동 선택과 같은 규칙
+    let coName = ibCo.get(x.key) || '';
+    if(!coName){ const det = await uploadDetectCompany(x.name, aoa, { mappedOnly: true }); if(!det) return null; coName = det.company; }
+    const co = companies.find(c => c.name === coName), mp = (co && co.uploadMapping) || null;
     if(!mp) return null;
     const startRow = Number(mp.startRow) || 2;
     if(co.isThirdParty && mp.orderNo){
@@ -10597,7 +10620,7 @@ function mnShow(id, keepScroll) {
       if(!x.aoa) x.aoa = await ibReadAoa(x.file);
       const el = document.querySelector(`#inbox-box .ib-it[data-k="${CSS.escape(x.key)}"]`);
       if(!ibCoUser.has(x.key) && x.aoa){
-        let det = null; try{ det = await uploadDetectCompany(x.name, x.aoa); }catch(e){}
+        let det = null; try{ det = await uploadDetectCompany(x.name, x.aoa, { mappedOnly: true }); }catch(e){}
         const co = det && companies.find(c => c.name === det.company && c.uploadMapping);
         if(co){ ibCo.set(x.key, co.name); x.coHow = det.how; } else { ibCo.delete(x.key); x.coHow = ''; }
       }
@@ -22271,7 +22294,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
             const names = window.labLevelNames || { none: '차단', view: '보기', edit: '담당', admin: '연구소 관리자' };
             const cur = labLevels[String(u.id)] || 'none', sel = document.createElement('select');
             ['none', 'view', 'edit', 'admin'].forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = names[v]; if(v === cur) o.selected = true; sel.appendChild(o); });
-            sel.title = '보기: 의뢰 목록만 · 담당: 접수·제작 완료 · 연구소 관리자: 메일 알림 설정·연구소 권한 부여';
+            sel.title = '보기: 의뢰 목록만 · 담당: 접수·제작 완료 · 연구소 관리자: 연구소 권한 부여';
             sel.addEventListener('change', async () => {
               sel.disabled = true;
               try{ await window.labSetLevel(u.id, sel.value, u.display_name || u.username); }
