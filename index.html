@@ -3160,7 +3160,7 @@
   <li><b>택배사 발주서 다운로드</b>: 보내는 분 정보를 확인하고 <span class="mn-b">전체 발주서 다운로드 (.xls)</span>. 일부만 필요하면 목록에서 체크하고 <span class="mn-b">선택 건만 발주서 다운로드</span>.</li>
   <li>택배사가 운송장번호 파일을 주면 <b>운송장번호 업로드</b>에 올리고, 주문번호 열과 운송장번호 열을 지정해 <span class="mn-b">운송장번호 매칭 적용</span>을 누릅니다. <span class="mn-b">💾 이 설정 저장</span>으로 다음번엔 자동 지정됩니다.</li>
   <li><b>카톡으로 주고받기</b>: <span class="mn-b">📤 발주서 카톡 공유</span>를 누르면 제이엠로지스 발주서(.xls)가 휴대폰·PC 공유 창으로 열립니다 → <b>카카오톡</b>을 골라 보냅니다(목록에서 체크한 건이 있으면 그 건만 보낼지 묻습니다). 브라우저가 엑셀 공유를 지원하지 않으면 파일로 내려받아지니, 다운로드한 파일을 카톡 대화창에 끌어다 놓거나(PC) 다운로드 알림에서 공유하세요(휴대폰).</li>
-  <li>제이엠에서 카톡으로 받은 <b>송장 파일</b>은 휴대폰에서 <b>공유 → 다름달음 오더</b>로 보내면 운송장번호 업로드 칸에 바로 열립니다. PC는 발주 입력의 <b>📂 카톡 받은 파일 폴더</b>를 연결해 두면 운송장번호 업로드 위 <b>📥 받은 송장 파일</b>에 뜨니 <span class="mn-b">송장으로 열기</span>를 누르세요. 운송장번호가 채워진 파일을 송장 파일로 알아봅니다(받은 발주서 목록에도 🚚 송장 파일로 표시).</li>
+  <li>제이엠에서 카톡으로 받은 <b>송장 파일</b>은 휴대폰에서 <b>공유 → 다름달음 오더</b>로 보내면 운송장번호 업로드 칸에 바로 열립니다. PC는 발주 입력의 <b>📂 카톡 받은 파일 폴더</b>를 연결해 두면 운송장번호 업로드 위 <b>📥 받은 송장 파일</b>에 뜨니 <span class="mn-b">송장으로 열기</span>를 누르세요. <b>제이엠 송장 양식</b>(운송장번호·고객주문번호 칸이 있고 운송장번호가 채워진 파일)이나 한 번 저장한 송장 열 설정과 같은 양식만 송장으로 봅니다. 파일 이름에 3PL 업체명이 있거나 예전에 그 업체 발주서로 불러온 양식이면 발주서로 봅니다. 받은 발주서 목록에서 <b>🚚 송장 파일</b> 줄은 <span class="mn-b">발주서로</span>, 발주서 줄은 <span class="mn-b">🚚</span>로 구분을 바꿀 수 있습니다. 송장으로 열려도 <span class="mn-b">운송장번호 매칭 적용</span>을 누르기 전에는 아무것도 바뀌지 않고, 적용해도 운송장번호가 비어 있는 주문만 채웁니다.</li>
   <li><b>택배 건수 집계</b>에서 업체별·사이즈별(극소 1~4팩, 소 5~8팩) 건수를 보고 엑셀로 받아 택배비 청구에 씁니다.</li>
 </ol>
 <div class="mn-note"><b>샘플 택배</b>샘플 신청에서 "택배 발송 요청"을 고른 신청은 발주서 반영일의 3PL 개별 주문에 자동으로 들어갑니다. 업체명 <b>다름달음</b>, 업체 주문번호 빈칸, 담당자 = 신청자 이름, 배송 요청사항 = "샘플"(신청서에 적은 배송 요청사항이 있으면 앞에). 신청을 고치거나 취소하면 따라 바뀌고, 매출에는 잡히지 않습니다. 사내관리번호는 그날 3PL 줄 중 가장 큰 번호 다음으로 매겨져 다른 직원 주문과 겹치지 않습니다.</div>
@@ -11749,23 +11749,35 @@ function mnShow(id, keepScroll) {
   const ibIsImg = x => !!x && (/^image\//.test((x.file && x.file.type) || '') || /\.(png|jpe?g|webp|gif|bmp|heic)$/i.test(x.name || ''));   // 카톡에서 공유한 발주표 이미지
   const ibTrackCache = new Map();   // 파일 키 → true/false
   function ibAoa(file){ return new Promise(ok => { const rd = new FileReader(); rd.onload = e => { try{ const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); ok(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' })); }catch(er){ ok(null); } }; rd.onerror = () => ok(null); rd.readAsArrayBuffer(file); }); }
-  function isTrackingAoa(aoa){
-    if(!aoa) return false;
+  // 송장 파일인지: 'saved'(저장된 송장 열 설정과 같은 머리글) | 'jm'(제이엠 송장 양식) | '' (아님). 어느 쪽이든 운송장번호가 채워진 줄이 있어야 함
+  //  우리가 보내는 발주서는 운송장번호가 비어 있고, 쇼핑몰 주문 파일의 '송장번호' 칸만으로는 송장으로 보지 않음(고객주문번호까지 있어야 제이엠 양식)
+  function trackingKindOfAoa(aoa){
+    if(!aoa) return '';
     for(let h = 0; h < Math.min(10, aoa.length); h++){
       const row = (aoa[h] || []).map(v => String(v ?? '').replace(/\s+/g, ''));
       const c = row.findIndex(v => v === '운송장번호' || v === '송장번호');
       if(c < 0) continue;
       let filled = 0;
       for(let r = h + 1; r < aoa.length && filled < 1; r++){ const v = String((aoa[r] || [])[c] ?? '').replace(/[\s-]/g, ''); if(/^\d{8,}$/.test(v)) filled++; }
-      return filled > 0;
+      if(!filled) return '';
+      const key = (aoa[h] || []).slice(0, 10).map(v => cleanCell(v)).join('|');
+      if(h === 0 && trackingColMappings && trackingColMappings[key]) return 'saved';
+      return row.includes('고객주문번호') ? 'jm' : '';
     }
-    return false;
+    return '';
   }
+  const isTrackingAoa = aoa => !!trackingKindOfAoa(aoa);
+  const ibKind = new Map();   // 파일 키 → 'order' | 'track' (목록에서 사람이 바꾼 구분)
   async function ibIsTracking(x){
     if(!x || ibIsImg(x) || !IB_ACCEPT.test(x.name || '')) return false;
+    if(ibKind.has(x.key)) return ibKind.get(x.key) === 'track';
     const k = x.key + '|' + (x.file && x.file.size);
     if(ibTrackCache.has(k)) return ibTrackCache.get(k);
-    const v = isTrackingAoa(await ibAoa(x.file));
+    const aoa = await ibAoa(x.file);
+    let kind = trackingKindOfAoa(aoa);
+    // 3PL 업체 발주서로 분명히 알아본 파일(파일 이름의 업체명·예전에 불러온 같은 이름·같은 양식)은 발주서로 — 저장된 송장 설정과 머리글이 똑같은 경우만 송장
+    if(kind === 'jm'){ try{ const d = await uploadDetectCompany(x.name, aoa, { mappedOnly: true }); if(d && d.how !== '파일 이름') kind = ''; /* 짧은 이름(2글자) 추정만 빼고, 업체명·예전 파일 이름·양식으로 알아보면 발주서 */ }catch(e){} }
+    const v = !!kind;
     ibTrackCache.set(k, v);
     return v;
   }
@@ -11778,12 +11790,27 @@ function mnShow(id, keepScroll) {
     handleTrackingFile(x.file);
     ibMarkDone(x.file); ibRender();
     const z = document.getElementById('tracking-dropzone'); if(z) setTimeout(() => z.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-    toast(`송장 파일로 열었습니다: ${x.name} — 열 설정을 확인하고 [운송장번호 매칭 적용]을 누르세요`);
+    toast(`송장 파일로 열었습니다: ${x.name} — 열 설정을 확인하고 [운송장번호 매칭 적용]을 눌러야 반영됩니다. 3PL 발주서였다면 발주 입력 › 받은 발주서 목록에서 [발주서로]를 누르세요`);
   }
   // 목록에서 송장 파일 표시 (읽어 본 뒤 비동기로)
   async function ibMarkTracking(list){
     for(const x of list){
-      if(!(await ibIsTracking(x))) continue;
+      const el0 = document.querySelector(`#inbox-box .ib-it[data-k="${CSS.escape(x.key)}"]`);
+      if(!(await ibIsTracking(x))){
+        // 발주서 줄: 송장 파일인데 못 알아봤으면 사람이 바꿀 수 있게
+        if(el0 && !ibIsImg(x) && IB_ACCEPT.test(x.name || '') && !el0.querySelector('[data-ib-kind]')){
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost small-btn'; b.dataset.ibKind = 'track'; b.textContent = '🚚'; b.title = '이 파일은 송장(운송장번호) 파일 — 송장으로 바꾸기';
+          b.addEventListener('click', () => { ibKind.set(x.key, 'track'); ibRender(); toast(`${x.name}: 송장 파일로 바꿨습니다`); });
+          const ld = el0.querySelector('[data-ib-load]'); if(ld) ld.after(b);
+        }
+        continue;
+      }
+      if(el0 && !el0.querySelector('[data-ib-kind]')){
+        const ld = el0.querySelector('[data-ib-load]'); if(ld) ld.textContent = '송장으로 열기';
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-ghost small-btn'; b.dataset.ibKind = 'order'; b.textContent = '발주서로'; b.title = '송장 파일이 아니라 3PL 발주서 — 발주서로 바꾸기';
+        b.addEventListener('click', () => { ibKind.set(x.key, 'order'); ibRender(); toast(`${x.name}: 발주서로 바꿨습니다 — 업체를 고르고 불러오세요`); });
+        if(ld) ld.after(b);
+      }
       document.querySelectorAll(`.ib-box .ib-it[data-k="${CSS.escape(x.key)}"]`).forEach(el => {
         el.classList.add('ib-track');
         const co = el.querySelector('.ib-co'); if(co && co.tagName === 'SELECT'){ const sp = document.createElement('span'); sp.className = 'ib-co'; sp.style.cssText = 'font-size:12px;font-weight:700;color:#1565c0;'; sp.textContent = '🚚 송장 파일'; co.replaceWith(sp); }
@@ -12086,9 +12113,11 @@ function mnShow(id, keepScroll) {
   }
   // 체크한 파일을 골라 둔 업체의 저장된 양식(매핑)으로 차례로 불러오기 — 업체가 안 골라진 파일은 알려 줌
   async function ibBatch(list){
-    { const keep = []; for(const x of list) if(!(await ibIsTracking(x))) keep.push(x); list = keep; }
     const box = document.getElementById('inbox-box');
-    const checked = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked && !ibIsImg(x); });
+    const checked0 = list.filter((x, i) => { const c = box && box.querySelector(`[data-ib-chk="${i}"]`); return c && c.checked && !ibIsImg(x); });
+    const checked = [], trk = [];
+    for(const x of checked0) (await ibIsTracking(x) ? trk : checked).push(x);
+    if(trk.length) toast(`송장 파일 ${trk.length}개는 발주서 불러오기에서 뺐습니다: ${trk.map(x => x.name).join(', ')} — 발주서가 맞으면 목록에서 [발주서로]를 누르세요`);
     if(!checked.length){ toast('불러올 파일을 체크해 주세요'); return; }
     const go = checked.filter(x => ibCo.get(x.key) && companies.some(c => c.name === ibCo.get(x.key) && c.uploadMapping));
     const miss = checked.filter(x => !go.includes(x));
@@ -12205,6 +12234,7 @@ function mnShow(id, keepScroll) {
   }
 
   // 설정 저장 버튼
+  document.getElementById('tracking-save-mapping-btn').addEventListener('click', () => { setTimeout(() => { ibTrackCache.clear(); ibRender(); }, 800); });
   document.getElementById('tracking-save-mapping-btn').addEventListener('click', async ()=>{
     const wrap = document.getElementById('tracking-mapping-wrap');
     const headerKey = wrap.dataset.headerKey;
