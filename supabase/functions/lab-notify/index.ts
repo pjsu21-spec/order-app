@@ -1,6 +1,6 @@
 // 연구소 의뢰 샘플 메일 알림 (Supabase Edge Function: lab-notify)
-//  화면(index.html)이 샘플 신청을 저장한 뒤 { id } 로 부름 → 신청에 '연구실 생산' 품목이 있으면 하이웍스 SMTP 로 연구소 담당자에게 메일.
-//  · 새 의뢰 → [신규], 연구실 생산 품목·출고일·비고 등이 바뀌면 → [변경], 취소되거나 연구실 생산 품목이 빠지면 → [취소]
+//  화면(index.html)이 샘플 신청을 저장한 뒤 { id } 로 부름 → 주문 취합 담당자가 '확인'한 신청에 '연구실 생산' 품목이 있으면 하이웍스 SMTP 로 연구소 담당자에게 메일.
+//  · 확인 → [신규], 확인 뒤 연구실 생산 품목·출고일·비고 등이 바뀌면 → [변경], 취소되거나 연구실 생산 품목이 빠지면 → [취소]. 확인 전(신청 상태)에는 보내지 않음
 //  · 같은 내용은 두 번 보내지 않음 (보낸 기록: 표 lab_mail_log, 함수 app_lab_mail_get / app_lab_mail_mark — 연구소메일_SQL.sql)
 //  · 받는 사람·켜기/끄기: 공용 저장값 'lab-mail-settings' = { on, to:[메일 주소] } (연구소 탭에서 관리자가 설정)
 //  · 로그인 확인: 화면이 보낸 로그인 토큰(x-app-token)으로 서버 자료를 읽어 봄 (로그인 안 됐으면 서버가 401)
@@ -54,7 +54,7 @@ export function decide(prev, cur) {
 export function mailOf(kind, s, before) {
   const subj = `[연구소 샘플 의뢰 · ${kind}] ${kst(s.ship_at)} 출고 · ${s.requester}${s.dept ? ' (' + s.dept + ')' : ''}`;
   const itemTxt = s.items.map(i => `- ${i.name} ${i.packs}팩${i.boxes ? ` (${Math.round(i.boxes * 100) / 100}박스)` : ''}${i.production_date ? ` · 생산 ${i.production_date}` : ''}`).join('\n');
-  const head = kind === '취소' ? '아래 연구소 의뢰 샘플이 취소되었거나 연구실 생산 품목이 빠졌습니다.' : kind === '변경' ? '연구소 의뢰 샘플 내용이 바뀌었습니다 (바뀐 뒤 내용).' : '새 연구소 의뢰 샘플이 들어왔습니다.';
+  const head = kind === '취소' ? '아래 연구소 의뢰 샘플이 취소되었거나 연구실 생산 품목이 빠졌습니다.' : kind === '변경' ? '연구소 의뢰 샘플 내용이 바뀌었습니다 (바뀐 뒤 내용).' : '새 연구소 의뢰 샘플이 확인되었습니다.';
   const rows = [['신청자', s.requester + (s.dept ? ` (${s.dept})` : '')], ['출고일시', kst(s.ship_at)], ['출고 방식', s.ship_method], ['용도', s.purpose], ['비고', s.note]];
   const text = `${head}\n\n${rows.filter(r => r[1]).map(r => `${r[0]}: ${r[1]}`).join('\n')}\n\n연구실 생산 품목\n${itemTxt}\n`
     + (before && kind === '변경' ? `\n(바뀌기 전 출고일시: ${kst(before.ship_at)} / 품목: ${(before.items || []).map(i => `${i.name} ${i.packs}팩`).join(', ')})\n` : '')
@@ -107,7 +107,10 @@ export async function handle(req, deps) {
     const id = body.id == null ? '' : String(body.id);
     if (!id) return json({ error: 'id required' }, 400);
     const rows = await rest(`sample_requests?id=eq.${encodeURIComponent(id)}&select=*`);
-    const cur = labSummary(rows && rows[0]);
+    const row = rows && rows[0];
+    // 주문 취합 담당자가 '확인'한 신청만 연구소에 알림 (확인 전 신청·수정은 보내지 않음). 확인 뒤 취소·삭제는 [취소]
+    if (row && row.status !== '확인' && row.status !== '취소') return json({ ok: true, sent: false, reason: 'not confirmed' });
+    const cur = labSummary(row);
     const prev = await rest('rpc/app_lab_mail_get', { method: 'POST', body: JSON.stringify({ p_id: id }) });
     const d = decide(prev, cur);
     if (!d) return json({ ok: true, sent: false, reason: 'no change' });

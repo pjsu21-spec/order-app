@@ -2769,7 +2769,7 @@
     <div id="admin-section-lab" style="display:none;">
       <div id="lab-mail-card">
         <h3 style="margin:0 0 4px;">📧 연구소 의뢰 샘플 메일 알림</h3>
-        <div class="sub" style="margin:0 0 8px;">연구실 생산 샘플이 새로 신청되거나, 내용이 바뀌거나, 취소되면 아래 주소로 메일을 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
+        <div class="sub" style="margin:0 0 8px;">주문 취합 담당자가 연구실 생산 샘플 신청을 <b>확인</b>하면 아래 주소로 메일을 보냅니다. 확인 뒤 내용이 바뀌거나 취소되면 다시 보냅니다 (하이웍스 발송 계정 · 서버 함수 lab-notify). 같은 내용은 다시 보내지 않습니다.</div>
         <div id="lab-mail-body"></div>
       </div>
       <h3 style="margin:18px 0 4px;">👥 연구소 권한</h3>
@@ -4946,7 +4946,7 @@ function applyUserUI() {
     catch(e){ if(body) body.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; }
   }
   // ── 메일 알림 (하이웍스) — 서버 함수 lab-notify (supabase/functions/lab-notify) ──
-  //  샘플 신청을 저장하면 그 신청 id로 부름 → 연구실 생산 품목이 있으면 신규·변경·취소 메일 (같은 내용은 다시 안 보냄, 서버가 판단)
+  //  샘플 신청을 저장하면 그 신청 id로 부름 → 확인된 신청에 연구실 생산 품목이 있으면 신규·변경·취소 메일 (확인 전에는 안 보냄, 같은 내용은 다시 안 보냄 — 서버가 판단)
   //  받는 사람: kv 'lab-mail-settings' = { on, to:[메일 주소], at, by } — 관리자가 이 탭에서 설정
   const K_MAIL = 'lab-mail-settings';
   async function callFn(body){
