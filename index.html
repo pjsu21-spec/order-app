@@ -511,6 +511,23 @@
   .mat-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:2px 0; }
   .mat-tabs button{ border:1px solid var(--line); background:var(--paper); color:var(--fg); border-radius:16px; padding:5px 14px; font-size:13px; cursor:pointer; }
   .mat-tabs button.on{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
+  /* 자재·재고 / 구매관리: 기준정보처럼 왼쪽 메뉴 · 오른쪽 내용 (기준정보 안의 자재 화면은 가로 탭 그대로) */
+  #mat-card[data-mode="mat"] > div > div, #mat-card[data-mode="buy"] > div > div{ display:grid; grid-template-columns:200px minmax(0, 1fr); column-gap:16px; align-items:start; }
+  #mat-card[data-mode="mat"] > div > div > details, #mat-card[data-mode="buy"] > div > div > details{ grid-column:1 / -1; }
+  #mat-card[data-mode="mat"] > div > div > .row, #mat-card[data-mode="buy"] > div > div > .row{ grid-column:1; flex-direction:column; align-items:stretch; flex-wrap:nowrap; gap:6px; margin:0; position:sticky; top:64px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--card,#fff); }
+  #mat-card[data-mode="mat"] > div > div > #mat-body, #mat-card[data-mode="buy"] > div > div > #mat-body{ grid-column:2; min-width:0; overflow-x:auto; }
+  #mat-card[data-mode="mat"] .mat-tabs, #mat-card[data-mode="buy"] .mat-tabs{ flex-direction:column; flex-wrap:nowrap; gap:3px; margin:0; }
+  #mat-card[data-mode="mat"] .mat-tabs button, #mat-card[data-mode="buy"] .mat-tabs button{ text-align:left; border:none; background:transparent; border-radius:7px; padding:9px 12px; font-size:13.5px; font-weight:600; }
+  #mat-card[data-mode="mat"] .mat-tabs button:hover, #mat-card[data-mode="buy"] .mat-tabs button:hover{ background:var(--accent-soft); }
+  #mat-card[data-mode="mat"] .mat-tabs button.on, #mat-card[data-mode="buy"] .mat-tabs button.on{ background:var(--accent); color:#fff; }
+  #mat-card[data-mode="mat"] #mat-reload, #mat-card[data-mode="buy"] #mat-reload{ align-self:flex-start; margin:4px 0 0 4px; }
+  #mat-card[data-mode="mat"] #mat-msg, #mat-card[data-mode="buy"] #mat-msg{ padding:0 4px; font-size:12px; }
+  @media (max-width: 760px){
+    #mat-card[data-mode="mat"] > div > div, #mat-card[data-mode="buy"] > div > div{ display:block; }
+    #mat-card[data-mode="mat"] > div > div > .row, #mat-card[data-mode="buy"] > div > div > .row{ position:static; flex-direction:row; align-items:center; overflow-x:auto; margin-bottom:10px; }
+    #mat-card[data-mode="mat"] .mat-tabs, #mat-card[data-mode="buy"] .mat-tabs{ flex-direction:row; }
+    #mat-card[data-mode="mat"] .mat-tabs button, #mat-card[data-mode="buy"] .mat-tabs button{ white-space:nowrap; padding:7px 10px; }
+  }
   .mat-t{ border-collapse:collapse; font-size:13px; }
   .mat-t th, .mat-t td{ border:1px solid var(--line); padding:4px 8px; vertical-align:middle; }
   .mat-t th{ background:var(--paper); font-weight:700; text-align:center; white-space:nowrap; }
