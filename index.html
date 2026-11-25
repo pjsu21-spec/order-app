@@ -1864,6 +1864,7 @@
         <input type="text" id="original-courier-col" placeholder="예: H" style="width:60px; text-transform:uppercase;" title="택배사 이름을 기입할 열 (선택). 토스쇼핑처럼 택배사 칸이 따로 있는 업체용입니다.">
         <input type="text" id="original-courier-name" placeholder="택배사 이름 (예: CJ대한통운)" style="width:170px;">
         <button class="btn-primary small-btn" id="export-original-format-btn">업체 양식으로 다운로드</button>
+        <button class="btn-ghost small-btn" id="share-original-format-btn" title="같은 파일(업체 양식 + 운송장번호)을 휴대폰·PC 공유 창으로 보냅니다 → 카카오톡 선택">📤 카톡 공유</button>
       </div>
       <div class="sub" id="orig-preview-note" style="margin:6px 0 0;"></div>
       <div id="orig-preview-wrap"></div>
@@ -3177,7 +3178,7 @@
 <h2>송장 / 명세서</h2>
 <p class="mn-lead">발주취합 → <b>송장/명세서</b> 탭입니다. 이 탭은 따로 권한을 받은 직원만 보입니다.</p>
 <h3>업체 송장 회신</h3>
-<p>업체가 보내준 원본 파일 형식 그대로 운송장번호를 지정한 열에 채워 회신 파일을 받습니다. 업체를 고르고 운송장번호를 넣을 열(예: L)을 적은 뒤 <span class="mn-b">업체 양식으로 다운로드</span>. 택배사 칸이 따로 있는 업체는 택배사 열과 이름도 적습니다.</p>
+<p>업체가 보내준 원본 파일 형식 그대로 운송장번호를 지정한 열에 채워 회신 파일을 받습니다. 업체를 고르고 운송장번호를 넣을 열(예: L)을 적은 뒤 <span class="mn-b">업체 양식으로 다운로드</span>. 택배사 칸이 따로 있는 업체는 택배사 열과 이름도 적습니다. 업체에 카톡으로 바로 보내려면 <span class="mn-b">📤 카톡 공유</span> → 파일이 준비되면 <span class="mn-b">📤 공유</span> → 카카오톡을 고릅니다(공유 창이 안 뜨는 기기는 파일로 받아짐).</p>
 
 <h3>거래명세서 (JPG)</h3>
 <ol>
@@ -15628,7 +15629,7 @@ function mnShow(id, keepScroll) {
   });
 
   // 원본 엑셀이 없는 업체: 주문번호 · 수령인 · 품목 · 수량 · 운송장번호 목록으로 (업체에 주문번호 기준으로 회신)
-  function ofExportList(companyName){
+  function ofExportList(companyName, share){
     const rows = currentLineItems().filter(r => r && r.company === companyName && !r.sampleKey);
     if(!rows.length){ toast('이 업체의 개별 주문이 없습니다'); return; }
     const courier = (document.getElementById('original-courier-name').value || '').trim() || deliveryCourierName || '';
@@ -15636,15 +15637,35 @@ function mnShow(id, keepScroll) {
     const aoa = [head, ...rows.map(r => [r.orderNo || '', r.internalOrderNo || '', r.recipientName || '', r.recipientPhone || '', r.address || '', r.itemNameRaw || ((dict.find(d => d.id === r.itemId) || {}).name || ''), Number(r.qty) || 0, r.trackingNo ? courier : '', r.trackingNo || ''])];
     const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 28 }, { wch: 6 }, { wch: 12 }, { wch: 16 }];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '운송장');
-    XLSX.writeFile(wb, `${companyName.replace(/[\\/:*?"<>|]/g, '')}_운송장_${currentDateKey.replace(/-/g, '')}.xlsx`);
     const no = rows.filter(r => !r.trackingNo).length;
-    toast(`원본 양식이 없어 주문번호 · 운송장번호 목록으로 받았습니다 (${rows.length}줄${no ? `, 운송장 없음 ${no}줄` : ''})`);
+    ofOut(wb, `${companyName.replace(/[\\/:*?"<>|]/g, '')}_운송장_${currentDateKey.replace(/-/g, '')}.xlsx`, share, `원본 양식이 없어 주문번호 · 운송장번호 목록으로 만들었습니다 (${rows.length}줄${no ? `, 운송장 없음 ${no}줄` : ''})`);
+  }
+  // 운송장 반영 파일 내보내기: 내려받기 또는 카톡 공유
+  //  공유는 원본을 서버에서 읽느라 시간이 걸려 브라우저가 '버튼을 누른 직후'로 보지 않을 수 있어, 파일이 준비되면 [📤 공유] 버튼을 한 번 더 보여 줌
+  function ofOut(wb, name, share, msg){
+    if(!share){ XLSX.writeFile(wb, name); toast(msg); return; }
+    const blob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const body = document.createElement('div');
+    body.innerHTML = `<div style="font-size:14px;margin-bottom:4px;">📄 <b>${escapeHtml(name)}</b></div><div class="sub" style="margin:0;">${escapeHtml(msg)}<br>[📤 공유]를 누르고 카카오톡을 고르세요. 공유 창이 안 뜨는 기기는 파일로 받아집니다.</div>`;
+    pgModal('📤 카톡으로 보내기', body, [
+      { text: '닫기', fn: c => c() },
+      { text: '💾 내려받기', fn: c => { pgDownloadBlob(blob, name); c(); } },
+      { text: '📤 공유', primary: true, fn: async c => {
+        const r = await shareFileOrDownload(blob, name, name);
+        if(r === 'cancel') return;
+        c();
+        if(r === 'shared') toast('공유했습니다');
+        else toast(/Android|iPhone|iPad/i.test(navigator.userAgent) ? `이 브라우저는 엑셀 파일을 바로 공유하지 못해 파일로 받았습니다 — 다운로드 알림(또는 내 파일 › 다운로드)에서 ${name}을 길게 눌러 공유 → 카카오톡` : `파일을 내려받았습니다(${name}) — 다운로드 표시줄에서 카톡 대화창으로 끌어다 놓으면 바로 보내집니다`);
+      } }
+    ]);
   }
   // 업체 원본 양식 그대로 + 운송장번호만 채워서 그 업체에 회신할 파일
-  document.getElementById('export-original-format-btn').addEventListener('click', async ()=>{
+  document.getElementById('export-original-format-btn').addEventListener('click', () => ofExportOriginal(false));
+  document.getElementById('share-original-format-btn').addEventListener('click', () => ofExportOriginal(true));
+  async function ofExportOriginal(share){
     const companyName = document.getElementById('original-file-company-select').value;
     if(!companyName){ toast('원본 파일이 있는 업체를 선택해주세요'); return; }
-    if(companyName.startsWith('#miss:')){ ofExportList(companyName.slice(6)); return; }
+    if(companyName.startsWith('#miss:')){ ofExportList(companyName.slice(6), share); return; }
     let origEntry = currentOriginalFiles()[companyName];
     if(!origEntry){ toast('해당 업체의 원본 업로드 파일을 찾을 수 없습니다'); return; }
 
@@ -15746,9 +15767,8 @@ function mnShow(id, keepScroll) {
     });
 
     const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
-    XLSX.writeFile(wb, `${companyName}_운송장반영_${dateLabel}.xlsx`);
-    toast(`${companyName} 원본 양식 + 운송장번호 파일이 다운로드되었습니다`);
-  });
+    ofOut(wb, `${companyName}_운송장반영_${dateLabel}.xlsx`, share, `${companyName} 원본 양식 + 운송장번호 파일${share ? '을 만들었습니다' : '이 다운로드되었습니다'}`);
+  }
 
   // 제이엠로지스 발주서 엑셀 (다운로드·공유 공용): rows = 개별 주문 줄
   function jmCourierBook(rows, extra){
