@@ -12068,14 +12068,24 @@ function mnShow(id, keepScroll) {
     if(!mp) return null;
     const startRow = Number(mp.startRow) || 2;
     if(co.isThirdParty && mp.orderNo){
-      const oi = letterToIndex(mp.orderNo); if(oi < 0) return null;
-      const mine = new Set(); for(let r = startRow - 1; r < aoa.length; r++){ const v = String(((aoa[r] || [])[oi]) ?? '').trim(); if(v) mine.add(v); }
-      if(!mine.size) return null;
-      const have = new Set(); Object.values(thirdPartyLineItems).forEach(rows => (rows || []).forEach(l => { if(l.company === co.name && l.orderNo) have.add(String(l.orderNo).trim()); }));
-      const n = [...mine].filter(v => have.has(v)).length;
-      if(!n) return { company: co.name, state: 'none', text: `발주서 미반영 (${mine.size}건)`, all: false };
-      if(n === mine.size) return { company: co.name, state: 'all', text: `발주서 반영 완료 (${n}건)`, all: true };
-      return { company: co.name, state: 'part', text: `발주서 미반영 ${mine.size - n}건 — 불러오면 이미 반영된 ${n}건은 자동 중복 제외`, all: false };
+      // 실제 불러오기와 같은 기준: 품목·수량이 있는 주문 줄만 세고(머리글·합계 줄 제외), 업체+주문번호+품목+받는사람+수량이 같은 줄이 이미 있으면 반영된 것
+      //  (주문번호만 보면 카우펜처럼 파일마다 1, 2…로 매기는 업체는 예전 날짜 주문과 번호가 겹쳐 '이미 반영'으로 잘못 나옴)
+      const idx = {}; THIRDPARTY_FIELDS.forEach(f => { const L = String(mp[f.key] || '').trim().toUpperCase(); idx[f.key] = /^[A-Z]{1,3}$/.test(L) ? letterToIndex(L) : -1; });
+      if(idx.orderNo < 0 || idx.item < 0) return null;
+      const have = existingOrderLineCounts(co.name);
+      let total = 0, n = 0;
+      for(let r = startRow - 1; r < aoa.length; r++){
+        const row = aoa[r] || [];
+        if(row.every(v => v == null || String(v).trim() === '')) continue;
+        const orderNo = cleanCell(row[idx.orderNo]); if(!orderNo) continue;
+        const lines = expandThirdPartyRow(idx.optionCode >= 0 ? cleanCell(row[idx.optionCode]) : '', String(row[idx.item] ?? '').trim(), idx.qty >= 0 ? row[idx.qty] : '');
+        const recipient = idx.recipientName >= 0 ? cleanCell(row[idx.recipientName]) : '';
+        lines.forEach(line => { total++; const k = orderLineKey(co.name, orderNo, line.itemText, recipient, line.qty), left = have.get(k) || 0; if(left > 0){ have.set(k, left - 1); n++; } });
+      }
+      if(!total) return null;
+      if(!n) return { company: co.name, state: 'none', text: `발주서 미반영 (${total}건)`, all: false };
+      if(n === total) return { company: co.name, state: 'all', text: `발주서 반영 완료 (${n}건)`, all: true };
+      return { company: co.name, state: 'part', text: `발주서 미반영 ${total - n}건 — 불러오면 이미 반영된 ${n}건은 자동 중복 제외`, all: false };
     }
     const keep = uploadedSheetData; let fp = '';
     try{ uploadedSheetData = aoa; fp = fileFingerprint(startRow); }finally{ uploadedSheetData = keep; }
