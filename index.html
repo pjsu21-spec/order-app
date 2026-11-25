@@ -2742,7 +2742,6 @@
         <label style="font-size:13px;font-weight:600;margin-left:12px;">수령 방식 :</label>
         <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="pickup" checked> 직접 수령</label>
         <label style="font-size:13px;display:flex;align-items:center;gap:4px;"><input type="radio" name="pp-method" value="parcel"> 택배 발송</label>
-        <label style="font-size:13px;display:flex;align-items:center;gap:4px;margin-left:12px;" title="오늘 생산분이 아니라 전일 재고에서 내보냅니다. 배차·적재의 재고사용과 발주취합 파일 재고사용 칸에 품목·수량이 자동으로 들어갑니다 (샘플의 '재고에서 출고'와 같음)"><input type="checkbox" id="pp-from-stock"> 📦 재고에서 출고 (재고사용)</label>
       </div>
       <div id="pp-edit-note" style="display:none;margin-top:10px;padding:6px 10px;border-radius:8px;background:var(--hover);font-size:13px;font-weight:700;color:var(--accent);"></div>
       <div id="pp-items" style="margin-top:10px;"></div>
@@ -3110,8 +3109,6 @@
 <h3>4. 직원 개인구매</h3>
 <p><b>샘플 신청 → 개인구매</b> 탭으로 옮겼습니다. 납품일을 고르고 구매자(이름+직급), 수령 방식, 품목을 넣은 뒤 <span class="mn-b">개인구매 추가</span>를 누릅니다. (발주 입력 권한이 있는 직원만 추가할 수 있습니다)<br>아래 목록에서 건마다 <span class="mn-b">수정</span> · <span class="mn-b">삭제</span>를 할 수 있습니다. 수정을 누르면 입력칸에 내용이 채워지고, 고친 뒤 <span class="mn-b">수정 저장</span>을 누릅니다. (수령 방식도 바꿀 수 있음)</p>
 <ul>
-  <li><b>📦 재고에서 출고 (재고사용)</b>를 체크하면 오늘 생산분이 아니라 <b>전일 재고에서</b> 내보낸 것으로 칩니다. 배차·적재의 남은 전일 재고에서 빠지고, 발주취합 파일 재고사용 칸(직접 수령은 그 구매자 줄, 택배는 3PL 줄)에 품목·수량이 자동으로 들어갑니다. 샘플의 "재고에서 출고"와 같습니다. 전일 재고 남은 양보다 많으면 한 번 묻습니다. 고치거나 끄려면 목록의 [수정]에서 합니다.</li>
-
   <li><b>직접 수령</b>: "OOO 과장 개인 구매" 업체로 집계표에 들어갑니다.</li>
   <li><b>택배 발송</b>: 받는 분·연락처·주소를 적으면 3PL 출고에 추가됩니다.</li>
 </ul>
@@ -10456,7 +10453,6 @@ function mnShow(id, keepScroll) {
     const stockUse = {}, toBx = (d, packs) => { const u = Number(d.boxUnitCount) || 0; return u > 0 ? packs / u : packs; };
     Object.values((shipPlanCache[dk] || {}).rows || {}).forEach(row => Object.entries(row.stock || {}).forEach(([id, q]) => { const L = skuColumnMap[id]; if(L) stockUse[L] = (stockUse[L] || 0) + (Number(q.d1) || 0) + (Number(q.d2) || 0); }));
     aggSampleNow().forEach(s => (s.items || []).forEach(i => { if(!i.fromStock) return; const d = dict.find(x => x.id === i.skuId), L = skuColumnMap[i.skuId]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, Number(i.packs) || 0); }));
-    Object.entries(ppStockTotal(dk)).forEach(([id, p]) => { const d = dict.find(x => x.id === id), L = skuColumnMap[id]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, p); });   // 개인구매 재고에서 출고
     Object.keys(stockUse).forEach(L => { stockUse[L] = R2(stockUse[L]); });
     // 기사별 배차 현황 (현황판과 같은 규칙)
     const shipMap = {};
@@ -13011,20 +13007,8 @@ function mnShow(id, keepScroll) {
       wrap.appendChild(row);
     });
   }
-  // ── 개인구매 재고 사용 ("재고에서 출고"): 배차·적재 재고사용처럼 전일 재고에서 나간 것으로 셈 ──
-  //  저장은 개인구매 자료에 (발주 권한으로 저장 — 배차·적재는 생산/물류 권한이라 거기에 쓰지 않음)
-  //  직접 수령: ordersByDate[날짜][업체]._meta.ppStock = { 품목: 팩 } → 배차·적재 키 = 업체 / 택배: 3PL 줄의 ppFromStock → 키 '__3pl__'
-  function ppStockByKey(dk){
-    const out = {}, add = (k, id, p) => { const m = out[k] = out[k] || {}; m[id] = (m[id] || 0) + p; };
-    const orders = ordersByDate[dk] || {};
-    Object.keys(orders).forEach(n => { if(n === '_meta') return; const ms = ((orders[n] || {})._meta || {}).ppStock; if(ms) Object.entries(ms).forEach(([id, p]) => { if(Number(p) > 0) add(n, id, Number(p)); }); });
-    (thirdPartyLineItems[dk] || []).forEach(l => { if(l && l.ppFromStock && l.itemId && Number(l.qty) > 0) add('__3pl__', l.itemId, Number(l.qty)); });
-    return out;   // 팩
-  }
-  function ppStockTotal(dk){ const t = {}; Object.values(ppStockByKey(dk)).forEach(m => Object.entries(m).forEach(([id, p]) => { t[id] = (t[id] || 0) + p; })); return t; }
   function ppResetForm(){
     ppEdit = null; ppPaintEdit();
-    { const fs = document.getElementById('pp-from-stock'); if(fs) fs.checked = false; }
     ppItems = [{ itemId: '', qty: '', unit: '팩' }];
     ['pp-buyer', 'pp-recv-name', 'pp-recv-phone', 'pp-recv-addr', 'pp-recv-note'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     ppRenderItems();
@@ -13047,18 +13031,6 @@ function mnShow(id, keepScroll) {
     }
     if(window.accessLevel('order') !== 'full'){ toast('발주취합(발주 입력) 권한이 있어야 개인구매를 추가할 수 있습니다'); return; }
     const dk = ppDateKey();
-    const fromStock = !!(document.getElementById('pp-from-stock') || {}).checked;
-    if(fromStock){
-      // 전일 재고 남은 양보다 많으면 알려 줌 (수정 중이면 이 건이 쓰던 양은 빼고 계산)
-      const mine = {};
-      if(ppEdit && ppEdit.dk === dk){
-        if(ppEdit.kind === 'pickup') Object.entries((((ordersByDate[dk] || {})[ppEdit.company] || {})._meta || {}).ppStock || {}).forEach(([id, p]) => { mine[id] = (mine[id] || 0) + (Number(p) || 0); });
-        else ppEntryLines(ppEdit).forEach(l => { if(l.ppFromStock && l.itemId) mine[l.itemId] = (mine[l.itemId] || 0) + (Number(l.qty) || 0); });
-      }
-      const st = new Map(spStockState(dk).map(x => [x.d.id, x]));
-      const over = lines.filter(l => { const d = dict.find(x => x.id === l.itemId), x = st.get(l.itemId); const left = x ? spRound(x.a1 - x.u1 + spBox(d, mine[l.itemId] || 0)) : 0; return spBox(d, l.packs) > left + 0.0001; });
-      if(over.length && !confirm(`전일 재고 남은 양보다 많습니다: ${over.map(l => itemNameById(l.itemId)).join(', ')}\n(전일 재고는 발주 입력의 '전일 재고 / 생산량 입력'에서 넣습니다)\n\n그래도 재고에서 출고로 넣을까요?`)) return;
-    }
     // 수정: 입력이 맞는지 다 확인한 뒤 기존 건을 지우고 새로 넣음
     const editing = ppEdit;
     if(editing){
@@ -13080,14 +13052,12 @@ function mnShow(id, keepScroll) {
       ppEnsureCompany(company, false);
       if(!orders[company]) orders[company] = {};
       lines.forEach(l => { orders[company][l.itemId] = (orders[company][l.itemId] || 0) + l.packs; });
-      const ppStock = Object.assign({}, (orders[company]._meta || {}).ppStock || {});   // 같은 날 같은 구매자를 또 넣으면 재고 사용 양도 더함
-      if(fromStock) lines.forEach(l => { ppStock[l.itemId] = Math.round(((ppStock[l.itemId] || 0) + l.packs) * 100) / 100; });
-      orders[company]._meta = Object.assign({ enteredBy: getStaffName(), updatedAt: new Date().toISOString() }, Object.keys(ppStock).length ? { ppStock } : {});
+      orders[company]._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
       saveOrdersByDate();
       if(editing && editing.kind === 'parcel'){ saveLineItems(); renderThirdPartyLineItems(); }
       if(editing && editing.extras) saveOrderExtras();
       renderAggTable(); renderThirdPartyAggTable(); renderRawStockEditor();
-      toast((editing ? `${company}: 개인구매를 수정했습니다` : `${company}: ${dk} 집계표에 직접 수령으로 추가했습니다`) + (fromStock ? ' · 재고에서 출고(재고사용 자동)' : ''));
+      toast(editing ? `${company}: 개인구매를 수정했습니다` : `${company}: ${dk} 집계표에 직접 수령으로 추가했습니다`);
     } else {
       const recvName = (document.getElementById('pp-recv-name').value || '').trim() || buyer;
       const phone = (document.getElementById('pp-recv-phone').value || '').trim();
@@ -13109,7 +13079,7 @@ function mnShow(id, keepScroll) {
             id: cryptoId(), internalOrderNo, company, orderNo: '', recipientName: recvName, recipientPhone: phone, address: addr,
             itemNameRaw: itemNameById(l.itemId), itemId: l.itemId, qty: boxQty, note: reqNote ? `${reqNote} (개인구매: ${buyer})` : `개인구매: ${buyer}`,
             trackingNo: '', enteredBy: getStaffName(), boxIndex: boxIdx + 1, boxTotal: boxQtys.length,
-            ppId, ppBuyer: buyer, ppReq: reqNote, ...(fromStock ? { ppFromStock: true } : {})
+            ppId, ppBuyer: buyer, ppReq: reqNote
           });
         });
         orders[company][l.itemId] = (orders[company][l.itemId] || 0) + l.packs;
@@ -13118,7 +13088,7 @@ function mnShow(id, keepScroll) {
       saveInternalOrderCounters(); saveLineItems(); saveOrdersByDate();
       if(editing && editing.extras) saveOrderExtras();
       renderAggTable(); renderThirdPartyAggTable(); renderThirdPartyLineItems(); renderRawStockEditor();
-      toast((editing ? `${buyer} 개인구매를 수정했습니다` : `${buyer} 개인구매를 ${dk} 3PL 출고에 택배 발송으로 추가했습니다`) + (fromStock ? ' · 재고에서 출고(재고사용 자동)' : ''));
+      toast(editing ? `${buyer} 개인구매를 수정했습니다` : `${buyer} 개인구매를 ${dk} 3PL 출고에 택배 발송으로 추가했습니다`);
     }
     ppResetForm();
     ppRenderList();
@@ -13182,7 +13152,6 @@ function mnShow(id, keepScroll) {
       set('pp-buyer', id.slice(0, -PP_PICKUP_SUFFIX.length)); ppSetMethod('pickup');
       ppItems = dict.filter(d => Number(items[d.id]) > 0).map(d => ({ itemId: d.id, qty: String(Math.round(Number(items[d.id]) * 100) / 100), unit: '팩' }));
       ppEdit = { dk, kind, company: id, label: id + ' (직접 수령)' };
-      { const fs = document.getElementById('pp-from-stock'); if(fs) fs.checked = !!((items._meta || {}).ppStock); }
     } else {
       const lines = ppParcelGroups(dk).get(id) || []; if(!lines.length){ toast('이 개인구매를 찾지 못했습니다'); ppRenderList(); return; }
       const l0 = lines[0], sum = {};
@@ -13191,7 +13160,6 @@ function mnShow(id, keepScroll) {
       set('pp-recv-name', l0.recipientName); set('pp-recv-phone', l0.recipientPhone); set('pp-recv-addr', l0.address); set('pp-recv-note', ppReqOfLine(l0));
       ppItems = Object.keys(sum).map(itemId => ({ itemId, qty: String(sum[itemId]), unit: '팩' }));
       ppEdit = { dk, kind, key: id, label: (ppBuyerOfLine(l0) || l0.recipientName || '') + ' (택배)' };
-      { const fs = document.getElementById('pp-from-stock'); if(fs) fs.checked = lines.some(l => l.ppFromStock); }
     }
     if(!ppItems.length) ppItems = [{ itemId: '', qty: '', unit: '팩' }];
     ppRenderItems(); ppPaintEdit(); ppRenderList();
@@ -13230,12 +13198,12 @@ function mnShow(id, keepScroll) {
     const isEd = (kind, id) => !!ppEdit && ppEdit.kind === kind && (ppEdit.company === id || ppEdit.key === id);
     const rowCss = on => `margin:0 0 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;${on ? 'background:var(--hover);border-radius:6px;padding:2px 6px;' : ''}`;
     wrap.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:4px;">${escapeHtml(dk)} 개인구매</div>` +
-      pick.map(n => `<div class="sub pp-row" style="${rowCss(isEd('pickup', n))}"><span>🙋 <b>${escapeHtml(n)}</b> (직접 수령) — ${escapeHtml(fmtItems(orders[n]))}${((orders[n] || {})._meta || {}).ppStock ? ` · <b style="color:var(--accent);">📦 재고 사용 ${escapeHtml(fmtItems(orders[n]._meta.ppStock))}</b>` : ''}</span>${btns('pickup', n)}</div>`).join('') +
+      pick.map(n => `<div class="sub pp-row" style="${rowCss(isEd('pickup', n))}"><span>🙋 <b>${escapeHtml(n)}</b> (직접 수령) — ${escapeHtml(fmtItems(orders[n]))}</span>${btns('pickup', n)}</div>`).join('') +
       groups.map(([k, ls]) => {
         const sum = {}; ls.forEach(l => { if(l.itemId) sum[l.itemId] = (sum[l.itemId] || 0) + (Number(l.qty) || 0); });
         const items = fmtItems(sum) || ls.map(l => `${l.itemNameRaw || ''} ${l.qty || ''}팩`).join(', ');
         const buyer = ppBuyerOfLine(ls[0]), req = ppReqOfLine(ls[0]), trk = ls.some(l => l.trackingNo);
-        return `<div class="sub pp-row" style="${rowCss(isEd('parcel', k))}"><span>📦 <b>${escapeHtml(buyer || ls[0].recipientName || '')}</b> (택배 → ${escapeHtml(ls[0].recipientName || '')}) — ${escapeHtml(items)}${req ? ' · ' + escapeHtml(req) : ''}${trk ? ' · 송장번호 있음' : ''}${ls.some(l => l.ppFromStock) ? ' · <b style="color:var(--accent);">📦 재고 사용</b>' : ''}</span>${btns('parcel', k)}</div>`;
+        return `<div class="sub pp-row" style="${rowCss(isEd('parcel', k))}"><span>📦 <b>${escapeHtml(buyer || ls[0].recipientName || '')}</b> (택배 → ${escapeHtml(ls[0].recipientName || '')}) — ${escapeHtml(items)}${req ? ' · ' + escapeHtml(req) : ''}${trk ? ' · 송장번호 있음' : ''}</span>${btns('parcel', k)}</div>`;
       }).join('') +
       `<div class="sub" style="margin:4px 0 0;">${can ? '[수정]을 누르면 위 입력칸에 내용이 채워집니다. 고친 뒤 [수정 저장]을 누르세요.' : '수정·삭제는 발주취합(발주 입력) 권한이 있는 직원만 할 수 있습니다.'}</div>`;
   }
@@ -24744,12 +24712,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const u = used[id] = used[id] || { d1: 0, d2: 0 };
       u.d1 += Number(q.d1) || 0; u.d2 += Number(q.d2) || 0;
     }));
-    const pp = ppStockTotal(dk);   // 개인구매 재고에서 출고 (전일 재고에서 나감)
-    return dict.filter(d => Number(p1[d.id]) > 0 || Number(p2[d.id]) > 0 || used[d.id] || smp[d.id] || pp[d.id]).map(d => {
+    return dict.filter(d => Number(p1[d.id]) > 0 || Number(p2[d.id]) > 0 || used[d.id] || smp[d.id]).map(d => {
       const u = used[d.id] || { d1: 0, d2: 0 };
       const s1 = spBox(d, smp[d.id] || 0);   // 재고 사용 샘플 (전일 재고에서 나감)
-      const pp1 = spBox(d, pp[d.id] || 0);
-      return { d, unit: spUnitLabel(d), a1: spBox(d, Number(p1[d.id]) || 0), a2: spBox(d, Number(p2[d.id]) || 0), u1: spRound(u.d1 + s1 + pp1), u2: spRound(u.d2), s1, pp1 };
+      return { d, unit: spUnitLabel(d), a1: spBox(d, Number(p1[d.id]) || 0), a2: spBox(d, Number(p2[d.id]) || 0), u1: spRound(u.d1 + s1), u2: spRound(u.d2), s1 };
     });
   }
   function spFillOptionLists(){
@@ -24768,8 +24734,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     strip.innerHTML = state.length
       ? state.map(s => {
           const l1 = left(s.a1, s.u1), l2 = left(s.a2, s.u2), bad = l1 < 0 || l2 < 0;
-          const part = (lbl, a, u, l, smp, ppu) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${smp || ppu ? [spRound(u - smp - ppu) || '', smp ? `샘플 ${smp}` : '', ppu ? `개인구매 ${ppu}` : ''].filter(Boolean).join(' + ') : u} → 남음 ${l})` : ''}` : '';
-          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(s.d.name)}</b>${part('전일', s.a1, s.u1, l1, s.s1, s.pp1 || 0)}${part('이틀전', s.a2, s.u2, l2, 0, 0)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
+          const part = (lbl, a, u, l, smp) => (a > 0 || u > 0) ? ` ${lbl} ${a}${s.unit}${u ? ` (사용 ${smp ? `${spRound(u - smp)} + 샘플 ${smp}` : u} → 남음 ${l})` : ''}` : '';
+          return `<span class="sp-chip${bad ? ' bad' : ''}"><b>${escapeHtml(s.d.name)}</b>${part('전일', s.a1, s.u1, l1, s.s1)}${part('이틀전', s.a2, s.u2, l2, 0)}${bad ? ' ⚠ 재고보다 많이 입력됨' : ''}</span>`;
         }).join('')
       : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다. 위쪽 <b>전일 재고 / 생산량 입력</b>에서 먼저 입력하면 여기서 재고사용을 배정할 수 있습니다.</span>';
     const byId = new Map(state.map(s => [s.d.id, s]));
@@ -25104,8 +25070,6 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       btn.type = 'button'; btn.className = 'btn-ghost small-btn sp-stock-btn';
       if(smp && smp.fromStock){ tdStock.innerHTML = '<span class="sub" style="margin:0;" title="재고에서 출고하는 샘플이라 재고사용 칸에 품목·수량(예: 스테비아 1)이 자동으로 들어갑니다">재고 사용 (자동)</span>'; }
       else tdStock.appendChild(btn);
-      { const pq = ppStockByKey(dk)[name];   // 개인구매 '재고에서 출고' 양 (개인구매 탭에서 고침)
-        if(pq){ const t = dict.filter(d => pq[d.id] > 0).map(d => `${spStockLabel(d)} ${spBox(d, pq[d.id])}`).join(', '); if(t){ const nd = document.createElement('div'); nd.className = 'sub'; nd.style.cssText = 'margin:2px 0 0;font-size:11px;color:var(--accent);'; nd.title = '샘플 신청 › 개인구매에서 "재고에서 출고"로 넣은 양입니다. 재고사용에 자동으로 더해지고, 고치려면 개인구매 탭에서 고칩니다'; nd.textContent = '+ 개인구매 재고 사용(자동): ' + t; tdStock.appendChild(nd); } } }
       tr.appendChild(tdStock);
 
       const tdNext = document.createElement('td'), sel = document.createElement('select');
@@ -25197,12 +25161,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function spPlanForFill(dk, sampleRows){
     const doc = shipPlanCache[dk];
     const out = {};
-    const ppSt = ppStockByKey(dk);   // 개인구매 재고에서 출고: 그 업체(직접 수령)·3PL(택배) 줄의 재고사용 칸에 더함
-    const rows = Object.assign({}, (doc && doc.rows) || {});
-    Object.keys(ppSt).forEach(k => { if(!rows[k]) rows[k] = {}; });
-    Object.entries(rows).forEach(([name, r]) => {
+    Object.entries((doc && doc.rows) || {}).forEach(([name, r]) => {
       const parts = [];
-      dict.forEach(d => { const q = (r.stock || {})[d.id] || {}; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0) + spBox(d, (ppSt[name] || {})[d.id] || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
+      dict.forEach(d => { const q = (r.stock || {})[d.id]; if(!q) return; const t = spRound((Number(q.d1) || 0) + (Number(q.d2) || 0)); if(t > 0) parts.push(`${spStockLabel(d)} ${t}`); });
       // 첫 발주 줄: 명일 출고 / 샘플 동봉 문구 / 업체 비고(집계 / 출고와 같은 값)
       const base = !!(ordersByDate[dk] || {})[name] && sampleAllowed(name);
       out[name] = { driver: String(r.driver || '').trim(), load: String(r.load || '').trim(), stockText: parts.join('\n'), note: [r.next ? '명일 출고' : '', base ? orderNoteText(dk, name) : String(r.note || '').trim()].filter(Boolean).join(' / '), next: !!r.next };
@@ -25448,7 +25409,6 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const toBx = (d, packs) => { const n = Number(d.boxUnitCount) || 0; return n > 0 ? packs / n : packs; };
     Object.values((shipPlanCache[dateKey] || {}).rows || {}).forEach(r => Object.entries(r.stock || {}).forEach(([id, q]) => { const L = skuColumnMap[id]; if(L) stockUse[L] = (stockUse[L] || 0) + (Number(q.d1) || 0) + (Number(q.d2) || 0); }));
     (sampleRows || []).forEach(r => (r.items || []).forEach(i => { if(!i.fromStock) return; const d = dict.find(x => x.id === i.skuId), L = skuColumnMap[i.skuId]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, Number(i.packs) || 0); }));
-    Object.entries(ppStockTotal(dateKey)).forEach(([id, p]) => { const d = dict.find(x => x.id === id), L = skuColumnMap[id]; if(d && L) stockUse[L] = (stockUse[L] || 0) + toBx(d, p); });   // 개인구매 재고에서 출고
     Object.entries(((previousStock[dateKey] || {}).product2) || {}).forEach(([id, packs]) => { const d = dict.find(x => x.id === id), L = skuColumnMap[id]; if(d && L) stock2[L] = (stock2[L] || 0) + toBx(d, Number(packs) || 0); });
     Object.keys(stockUse).forEach(L => { stockUse[L] = Math.round(stockUse[L] * 100) / 100; });
     const colors = await poBoardColors(ctx, cols);
