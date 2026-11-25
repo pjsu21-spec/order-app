@@ -7726,12 +7726,15 @@ function mnShow(id, keepScroll) {
   //  거래처 단가 = 업체 예외(company.priceMap) → 없으면 그 거래처 분류의 단가. 이카운트·거래명세서·월간 매출이 effectivePriceMap 을 씀
   let classPrices = {};
   const cpNum = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);
-  function classPriceOf(company, itemId){ const m = company && company.classId ? classPrices[company.classId] : null; return m ? cpNum(m[itemId]) : null; }
+  // 직원 개인구매 업체(구분 '개인구매': 'OOO 개인 구매' · 개인구매(택배))는 분류가 없으므로 우리 회사 직거래 단가(오프라인 › 수도권 › 직거래)를 씀 — 업체 예외 단가가 있으면 그것 먼저
+  const PP_PRICE_CLASS = 'off-c-d';
+  const priceClassOf = c => (c && (c.classId || (c.category === '개인구매' ? PP_PRICE_CLASS : ''))) || '';
+  function classPriceOf(company, itemId){ const k = priceClassOf(company), m = k ? classPrices[k] : null; return m ? cpNum(m[itemId]) : null; }
   function priceOfCompany(company, itemId){ if(!company) return null; const own = cpNum((company.priceMap || {})[itemId]); return own != null ? own : classPriceOf(company, itemId); }
   function effectivePriceMap(company){
     if(!company) return {};
     const out = {};
-    Object.entries((company.classId && classPrices[company.classId]) || {}).forEach(([k, v]) => { if(cpNum(v) != null) out[k] = cpNum(v); });
+    Object.entries((priceClassOf(company) && classPrices[priceClassOf(company)]) || {}).forEach(([k, v]) => { if(cpNum(v) != null) out[k] = cpNum(v); });
     Object.entries(company.priceMap || {}).forEach(([k, v]) => { if(cpNum(v) != null) out[k] = cpNum(v); });
     return out;
   }
@@ -10550,7 +10553,7 @@ function mnShow(id, keepScroll) {
     const state = spStockState(dk), byId = new Map(state.map(x => [x.d.id, x]));
     const ordBx = d => { const c = skuColumnMap[d.id]; return c && dict.filter(x => skuColumnMap[x.id] === c).length === 1 ? spRound(Number((mt.cq || {})[c]) || 0) : 0; };
     const left = (x, f) => x ? spRound(f === 'd1' ? x.a1 - x.u1 : x.a2 - x.u2) : 0;
-    const name = key === '__3pl__' ? '3PL' : (mt.company || key);
+    const name = key === '__3pl__' ? '3PL' : /^#ppp:/.test(key) ? `개인구매 ${key.slice(5)} (택배)` : (mt.company || key);
     const strip = state.length ? state.map(x => { const l1 = left(x, 'd1'), l2 = left(x, 'd2'); return `<span class="pbe-stk${l1 < 0 || l2 < 0 ? ' bad' : ''}"><b>${escapeHtml(spStockLabel(x.d))}</b> 전일 남음 ${l1}/${x.a1}${x.a2 > 0 || x.u2 ? ` · 이틀전 남음 ${l2}/${x.a2}` : ''}</span>`; }).join('')
       : '<span class="sub" style="margin:0;">입력된 전일·이틀 전 재고가 없습니다 — 발주 입력의 <b>전일 재고 / 생산량 입력</b>에서 먼저 넣어 주세요.</span>';
     const curIds = dict.filter(d => cur[d.id]).map(d => d.id);
@@ -10735,7 +10738,8 @@ function mnShow(id, keepScroll) {
           return spCommit(dk, key, rr => { if(v) rr[f] = v; else delete rr[f]; }, () => { try{ renderShipPlan(); }catch(e){} });
         }));
       });
-      if(mt.type === 'co' || mt.type === 'tpl'){
+      const ppRow = mt.type === 'psmp' && /^#ppp:/.test(mt.key || '');   // 개인구매(택배) 줄: 재고사용은 여기서 고름 (배차·적재에는 이 줄이 없음)
+      if(mt.type === 'co' || mt.type === 'tpl' || ppRow){
         const td = pc[2], key = mt.type === 'tpl' ? '__3pl__' : mt.key;
         if(!canPlan) lock(td, WHY.roPlan);
         else {
@@ -10747,7 +10751,7 @@ function mnShow(id, keepScroll) {
     });
     if(aggBoardOpen.kind === 'stock' && canPlan){
       const trs = [...body.querySelectorAll('tr.pb-row')];
-      const ix = metas.map((mt, i) => mt && ((mt.type === 'co' && mt.key === aggBoardOpen.company) || (mt.type === 'tpl' && aggBoardOpen.company === '__3pl__')) ? i : -1).filter(i => i >= 0 && trs[i]);
+      const ix = metas.map((mt, i) => mt && (((mt.type === 'co' || mt.type === 'psmp') && mt.key === aggBoardOpen.company) || (mt.type === 'tpl' && aggBoardOpen.company === '__3pl__')) ? i : -1).filter(i => i >= 0 && trs[i]);
       if(ix.length) aggStockEditor(body, trs[ix[0]], aggBoardOpen.company, metas[ix[0]]); else aggBoardOpen = { kind: '', company: '' };
     } else if(aggBoardOpen.company && canOrder){
       const trs = [...body.querySelectorAll('tr.pb-row')];
@@ -21450,6 +21454,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const isTplRow = !!(rowInfo && /^3pl/.test(rowInfo.category));
       const peKey = isTplRow ? '__3pl__' : (list.length === 1 ? (list[0].planKey || list[0].name) : '');
       let pe = input.plan && peKey ? input.plan[peKey] : null;
+      if(isTplRow && input.plan){   // 3PL 줄에 함께 들어간 개인구매(택배) 줄의 재고사용(현황판에서 고른 값)도 이 줄 재고사용 칸에
+        const ppTxt = list.filter(e => e.pp && e.planKey && input.plan[e.planKey] && input.plan[e.planKey].stockText).map(e => input.plan[e.planKey].stockText);
+        if(ppTxt.length){ pe = Object.assign({}, pe || {}); pe.stockText = [pe.stockText, ...ppTxt].filter(Boolean).join('\n'); }
+      }
       if(list.some(e => e.stockAll)){ pe = Object.assign({}, pe || {}); if(!pe.stockText) pe.stockText = stockAllText(list.filter(e => e.stockAll)) || '전량재고'; }   // 오늘 출고하면서 전일 생산분을 쓰는 샘플
       { const sn = [...new Set(list.flatMap(e => e.notes || []))]; if(sn.length){ pe = Object.assign({}, pe || {}); pe.note = [pe.note, ...sn].filter(Boolean).join(' / '); } }   // 집계표에서 적은 샘플 비고
       if(list.some(e => e.changed)) rep.changedRows.add(row);
