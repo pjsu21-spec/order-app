@@ -204,7 +204,7 @@
     emitRow(B.tpl.after, null, {}, B.heights.after);
 
     // ── 3) 출고일 지정 업체(쿠팡 등) ──
-    const disp = (m.disp || []).filter(x => x.boxes > 0 || x.packs > 0);
+    const disp = (m.disp || []).filter(x => x.boxes > 0 || x.packs > 0 || x.pending);   // 출고 예정(수량 미정)은 수량 없이 출고일·소비기한 줄로
     if(disp.length){
       const head0 = r, dv = {};
       dv.G107 = R2(disp.reduce((a, x) => a + (x.packs || 0), 0)); dv.H107 = R2(disp.reduce((a, x) => a + (x.boxes || 0), 0));
