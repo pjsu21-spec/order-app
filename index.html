@@ -9824,7 +9824,7 @@ function mnShow(id, keepScroll) {
     const hint = document.createElement('div');
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
     hint.innerHTML = '모두 <b>박스</b> 단위입니다 (박스입수가 없는 품목은 팩). <b>D-1 재고(전일 재고)</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
-      '<b>D 생산량(오늘 생산량)</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. ' +
+      '<b>D 생산량(오늘 생산량)</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. 생산 / 물류 → 📒 월간 생산 수불장의 생산량 칸(BOX·팩(생산)·박스(생산))에 넣어도 여기에 같이 들어갑니다. ' +
       '<b>D-2 재고(이틀 전 재고)</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
     // 자주 안 쓰는 품목(최근 30일 발주·오늘 필요량·재고·생산량이 모두 없음)은 아래 접힌 칸으로
@@ -26549,6 +26549,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       rows.push(r); return r;
     };
     const calc = (o, fn) => row(Object.assign({ input: false }, o), fn);
+    // 생산 행(BOX·팩(생산)·박스(생산))은 전일재고 화면의 'D 생산량'과 같은 값 — 이 칸에 넣으면 그날 D 생산량으로 저장 (mult: 이 행 단위 → 팩)
+    const prodLink = (r, skus, end, mult) => { r.input = true; r.prod = { skus, endK: end.k, mult }; days.forEach((d, i) => { const md = (previousStock[dks[i]] || {}).made || {}; r.ovd[d] = skus.some(s => md[s.id] != null && md[s.id] !== ''); }); };
     // 생산 = 출고 + 재고 − 그날 시작 재고. 시작 재고는 시스템 전일 재고(직접 입력 포함), 앞 날 재고를 이 표에서 고쳤으면 그 값
     const mkProd = (out, end, flows, sKey) => { let prev = end.D == null ? 0 : Number(end.D), prevOvd = !!end.Dovd; return (d, i) => { const o = val(out, d), e = val(end, d); if(o == null && e == null) return undefined; const f = flows[i]; const st = (f && !prevOvd) ? f[sKey] : prev; const v = (o || 0) + (e || 0) - st; if(e != null){ prev = e; prevOvd = !!end.ovd[d]; } return lgR(v); }; };
     const val = (r, d) => { const v = r.vals[d]; return v == null || v === '' || !isFinite(v) ? null : Number(v); };
@@ -26565,6 +26567,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const end = row({ k: `p5_${k}_end`, sec: 'prod', b: nm, c: '재고량', unit: '박스', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => fl[k][i] ? lgR(fl[k][i].endB) : undefined);
       // 생산 박스 = 출고 + 재고 − 전일 재고 (엑셀 수불장과 같은 식, 전일 = 앞 날 중 재고가 있는 마지막 날)
       const box = calc({ k: `p5_${k}_box`, sec: 'prod', a: '투맛토\n500g×4', b: nm, c: 'BOX', unit: '박스' }, mkProd(out, end, fl[k], 'startB'));
+      prodLink(box, sk['b5_' + k], end, d => lgUnit(d) || 1);
       const pack = calc({ k: `p5_${k}_pack`, sec: 'prod', b: nm, c: '팩', unit: '팩' }, d => { const b = val(box, d); return b == null ? undefined : lgR(b * 4); });
       { const pk1 = rows.pop(), bx1 = rows.pop(); rows.splice(rows.indexOf(out), 0, bx1, pk1); }   // 순서: BOX · 팩 · 출고량 · 재고량
       P[k] = { box, pack, out, end };
@@ -26582,6 +26585,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const out = row({ k: `p15_${k}_out`, sec: 'p15', b: nm, c: '출고량', unit: '팩' }, (d, i) => f15[k][i] ? lgR(f15[k][i].ship) : undefined);
       const end = row({ k: `p15_${k}_end`, sec: 'p15', b: nm, c: '재고량', unit: '팩', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => f15[k][i] ? lgR(f15[k][i].end) : undefined);
       const pack = calc({ k: `p15_${k}_pack`, sec: 'p15', a: '투맛토\n150g', b: nm, c: '팩(생산)', unit: '팩' }, mkProd(out, end, f15[k], 'start'));
+      prodLink(pack, sk['p15_' + k], end, () => 1);
       rows.splice(rows.indexOf(out), 0, rows.pop());
       Q[k] = { pack, out, end };
     });
@@ -26612,6 +26616,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const out = row({ k: 'dg_out', sec: 'dragon', c: '출고', unit: '박스' }, (d, i) => flw[i] ? lgR(flw[i].shipB) : undefined);
       const end = row({ k: 'dg_end', sec: 'dragon', c: '재고', unit: '박스', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => flw[i] ? lgR(flw[i].endB) : undefined);
       const box = calc({ k: 'dg_box', sec: 'dragon', c: '박스(생산)', unit: '박스' }, mkProd(out, end, flw, 'startB'));
+      prodLink(box, sk.dragon, end, d => lgUnit(d) || 1);
       rows.splice(rows.indexOf(out), 0, rows.pop());
       const loss = calc({ k: 'dg_loss', sec: 'dragon', c: '불량율', unit: '%', tot: 'rate' }, d => { const r = val(raw, d), b = val(box, d); return r ? lgR(1 - (b || 0) * kgB / r, 4) : undefined; });
       loss.rate = { num: d => (val(box, d) || 0) * kgB, den: d => val(raw, d) || 0 };
@@ -26726,7 +26731,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const dCell = (r.D !== undefined || r.Dinput) ? `<td class="lg-cD${can && r.Dinput ? ' ed' : ''}${r.Dovd ? ' ov' : ''}" data-k="${escapeHtml(r.k)}" data-d="D" title="${r.Dinput ? '전월 말(1일 직전) 값 — 눌러서 고침' : ''}">${lgFmt(r.D, r)}</td>` : '<td class="lg-cD"></td>';
       h += `<tr class="${r.sub ? 'lg-sub' : ''}"><td class="lg-c0">${escapeHtml(showA).replace(/\n/g, '<br>')}</td><td class="lg-c1">${escapeHtml(showB)}</td><td class="lg-c2">${escapeHtml(r.c || '')}${r.unit ? ` <span class="lg-sm">${escapeHtml(r.unit)}</span>` : ''}</td>${dCell}${B.days.map((d, i) => {
         const v = r.vals[d], neg = isFinite(v) && Number(v) < 0;
-        return `<td class="${ed ? 'ed' : ''}${r.ovd[d] ? ' ov' : ''}${neg ? ' neg' : ''}${B.act[i] ? '' : ' off'}" data-k="${escapeHtml(r.k)}" data-d="${d}"${r.ovd[d] ? ` title="직접 고친 값 (자동: ${lgFmt(r.auto[d], r) || '없음'}) — 비우면 자동값"` : ''}>${lgFmt(v, r)}</td>`;
+        return `<td class="${ed ? 'ed' : ''}${r.ovd[d] ? ' ov' : ''}${neg ? ' neg' : ''}${B.act[i] ? '' : ' off'}" data-k="${escapeHtml(r.k)}" data-d="${d}"${r.prod ? ` title="${r.ovd[d] ? '전일재고 화면의 D 생산량에 입력된 값 — 여기서 고치면 그쪽도 같이 바뀝니다 (비우면 생산 필요수량만큼으로 계산)' : '입력 전: 생산 필요수량만큼 생산한 것으로 계산한 값 — 눌러서 실제 생산량을 넣으면 전일재고 화면의 D 생산량에도 들어갑니다'}"` : r.ovd[d] ? ` title="직접 고친 값 (자동: ${lgFmt(r.auto[d], r) || '없음'}) — 비우면 자동값"` : ''}>${lgFmt(v, r)}</td>`;
       }).join('')}<td class="lg-tot">${lgFmt(r.total, r)}</td></tr>`;
     });
     h += '</tbody></table></div>';
@@ -26749,12 +26754,39 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       // 자동값과 같으면 고친 값으로 남기지 않음
       const nv = raw === '' ? '' : Number(raw);
       if(raw !== '' && !isFinite(nv)){ toast('숫자를 넣어주세요'); lgRender(); return; }
+      if(r.prod){   // 생산 칸 → 전일재고 D 생산량
+        if(r.ovd[d] && raw !== '' && Math.abs(Number(r.vals[d]) - nv) < 1e-9){ lgRender(); return; }
+        if(!r.ovd[d] && raw === ''){ lgRender(); return; }
+        await lgSaveMade(r, d, raw === '' ? '' : nv); return;
+      }
       const same = raw !== '' && autoV != null && Math.abs(Number(autoV) - nv) < 1e-9 && !(cur != null && cur !== '');
       if(same){ lgRender(); return; }
       await lgSave(k, d, raw === '' ? '' : nv);
     };
     inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); finish(true); } else if(e.key === 'Escape'){ finish(false); } else if(e.key === 'Tab'){ e.preventDefault(); finish(true).then(() => { const cells = [...document.querySelectorAll('#lg-body td.ed')]; const i = cells.findIndex(x => x.dataset.k === k && x.dataset.d === d); const nx = cells[i + (e.shiftKey ? -1 : 1)]; if(nx) lgEdit(nx); }); } });
     inp.addEventListener('blur', () => finish(true));
+  }
+  // 생산 칸 저장 = 그날 전일재고 'D 생산량'(previousStock[날짜].made, 팩) — 발주취합 → 전일재고 화면과 같은 값
+  //  v: 이 행 단위(박스 또는 팩), '' = 지움(생산 필요수량만큼으로 계산). 같은 묶음에 품목이 여럿이면 그날 필요수량 비율로 나눔
+  //  그날 재고량을 이 표에서 직접 고쳐 둔 값이 있으면 생산량이 화면에 그대로 보이도록 그 값은 지움(확인 후)
+  async function lgSaveMade(r, d, v){
+    if(!lgCan()){ toast('수불장은 생산/물류 권한이 있어야 고칠 수 있습니다'); lgRender(); return; }
+    const dk = lgDk(LG.month, d), skus = r.prod.skus || [];
+    if(!skus.length){ lgRender(); return; }
+    const endOv = ((((LG.doc || {}).cells || {})[r.prod.endK]) || {})[d];
+    const hasEndOv = endOv != null && endOv !== '';
+    if(v !== '' && hasEndOv && !confirm(`${Number(d)}일 재고량을 이 표에서 직접 고친 값(${endOv})이 있습니다.\n생산량을 넣으면 그 값은 지우고 재고량을 자동 계산(전일 재고 + 생산 − 출고)으로 바꿉니다. 계속할까요?`)){ lgRender(); return; }
+    const st = previousStock[dk] = previousStock[dk] || {};
+    ['raw', 'product', 'product2', 'auto', 'made'].forEach(x => { if(!st[x] || typeof st[x] !== 'object') st[x] = {}; });
+    if(v === '') skus.forEach(x => { delete st.made[x.id]; });
+    else {
+      const need = carryNeed(dk), w = skus.map(x => Number(need[x.id]) || 0), tw = w.reduce((a, b) => a + b, 0);
+      skus.forEach((x, i) => { const share = skus.length === 1 ? 1 : (tw ? w[i] / tw : (i === 0 ? 1 : 0)); st.made[x.id] = Math.max(0, carryRound(Number(v) * share * r.prod.mult(x))); });
+    }
+    await savePreviousStock();
+    if(v !== '' && hasEndOv) await lgSave(r.prod.endK, String(d), ''); else lgRender();
+    try{ if(dk === currentDateKey) renderProductStockEditor(); renderAggTable(); }catch(e){ console.error(e); }
+    const meta = document.getElementById('lg-meta'); if(meta) meta.textContent = `저장됨 ${new Date().toTimeString().slice(0, 5)} · ${Number(d)}일 생산량 → 전일재고 D 생산량`;
   }
   // 저장: 서버 최신본을 읽어 그 칸만 바꿔 씀 (여러 사람이 같이 적어도 덮어쓰지 않게)
   async function lgSave(k, d, v){
