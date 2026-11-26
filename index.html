@@ -7373,7 +7373,8 @@ function mnShow(id, keepScroll) {
   const kvDeepBase = {};
   const kvJ = v => v === undefined ? undefined : JSON.stringify(v);
   const kvPlain = v => !!v && typeof v === 'object' && !Array.isArray(v);
-  const kvIdArr = v => Array.isArray(v) && v.every(x => kvPlain(x) && x.id != null);
+  const kvKeyOf = x => !kvPlain(x) ? null : x.id != null ? 'i:' + x.id : (typeof x.name === 'string' && x.name ? 'n:' + x.name : null);
+  const kvIdArr = v => { if(!Array.isArray(v)) return false; const ks = v.map(kvKeyOf); return ks.every(k => k != null) && new Set(ks).size === ks.length; };
   const kvClone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
   function kvDeepSnap(key, obj){ try{ kvDeepBase[key] = { ref: obj, json: JSON.stringify(obj) }; }catch(e){ delete kvDeepBase[key]; } }
   // L 을 S 와 같게 (가능하면 같은 객체를 그 자리에서 고쳐서 — 화면 코드가 쥐고 있는 객체가 끊기지 않게)
@@ -7395,7 +7396,7 @@ function mnShow(id, keepScroll) {
       return L;
     }
     if(kvIdArr(L) && kvIdArr(S) && (B === undefined || kvIdArr(B))){
-      const id = x => String(x.id), lm = new Map(L.map(x => [id(x), x])), bm = new Map((B || []).map(x => [id(x), x])), sm = new Map(S.map(x => [id(x), x]));
+      const id = kvKeyOf, lm = new Map(L.map(x => [id(x), x])), bm = new Map((B || []).map(x => [id(x), x])), sm = new Map(S.map(x => [id(x), x]));
       const merged = new Map();
       new Set([...sm.keys(), ...lm.keys()]).forEach(k => { const v = kvMerge3(lm.get(k), bm.get(k), sm.get(k), depth - 1); if(v !== undefined) merged.set(k, v); });
       // 순서: 내가 순서를 바꿨으면 내 순서, 아니면 서버 순서 (새로 생긴 것은 뒤에)
@@ -7449,7 +7450,7 @@ function mnShow(id, keepScroll) {
   }
   function kvDeepSnapAll(keys){
     const m = { 'previous-stock': () => previousStock, 'raw-material-usage': () => rawMaterialUsage, 'dispatch-by-date': () => dispatchByDate,
-      'split-by-date': () => splitByDate, 'order-extras-by-date': () => orderExtras, 'dictionary': () => dict };
+      'split-by-date': () => splitByDate, 'order-extras-by-date': () => orderExtras, 'dictionary': () => dict, 'companies': () => companies };
     (keys || Object.keys(m)).forEach(k => { if(m[k] && !window.__loadFailed.has(k)) kvDeepSnap(k, m[k]()); });
   }
   // ── 생산 마감: 마감한 날짜는 발주(수량)·3PL 개별 주문(줄 추가·삭제·업체·품목·수량)을 바꿀 수 없음 ──
@@ -7527,8 +7528,8 @@ function mnShow(id, keepScroll) {
     };
     return (kvOrdersChain = kvOrdersChain.then(run, run));
   }
-  async function saveCompanies(){
-    try{ await window.storage.set('companies', JSON.stringify(companies), true); }catch(e){ console.error(e); }
+  async function saveCompanies(o){
+    try{ await kvSaveDeep('companies', () => companies, 4, Object.assign({ onGot: () => { try{ renderCompanyManager(); renderAggTable(); }catch(e){} } }, o)); }catch(e){ console.error(e); }
   }
   function saveLineItems(opt){
     const allow = !!(opt && opt.allowClosed);
@@ -17044,7 +17045,7 @@ function mnShow(id, keepScroll) {
     // Persist everything
     await Promise.allSettled([
       saveDict({ force: true }),
-      saveCompanies(),
+      saveCompanies({ force: true }),
       saveCompanyCategories(),
       saveOrdersByDate({ allowClosed: true }),
       saveLineItems({ allowClosed: true }),
@@ -27187,7 +27188,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(c) companies = jp(c, companies).map(x => typeof x === 'string' ? { name: x, isThirdParty: false } : x);
     ordersByDate = jp(o, {}); kvMergeBase.orders = kvSnapMap(ordersByDate); previousStock = jp(ps, {});
     skuColumnMap = jp(scm, {}); skuGroupMap = jp(sgm, {}); dispatchByDate = jp(dsp, {}); splitByDate = jp(spl, {}); orderExtras = jp(oex, {});
-    kvDeepSnapAll(['previous-stock', 'dispatch-by-date', 'split-by-date', 'order-extras-by-date'].concat(d ? ['dictionary'] : []));
+    kvDeepSnapAll(['previous-stock', 'dispatch-by-date', 'split-by-date', 'order-extras-by-date'].concat(d ? ['dictionary'] : [], c ? ['companies'] : []));
     if(tpl) productionTemplateB64 = tpl;
     if(cats) companyCategories = jp(cats, companyCategories);
     if(dd){ const x = jp(dd, null); if(x){ document.getElementById('delivery-year').value = x.year || ''; document.getElementById('delivery-month').value = x.month || ''; document.getElementById('delivery-day').value = x.day || ''; } }
