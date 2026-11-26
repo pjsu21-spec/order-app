@@ -2988,7 +2988,7 @@
       <h2>📈 시세 리포트 <span class="badge">전국 공영도매시장 전일 정산가 · 매일 아침 자동</span></h2>
       <details class="help" style="margin:0 0 10px;"><summary>ⓘ 보는 방법</summary><div class="sub" style="margin:6px 0 0;">
         매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더)에 전날 전국 공영도매시장(가락·강서·구리·대구북부 등 32곳)의 <b>정산(경락) 자료</b>를 받아 품목별로 정리합니다. 자료: 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털).
-        <b>kg당 평균</b> = 그날 총 거래금액 ÷ 총 물량(kg)이라 물량이 많은 거래가 더 크게 반영됩니다. <b>대표 포장</b>은 물량이 가장 많은 포장(예: 상자 3kg)이고, 표의 '환산'은 kg당 평균 × 그 포장 무게입니다.
+        <b>kg당 평균</b> = 그날 총 거래금액 ÷ 총 물량(kg)이라 물량이 많은 거래가 더 크게 반영됩니다. <b>상자당</b>은 물량이 가장 많은 포장(예: 상자 3kg)의 실제 거래 평균·최저·최고이고, 그 포장 거래가 없는 칸은 kg당 평균 × 포장 무게로 환산해 ≈로 표시합니다. 도매시장은 <b>수도권</b>(가락·강서·구리·인천 등)과 <b>지방</b>으로 나눠 거래량 상위 10곳씩 보여 줍니다.
         <b>전일</b>은 직전 거래일, <b>전주</b>는 7일 전(없으면 그 앞 가장 가까운 거래일)과 비교합니다. 휴장일에는 자료가 없어 그 앞 거래일이 보입니다. 위쪽 카드를 누르면 그 품목의 등급·크기·산지·시장별 표가 나옵니다.
         <b>🖼 이미지</b>로 카톡에 올릴 요약 이미지를 만듭니다. 품목 추가·빼기와 다시 받기는 관리자가 아래 '⚙ 관리자'에서 합니다.
       </div></details>
@@ -3644,7 +3644,8 @@
 <p class="mn-lead">홈 화면의 <b>시세 리포트</b> 타일입니다. 매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더) 전날 전국 공영도매시장 32곳의 정산(경락) 자료를 받아 품목별로 정리합니다. 자료는 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털)입니다.</p>
 <ul>
   <li>위쪽 <b>카드</b>: 품목별 <b>kg당 평균</b>(총 거래금액 ÷ 총 물량), 대표 포장(물량이 가장 많은 포장, 예: 상자 3kg) 가격, <b>전일</b>(직전 거래일)·<b>전주</b>(7일 전) 대비 ▲▼, 전국 물량. 카드를 누르면 그 품목의 표가 아래에 나옵니다.</li>
-  <li>아래 <b>표</b>: 최근 흐름 그래프와 등급별 · 크기별 · 산지(시·도, 시·군) · 도매시장별 · 품종별 · 거래 방식별 물량, kg당 평균, 포장 환산, 최저~최고.</li>
+  <li>아래 <b>표</b>: 최근 흐름 그래프와 <b>수도권·지방 도매시장 Top10</b>(거래량 순) · 등급별 · 크기별 · 산지(시·도, 시·군) · 품종별 · 거래 방식별 물량, <b>kg당 평균</b>, <b>상자당 평균·최저~최고</b>(대표 포장 기준, 그 포장 거래가 없으면 ≈ 환산).</li>
+  <li>기본 품목: 대추방울토마토 · 찰토마토 · 딸기 · 스테비아토마토. 공공데이터에는 스테비아토마토의 맛(자몽향·망고향 등) 구분이 없어 한 품목으로 나옵니다.</li>
   <li>날짜 칸과 ◀ ▶로 지난 날짜를 봅니다. 휴장일(예: 일요일)은 "자료 없음"으로 나옵니다.</li>
   <li><span class="mn-b">🖼 이미지</span>: 카톡에 올릴 요약 이미지(품목 카드 + 등급·산지·시장 표).</li>
   <li><b>관리자</b>: 아래 ⚙ 관리자에서 날짜를 골라 <span class="mn-b">🔄 다시 받기</span>, <span class="mn-b">📅 지난 2주 빈 날짜 채우기</span>, 리포트 <b>품목 추가·빼기</b>(🔍 찾기로 품목·품종 이름 검색).</li>
@@ -27824,7 +27825,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   (function(){
     const $m = id => document.getElementById(id);
     const K_IDX = 'mkt-report-index', K_SET = 'mkt-report-settings', K_DAY = d => 'mkt-report:' + d;
-    const DEF_ITEMS = [{ key: '080603', name: '대추방울토마토', l: '08', m: '06', s: '03' }, { key: '080304', name: '찰토마토', l: '08', m: '03', s: '04' }, { key: '0804', name: '딸기', l: '08', m: '04', s: '' }];
+    const DEF_ITEMS = [{ key: '080603', name: '대추방울토마토', l: '08', m: '06', s: '03' }, { key: '080304', name: '찰토마토', l: '08', m: '03', s: '04' }, { key: '0804', name: '딸기', l: '08', m: '04', s: '' }, { key: '911048', name: '스테비아토마토', l: '91', m: '10', s: '48' }];
     const M = { idx: null, set: null, day: '', rep: null, item: '', busy: false, cache: {} };
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const won = n => n == null || !isFinite(n) ? '-' : Math.round(n).toLocaleString('ko-KR');
@@ -27903,10 +27904,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const total = it.kg || rows.reduce((s, r) => s + r.kg, 0);
       const pk = it.pack;
       const list = o.top ? rows.slice(0, o.top) : rows;
-      return `<div class="mk-tbl-wrap"><div class="mk-tbl-h">${esc(title)}${o.note ? ` <span class="mk-note">${esc(o.note)}</span>` : ''}</div><table class="mk-tbl"><thead><tr><th>구분</th><th>물량</th><th>비중</th><th>kg당 평균</th>${pk ? `<th>${esc(pk.label)} 환산</th>` : ''}<th>kg당 최저~최고</th></tr></thead><tbody>${
-        list.map(r => `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${total ? Math.round(r.kg / total * 100) : 0}%</td><td class="n b">${won(r.avg)}</td>${pk ? `<td class="n">${won(r.avg * pk.unitKg)}</td>` : ''}<td class="n mu">${r.lo != null ? won(r.lo) : '-'} ~ ${r.hi != null ? won(r.hi) : '-'}</td></tr>`).join('')
-      }</tbody></table>${o.top && rows.length > o.top ? `<div class="mk-note">상위 ${o.top}곳 (전체 ${rows.length}곳)</div>` : ''}</div>`;
+      // 상자당: 대표 포장 줄의 실제 거래로 계산(box). 그 포장 거래가 없는 칸은 kg당 × 포장 무게 환산(≈, 회색). 예전 리포트(box 없음)도 환산
+      const boxOf = r => r.box != null ? { v: r.box, est: !!r.est } : { v: r.avg * pk.unitKg, est: true };
+      const range = (a, b) => (a != null || b != null) ? `${a != null ? won(a) : '-'} ~ ${b != null ? won(b) : '-'}` : '-';
+      return `<div class="mk-tbl-wrap"><div class="mk-tbl-h">${esc(title)}${o.note ? ` <span class="mk-note">${esc(o.note)}</span>` : ''}</div><table class="mk-tbl"><thead><tr><th>구분</th><th>물량</th><th>비중</th><th>kg당 평균</th>${pk ? `<th>상자당 평균<br><span class="mk-note">${esc(pk.label)}</span></th><th>상자당 최저~최고</th>` : '<th>kg당 최저~최고</th>'}</tr></thead><tbody>${
+        list.map(r => { const b = pk ? boxOf(r) : null; return `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${total ? Math.round(r.kg / total * 100) : 0}%</td><td class="n b">${won(r.avg)}</td>${pk ? `<td class="n b${b.est ? ' mu' : ''}" ${b.est ? `title="${esc(pk.label)} 거래가 없어 kg당 평균 × ${pk.unitKg}kg 로 환산"` : ''}>${b.est ? '≈' : ''}${won(b.v)}</td><td class="n mu">${b.est ? '-' : range(r.boxLo, r.boxHi)}</td>` : `<td class="n mu">${range(r.lo, r.hi)}</td>`}</tr>`; }).join('')
+      }</tbody></table>${o.top && (o.of || rows.length) > Math.min(o.top, rows.length) ? `<div class="mk-note">거래량 상위 ${Math.min(o.top, rows.length)}곳 (전체 ${o.of || rows.length}곳)</div>` : ''}</div>`;
     }
+    // 수도권·지방 도매시장 Top10 (예전 리포트는 시장 전체 표 하나)
+    const mkTables = it => it.marketsCap
+      ? tableHtml('수도권 도매시장 Top10', it.marketsCap, it, { top: 10, of: it.marketCount && it.marketCount.cap }) + tableHtml('지방 도매시장 Top10', it.marketsLocal, it, { top: 10, of: it.marketCount && it.marketCount.local })
+      : tableHtml('도매시장별', it.markets, it, { top: 15 });
+    const areaLine = it => (it.areas || []).map(a => `${a.name} ${won(a.avg)}원/kg${it.pack && a.box != null ? ` · ${won(a.box)}원/상자` : ''}`).join('  |  ');
 
     function cardsHtml(rep){
       return `<div class="mk-cards">${rep.items.map(it => {
@@ -27916,6 +27925,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           <div class="mk-cv">${won(it.avg)}<small>원/kg</small></div>
           ${it.pack ? `<div class="mk-cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}
           <div class="mk-cc">${chg(pct(it.avg, c.pv && c.pv.avg), '전일')} ${chg(pct(it.avg, c.wv && c.wv.avg), '전주')}</div>
+          ${(it.areas || []).length ? `<div class="mk-cq">${it.areas.map(a => `${a.name} ${won(a.avg)}`).join(' · ')} 원/kg</div>` : ''}
           <div class="mk-cq">물량 ${vol(it.kg)}</div></button>`;
       }).join('')}</div>`;
     }
@@ -27925,15 +27935,16 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const c = cmpOf(rep.date, it.key);
       const pk = it.pack;
       return `<div class="mk-item">
-        <div class="mk-ih"><b>${esc(it.name)}</b> · kg당 평균 <b>${won(it.avg)}원</b>${pk ? ` · 대표 포장 ${esc(pk.label)} 평균 <b>${won(pk.avg)}원</b> (최저 ${won(pk.lo)} ~ 최고 ${won(pk.hi)}, ${won(pk.boxes)}개 · 물량의 ${pk.share}%)` : ''} · 전국 물량 ${vol(it.kg)}
+        <div class="mk-ih"><b>${esc(it.name)}</b> · kg당 평균 <b>${won(it.avg)}원</b>${pk ? ` · 상자당(${esc(pk.label)}) 평균 <b>${won(pk.avg)}원</b> (최저 ${won(pk.lo)} ~ 최고 ${won(pk.hi)}, ${won(pk.boxes)}상자 · 물량의 ${pk.share}%)` : ''} · 전국 물량 ${vol(it.kg)}
+          ${(it.areas || []).length ? `<div>${esc(areaLine(it))}</div>` : ''}
           <div class="mk-ihc">${chg(pct(it.avg, c.pv && c.pv.avg), '전일' + (c.prev ? `(${c.prev.slice(5).replace('-', '/')})` : ''))} ${chg(pct(it.avg, c.wv && c.wv.avg), '전주' + (c.wk ? `(${c.wk.slice(5).replace('-', '/')})` : ''))}</div></div>
         <div class="mk-th">최근 흐름 · kg당 평균 (원)</div>${trendSvg(it.key, rep.date)}
         <div class="mk-grid2">
+          ${mkTables(it)}
           ${tableHtml('등급별', it.grades, it)}
           ${tableHtml('크기별', it.sizes, it)}
           ${tableHtml('산지 (시·도)', it.regions, it)}
           ${tableHtml('산지 (시·군)', it.origins, it, { top: 15 })}
-          ${tableHtml('도매시장별', it.markets, it, { top: 15 })}
           ${it.varieties && it.varieties.length > 1 ? tableHtml('품종별', it.varieties, it) : ''}
           ${tableHtml('거래 방식', it.trades, it)}
         </div>
@@ -27993,11 +28004,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         .mki .g{display:flex;gap:10px;align-items:flex-start;} .mki .g>div{flex:1;}
         .mki table{border-collapse:collapse;width:100%;font-size:12px;} .mki th,.mki td{border:1px solid #ddd;padding:3px 6px;} .mki th{background:#f2f2f2;font-weight:600;} .mki td.n{text-align:right;} .mki .t{font-weight:600;font-size:12px;margin:0 0 3px;}`;
       const ch = (p, l) => p == null ? `${l} -` : `<span class="${Math.abs(p) < 0.5 ? '' : p > 0 ? 'up' : 'dn'}">${l} ${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p).toFixed(1)}%</span>`;
-      const mini = (t, rows, it, top) => !rows || !rows.length ? '' : `<div><div class="t">${esc(t)}</div><table><tr><th>구분</th><th>물량</th><th>kg당</th>${it.pack ? `<th>${esc(it.pack.label)}</th>` : ''}</tr>${rows.slice(0, top || 8).map(r => `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${won(r.avg)}</td>${it.pack ? `<td class="n">${won(r.avg * it.pack.unitKg)}</td>` : ''}</tr>`).join('')}</table></div>`;
+      const mini = (t, rows, it, top) => !rows || !rows.length ? '' : `<div><div class="t">${esc(t)}</div><table><tr><th>구분</th><th>물량</th><th>kg당</th>${it.pack ? `<th>상자당<br>(${esc(it.pack.label)})</th>` : ''}</tr>${rows.slice(0, top || 8).map(r => { const bx = r.box != null ? r.box : (it.pack ? r.avg * it.pack.unitKg : 0), est = r.box == null || r.est; return `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${won(r.avg)}</td>${it.pack ? `<td class="n">${est ? '≈' : ''}${won(bx)}</td>` : ''}</tr>`; }).join('')}</table></div>`;
       const ok = rep.items.filter(x => !x.empty);
-      const html = `<div class="mki"><h1>도매시장 시세 리포트 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 다름달음 통합시스템</div>
+      const html = `<div class="mki"><h1>도매시장 시세 리포트 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 상자당 = 대표 포장 거래 평균(≈ 환산) · 다름달음 통합시스템</div>
         <div class="cards">${ok.map(it => { const c = cmpOf(rep.date, it.key); return `<div class="c"><div class="cn">${esc(it.name)}</div><div class="cv">${won(it.avg)}<small>원/kg</small></div>${it.pack ? `<div class="cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}<div class="cp">${ch(pct(it.avg, c.pv && c.pv.avg), '전일')} · ${ch(pct(it.avg, c.wv && c.wv.avg), '전주')}</div><div class="cq">물량 ${vol(it.kg)}</div></div>`; }).join('')}</div>
-        ${ok.map(it => `<h2>${esc(it.name)}</h2><div class="g">${mini('등급별', it.grades, it)}${mini('산지 (시·도)', it.regions, it)}${mini('도매시장별', it.markets, it, 6)}</div>`).join('')}</div>`;
+        ${ok.map(it => `<h2>${esc(it.name)}</h2><div class="g">${it.marketsCap ? mini('수도권 도매시장 Top10', it.marketsCap, it, 10) + mini('지방 도매시장 Top10', it.marketsLocal, it, 10) : mini('도매시장별', it.markets, it, 8)}${mini('등급별', it.grades, it)}</div>`).join('')}</div>`;
       if(!window.__pgCapture){ toast('이미지 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
       await window.__pgCapture(html, 880, '시세리포트_' + rep.date.slice(2).replace(/-/g, ''), css);
       writeLog('market_report', `시세 리포트 이미지 ${rep.date}`).catch(() => {});
@@ -28054,7 +28065,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         const [x] = a.splice(Number(b.dataset.mkDel), 1);
         if(confirm(`'${x.name}'을(를) 리포트에서 뺄까요?`)) saveItems(a).catch(err => toast(err.message));
       }));
-      $m('mk-def').addEventListener('click', () => { if(confirm('리포트 품목을 기본(대추방울토마토 · 찰토마토 · 딸기)으로 되돌릴까요?')) saveItems(DEF_ITEMS.slice()).catch(err => toast(err.message)); });
+      $m('mk-def').addEventListener('click', () => { if(confirm('리포트 품목을 기본(대추방울토마토 · 찰토마토 · 딸기 · 스테비아토마토)으로 되돌릴까요?')) saveItems(DEF_ITEMS.slice()).catch(err => toast(err.message)); });
       const find = async () => {
         const q = $m('mk-q').value.trim(); if(!q) return;
         if(window.TEST_MODE){ toast('테스트 모드에서는 품목 찾기를 쓰지 않습니다'); return; }

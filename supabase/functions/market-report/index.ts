@@ -1,9 +1,9 @@
 // 도매시장 시세 리포트 (Supabase Edge Function: market-report)
 //  공공데이터포털 '한국농수산식품유통공사_전국 공영도매시장 정산정보'(katSale/trades)에서 전국 공영도매시장의 전일 정산(경락) 자료를 받아
-//  품목별로 등급·크기·산지·시장·품종별 kg당 가격과 물량을 정리해 공용 저장값(kv_store)에 넣는다. 화면(index.html '📈 시세 리포트' 탭)은 그 값을 읽어 보여 줌.
+//  품목별로 등급·크기·산지·품종별, 수도권·지방 도매시장 Top10별 kg당·상자당 가격과 물량을 정리해 공용 저장값(kv_store)에 넣는다. 화면(index.html '📈 시세 리포트' 탭)은 그 값을 읽어 보여 줌.
 //  · 저장: 'mkt-report:YYYY-MM-DD' (그날 리포트) · 'mkt-report-index' (날짜별 요약 — 전일·전주 비교, 2주 흐름)
-//  · 품목 목록: 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } (없으면 기본: 대추방울토마토 · 찰토마토 · 딸기)
-//  · 매일 아침 pg_cron 이 { action: 'cron' } 으로 부름 (시세리포트_SQL.sql) → 어제(한국 시간) 자료를 받음. 로그인 없이 부르면 30분에 한 번만 실제로 받음
+//  · 품목 목록: 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } (없으면 기본: 대추방울토마토 · 찰토마토 · 딸기 · 스테비아토마토)
+//  · 매일 아침 pg_cron 이 { action: 'cron' } 으로 부름 (시세리포트_자동실행_SQL.sql) → 어제(한국 시간) 자료를 받음. 로그인 없이 부르면 30분에 한 번만 실제로 받음
 //  · 화면(로그인 토큰 x-app-token)에서 { action: 'run', date } → 그날 자료를 바로 다시 받음 / { action: 'goods', q } → 품목 코드 찾기 (품목 추가용)
 //  필요한 비밀값(Supabase → Edge Functions → Secrets): DATA_GO_KR_KEY (공공데이터포털 일반 인증키)
 //  자동으로 있는 값: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (저장용)
@@ -20,6 +20,7 @@ export const DEFAULT_ITEMS = [
   { key: '080603', name: '대추방울토마토', l: '08', m: '06', s: '03' },
   { key: '080304', name: '찰토마토', l: '08', m: '03', s: '04' },
   { key: '0804', name: '딸기', l: '08', m: '04', s: '' },
+  { key: '911048', name: '스테비아토마토', l: '91', m: '10', s: '48' },   // 농림가공 › 기타식품 › 스테비아 토마토 (맛 구분 칸은 없음)
 ];
 const FIELDS = 'whsl_mrkt_nm,gds_sclsf_nm,grd_nm,sz_nm,plor_nm,unit_nm,unit_qty,unit_tot_qty,totprc,lwprc,hgprc,pkg_nm,trd_se';
 const KEEP_DAYS = 180;   // 요약(index)에 남길 날짜 수
@@ -60,21 +61,39 @@ export function rowOf(x) {
   };
 }
 
-function groupBy(rows, keyOf, top) {
+// 묶음별 집계. inPk(r) = 그 줄이 대표 포장(예: 상자 3kg)인지 → 상자당 평균·최저·최고는 대표 포장 줄만으로 (없으면 kg당 평균 × 포장 무게로 환산, est 표시)
+//  돌려주는 값: kg(물량) · avg(kg당 평균) · lo/hi(kg당 최저·최고) · box(상자당 평균) · boxLo/boxHi(상자당 최저·최고) · est(상자 값이 환산이면 true) · n(자료 줄 수)
+function groupBy(rows, keyOf, top, inPk, unitKg) {
   const m = new Map();
   rows.forEach(r => {
     const k = keyOf(r);
-    const g = m.get(k) || { name: k, kg: 0, amt: 0, n: 0, lo: Infinity, hi: 0 };
+    const g = m.get(k) || { name: k, kg: 0, amt: 0, n: 0, lo: Infinity, hi: 0, pAmt: 0, pBox: 0, pLo: Infinity, pHi: 0 };
     g.kg += r.kg; g.amt += r.amt; g.n++;
     if (r.unitKg > 0) {
       if (r.lw > 0) g.lo = Math.min(g.lo, r.lw / r.unitKg);
       if (r.hg > 0) g.hi = Math.max(g.hi, r.hg / r.unitKg);
     }
+    if (inPk && inPk(r)) {
+      g.pAmt += r.amt; g.pBox += r.boxes;
+      if (r.lw > 0) g.pLo = Math.min(g.pLo, r.lw);
+      if (r.hg > 0) g.pHi = Math.max(g.pHi, r.hg);
+    }
     m.set(k, g);
   });
   const all = [...m.values()].filter(g => g.kg > 0).sort((a, b) => b.kg - a.kg);
-  return all.slice(0, top || all.length).map(g => ({ name: g.name, kg: Math.round(g.kg), avg: Math.round(g.amt / g.kg), lo: isFinite(g.lo) ? Math.round(g.lo) : null, hi: g.hi ? Math.round(g.hi) : null, n: g.n }));
+  return all.slice(0, top || all.length).map(g => {
+    const avg = g.amt / g.kg, has = g.pBox > 0;
+    const o = { name: g.name, kg: Math.round(g.kg), avg: Math.round(avg), lo: isFinite(g.lo) ? Math.round(g.lo) : null, hi: g.hi ? Math.round(g.hi) : null, n: g.n };
+    if (unitKg) Object.assign(o, has
+      ? { box: Math.round(g.pAmt / g.pBox), boxLo: isFinite(g.pLo) ? Math.round(g.pLo) : null, boxHi: g.pHi ? Math.round(g.pHi) : null, est: false }
+      : { box: Math.round(avg * unitKg), boxLo: null, boxHi: null, est: true });
+    return o;
+  });
 }
+
+// 수도권 도매시장 (서울·인천·경기): 가락 · 강서 · 인천남촌 · 인천삼산 · 수원 · 안양 · 안산 · 구리. 그 밖은 지방
+export const isCapital = nm => /^(서울|인천|수원|안양|안산|구리|부천|성남|의정부|고양|안성|용인)/.test(String(nm || ''));
+export const TOP_MARKETS = 10;
 
 // 한 품목의 그날 자료(줄 목록) → 리포트 요약
 export function summarize(items) {
@@ -83,24 +102,29 @@ export function summarize(items) {
   const out = { rows: all.length, skipped: all.length - rows.length };
   if (!rows.length) return { ...out, empty: true };
   const kg = rows.reduce((s, r) => s + r.kg, 0), amt = rows.reduce((s, r) => s + r.amt, 0);
-  // 대표 포장: kg 물량이 가장 많은 '포장 + 단위' (예: 상자 3kg) → 그 포장 한 개 기준 가격
+  // 대표 포장: kg 물량이 가장 많은 '포장 + 단위' (예: 상자 3kg) → 상자당 가격은 이 포장 기준
   const pk = groupBy(rows, r => `${r.pkg}|${r1(r.unitKg)}`)[0];
   const [pkgNm, unitKgS] = pk.name.split('|'); const unitKg = Number(unitKgS);
-  const inPk = rows.filter(r => r.pkg === pkgNm && r1(r.unitKg) === unitKg);
-  const pkKg = inPk.reduce((s, r) => s + r.kg, 0), pkAmt = inPk.reduce((s, r) => s + r.amt, 0), pkBoxes = inPk.reduce((s, r) => s + r.boxes, 0);
-  const lows = inPk.map(r => r.lw).filter(v => v > 0), highs = inPk.map(r => r.hg).filter(v => v > 0);
+  const inPk = r => r.pkg === pkgNm && r1(r.unitKg) === unitKg;
+  const pRows = rows.filter(inPk);
+  const pkKg = pRows.reduce((s, r) => s + r.kg, 0), pkAmt = pRows.reduce((s, r) => s + r.amt, 0), pkBoxes = pRows.reduce((s, r) => s + r.boxes, 0);
+  const lows = pRows.map(r => r.lw).filter(v => v > 0), highs = pRows.map(r => r.hg).filter(v => v > 0);
+  const G = (keyOf, top, rs) => groupBy(rs || rows, keyOf, top, inPk, unitKg);
+  const capRows = rows.filter(r => isCapital(r.market)), locRows = rows.filter(r => !isCapital(r.market));
   return {
     ...out,
     kg: Math.round(kg), amt: Math.round(amt), avg: Math.round(amt / kg),
     pack: { label: `${pkgNm} ${unitKg}kg`, unitKg, avg: Math.round(pkBoxes ? pkAmt / pkBoxes : (pkAmt / pkKg) * unitKg), lo: lows.length ? Math.min(...lows) : null, hi: highs.length ? Math.max(...highs) : null, boxes: Math.round(pkBoxes), share: Math.round((pkKg / kg) * 100) },
-    grades: groupBy(rows, r => r.grade),
-    sizes: groupBy(rows, r => r.size),
-    gradeSize: groupBy(rows, r => `${r.grade} · ${r.size}`, 20),
-    regions: groupBy(rows, r => r.origin.region),
-    origins: groupBy(rows, r => r.origin.label, 25),
-    markets: groupBy(rows, r => r.market),
-    varieties: groupBy(rows, r => r.variety),
-    trades: groupBy(rows, r => r.trade),
+    areas: G(r => isCapital(r.market) ? '수도권' : '지방'),
+    marketsCap: G(r => r.market, TOP_MARKETS, capRows),
+    marketsLocal: G(r => r.market, TOP_MARKETS, locRows),
+    marketCount: { cap: new Set(capRows.map(r => r.market)).size, local: new Set(locRows.map(r => r.market)).size },
+    grades: G(r => r.grade),
+    sizes: G(r => r.size),
+    regions: G(r => r.origin.region),
+    origins: G(r => r.origin.label, 25),
+    varieties: G(r => r.variety),
+    trades: G(r => r.trade),
   };
 }
 
@@ -162,7 +186,7 @@ export function indexWith(idx, rep) {
   const dates = { ...((idx && idx.dates) || {}) };
   dates[rep.date] = {
     at: rep.at, empty: !!rep.empty, partial: rep.fails.length > 0,
-    items: Object.fromEntries(rep.items.filter(x => !x.empty).map(x => [x.key, { name: x.name, kg: x.kg, avg: x.avg, pack: x.pack ? { label: x.pack.label, avg: x.pack.avg } : null }])),
+    items: Object.fromEntries(rep.items.filter(x => !x.empty).map(x => [x.key, { name: x.name, kg: x.kg, avg: x.avg, pack: x.pack ? { label: x.pack.label, avg: x.pack.avg } : null, areas: (x.areas || []).map(a => ({ name: a.name, avg: a.avg, box: a.box })) }])),
   };
   const keep = Object.keys(dates).sort().slice(-KEEP_DAYS);
   return { ...(idx || {}), dates: Object.fromEntries(keep.map(d => [d, dates[d]])) };
