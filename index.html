@@ -4763,6 +4763,31 @@ async function writeLog(action, detail = '') {
     });
   } catch(e) { console.warn('로그 기록 실패:', e); }
 }
+// ── 화면 오류 자동 기록 ──
+//  직원 화면에서 프로그램 오류가 나면 관리자 → 활동 로그에 'client_error'로 남김 (오류 문장 · 위치(줄 번호) · 화면 · 기기 종류만, 자료 내용은 안 남김)
+//  같은 오류는 한 번만, 화면을 연 뒤 최대 5건. 인터넷 끊김·로그인 만료처럼 프로그램 오류가 아닌 것은 뺌
+(function(){
+  const seen = new Set(); let n = 0;
+  const NOISE = /ResizeObserver loop|^Script error\.?$|login required|PT401|Failed to fetch|NetworkError|Load failed|storage\.(get|set|delete) (failed|blocked)|AbortError|서버 연결 실패/i;
+  const report = (msg, where) => {
+    try {
+      if (!window.currentUser) return;
+      msg = String(msg || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (!msg || NOISE.test(msg)) return;
+      const k = msg + '|' + (where || '');
+      if (seen.has(k) || n >= 5) return;
+      seen.add(k); n++;
+      const dev = (/(Android|iPhone|iPad|Windows|Macintosh)/.exec(navigator.userAgent || '') || [])[1] || '';
+      writeLog('client_error', (msg + (where ? ' @' + where : '') + ' · 화면 ' + (location.hash || '#') + (dev ? ' · ' + dev : '')).slice(0, 500));
+    } catch (e) { /* 기록은 부가 */ }
+  };
+  window.addEventListener('error', e => { if (e && e.message) report(e.message, (e.filename ? String(e.filename).split('/').pop().split('?')[0] : '') + ':' + (e.lineno || '')); });
+  window.addEventListener('unhandledrejection', e => {
+    const r = e && e.reason, m = (r && r.message) || String(r || '');
+    const at = r && r.stack ? (String(r.stack).split('\n').find(l => /index\.html|\.js/.test(l)) || '').replace(/^\s*at\s+/, '').replace(/https?:\/\/[^/]+\//, '').slice(0, 80) : '';
+    report('(비동기) ' + m, at);
+  });
+})();
 
 // ── 로그인 화면 표시/숨기기 ──
 function showLoginScreen() {
