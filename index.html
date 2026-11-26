@@ -315,6 +315,12 @@
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
+  /* 출고 예정 (수량 미정) */
+  #dispatch-list tr.disp-pending td{ background:#fff8e6; color:#7a5a00; }
+  .disp-pend-form{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:8px 10px; margin:0 0 8px; border:1px dashed #e0b84a; border-radius:8px; background:#fffbef; font-size:12.5px; }
+  .disp-pend-form select, .disp-pend-form input{ font-size:12.5px; padding:3px 6px; }
+  .disp-pend-form .dp-shelf{ color:var(--muted); }
+  .disp-pend-form .dp-help{ flex-basis:100%; font-size:11.5px; color:var(--muted); }
   /* 연구소 📅 캘린더 */
   .lab-views{ display:inline-flex; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:0 0 10px; }
   .lab-view-btn{ border:0; background:var(--card); padding:7px 16px; font:inherit; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; }
@@ -3246,6 +3252,7 @@
   <li><b>예전 표</b>: 업체 × 품목 수량(팩)과 합계. 잘못 들어간 줄은 체크해서 <b>선택 항목 삭제</b>합니다.</li>
   <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
   <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다. 샘플 택배는 품목별 합계에 <b>다름달음(샘플)</b> 줄로 따로 더해집니다. 출고일 지정 주문 목록은 이 탭에서는 보이지 않습니다.</li>
+  <li><b>출고 예정 (수량 미정)</b>: 쿠팡 토요일 납품분처럼 생산일 오후에야 발주가 확정되는 건은, 집계표 아래 <b>출고일 지정 주문</b>의 <span class="mn-b">+ 출고 예정 (수량 미정)</span>으로 업체·출고일·차수(·납품일)만 먼저 넣습니다. 발주서 쿠팡 블록·현황판·생산 현황판에 수량 칸은 빈 채로 <b>출고일 · 소비기한</b> 줄이 미리 나와 생산에 알릴 수 있습니다(집계·이카운트·거래명세서에는 안 들어감). 실제 발주를 같은 출고일·차수로 입력하면 이 줄은 자동으로 실제 발주로 바뀝니다.</li>
   <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산 / 물류 탭 배차·적재의 <b>비고와 같은 칸</b>이라 어느 쪽에서 고쳐도 똑같이 바뀌고, 발주취합 파일·생산 현황판 비고 칸에 나옵니다. 고치려면 생산 / 물류 전체 권한이 필요합니다. 출고일 지정 업체(쿠팡 등)와 3PL 업체에는 비고 칸이 없습니다.</li>
   <li><b>샘플 신청 줄의 비고</b>: 집계표의 "샘플" 줄을 눌러 펼치면 신청 건마다 비고 칸이 있습니다(오늘 생산분과 재고 사용분은 따로). 적은 내용은 그 날짜 발주취합 파일과 생산 현황판의 샘플 행 비고 칸에 들어갑니다.</li>
   <li><b>🎁 샘플</b>: 발주와 함께 보내는 샘플 수량을 넣거나 고칩니다. 수량 칸 아래에 <b>+샘플</b>로 따로 표시되고 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않고, 생산·적재 수량(합계 줄)과 송품장에는 들어갑니다.</li>
@@ -8490,23 +8497,82 @@ function mnShow(id, keepScroll) {
   function dispDeliverOf(e){ return (e && parseDateKey(e.deliverDate)) ? e.deliverDate : ((e && parseDateKey(e.shipDate)) ? sampleAddDays(e.shipDate, 1) : ''); }
   function paintDeliverDow(){ const el = document.getElementById('deliver-date-dow'); if(!el || !currentParsed) return; const v = currentParsed.deliverDate; const warn = v && currentParsed.shipDate && v < currentParsed.shipDate ? ' ⚠ 출고일보다 이른 날짜' : ''; el.textContent = (v ? `(${dowLabel(v)})` : '') + warn; el.style.color = warn ? 'var(--danger,#c0392b)' : 'var(--muted)'; }
 
+  // 소비기한 = 출고일 + 4일 + (차수 − 1)일 (발주서 현황판·서식의 쿠팡 블록과 같은 규칙)
+  function dispShelfText(e){ const d = parseDateKey(e && e.shipDate); if(!d) return '-'; d.setDate(d.getDate() + 4 + (dispSeqOf(e) - 1)); return `${d.getMonth() + 1}/${d.getDate()}`; }
+  // ── 출고 예정 (수량 미정) ──
+  //  쿠팡 토요일 납품분처럼 생산일 오후에야 발주가 확정되는 건: 수량 없이 { pending: true } 출고 건을 먼저 넣어
+  //  발주서(쿠팡 블록·현황판)·생산 현황판에 출고일·소비기한 줄이 미리 보이게 함. 집계·이카운트·거래명세서에는 들어가지 않음(수량 0).
+  //  실제 발주를 같은 업체·출고일·차수로 입력하면 이 예정 줄은 자동으로 지움
+  function dispPendForm(el, dispCos){
+    const box = document.createElement('div');
+    box.className = 'disp-pend-form';
+    const ship0 = nextShipDate(currentDateKey);
+    const co0 = (dispCos.find(c => /쿠팡/.test(c.name)) || dispCos[0]).name;
+    const seqFor = (co, ship) => { const same = (dispatchByDate[currentDateKey] || []).filter(x => x.company === co && x.shipDate === ship); return same.length ? Math.max(...same.map(dispSeqOf)) + 1 : 1; };
+    box.innerHTML = `<span>업체</span><select class="dp-co">${dispCos.map(c => `<option value="${escapeHtml(c.name)}"${c.name === co0 ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}</select>
+      <span>출고일</span><input type="date" class="dp-ship" value="${ship0}">
+      <span>차수</span><select class="dp-seq">${[1, 2, 3, 4].map(n => `<option value="${n}">${n}차</option>`).join('')}</select>
+      <span title="받는 쪽 납품일">납품일</span><input type="date" class="dp-deliver">
+      <span class="dp-shelf"></span>
+      <button type="button" class="btn-primary small-btn dp-add">추가</button><button type="button" class="btn-ghost small-btn dp-cancel">취소</button>
+      <div class="dp-help">수량 칸은 비워 둔 채 발주서 쿠팡 블록·현황판·생산 현황판에 <b>출고일 · 소비기한</b> 줄로 들어갑니다. 실제 발주가 확정되면 평소처럼 입력하세요(같은 출고일·차수면 이 줄은 자동으로 빠짐).</div>`;
+    const q = c => box.querySelector(c);
+    const sync = (fromShip) => {
+      if(fromShip) q('.dp-seq').value = String(Math.min(4, seqFor(q('.dp-co').value, q('.dp-ship').value)));
+      const seq = Number(q('.dp-seq').value) || 1;
+      if(!q('.dp-deliver').dataset.manual) q('.dp-deliver').value = parseDateKey(q('.dp-ship').value) ? sampleAddDays(q('.dp-ship').value, seq - 1) : '';
+      const e = { shipDate: q('.dp-ship').value, seq };
+      const dow = dowLabel(q('.dp-ship').value);
+      q('.dp-shelf').innerHTML = parseDateKey(e.shipDate) ? `(${dow}) · 소비기한 <b>${dispShelfText(e)}</b> · 납품 ${q('.dp-deliver').value ? shortDate(q('.dp-deliver').value) : '-'}` : '';
+    };
+    q('.dp-co').addEventListener('change', () => sync(true));
+    q('.dp-ship').addEventListener('change', () => sync(true));
+    q('.dp-seq').addEventListener('change', () => sync(false));
+    q('.dp-deliver').addEventListener('change', () => { q('.dp-deliver').dataset.manual = '1'; sync(false); });
+    q('.dp-cancel').addEventListener('click', () => { el.dataset.pendForm = ''; renderDispatchList(); });
+    q('.dp-add').addEventListener('click', () => {
+      if(prodCloseBlocked(currentDateKey)) return;
+      const company = q('.dp-co').value, shipDate = q('.dp-ship').value, seq = Number(q('.dp-seq').value) || 1, deliverDate = q('.dp-deliver').value;
+      if(!parseDateKey(shipDate)){ toast('출고일을 골라주세요'); return; }
+      const dup = currentDispatch().find(x => x.company === company && x.shipDate === shipDate && dispSeqOf(x) === seq);
+      if(dup){ toast(dup.pending ? '같은 출고일·차수의 출고 예정이 이미 있습니다' : '같은 출고일·차수의 실제 발주가 이미 있습니다 — 차수를 바꿔주세요'); return; }
+      currentDispatch().push(Object.assign({ id: cryptoId(), company, shipDate, deliverDate: parseDateKey(deliverDate) ? deliverDate : dispDefaultDeliver(shipDate), warehouse: DISPATCH_WAREHOUSE, items: {}, pending: true, enteredBy: getStaffName(), createdAt: new Date().toISOString() }, seq > 1 ? { seq } : {}));
+      saveDispatchByDate();
+      writeLog('dispatch_pending', `출고 예정(수량 미정) 추가: ${company} ${shipDate}${seq > 1 ? ' ' + seq + '차' : ''} (발주일 ${currentDateKey})`).catch(() => {});
+      el.dataset.pendForm = '';
+      toast(`${company} ${shortDate(shipDate)}${seq > 1 ? ' ' + seq + '차' : ''} 출고 예정(수량 미정)을 넣었습니다 — 발주서·생산 현황판에 출고일·소비기한 줄로 보입니다`);
+      renderAggTable(); renderThirdPartyAggTable();
+    });
+    setTimeout(() => sync(true), 0);
+    return box;
+  }
   // 출고일 지정 주문 목록 (집계표 아래): 출고일별 내역 확인·삭제
   function renderDispatchList(){
     const el = document.getElementById('dispatch-list');
     if(!el) return;
     const list = (dispatchByDate[currentDateKey] || []).slice().sort((a, b) => String(a.shipDate).localeCompare(String(b.shipDate)) || dispSeqOf(a) - dispSeqOf(b));
-    if(!list.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+    const dispCos = companies.filter(c => c.dispatchByDate);
+    if(!list.length && !dispCos.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
     let on3pl = false; try{ on3pl = aggTab === '3pl'; }catch(e){}
     el.style.display = on3pl ? 'none' : 'block';   // 3PL 출고 집계 탭에서는 안 보임
     el.innerHTML = '';
     const h = document.createElement('div');
-    h.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:6px;';
-    h.textContent = '출고일 지정 주문 (쿠팡 등)';
+    h.style.cssText = 'font-size:13px;font-weight:700;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+    h.appendChild(document.createTextNode('출고일 지정 주문 (쿠팡 등)'));
     const sub = document.createElement('span');
-    sub.style.cssText = 'font-weight:400;font-size:12px;color:var(--muted);margin-left:8px;';
-    sub.textContent = '수량은 위 집계표 합계에 포함되고, 발주취합 파일의 쿠팡 블록에 출고일별로 들어갑니다';
+    sub.style.cssText = 'font-weight:400;font-size:12px;color:var(--muted);';
+    sub.textContent = list.length ? '수량은 위 집계표 합계에 포함되고, 발주취합 파일의 쿠팡 블록에 출고일별로 들어갑니다' : '없음';
     h.appendChild(sub);
+    if(dispCos.length){
+      const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'btn-ghost small-btn'; addBtn.style.marginLeft = 'auto';
+      addBtn.textContent = '+ 출고 예정 (수량 미정)';
+      addBtn.title = '발주가 아직 확정되지 않았어도 출고일·소비기한만 발주서·생산 현황판에 미리 올려 생산에 알림 (수량 칸은 비움). 실제 발주를 같은 출고일·차수로 입력하면 이 줄은 자동으로 빠집니다';
+      addBtn.addEventListener('click', () => { el.dataset.pendForm = el.dataset.pendForm ? '' : '1'; renderDispatchList(); });
+      h.appendChild(addBtn);
+    }
     el.appendChild(h);
+    if(el.dataset.pendForm && dispCos.length) el.appendChild(dispPendForm(el, dispCos));
+    if(!list.length) return;
     const table = document.createElement('table');
     table.innerHTML = '<thead><tr><th>출고일</th><th title="받는 쪽 납품일 — 이카운트 매출 일자">납품일</th><th class="name-cell">업체</th><th>창고</th><th class="name-cell">내용 (박스)</th><th></th></tr></thead>';
     const tbody = document.createElement('tbody');
@@ -8521,7 +8587,8 @@ function mnShow(id, keepScroll) {
         return `${d.shortName || d.name} ${n > 0 ? fmt(packs / n) + '박스' : packs + '팩'}`;
       }).filter(Boolean);
       const multi = list.some(x => x !== e && x.company === e.company && x.shipDate === e.shipDate && dispSeqOf(x) !== dispSeqOf(e));
-      [shortDate(e.shipDate) + (multi || dispSeqOf(e) > 1 ? ` · ${dispSeqOf(e)}차` : ''), e.company, e.warehouse || '', parts.join(', ')].forEach((t, i) => {
+      if(e.pending) tr.className = 'disp-pending';
+      [shortDate(e.shipDate) + (multi || dispSeqOf(e) > 1 ? ` · ${dispSeqOf(e)}차` : ''), e.company, e.warehouse || '', e.pending ? `⏳ 수량 미정 — 발주 확정 전 출고 예정 (소비기한 ${dispShelfText(e)})` : parts.join(', ')].forEach((t, i) => {
         const td = document.createElement('td');
         if(i === 1 || i === 3) td.className = 'name-cell';
         td.textContent = t;
@@ -8541,6 +8608,11 @@ function mnShow(id, keepScroll) {
       del.textContent = '삭제';
       armConfirmButton(del, ()=>{
         if(prodCloseBlocked(currentDateKey)) return;
+        if(e.pending){   // 출고 예정(수량 미정) 줄: 집계표 수량은 없음
+          dispatchByDate[currentDateKey] = currentDispatch().filter(x => x !== e && x.id !== e.id);
+          saveDispatchByDate(); renderAggTable(); renderThirdPartyAggTable();
+          return;
+        }
         // 이 출고 내역의 수량을 집계표에서도 뺌
         const orders = currentOrders();
         if(orders[e.company]){
@@ -11056,7 +11128,7 @@ function mnShow(id, keepScroll) {
       aggBoardCss();
       const { m, metas } = await aggBoardModel(dk);
       if(dk !== currentDateKey){ aggBoardSig = ''; return; }
-      body.innerHTML = m.cols.length ? '<div class="pb-zoom">' + poBoardHtml(m, null) + '</div>' : '<div class="empty">이 날짜에는 발주 데이터가 없습니다.</div>';
+      body.innerHTML = (m.cols.length || (m.dispatch || []).length) ? '<div class="pb-zoom">' + poBoardHtml(m, null) + '</div>' : '<div class="empty">이 날짜에는 발주 데이터가 없습니다.</div>';   // 출고 예정(수량 미정)만 있어도 보임
       if(m.cols.length) aggBoardWire(body, metas, m.cols);
       if(m.notes && m.notes.length) body.insertAdjacentHTML('beforeend', m.notes.map(n => `<div class="sub" style="color:var(--danger,#c0392b);margin:4px 0 0;">⚠ ${escapeHtml(n)}</div>`).join(''));
       aggBoardFit();
@@ -13008,7 +13080,7 @@ function mnShow(id, keepScroll) {
     // 출고일 지정 업체를 같은 출고일로 다시 입력하면 1차/2차 구분
     let dispSeq = 1;
     if(isDisp){
-      const same = currentDispatch().filter(e => e.company === company && e.shipDate === currentParsed.shipDate);
+      const same = currentDispatch().filter(e => e.company === company && e.shipDate === currentParsed.shipDate && !e.pending);   // 출고 예정(수량 미정) 줄은 빼고 물음
       if(same.length){
         const sq = await askDispatchSeq(company, currentParsed.shipDate, same);
         if(sq == null) return;
@@ -13054,6 +13126,8 @@ function mnShow(id, keepScroll) {
     if(mode === 'part'){ splitEnsure(currentDateKey, company).push({ id: cryptoId(), label: '', items: addedItems }); saveSplitByDate(); }
     if(isDisp){
       // 출고일을 따로 지정한 업체: 출고일별 내역을 따로 저장 (발주취합 파일의 쿠팡 블록에 사용)
+      { const pend = currentDispatch().filter(e => e.pending && e.company === company && e.shipDate === currentParsed.shipDate && dispSeqOf(e) === dispSeq);   // 같은 출고일·차수의 출고 예정 줄은 실제 발주로 바뀜
+        if(pend.length){ dispatchByDate[currentDateKey] = currentDispatch().filter(e => !pend.includes(e)); if(!currentParsed.deliverManual && pend[0].deliverDate) currentParsed.deliverDate = pend[0].deliverDate; } }
       currentDispatch().push(Object.assign({ id: cryptoId(), company, shipDate: currentParsed.shipDate, deliverDate: parseDateKey(currentParsed.deliverDate) ? currentParsed.deliverDate : dispDefaultDeliver(currentParsed.shipDate), warehouse: DISPATCH_WAREHOUSE, items: addedItems, enteredBy: getStaffName(), createdAt: new Date().toISOString() }, dispSeq > 1 ? { seq: dispSeq } : {}));
       saveDispatchByDate();
     }
@@ -14390,7 +14464,7 @@ function mnShow(id, keepScroll) {
         const sm = sampleOf(dateKey, companyName);
         dict.forEach(item => { const packs = sm[item.id] || 0; if(!packs) return; const ik = `${item.id}|0|smp`; const cur = sl.items.get(ik) || { item, packs: 0, price: 0, smp: true }; cur.packs += packs; sl.items.set(ik, cur); });
       };
-      const disp = (dispatchByDate[dateKey] || []).filter(e => e.company === companyName);
+      const disp = (dispatchByDate[dateKey] || []).filter(e => e.company === companyName && !e.pending);   // 출고 예정(수량 미정)은 매출 없음
       if(isDispatchCompany(companyName) && disp.length){
         const byDate = {};
         disp.forEach(e => { const d = dispDeliverOf(e) || dateLabel; const b = byDate[d] = byDate[d] || {}; Object.entries(e.items || {}).forEach(([id, q]) => { b[id] = (b[id] || 0) + (Number(q) || 0); }); });
@@ -22587,7 +22661,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const seq = Math.max(1, Number(e.seq) || 1);   // 같은 날 1차/2차 출고는 줄을 따로
       const key = `${e.company}|${e.warehouse}|${e.shipDate}|${seq}`;
       let g = dgroups.get(key);
-      if(!g){ g = { company: e.company, warehouse: e.warehouse, shipDate: e.shipDate, seq, colQty: {}, items: [] }; dgroups.set(key, g); }
+      if(!g){ g = { company: e.company, warehouse: e.warehouse, shipDate: e.shipDate, seq, colQty: {}, items: [], pending: true }; dgroups.set(key, g); }
+      if(!e.pending) g.pending = false;   // 실제 발주가 하나라도 있으면 예정 아님
       dict.forEach(d => {
         const q = Number((e.items || {})[d.id]) || 0;
         if(q <= 0) return;
@@ -22599,8 +22674,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         g.colQty[col] = (g.colQty[col] || 0) + toBox(d, q);
       });
     });
-    const dispatchRows = [...dgroups.values()].filter(g => Object.keys(g.colQty).length);
-    dgroups.forEach(g => { if(!Object.keys(g.colQty).length) g.items.forEach(it => extras.push({ company: `${g.company} (출고 ${g.shipDate}${g.seq > 1 ? ' · ' + g.seq + '차' : ''})`, item: it.item, qty: it.qty, unit: it.unit })); });
+    const dispatchRows = [...dgroups.values()].filter(g => Object.keys(g.colQty).length || g.pending);   // 출고 예정(수량 미정)은 수량 없이 출고일·소비기한 줄만
+    dgroups.forEach(g => { if(!Object.keys(g.colQty).length && !g.pending) g.items.forEach(it => extras.push({ company: `${g.company} (출고 ${g.shipDate}${g.seq > 1 ? ' · ' + g.seq + '차' : ''})`, item: it.item, qty: it.qty, unit: it.unit })); });
     const stockByCol = {};
     dict.forEach(d => {
       const col = colMap[d.id];
@@ -22714,7 +22789,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const disp = (built.dispatchRows || []).slice().sort((a, b) => String(a.company).localeCompare(String(b.company)) || String(a.warehouse).localeCompare(String(b.warehouse)) || String(a.shipDate).localeCompare(String(b.shipDate)) || (a.seq || 1) - (b.seq || 1)).map(gr => {
       const r = toRow({ name: gr.company, colQty: gr.colQty, planKey: '#none' });
       const [y, m, d] = String(gr.shipDate).split('-').map(Number), ex = new Date(y, m - 1, d + 4 + (Math.max(1, Number(gr.seq) || 1) - 1));
-      return Object.assign(r, { company: /쿠팡/i.test(gr.company) ? 'coupang' : gr.company, warehouse: gr.warehouse || '', shipDate: gr.shipDate, seq: gr.seq || 1, shelf: `소비기한 : ${ex.getMonth() + 1}월 ${ex.getDate()}일까지`, plan: { driver: '명일출고', load: 'kpp', stock: '', note: '' } });
+      return Object.assign(r, { company: /쿠팡/i.test(gr.company) ? 'coupang' : gr.company, warehouse: gr.warehouse || '', shipDate: gr.shipDate, seq: gr.seq || 1, shelf: `소비기한 : ${ex.getMonth() + 1}월 ${ex.getDate()}일까지` + (gr.pending ? ' · 수량 미정 (발주 확정 전)' : ''), pending: !!gr.pending, plan: { driver: '명일출고', load: 'kpp', stock: '', note: '' } });
     });
     // 품목 열별 합계(발주 + 출고일 지정) · 전일 재고
     const col15 = {};
@@ -25662,7 +25737,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     blocks.forEach(b => { b.sub = sum(b.rows); });
     // 출고일을 따로 지정한 주문(쿠팡 등)
     const dRowOf = (res.rep.dispatch && res.rep.dispatch.rowOf) || new Map();
-    const dispatch = (built.dispatchRows || []).map((d, i) => { const row = dRowOf.get(d); return { key: 'd' + i, name: d.company + (d.seq > 1 ? ` (${d.seq}차)` : ''), warehouse: d.warehouse || '', ship: d.shipDate || '', qty: Object.fromEntries(cols.map(c => [c.L, Math.round(((d.colQty || {})[c.L] || 0) * 100) / 100])),
+    const dispatch = (built.dispatchRows || []).map((d, i) => { const row = dRowOf.get(d); return { key: 'd' + i, name: d.company + (d.seq > 1 ? ` (${d.seq}차)` : '') + (d.pending ? ' · 수량 미정' : ''), warehouse: d.warehouse || '', ship: d.shipDate || '', qty: Object.fromEntries(cols.map(c => [c.L, Math.round(((d.colQty || {})[c.L] || 0) * 100) / 100])),
       p: row ? { driver: pt(pc.driver, row), load: pt(pc.load, row), stock: pt(pc.stock, row), note: pt(pc.note, row) } : {} }; });   // 서식의 그 행에 적힌 납품담당·적재방식·재고사용·비고 (소비기한 수식 등)
     const main = sum([].concat(...blocks.map(b => b.rows)));
     const disp = sum(dispatch);
