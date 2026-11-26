@@ -315,6 +315,43 @@
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
+  /* 연구소 📅 캘린더 */
+  .lab-views{ display:inline-flex; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:0 0 10px; }
+  .lab-view-btn{ border:0; background:var(--card); padding:7px 16px; font:inherit; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; }
+  .lab-view-btn + .lab-view-btn{ border-left:1px solid var(--line); }
+  .lab-view-btn.on{ background:var(--accent); color:#fff; }
+  .lab-cal-bar{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
+  .lab-cal-title{ font-size:16px; min-width:96px; text-align:center; }
+  .lab-cal-chk{ font-size:12px; color:var(--muted); display:inline-flex; gap:4px; align-items:center; }
+  .lab-cal-legend{ display:inline-flex; gap:4px; flex-wrap:wrap; }
+  .lab-cal{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); border-top:1px solid var(--line); border-left:1px solid var(--line); }
+  .lab-cal-wd{ font-size:12px; font-weight:700; text-align:center; padding:5px 0; background:var(--hover); border-right:1px solid var(--line); border-bottom:1px solid var(--line); color:var(--muted); }
+  .lab-cal-wd.sun, .lab-cal-day.sun .lab-cal-num{ color:#c0392b; }
+  .lab-cal-wd.sat, .lab-cal-day.sat .lab-cal-num{ color:#1f5fbf; }
+  .lab-cal-day{ display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; text-align:left; min-height:104px; padding:4px 5px 6px; border:0; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--card); font:inherit; color:inherit; cursor:pointer; min-width:0; overflow:hidden; vertical-align:top; }
+  .lab-cal-day:hover{ background:var(--hover); }
+  .lab-cal-day.out{ background:#faf7f5; }
+  .lab-cal-day.out .lab-cal-num{ opacity:.45; }
+  .lab-cal-day.sel{ box-shadow:inset 0 0 0 2px var(--accent); }
+  .lab-cal-num{ font-size:12px; font-weight:700; margin:0 0 3px; align-self:flex-start; }
+  .lab-cal-day.today .lab-cal-num{ display:inline-block; min-width:20px; text-align:center; border-radius:10px; background:var(--accent); color:#fff !important; padding:0 5px; }
+  .lab-cal-ev{ font-size:11px; line-height:1.35; padding:2px 5px; border-radius:5px; margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-left:3px solid #c0392b; background:#fdecea; color:#7a1f16; }
+  .lab-cal-ev-recv{ border-left-color:#d49b00; background:#fff4d6; color:#6b4b00; }
+  .lab-cal-ev-done{ border-left-color:#1e7a3c; background:#e3f4e8; color:#145a2b; }
+  .lab-cal-ev-cancel{ border-left-color:#aaa; background:#f1f1f1; color:#888; text-decoration:line-through; }
+  .lab-cal-hm{ font-weight:700; }
+  .lab-cal-more{ font-size:11px; color:var(--muted); padding:0 4px; }
+  .lab-cal-dots{ display:none; gap:3px; flex-wrap:wrap; margin-top:2px; }
+  .lab-cal-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; border:0; padding:0; background:#c0392b; }
+  .lab-cal-dot.lab-cal-ev-recv{ background:#d49b00; } .lab-cal-dot.lab-cal-ev-done{ background:#1e7a3c; } .lab-cal-dot.lab-cal-ev-cancel{ background:#bbb; }
+  .lab-cal-detail{ margin-top:12px; }
+  .lab-cal-dh{ font-weight:700; font-size:14px; margin:0 0 6px; }
+  @media (max-width:700px){
+    .lab-cal-day{ min-height:58px; padding:3px; }
+    .lab-cal-ev, .lab-cal-more{ display:none; }
+    .lab-cal-dots{ display:flex; }
+    .lab-cal-legend{ display:none; }
+  }
   /* 기준정보: 왼쪽 메뉴 · 오른쪽 내용 */
   .mt-layout{ display:grid; grid-template-columns:200px minmax(0, 1fr); gap:14px; align-items:start; }
   .mt-nav{ position:sticky; top:64px; display:flex; flex-direction:column; gap:3px; background:var(--card,#fff); border:1px solid var(--line); border-radius:10px; padding:8px; }
@@ -2942,6 +2979,7 @@
       <details class="help" style="margin:0 0 10px;"><summary>ⓘ 사용 방법</summary><div class="sub" style="margin:6px 0 0;">
         <b>🧪 샘플 신청</b>에서 품목의 생산 방식을 <b>연구실 생산</b>으로 고른 신청이 여기에 모입니다. 따로 연락하지 않아도 됩니다.
         아직 접수하지 않은 의뢰가 있으면 홈 화면 <b>연구소</b> 타일에 빨간 숫자가 뜹니다.
+        처음 화면은 <b>📅 캘린더</b>(출고일 = 요구 기한 기준 한 달, 색: 빨강 미접수 · 노랑 접수·제작 중 · 초록 제작 완료)이고, 위의 <b>📋 목록</b>을 누르면 기간·상태로 거르는 표로 바뀝니다. 캘린더에서 날짜를 누르면 그날 의뢰가 아래에 표로 나옵니다.
         의뢰를 확인하면 <b>접수</b>, 다 만들면 <b>제작 완료</b>를 누르세요 (누가 언제 눌렀는지 남습니다). 신청 내용을 고치거나 취소하는 것은 샘플 신청 탭에서 합니다.
         이 탭은 권한이 있는 직원에게만 보입니다. 권한(보기 · 담당 · 연구소 관리자)은 아래 <b>👥 연구소 권한</b>(연구소 관리자) 또는 <b>🛠 관리자 → 사용자 권한</b>의 '연구소' 칸에서 줍니다.
       </div></details>
@@ -4988,7 +5026,9 @@ function applyUserUI() {
 //  알림: 홈 연구소 타일에 아직 접수 안 한 의뢰 건수 (출고일이 14일 전 이후인 것, 취소 제외)
 (function(){
   const K_ACC = 'lab-access', K_ST = 'lab-state', LAB_PM = '연구실 생산', PEND_DAYS = 14;
-  const L = { acc: null, uid: null, rows: [], st: {}, loaded: false, from: '', to: '', f: 'open', q: '', pend: 0, pendAt: 0, pendBusy: false };
+  const L = { acc: null, uid: null, rows: [], st: {}, loaded: false, from: '', to: '', f: 'open', q: '', pend: 0, pendAt: 0, pendBusy: false, view: 'cal', calMonth: '', calDay: '', calRows: [], calLoaded: false, calCancel: false };
+  // 목록·캘린더에서 불러온 의뢰를 합쳐 찾기 (산출서 연결 등)
+  const allReqs = () => { const m = new Map(); (L.rows || []).concat(L.calRows || []).forEach(r => m.set(String(r.id), r)); return [...m.values()].sort((x, y) => String(x.ship_at).localeCompare(String(y.ship_at))); };
   const $ = id => document.getElementById(id);
   const esc = s => escapeHtmlSimple(s == null ? '' : s);
   const p2 = n => String(n).padStart(2, '0');
@@ -5092,11 +5132,52 @@ function applyUserUI() {
   }
 
   // ── 화면 ──
+  //  보기: 📅 캘린더(기본) · 📋 목록. 캘린더는 출고일(요구 기한) 기준 한 달 — 날짜를 누르면 그날 의뢰가 아래에 목록과 같은 줄(접수·완료 버튼 포함)로 나옴
+  const stName = s => s === 'done' ? '제작 완료' : s === 'recv' ? '접수 · 제작 중' : '미접수';
+  const itemName = i => { const d = items_().find(x => x.id === i.skuId); return d ? (d.shortName || d.name) : (i.skuName || '품목 미상'); };
+  function rowHtml(r){
+    const s = stOf(r.id), info = L.st[String(r.id)] || {}, cancel = r.status === '취소';
+    const items = labItems(r).map(i => {
+      const d = items_().find(x => x.id === i.skuId), packs = Number(i.packs) || 0, u = d ? Number(d.boxUnitCount) || 0 : 0;
+      const bx = u > 0 ? ` (${Math.round(packs / u * 100) / 100}박스)` : '';
+      const pd = i.production_date ? ` · 생산 ${esc(String(i.production_date).slice(5).replace('-', '/'))}` : '';
+      return `<div><b>${esc(itemName(i))}</b> ${packs}팩${bx}${pd}</div>`;
+    }).join('');
+    const pill = cancel ? '<span class="sample-pill off">취소됨</span>' : r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : '<span class="sample-pill">미확인</span>';
+    const stPill = `<span class="lab-st lab-st-${s || 'none'}">${stName(s)}</span>${s ? `<div class="sub" style="margin:2px 0 0;font-size:11px;">${esc(info.by || '')} ${atText(info.at)}</div>` : ''}`;
+    const btns = !canEdit() ? '' : cancel ? (s ? '<button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>' : '')
+      : !s ? '<button type="button" class="btn-primary small-btn" data-lab="recv">접수</button><button type="button" class="btn-ghost small-btn" data-lab="done">바로 완료</button>'
+      : s === 'recv' ? '<button type="button" class="btn-primary small-btn" data-lab="done">제작 완료</button><button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>'
+      : '<button type="button" class="btn-ghost small-btn" data-lab="recv">제작 중으로</button>';
+    return `<tr data-id="${esc(r.id)}"${cancel ? ' class="lab-cancel"' : ''}><td>${shipText(r.ship_at)}</td><td>${esc(r.requester_name || '')}${r.requester_dept ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.requester_dept)}</div>` : ''}</td><td>${esc(purposeOf(r))}</td><td>${items}</td><td>${esc(r.ship_method || '')}</td><td class="lab-note">${esc(noteOf(r))}</td><td>${pill}</td><td>${stPill}<div class="lab-btns">${btns}${(() => { const sh = sheetByReq(r.id); return sh ? `<button type="button" class="btn-ghost small-btn" data-sheet title="샘플개발 산출서 열기">📝 산출서 ${won(sheetTotal(sh))}원</button>` : (canEdit() && !cancel ? '<button type="button" class="btn-ghost small-btn" data-sheet title="이 의뢰의 샘플개발 산출서 만들기 (요청 정보 자동 채움)">📝 산출서</button>' : ''); })()}</div></td></tr>`;
+  }
+  const tableHtml = list => `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>출고일시</th><th>신청자</th><th>용도</th><th>연구실 생산 품목</th><th>출고 방식</th><th>비고</th><th>신청 상태</th><th>연구소 진행</th></tr></thead><tbody>${list.map(rowHtml).join('')}</tbody></table></div>`;
+  // 줄의 접수·완료·산출서 버튼 (목록·캘린더 공통). rows = 그 화면의 의뢰 목록
+  function bindRows(box, rows){
+    box.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => window.labOpenSheetForReq(b.closest('tr').dataset.id)));
+    box.querySelectorAll('[data-lab]').forEach(b => b.addEventListener('click', async () => {
+      const tr = b.closest('tr'), r = rows.find(x => String(x.id) === tr.dataset.id); if(!r) return;
+      const a = b.dataset.lab, st = a === 'clear' ? '' : a;
+      const label = `${a === 'recv' ? '접수' : a === 'done' ? '제작 완료' : '되돌리기'}: ${r.requester_name || ''} ${shipText(r.ship_at)} 출고`;
+      b.disabled = true;
+      if(await setState(r.id, st, label)){ toastL(a === 'recv' ? '접수했습니다' : a === 'done' ? '제작 완료로 표시했습니다' : '되돌렸습니다'); L.pendAt = 0; refreshPending(true); }
+      render();
+    }));
+  }
+  const viewTabs = () => `<div class="lab-views" role="tablist">${[['cal', '📅 캘린더'], ['list', '📋 목록']].map(([v, t]) => `<button type="button" role="tab" class="lab-view-btn${L.view === v ? ' on' : ''}" data-lab-view="${v}" aria-selected="${L.view === v}">${t}</button>`).join('')}</div>`;
+  function bindViewTabs(body){
+    body.querySelectorAll('[data-lab-view]').forEach(b => b.addEventListener('click', async () => {
+      if(L.view === b.dataset.labView) return;
+      L.view = b.dataset.labView;
+      if(L.view === 'cal' && !L.calLoaded) await loadCal(); else if(L.view === 'list' && !L.loaded) await load(); else render();
+    }));
+  }
+
   function render(){
     const body = $('lab-body'); if(!body) return;
-    if(!L.loaded){ body.innerHTML = '<div class="sub">불러오는 중…</div>'; return; }
+    if(L.view === 'cal') return renderCal();
+    if(!L.loaded){ body.innerHTML = viewTabs() + '<div class="sub">불러오는 중…</div>'; bindViewTabs(body); return; }
     const q = L.q.trim().toLowerCase();
-    const stName = s => s === 'done' ? '제작 완료' : s === 'recv' ? '접수 · 제작 중' : '미접수';
     const all = L.rows;
     const cnt = { none: 0, recv: 0, done: 0 };
     all.forEach(r => { if(r.status === '취소') return; const s = stOf(r.id) || 'none'; cnt[s]++; });
@@ -5109,51 +5190,109 @@ function applyUserUI() {
       if(!q) return true;
       return [r.requester_name, r.requester_dept, r.note, r.ship_method, ...labItems(r).map(i => { const d = items_().find(x => x.id === i.skuId); return d ? d.name : ''; })].some(x => String(x || '').toLowerCase().includes(q));
     });
-    let h = `<div class="row" style="margin:0 0 8px;align-items:center;">
+    let h = viewTabs() + `<div class="row" style="margin:0 0 8px;align-items:center;">
       <span class="sub" style="margin:0;">출고일</span><input type="date" id="lab-from" value="${esc(L.from)}"><span class="sub" style="margin:0;">~</span><input type="date" id="lab-to" value="${esc(L.to)}">
       <select id="lab-f">${[['open', `처리할 것 (${cnt.none + cnt.recv})`], ['none', `미접수 (${cnt.none})`], ['recv', `접수 · 제작 중 (${cnt.recv})`], ['done', `제작 완료 (${cnt.done})`], ['all', '전체 (취소 포함)']].map(([v, t]) => `<option value="${v}"${v === L.f ? ' selected' : ''}>${t}</option>`).join('')}</select>
       <input type="search" id="lab-q" placeholder="신청자·품목·비고 검색" value="${esc(L.q)}" style="width:180px;">
       <button type="button" class="btn-ghost small-btn" id="lab-reload">↻ 새로고침</button>
       <span class="sub" style="margin:0;">${list.length}건</span></div>`;
     if(!list.length) h += `<div class="sub">${all.length ? '조건에 맞는 의뢰가 없습니다.' : '이 기간에 연구실 생산으로 신청된 샘플이 없습니다.'}</div>`;
-    else h += `<div style="overflow-x:auto;"><table class="lab-tbl"><thead><tr><th>출고일시</th><th>신청자</th><th>용도</th><th>연구실 생산 품목</th><th>출고 방식</th><th>비고</th><th>신청 상태</th><th>연구소 진행</th></tr></thead><tbody>${list.map(r => {
-      const s = stOf(r.id), info = L.st[String(r.id)] || {}, cancel = r.status === '취소';
-      const items = labItems(r).map(i => {
-        const d = items_().find(x => x.id === i.skuId), packs = Number(i.packs) || 0, u = d ? Number(d.boxUnitCount) || 0 : 0;
-        const bx = u > 0 ? ` (${Math.round(packs / u * 100) / 100}박스)` : '';
-        const pd = i.production_date ? ` · 생산 ${esc(String(i.production_date).slice(5).replace('-', '/'))}` : '';
-        return `<div><b>${esc(d ? (d.shortName || d.name) : (i.skuName || '품목 미상'))}</b> ${packs}팩${bx}${pd}</div>`;
-      }).join('');
-      const pill = cancel ? '<span class="sample-pill off">취소됨</span>' : r.status === '확인' ? '<span class="sample-pill ok">확인됨</span>' : '<span class="sample-pill">미확인</span>';
-      const stPill = `<span class="lab-st lab-st-${s || 'none'}">${stName(s)}</span>${s ? `<div class="sub" style="margin:2px 0 0;font-size:11px;">${esc(info.by || '')} ${atText(info.at)}</div>` : ''}`;
-      const btns = !canEdit() ? '' : cancel ? (s ? '<button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>' : '')
-        : !s ? '<button type="button" class="btn-primary small-btn" data-lab="recv">접수</button><button type="button" class="btn-ghost small-btn" data-lab="done">바로 완료</button>'
-        : s === 'recv' ? '<button type="button" class="btn-primary small-btn" data-lab="done">제작 완료</button><button type="button" class="btn-ghost small-btn" data-lab="clear">되돌리기</button>'
-        : '<button type="button" class="btn-ghost small-btn" data-lab="recv">제작 중으로</button>';
-      return `<tr data-id="${esc(r.id)}"${cancel ? ' class="lab-cancel"' : ''}><td>${shipText(r.ship_at)}</td><td>${esc(r.requester_name || '')}${r.requester_dept ? `<div class="sub" style="margin:0;font-size:11px;">${esc(r.requester_dept)}</div>` : ''}</td><td>${esc(purposeOf(r))}</td><td>${items}</td><td>${esc(r.ship_method || '')}</td><td class="lab-note">${esc(noteOf(r))}</td><td>${pill}</td><td>${stPill}<div class="lab-btns">${btns}${(() => { const sh = sheetByReq(r.id); return sh ? `<button type="button" class="btn-ghost small-btn" data-sheet title="샘플개발 산출서 열기">📝 산출서 ${won(sheetTotal(sh))}원</button>` : (canEdit() && !cancel ? '<button type="button" class="btn-ghost small-btn" data-sheet title="이 의뢰의 샘플개발 산출서 만들기 (요청 정보 자동 채움)">📝 산출서</button>' : ''); })()}</div></td></tr>`;
-    }).join('')}</tbody></table></div>`;
+    else h += tableHtml(list);
     body.innerHTML = h;
+    bindViewTabs(body);
     const reload = async () => { L.from = $('lab-from').value || L.from; L.to = $('lab-to').value || L.to; if(L.to < L.from) L.to = L.from; await load(); };
     $('lab-from').addEventListener('change', reload);
     $('lab-to').addEventListener('change', reload);
     $('lab-reload').addEventListener('click', reload);
     $('lab-f').addEventListener('change', e => { L.f = e.target.value; render(); });
     $('lab-q').addEventListener('input', e => { L.q = e.target.value; clearTimeout(L.qt); L.qt = setTimeout(() => { render(); const el = $('lab-q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 250); });
-    body.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => window.labOpenSheetForReq(b.closest('tr').dataset.id)));
-    body.querySelectorAll('[data-lab]').forEach(b => b.addEventListener('click', async () => {
-      const tr = b.closest('tr'), r = L.rows.find(x => String(x.id) === tr.dataset.id); if(!r) return;
-      const a = b.dataset.lab, st = a === 'clear' ? '' : a;
-      const label = `${a === 'recv' ? '접수' : a === 'done' ? '제작 완료' : '되돌리기'}: ${r.requester_name || ''} ${shipText(r.ship_at)} 출고`;
-      b.disabled = true;
-      if(await setState(r.id, st, label)){ toastL(a === 'recv' ? '접수했습니다' : a === 'done' ? '제작 완료로 표시했습니다' : '되돌렸습니다'); L.pendAt = 0; refreshPending(true); }
-      render();
+    bindRows(body, L.rows);
+  }
+
+  // ── 📅 캘린더 (한 달, 일요일 시작) ──
+  const monthOf = key => key.slice(0, 7);
+  function calGrid(month){   // 그 달을 덮는 6주(또는 5주) 날짜 목록
+    const [y, m] = month.split('-').map(Number);
+    const first = new Date(y, m - 1, 1), start = new Date(y, m - 1, 1 - first.getDay());
+    const last = new Date(y, m, 0), end = new Date(y, m - 1, last.getDate() + (6 - last.getDay()));
+    const days = []; for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) days.push(dkey(d));
+    return days;
+  }
+  async function loadCal(){
+    const body = $('lab-body');
+    if(!L.calMonth) L.calMonth = monthOf(dkey(new Date()));
+    const g = calGrid(L.calMonth);
+    L.calLoaded = false; renderCal();
+    try{ const [rows] = await Promise.all([fetchLab(g[0], g[g.length - 1]), loadState(), loadSheets()]); L.calRows = rows; L.calLoaded = true; renderCal(); renderDev(); }
+    catch(e){ if(body) body.innerHTML = viewTabs() + `<div class="sub" style="color:var(--danger,#c0392b);">의뢰를 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; bindViewTabs(body); }
+  }
+  function renderCal(){
+    const body = $('lab-body'); if(!body) return;
+    if(!L.calMonth) L.calMonth = monthOf(dkey(new Date()));
+    const [y, m] = L.calMonth.split('-').map(Number);
+    const today = dkey(new Date());
+    const head = `${viewTabs()}<div class="lab-cal-bar">
+      <button type="button" class="btn-ghost small-btn" id="lab-cal-prev" aria-label="이전 달">◀</button>
+      <b class="lab-cal-title">${y}년 ${m}월</b>
+      <button type="button" class="btn-ghost small-btn" id="lab-cal-next" aria-label="다음 달">▶</button>
+      <button type="button" class="btn-ghost small-btn" id="lab-cal-today">오늘</button>
+      <label class="lab-cal-chk"><input type="checkbox" id="lab-cal-cancel" ${L.calCancel ? 'checked' : ''}> 취소 건도 보기</label>
+      <span style="flex:1"></span>
+      <span class="lab-cal-legend"><span class="lab-st lab-st-none">미접수</span><span class="lab-st lab-st-recv">접수 · 제작 중</span><span class="lab-st lab-st-done">제작 완료</span></span>
+      <button type="button" class="btn-ghost small-btn" id="lab-cal-reload">↻ 새로고침</button></div>`;
+    if(!L.calLoaded){ body.innerHTML = head + '<div class="sub">불러오는 중…</div>'; bindCal(body); return; }
+    const rows = (L.calRows || []).filter(r => L.calCancel || r.status !== '취소');
+    const byDay = {};
+    rows.forEach(r => { const d = new Date(r.ship_at); if(isNaN(d)) return; const k = dkey(d); (byDay[k] = byDay[k] || []).push(r); });
+    const g = calGrid(L.calMonth);
+    if(!L.calDay || monthOf(L.calDay) !== L.calMonth) L.calDay = monthOf(today) === L.calMonth ? today : `${L.calMonth}-01`;
+    const MAXV = 3;   // 칸마다 보이는 의뢰 수 (넘으면 '+N건')
+    const cells = g.map(k => {
+      const list = byDay[k] || [], [, mm, dd] = k.split('-').map(Number), dow = new Date(k + 'T00:00:00').getDay();
+      const cls = ['lab-cal-day', monthOf(k) !== L.calMonth ? 'out' : '', k === today ? 'today' : '', k === L.calDay ? 'sel' : '', dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''].filter(Boolean).join(' ');
+      const ev = list.slice(0, MAXV).map(r => {
+        const s = r.status === '취소' ? 'cancel' : (stOf(r.id) || 'none');
+        const t = new Date(r.ship_at), hm = `${p2(t.getHours())}:${p2(t.getMinutes())}`;
+        const its = labItems(r), first = its[0] ? itemName(its[0]) : '';
+        const tip = `${hm} ${r.requester_name || ''} · ${its.map(i => `${itemName(i)} ${Number(i.packs) || 0}팩`).join(', ')} · ${r.status === '취소' ? '취소됨' : stName(stOf(r.id))}`;
+        return `<div class="lab-cal-ev lab-cal-ev-${s}" title="${esc(tip)}"><span class="lab-cal-hm">${hm}</span> ${esc(r.requester_name || '')}<span class="lab-cal-it"> · ${esc(first)}${its.length > 1 ? ` 외 ${its.length - 1}` : ''}</span></div>`;
+      }).join('');
+      const more = list.length > MAXV ? `<div class="lab-cal-more">+${list.length - MAXV}건</div>` : '';
+      const dots = list.length ? `<div class="lab-cal-dots">${list.map(r => `<i class="lab-cal-dot lab-cal-ev-${r.status === '취소' ? 'cancel' : (stOf(r.id) || 'none')}"></i>`).join('')}</div>` : '';
+      return `<button type="button" class="${cls}" data-cal-day="${k}" aria-label="${mm}월 ${dd}일 의뢰 ${list.length}건"><div class="lab-cal-num">${dd}</div>${ev}${more}${dots}</button>`;
+    }).join('');
+    const monthRows = rows.filter(r => monthOf(dkey(new Date(r.ship_at))) === L.calMonth);
+    const cnt = { none: 0, recv: 0, done: 0 }; monthRows.forEach(r => { if(r.status !== '취소') cnt[stOf(r.id) || 'none']++; });
+    const sel = (byDay[L.calDay] || []).slice().sort((a, b) => String(a.ship_at).localeCompare(String(b.ship_at)));
+    const [, sm, sd] = L.calDay.split('-').map(Number), sdow = KO_DOW[new Date(L.calDay + 'T00:00:00').getDay()];
+    body.innerHTML = head + `<div class="sub" style="margin:0 0 6px;">이번 달 의뢰 ${monthRows.length}건 · 미접수 ${cnt.none} · 접수·제작 중 ${cnt.recv} · 제작 완료 ${cnt.done} <span style="color:var(--muted);">(출고일 기준)</span></div>
+      <div class="lab-cal">${['일', '월', '화', '수', '목', '금', '토'].map((w, i) => `<div class="lab-cal-wd${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${w}</div>`).join('')}${cells}</div>
+      <div class="lab-cal-detail"><div class="lab-cal-dh">${sm}/${sd}(${sdow}) 출고 의뢰 ${sel.length}건</div>${sel.length ? tableHtml(sel) : '<div class="sub">이날 출고하는 연구소 의뢰가 없습니다.</div>'}</div>`;
+    bindCal(body);
+    body.querySelectorAll('[data-cal-day]').forEach(b => b.addEventListener('click', () => {
+      L.calDay = b.dataset.calDay;
+      if(monthOf(L.calDay) !== L.calMonth){ L.calMonth = monthOf(L.calDay); loadCal(); return; }
+      renderCal();
+      const dt = body.querySelector('.lab-cal-detail'); if(dt && window.innerWidth < 700) dt.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
+    bindRows(body.querySelector('.lab-cal-detail'), L.calRows || []);
+  }
+  function bindCal(body){
+    bindViewTabs(body);
+    const go = n => { const [y, m] = L.calMonth.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); L.calMonth = `${d.getFullYear()}-${p2(d.getMonth() + 1)}`; L.calDay = ''; loadCal(); };
+    const pv = $('lab-cal-prev'), nx = $('lab-cal-next'), td = $('lab-cal-today'), rl = $('lab-cal-reload'), cc = $('lab-cal-cancel');
+    if(pv) pv.addEventListener('click', () => go(-1));
+    if(nx) nx.addEventListener('click', () => go(1));
+    if(td) td.addEventListener('click', () => { const t = dkey(new Date()); L.calDay = t; if(monthOf(t) !== L.calMonth){ L.calMonth = monthOf(t); loadCal(); } else renderCal(); });
+    if(rl) rl.addEventListener('click', () => loadCal());
+    if(cc) cc.addEventListener('change', e => { L.calCancel = e.target.checked; renderCal(); });
   }
   async function load(){
     const body = $('lab-body');
+    if(L.view === 'cal') return loadCal();
     L.loaded = false; render();
     try{ const [rows] = await Promise.all([fetchLab(L.from, L.to), loadState(), loadSheets()]); L.rows = rows; L.loaded = true; render(); renderDev(); }
-    catch(e){ if(body) body.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; }
+    catch(e){ if(body){ body.innerHTML = viewTabs() + `<div class="sub" style="color:var(--danger,#c0392b);">의뢰 목록을 불러오지 못했습니다: ${esc((e && e.message) || e)}</div>`; bindViewTabs(body); } }
   }
   // ══════════ 📝 샘플개발 산출서 · 💰 단가 기준표 (연구소 양식 '샘플개발 신청 및 비용 산출 내역서' · '단가 기준표') ══════════
   //  kv 'lab-price-table' = { v:1, rows:[{ id, cat(구분), item(항목), detail(세부 내용), price(기준 단가), note(비고) }], at, by } — 연구소 관리자가 고침 (엑셀 가져오기 · 줄 추가)
@@ -5240,7 +5379,7 @@ function applyUserUI() {
     sh.autoNote = notes.length ? '자동으로 넣은 것: ' + notes.join(' · ') : '';
   }
   function openSheet(sh){ D.edit = JSON.parse(JSON.stringify(sh)); renderDev(); const c = $('lab-dev-card'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  window.labOpenSheetForReq = id => { const r = L.rows.find(x => String(x.id) === String(id)); const ex = sheetByReq(id); if(ex) openSheet(ex); else if(r && canEdit()) openSheet(newSheet(r)); };
+  window.labOpenSheetForReq = id => { const r = allReqs().find(x => String(x.id) === String(id)); const ex = sheetByReq(id); if(ex) openSheet(ex); else if(r && canEdit()) openSheet(newSheet(r)); };
 
   // ── 산출서 목록 · 연구비 취합 ──
   function renderDev(){
@@ -5294,7 +5433,7 @@ function applyUserUI() {
     let h = `<div class="row" style="margin:0 0 10px;align-items:center;"><button type="button" class="btn-ghost small-btn" id="lab-ed-back">← 목록</button>
       <b style="font-size:15px;">샘플개발 신청 및 비용 산출 내역서</b>${sh.reqId ? '<span class="sub" style="margin:0;">샘플 의뢰와 연결됨</span>' : ''}${ro ? '<span class="sub" style="margin:0;">(보기 전용)</span>' : ''}</div>
       ${sh.autoNote && !D.sheets[sh.id] ? `<div class="lab-auto">✨ ${esc(sh.autoNote)} — 확인하고 고친 뒤 저장하세요</div>` : ''}
-      ${!ro && !sh.reqId ? `<div class="row" style="margin:0 0 6px;align-items:center;"><span class="sub" style="margin:0;">샘플 의뢰 연결</span><select id="lab-ed-req"><option value="">— 의뢰를 고르면 요청 정보가 채워집니다 —</option>${L.rows.filter(r => r.status !== '취소' && !sheetByReq(r.id)).map(r => `<option value="${esc(r.id)}">${esc(shipText(r.ship_at))} · ${esc(r.requester_name || '')} · ${esc(purposeOf(r) || labItems(r).map(i => (items_().find(x => x.id === i.skuId) || {}).name || '').join(', '))}</option>`).join('')}</select></div>` : ''}
+      ${!ro && !sh.reqId ? `<div class="row" style="margin:0 0 6px;align-items:center;"><span class="sub" style="margin:0;">샘플 의뢰 연결</span><select id="lab-ed-req"><option value="">— 의뢰를 고르면 요청 정보가 채워집니다 —</option>${allReqs().filter(r => r.status !== '취소' && !sheetByReq(r.id)).map(r => `<option value="${esc(r.id)}">${esc(shipText(r.ship_at))} · ${esc(r.requester_name || '')} · ${esc(purposeOf(r) || labItems(r).map(i => (items_().find(x => x.id === i.skuId) || {}).name || '').join(', '))}</option>`).join('')}</select></div>` : ''}
       <div class="lab-sec">1. 요청 정보</div><div class="lab-fgrid">${f('dept', '요청 부서')}${f('requester', '요청자')}${f('reqDate', '요청 일자', 'date')}${f('purpose', '개발 목적', 'text', true)}${f('due', '요구 기한', 'date')}</div>
       <div class="lab-sec">2. 샘플 요구 스펙</div><div class="lab-fgrid">${f('item', '대상 품목')}${f('qty', '요구 수량/중량')}${f('solution', '투입 용액/물질')}${f('conc', '목표 용액 농도')}${f('time', '목표 처리 시간')}${f('us', '요구 초음파/압력')}${f('memo', '메모 (신청 비고 등)', 'text', true)}</div>
       <div class="lab-sec">3. 투입 비용 산출 <span class="sub" style="margin:0;font-weight:400;">(연구소 작성란 — 항목은 단가 기준표에서 고르면 단가가 들어갑니다)</span></div>
@@ -5319,7 +5458,7 @@ function applyUserUI() {
     $('lab-ed-xls').addEventListener('click', () => exportSheet(D.edit));
     if(ro) return;
     box.querySelectorAll('.lab-fgrid input[data-k]').forEach(inp => inp.addEventListener('input', () => { sh[inp.dataset.k] = inp.value; }));
-    if($('lab-ed-req')) $('lab-ed-req').addEventListener('change', e => { const r = L.rows.find(x => String(x.id) === e.target.value); if(r){ fillFromReq(sh, r); renderEditor(); } });
+    if($('lab-ed-req')) $('lab-ed-req').addEventListener('change', e => { const r = allReqs().find(x => String(x.id) === e.target.value); if(r){ fillFromReq(sh, r); renderEditor(); } });
     $('lab-ed-status').addEventListener('change', e => { sh.status = e.target.value; });
     const recalc = () => {
       DEV_CATS.forEach(c => { const el = box.querySelector(`[data-catsum="${CSS.escape(c)}"]`); if(el) el.textContent = won(sheetCat(sh, c)); });
