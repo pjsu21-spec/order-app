@@ -2216,6 +2216,12 @@
     </details>
   </div>
 
+  <div class="card" id="ab-card" style="display:none;">
+    <div style="font-size:16px; font-weight:700; color:var(--fg);">💾 자동 백업 (이 PC 폴더)</div>
+    <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">이 PC의 폴더를 한 번 연결해 두면, 관리자가 그날 처음 프로그램을 열 때 서버 자료 전체(발주·3PL·재고·출고·자재·생산·연구소 등과 원물선별·반품·샘플 표)를 그 폴더에 <b>다름달음_자동백업_날짜.json</b> 파일로 저장합니다. 30일치를 보관하고 더 오래된 자동 백업 파일은 지웁니다. 서버가 망가지거나 자료가 통째로 지워졌을 때 되살리는 용도입니다. 위의 복원 칸에 이 파일을 넣으면 발주취합 자료가 복원됩니다 (그 밖의 자료는 서버에서 되살림).<br>연결한 폴더는 이 PC·이 브라우저에만 기억됩니다. 브라우저가 폴더 허용을 다시 물으면 <b>[방문할 때마다 허용]</b>을 고르면 다음부터 묻지 않습니다.</div></details>
+    <div class="row" id="ab-row" style="flex-wrap:wrap; align-items:center; gap:6px;"></div>
+  </div>
+
   </div><!-- /panel-settings -->
 
   </div><!-- /panel-order-group -->
@@ -16968,6 +16974,165 @@ function mnShow(id, keepScroll) {
     toast('월간 누적 엑셀이 다운로드되었습니다');
   });
 
+  // -------- 자동 백업 (이 PC 폴더) --------
+  //  관리자가 이 PC의 폴더를 한 번 연결해 두면, 그날 처음 프로그램을 열 때 서버의 공용 자료 전체(kv_store, test: 사본 제외)와
+  //  원물선별·반품·샘플 표를 '다름달음_자동백업_YYYYMMDD.json'으로 저장. 30일 지난 자동 백업 파일은 지움.
+  //  연결한 폴더는 이 브라우저(IndexedDB)에만 기억. 서버에는 쓰지 않음(활동 로그 'auto_backup' 한 줄만). 테스트 모드는 자동 저장 안 함(버튼으로만)
+  const AB_RE = /^다름달음_자동백업_(\d{8})\.json$/, AB_KEEP_DAYS = 30;
+  const AB_TABLES = ['sorting_master', 'sorting_inbound', 'sorting_output', 'sorting_output_items', 'sorting_shipment', 'sorting_vendors', 'sorting_destinations', 'sorting_businesses', 'sorting_farms', 'sorting_grades', 'sorting_equipment_types', 'sorting_equipment_log', 'sorting_packaging_units', 'returns', 'sample_requests'];
+  const AB_MAP = { 'dictionary': 'dict', 'companies': 'companies', 'company-categories': 'companyCategories', 'orders-by-date': 'ordersByDate', 'thirdparty-lineitems': 'thirdPartyLineItems', 'previous-stock': 'previousStock', 'raw-materials': 'rawMaterials', 'raw-material-usage': 'rawMaterialUsage', 'internal-order-counters': 'internalOrderCounters', 'delivery-fee-items': 'deliveryFeeItems', 'delivery-courier-name': 'deliveryCourierName', 'sku-column-map': 'skuColumnMap', 'sku-group-map': 'skuGroupMap', 'sales-by-date': 'salesByDate', 'dispatch-by-date': 'dispatchByDate', 'split-by-date': 'splitByDate', 'order-extras-by-date': 'orderExtras' };
+  function abDb(){ return new Promise((ok, bad) => { const r = indexedDB.open('dd-backup', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); }
+  async function abDirGet(){ try{ const db = await abDb(); return await new Promise(ok => { const q = db.transaction('h').objectStore('h').get('dir'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); }catch(e){ return null; } }
+  async function abDirSet(h){ const db = await abDb(); await new Promise((ok, bad) => { const t = db.transaction('h', 'readwrite'); h ? t.objectStore('h').put(h, 'dir') : t.objectStore('h').delete('dir'); t.oncomplete = ok; t.onerror = () => bad(t.error); }); }
+  const abIsAdmin = () => !!(window.currentUser && window.currentUser.role === 'admin');
+  const abDay = k => String(k).replace(/-/g, '');
+  const abName = d => `다름달음_자동백업_${d}${window.TEST_MODE ? '_테스트모드' : ''}.json`;
+  const abLastGet = () => { try{ return localStorage.getItem('dd-autobackup-last') || ''; }catch(e){ return ''; } };
+  const abLastSet = v => { try{ localStorage.setItem('dd-autobackup-last', v); }catch(e){} };
+  let abState = 'none', abDirName = '', abErr = '', abBusy = false, abHidden = false;
+  async function abFetchAll(table, sel, order){
+    const out = [], PAGE = 500;
+    for(let off = 0; off < 500000; off += PAGE){
+      const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${sel}${order ? '&order=' + order : ''}&limit=${PAGE}&offset=${off}`, { headers: sbHeaders });
+      if(!res.ok) throw new Error(table + ' ' + res.status);
+      const rows = await res.json();
+      if(!Array.isArray(rows)) throw new Error(table + ' 형식');
+      out.push(...rows);
+      if(rows.length < PAGE) break;
+    }
+    return out;
+  }
+  async function abCollect(){
+    const kv = (await abFetchAll('kv_store', 'key,value,updated_at', 'key')).filter(r => !String(r.key).startsWith('test:'));
+    if(!kv.length) throw new Error('서버 자료를 읽지 못했습니다 (0건)');
+    const tables = {}, errors = {};
+    for(const t of AB_TABLES){
+      try{ tables[t] = await abFetchAll(t, '*', 'id'); }
+      catch(e){ try{ tables[t] = await abFetchAll(t, '*', ''); }catch(e2){ errors[t] = String(e2.message || e2); } }
+    }
+    return { _version: 3, _kind: 'auto-backup', _exportedAt: new Date().toISOString(), _testMode: !!window.TEST_MODE, kv, tables, _errors: errors };
+  }
+  // 자동 백업 파일 → 기존 복원(발주취합 자료) 형식으로
+  function abToRestore(b){
+    const out = { _version: 2, _fromAuto: true, _exportedAt: b._exportedAt };
+    (b.kv || []).forEach(r => { const f = AB_MAP[r.key]; if(!f || r.value == null) return; try{ out[f] = typeof r.value === 'string' ? JSON.parse(r.value) : r.value; }catch(e){} });
+    return out;
+  }
+  async function abCheck(ask){
+    if(!window.showDirectoryPicker){ abState = 'unsupported'; return null; }
+    const h = await abDirGet();
+    if(!h){ abState = 'none'; abDirName = ''; return null; }
+    abDirName = h.name || '';
+    let p = 'denied';
+    try{ p = await h.queryPermission({ mode: 'readwrite' }); if(p !== 'granted' && ask) p = await h.requestPermission({ mode: 'readwrite' }); }
+    catch(e){ abState = (e && e.name === 'NotFoundError') ? 'missing' : 'prompt'; return null; }
+    if(p !== 'granted'){ abState = 'prompt'; return null; }
+    abState = 'ok';
+    return h;
+  }
+  async function abHasToday(h, d){ try{ await h.getFileHandle(abName(d)); return true; }catch(e){ return false; } }
+  async function abWrite(h, manual){
+    if(abBusy) return false;
+    abBusy = true; abRender();
+    try{
+      const d = abDay(getTodayKey());
+      const data = await abCollect();
+      const text = JSON.stringify(data);
+      const fh = await h.getFileHandle(abName(d), { create: true });
+      const w = await fh.createWritable(); await w.write(text); await w.close();
+      const now = new Date();
+      abLastSet(d + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()));
+      abErr = '';
+      // 30일 지난 자동 백업 파일 정리 (이 프로그램이 만든 이름만)
+      const c = new Date(); c.setDate(c.getDate() - AB_KEEP_DAYS);
+      const cut = '' + c.getFullYear() + pad2(c.getMonth() + 1) + pad2(c.getDate());
+      try{ const old = []; for await (const [name, ent] of h.entries()){ const m = AB_RE.exec(name); if(ent.kind === 'file' && m && m[1] < cut) old.push(name); } for(const n of old) await h.removeEntry(n); }catch(e){ console.warn(e); }
+      const bad = Object.keys(data._errors);
+      if(!window.TEST_MODE) writeLog('auto_backup', `${manual ? '직접' : '자동'} 백업 저장 · ${abName(d)} · 약 ${(text.length / 1048576).toFixed(1)}MB · 공용 자료 ${data.kv.length}개${bad.length ? ' · 못 읽은 표: ' + bad.join(',') : ''}`);
+      return true;
+    }catch(e){
+      const nf = e && e.name === 'NotFoundError';
+      abErr = nf ? '연결한 폴더를 찾을 수 없습니다 — 폴더를 다시 골라 주세요' : ('저장하지 못했습니다: ' + ((e && e.message) || e));
+      if(nf) abState = 'missing';
+      throw e;
+    }finally{ abBusy = false; abRender(); }
+  }
+  async function abTick(){
+    try{
+      if(!abIsAdmin() || window.TEST_MODE || abBusy){ abRender(); return; }
+      const d = abDay(getTodayKey());
+      if(abLastGet().slice(0, 8) === d && !abErr){ abRender(); return; }
+      const h = await abCheck(false);
+      if(h){
+        if(await abHasToday(h, d)){ if(abLastGet().slice(0, 8) !== d) abLastSet(d); }
+        else { await abWrite(h, false); toast('💾 오늘 자동 백업을 이 PC 폴더에 저장했습니다'); }
+      }
+    }catch(e){ console.error('자동 백업 실패:', e); }
+    abRender();
+  }
+  async function abNow(){   // 버튼: 허용을 물어서라도 지금 저장
+    const h = await abCheck(true);
+    if(!h){ abRender(); toast(abState === 'missing' ? '연결한 폴더를 찾을 수 없습니다. 폴더를 다시 골라 주세요' : '폴더 사용이 허용되지 않았습니다'); return; }
+    try{ await abWrite(h, true); toast('💾 백업 파일을 저장했습니다'); }catch(e){ toast(abErr || '백업을 저장하지 못했습니다'); }
+  }
+  async function abPick(){
+    try{
+      const h = await window.showDirectoryPicker({ id: 'auto-backup', mode: 'readwrite', startIn: 'documents' });
+      await abDirSet(h); abErr = '';
+      await abNow();
+    }catch(e){ if(e && e.name !== 'AbortError') toast('폴더를 연결하지 못했습니다: ' + (e.message || e)); abRender(); }
+  }
+  function abRender(){
+    const card = document.getElementById('ab-card'), row = document.getElementById('ab-row');
+    const show = abIsAdmin();
+    if(card) card.style.display = show ? '' : 'none';
+    const today = abDay(getTodayKey()), last = abLastGet();
+    const doneToday = last.slice(0, 8) === today;
+    const lastTxt = last ? `${last.slice(4, 6)}/${last.slice(6, 8)}${last.length > 9 ? ' ' + last.slice(9) : ''}` : '없음';
+    if(row && show){
+      let h = '';
+      if(abState === 'unsupported') h = '<span class="sub" style="margin:0;">이 브라우저는 폴더 저장을 지원하지 않습니다 (사무실 PC의 크롬·엣지에서 연결해 주세요)</span>';
+      else if(abState === 'none') h = '<button type="button" class="btn-primary small-btn" data-ab="pick">📂 백업 폴더 연결</button><span class="sub" style="margin:0;">연결하면 바로 첫 백업을 저장합니다</span>';
+      else {
+        h = `<span class="sub" style="margin:0;">📂 ${escapeHtml(abDirName)} · 마지막 저장 ${escapeHtml(lastTxt)}${doneToday ? ' ✅' : ''}</span>`;
+        if(abState === 'prompt') h += '<button type="button" class="btn-primary small-btn" data-ab="now">폴더 허용하고 지금 저장</button>';
+        else if(abState === 'missing') h += '<span class="sub" style="margin:0;color:var(--danger,#c0392b);">연결한 폴더를 찾을 수 없습니다</span>';
+        else h += `<button type="button" class="btn-ghost small-btn" data-ab="now"${abBusy ? ' disabled' : ''}>${abBusy ? '저장 중…' : '지금 저장'}</button>`;
+        h += '<button type="button" class="btn-ghost small-btn" data-ab="pick">폴더 바꾸기</button><button type="button" class="btn-ghost small-btn" data-ab="off">연결 끊기</button>';
+      }
+      if(abErr) h += `<span class="sub" style="margin:0;color:var(--danger,#c0392b);">${escapeHtml(abErr)}</span>`;
+      row.innerHTML = h;
+    }
+    // 오늘 아직 저장 못 했으면 화면 아래 작은 알림 (허용이 필요하거나 실패한 경우만)
+    let chip = document.getElementById('ab-chip');
+    const need = show && !window.TEST_MODE && !abHidden && !doneToday && (abState === 'prompt' || abState === 'missing' || !!abErr);
+    if(!need){ if(chip) chip.remove(); return; }
+    if(!chip){
+      chip = document.createElement('div'); chip.id = 'ab-chip';
+      chip.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:900;background:var(--card,#fff);color:var(--fg,#222);border:1px solid var(--line,#ccc);border-radius:10px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:13px;display:flex;gap:6px;align-items:center;max-width:calc(100vw - 24px);flex-wrap:wrap;';
+      document.body.appendChild(chip);
+    }
+    chip.innerHTML = abState === 'prompt'
+      ? '💾 오늘 자동 백업 전입니다 <button type="button" class="btn-primary small-btn" data-ab="now">허용하고 저장</button><button type="button" class="btn-ghost small-btn" data-ab="hide" title="이 화면에서만 숨김">✕</button>'
+      : `💾 오늘 자동 백업 실패 — ${escapeHtml(abErr || '연결한 폴더를 찾을 수 없습니다')} <button type="button" class="btn-ghost small-btn" data-ab="settings">설정 열기</button><button type="button" class="btn-ghost small-btn" data-ab="hide">✕</button>`;
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('[data-ab]'); if(!b) return;
+    const k = b.dataset.ab;
+    if(k === 'pick') abPick();
+    else if(k === 'now') abNow();
+    else if(k === 'off'){ if(!confirm('이 PC의 자동 백업 폴더 연결을 끊을까요? (이미 저장된 백업 파일은 그대로 남습니다)')) return; await abDirSet(null); abState = 'none'; abDirName = ''; abErr = ''; abRender(); }
+    else if(k === 'hide'){ abHidden = true; abRender(); }
+    else if(k === 'settings'){
+      const m = document.querySelector('.main-nav-btn[data-panel="panel-order-group"]'); if(m && !m.classList.contains('active')) m.click();
+      const go = document.querySelector('.order-sub-nav-btn[data-order-panel="panel-settings"]'); if(go && !go.classList.contains('active')) go.click();
+      const c = document.getElementById('ab-card'); if(c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+  window.__ab = { abTick, abCollect, abToRestore, abRender, get state(){ return abState; }, get err(){ return abErr; } };   // (점검용)
+  setTimeout(abTick, 8000);
+  setInterval(abTick, 60000);
+
   // -------- 데이터 백업 / 복원 --------
   document.getElementById('cleanup-lineitem-dates-btn').addEventListener('click', async ()=>{
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -17030,7 +17195,8 @@ function mnShow(id, keepScroll) {
       const reader = new FileReader();
       reader.onload = (evt)=>{
         try{
-          const data = JSON.parse(evt.target.result);
+          let data = JSON.parse(evt.target.result);
+          if(data && Array.isArray(data.kv)) data = abToRestore(data);   // 자동 백업 파일 → 발주취합 자료만 꺼냄
           if(!data._version){ toast('올바른 백업 파일이 아닙니다'); return; }
           pendingRestoreData = data;
           document.getElementById('restore-fname').textContent = file.name;
@@ -17041,6 +17207,7 @@ function mnShow(id, keepScroll) {
           const lineItemCount = Object.values(data.thirdPartyLineItems || {}).reduce((s,a)=>s+a.length, 0);
           document.getElementById('restore-summary').innerHTML =
             `<b>백업 내용:</b> 거래처 ${companyCount}개 · SKU ${skuCount}개 · 발주일자 ${dateKeys.length}일치 · 3PL 주문 ${lineItemCount}건<br>` +
+            (data._fromAuto ? `<span class="sub" style="margin:0;">자동 백업 파일(${escapeHtml(new Date(data._exportedAt).toLocaleString())} 저장)에서 발주취합 자료만 복원합니다. 자재·생산·연구소 등 다른 자료는 그대로 둡니다.</span><br>` : '') +
             `<span style="color:var(--warn)">⚠ 복원하면 현재 저장된 모든 데이터가 이 백업으로 교체됩니다.</span>`;
           document.getElementById('restore-preview').style.display = 'block';
         }catch(e){
