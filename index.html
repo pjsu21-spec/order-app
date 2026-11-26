@@ -1231,7 +1231,7 @@
   }
   .dropzone.dragover{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .dropzone .fname{ font-weight:700; color:var(--ink); margin-top:4px; }
-  /* 📈 시세 리포트 */
+  /* 📰 Daily Report (도매시장 시세) */
   .mk-bar{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
   .mk-bar select{ padding:5px 8px; }
   .mk-meta{ font-size:12px; color:var(--muted); }
@@ -1354,7 +1354,7 @@
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
     <button class="main-nav-btn" id="main-nav-btn-lab" data-panel="panel-lab" style="display:none;">🔬 연구소</button>
     <button class="main-nav-btn" id="main-nav-btn-vault" data-panel="panel-vault" style="display:none;">🔐 거래처 계정</button>
-    <button class="main-nav-btn" id="main-nav-btn-mkt" data-panel="panel-mkt">📈 시세 리포트</button>
+    <button class="main-nav-btn" id="main-nav-btn-mkt" data-panel="panel-mkt">📰 Daily Report</button>
     <button class="main-nav-btn" id="main-nav-btn-manual" data-panel="panel-manual">📖 사용설명서</button>
   </nav>
 
@@ -2985,7 +2985,7 @@
 
   <div id="panel-mkt" class="main-tab-panel">
     <div class="card">
-      <h2>📈 시세 리포트 <span class="badge">전국 공영도매시장 전일 정산가 · 매일 아침 자동</span></h2>
+      <h2>📰 Daily Report <span class="badge">전국 공영도매시장 전일 정산가 · 매일 아침 자동</span></h2>
       <details class="help" style="margin:0 0 10px;"><summary>ⓘ 보는 방법</summary><div class="sub" style="margin:6px 0 0;">
         매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더)에 전날 전국 공영도매시장(가락·강서·구리·대구북부 등 32곳)의 <b>정산(경락) 자료</b>를 받아 품목별로 정리합니다. 자료: 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털).
         <b>kg당 평균</b> = 그날 총 거래금액 ÷ 총 물량(kg)이라 물량이 많은 거래가 더 크게 반영됩니다. <b>상자당</b>은 물량이 가장 많은 포장(예: 상자 3kg)의 실제 거래 평균·최저·최고이고, 그 포장 거래가 없는 칸은 kg당 평균 × 포장 무게로 환산해 ≈로 표시합니다. 도매시장은 <b>수도권</b>(가락·강서·구리·인천 등)과 <b>지방</b>으로 나눠 거래량 상위 10곳씩 보여 줍니다.
@@ -3640,8 +3640,8 @@
   <li>삭제한 파일은 <b>🗑 휴지통</b>으로 가서 <b>복원</b>할 수 있습니다. 휴지통에서 완전삭제하면 되돌릴 수 없습니다.</li>
 </ul>
 
-<h2>📈 시세 리포트 <span class="mn-who">로그인한 누구나</span></h2>
-<p class="mn-lead">홈 화면의 <b>시세 리포트</b> 타일입니다. 매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더) 전날 전국 공영도매시장 32곳의 정산(경락) 자료를 받아 품목별로 정리합니다. 자료는 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털)입니다.</p>
+<h2>📰 Daily Report (도매시장 시세) <span class="mn-who">로그인한 누구나</span></h2>
+<p class="mn-lead">홈 화면의 <b>Daily Report</b> 타일입니다. 매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더) 전날 전국 공영도매시장 32곳의 정산(경락) 자료를 받아 품목별로 정리합니다. 자료는 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털)입니다.</p>
 <ul>
   <li>위쪽 <b>카드</b>: 품목별 <b>kg당 평균</b>(총 거래금액 ÷ 총 물량), 대표 포장(물량이 가장 많은 포장, 예: 상자 3kg) 가격, <b>전일</b>(직전 거래일)·<b>전주</b>(7일 전) 대비 ▲▼, 전국 물량. 카드를 누르면 그 품목의 표가 아래에 나옵니다.</li>
   <li>아래 <b>표</b>: 최근 흐름 그래프와 <b>수도권·지방 도매시장 Top10</b>(거래량 순) · 등급별 · 크기별 · 산지(시·도, 시·군) · 품종별 · 거래 방식별 물량, <b>kg당 평균</b>, <b>상자당 평균·최저~최고</b>(대표 포장 기준, 그 포장 거래가 없으면 ≈ 환산).</li>
@@ -6226,10 +6226,10 @@ window.erpCodesLoad = (() => { let p = null; return force => {
 //  - href: 외부 링크 타일. self=true면 같은 창, 아니면 새 창. show(user, isAdmin)로 표시 조건을 지정한다.
 //  - 타일 순서: 마스터 계정(admin)만 '타일 순서 편집'으로 바꿀 수 있고, kv_store 'home-tile-order'(공유)에 저장되어 모든 사용자에게 적용된다.
 const HOME_TILES = [
+  { key: 'mkt', icon: '📰', name: 'Daily Report', desc: '도매시장 전일 시세 · 등급별 · 산지별', nav: '#main-nav-btn-mkt', pinFirst: true },   // 로그인한 누구나 · 홈 맨 앞(좌측 최상단) 고정
   { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20261124a' },
   { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
   { key: 'lab', icon: '🔬', img: 'assets/ic-lab.png', name: '연구소', desc: '연구소 의뢰 샘플 · 연구비 비용', nav: '#main-nav-btn-lab' },   // 관리자 + 허용한 직원만
-  { key: 'mkt', icon: '📈', name: '시세 리포트', desc: '도매시장 전일 경락가 · 등급별 · 산지별', nav: '#main-nav-btn-mkt' },   // 로그인한 누구나
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'mat', icon: '🗃', img: 'assets/ic-mat.png', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
@@ -6263,7 +6263,8 @@ function homeSortTiles(tiles, order) {
     seq.splice(at + 1, 0, k);
   });
   const idx = k => { const i = seq.indexOf(k); return i < 0 ? 999 : i; };
-  return tiles.map((t, i) => ({ t, i })).sort((a, b) => idx(a.t.key) - idx(b.t.key) || a.i - b.i).map(x => x.t);
+  const pin = t => t.pinFirst ? 0 : 1;   // Daily Report 처럼 맨 앞 고정 타일은 저장된 순서와 관계없이 처음 (모바일도 맨 위)
+  return tiles.map((t, i) => ({ t, i })).sort((a, b) => pin(a.t) - pin(b.t) || idx(a.t.key) - idx(b.t.key) || a.i - b.i).map(x => x.t);
 }
 async function loadHomeOrder() {
   try {
@@ -16611,7 +16612,7 @@ function mnShow(id, keepScroll) {
       if((panelId === 'panel-mat' || panelId === 'panel-buy') && window.__matOpen) window.__matOpen(panelId === 'panel-buy' ? 'buy' : 'mat');
       if(panelId === 'panel-vault' && window.vaultOpen) window.vaultOpen();   // 거래처 계정
       if(panelId === 'panel-lab' && window.labOpen) window.labOpen();   // 연구소
-      if(panelId === 'panel-mkt' && window.mktOpen) window.mktOpen();   // 시세 리포트
+      if(panelId === 'panel-mkt' && window.mktOpen) window.mktOpen();   // Daily Report (도매시장 시세)
       if(panelId === 'panel-ecount' && window.__ecBuyInit) window.__ecBuyInit();   // 구매입력 설정 (자재·구매 쪽 저장값)
       if(panelId === 'panel-master'){
         if(window.__matOpen) window.__matOpen('master');   // 원물·부자재 · 품목 구성
@@ -22852,7 +22853,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     ]);
   }
   window.rsOpen = rsOpen;
-  window.__pgCapture = (html, width, fileBase, css) => pgCapture(html, width, fileBase, css);   // 시세 리포트 이미지
+  window.__pgCapture = (html, width, fileBase, css) => pgCapture(html, width, fileBase, css);   // Daily Report 이미지
   window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, xlsxAll: rsXlsxAll, grid: rsGrid, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
   (function wirePoGen(){
     const $ = id => document.getElementById(id);
@@ -27817,7 +27818,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.getElementById('test-exit').addEventListener('click', () => { try{ sessionStorage.removeItem('dd_test'); }catch(e){} location.href = location.pathname; });
   })();
 
-  // ── 📈 시세 리포트: 전국 공영도매시장 전일 정산(경락) 가격 — 서버 함수 market-report(supabase/functions/market-report)가 매일 아침 받아 kv 에 저장 ──
+  // ── 📰 Daily Report (도매시장 시세): 전국 공영도매시장 전일 정산(경락) 가격 — 서버 함수 market-report(supabase/functions/market-report)가 매일 아침 받아 kv 에 저장 ──
   //  kv 'mkt-report-index' = { dates: { 'YYYY-MM-DD': { at, empty, partial, items: { key: { name, kg, avg, pack:{label,avg} } } } }, lastRunAt }
   //  kv 'mkt-report:YYYY-MM-DD' = { date, at, markets, fails[], empty, items: [{ key, name, rows, kg, avg, pack, grades, sizes, gradeSize, regions, origins, markets, varieties, trades }] }
   //  kv 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } — 관리자가 품목 설정에서 고침 (없으면 서버 기본: 대추방울토마토·찰토마토·딸기)
@@ -28006,12 +28007,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const ch = (p, l) => p == null ? `${l} -` : `<span class="${Math.abs(p) < 0.5 ? '' : p > 0 ? 'up' : 'dn'}">${l} ${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p).toFixed(1)}%</span>`;
       const mini = (t, rows, it, top) => !rows || !rows.length ? '' : `<div><div class="t">${esc(t)}</div><table><tr><th>구분</th><th>물량</th><th>kg당</th>${it.pack ? `<th>상자당<br>(${esc(it.pack.label)})</th>` : ''}</tr>${rows.slice(0, top || 8).map(r => { const bx = r.box != null ? r.box : (it.pack ? r.avg * it.pack.unitKg : 0), est = r.box == null || r.est; return `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${won(r.avg)}</td>${it.pack ? `<td class="n">${est ? '≈' : ''}${won(bx)}</td>` : ''}</tr>`; }).join('')}</table></div>`;
       const ok = rep.items.filter(x => !x.empty);
-      const html = `<div class="mki"><h1>도매시장 시세 리포트 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 상자당 = 대표 포장 거래 평균(≈ 환산) · 다름달음 통합시스템</div>
+      const html = `<div class="mki"><h1>Daily Report · 도매시장 시세 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 상자당 = 대표 포장 거래 평균(≈ 환산) · 다름달음 통합시스템</div>
         <div class="cards">${ok.map(it => { const c = cmpOf(rep.date, it.key); return `<div class="c"><div class="cn">${esc(it.name)}</div><div class="cv">${won(it.avg)}<small>원/kg</small></div>${it.pack ? `<div class="cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}<div class="cp">${ch(pct(it.avg, c.pv && c.pv.avg), '전일')} · ${ch(pct(it.avg, c.wv && c.wv.avg), '전주')}</div><div class="cq">물량 ${vol(it.kg)}</div></div>`; }).join('')}</div>
         ${ok.map(it => `<h2>${esc(it.name)}</h2><div class="g">${it.marketsCap ? mini('수도권 도매시장 Top10', it.marketsCap, it, 10) + mini('지방 도매시장 Top10', it.marketsLocal, it, 10) : mini('도매시장별', it.markets, it, 8)}${mini('등급별', it.grades, it)}</div>`).join('')}</div>`;
       if(!window.__pgCapture){ toast('이미지 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
-      await window.__pgCapture(html, 880, '시세리포트_' + rep.date.slice(2).replace(/-/g, ''), css);
-      writeLog('market_report', `시세 리포트 이미지 ${rep.date}`).catch(() => {});
+      await window.__pgCapture(html, 880, 'DailyReport_' + rep.date.slice(2).replace(/-/g, ''), css);
+      writeLog('market_report', `Daily Report 이미지 ${rep.date}`).catch(() => {});
     }
 
     // ── 관리자: 다시 받기 · 지난 2주 채우기 · 품목 설정 ──
@@ -28036,7 +28037,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const v = { items, at: Date.now(), by: (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '' };
       await window.storage.set(K_SET, JSON.stringify(v), true);
       M.set = v;
-      writeLog('market_report', `시세 리포트 품목: ${items.map(x => x.name).join(', ')}`).catch(() => {});
+      writeLog('market_report', `Daily Report 품목: ${items.map(x => x.name).join(', ')}`).catch(() => {});
       render();
     }
     function bindAdmin(){
