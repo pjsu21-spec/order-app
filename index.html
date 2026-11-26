@@ -316,6 +316,14 @@
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
   /* 📒 월간 생산 수불장 */
+  .lg-weeks{ display:flex; flex-wrap:wrap; gap:8px 12px; margin:0 0 10px; }
+  .lg-wb{ border-collapse:collapse; font-size:12px; width:auto !important; flex:0 0 auto; }
+  .lg-wb th, .lg-wb td{ border:1px solid var(--line); padding:3px 8px; text-align:center; white-space:nowrap; min-width:52px; }
+  .lg-wb th{ background:#f6f2ee; font-weight:600; }
+  .lg-wb th.lg-wn{ background:var(--hover); font-size:13px; font-weight:700; min-width:60px; }
+  .lg-wb td{ text-align:right; background:#fff; }
+  .lg-wb td.lg-wl{ background:#fff4d6; font-weight:700; }
+  .lg-wb.mon th.lg-wn{ background:var(--accent-soft); color:var(--accent); }
   .lg-week{ overflow-x:auto; margin:0 0 10px; }
   .lg-wt{ border-collapse:collapse; font-size:12px; }
   .lg-wt th, .lg-wt td{ border:1px solid var(--line); padding:3px 8px; text-align:right; white-space:nowrap; }
@@ -26273,10 +26281,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const weeks = []; let wk = null;
     days.forEach(d => { const dow = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, d).getDay(); if(!wk || dow === 0){ wk = { from: d, to: d }; weeks.push(wk); } wk.to = d; });
     const endSub = rows.find(r => r.k === 'p5_sub_end');
+    const lastStock = upto => { let v = inRaw.D == null ? null : Number(inRaw.D); for(let d = 1; d <= upto; d++){ const x = val(stockRaw, d); if(x != null) v = x; } return v; };
     const W = weeks.map((w, i) => {
       let inS = 0, useS = 0, prS = 0, endB = null;
       for(let d = w.from; d <= w.to; d++){ inS += val(inRaw, d) || 0; useS += val(use, d) || 0; prS += prTot(d); if(endSub){ const e = val(endSub, d); if(e != null) endB = e; } }
-      return { n: i + 1, from: w.from, to: w.to, in: lgR(inS, 1), use: lgR(useS, 1), prod: lgR(prS, 1), loss: useS ? lgR(1 - prS / useS, 4) : null, end: endB };
+      return { n: i + 1, from: w.from, to: w.to, start: lastStock(w.from - 1), in: lgR(inS, 1), use: lgR(useS, 1), stock: lastStock(w.to), prod: lgR(prS, 1), loss: useS ? lgR(1 - prS / useS, 4) : null, end: endB };
     });
     return { m, n, days, dks, act, rows, weeks: W };
   }
@@ -26296,13 +26305,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     LG.rows = B;
     const can = lgCan(), WD = ['일', '월', '화', '수', '목', '금', '토'];
     const dow = d => new Date(Number(B.m.slice(0, 4)), Number(B.m.slice(5, 7)) - 1, d).getDay();
-    let h = `<div class="lg-week"><table class="lg-wt"><thead><tr><th>주차</th>${B.weeks.map(w => `<th>${w.n}주차<div class="lg-sm">${w.from}~${w.to}일</div></th>`).join('')}<th>월 합계</th></tr></thead><tbody>`;
     const wsum = k => B.weeks.reduce((t, w) => t + (Number(w[k]) || 0), 0);
     const wl = wsum('use') ? 1 - wsum('prod') / wsum('use') : null;
-    [['in', '원물 입고 (kg)'], ['use', '원물 사용량 (kg)'], ['prod', '생산 (가공kg)'], ['loss', 'loss율'], ['end', '주말 재고 (500g 박스)']].forEach(([k, t]) => {
-      h += `<tr><th>${t}</th>${B.weeks.map(w => `<td>${k === 'loss' ? (w.loss == null ? '' : (w.loss * 100).toFixed(1) + '%') : (w[k] == null ? '' : Number(w[k]).toLocaleString('ko-KR'))}</td>`).join('')}<td><b>${k === 'loss' ? (wl == null ? '' : (wl * 100).toFixed(1) + '%') : k === 'end' ? (B.weeks.slice().reverse().find(w => w.end != null) || {}).end ?? '' : lgR(wsum(k), 1).toLocaleString('ko-KR')}</b></td></tr>`;
-    });
-    h += '</tbody></table></div>';
+    const wnum = v => v == null || !isFinite(v) ? '' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 2 }), wpct = v => v == null || !isFinite(v) ? '' : (Number(v) * 100).toFixed(2) + '%';
+    const wkCols = w => (w.n === 1 ? [['전일재고', wnum(w.start)]] : []).concat([['주간입고', wnum(w.in)], ['사용량', wnum(w.use)], ['현재고', wnum(w.stock)], ['loss율', wpct(w.loss)], ['재고box', wnum(w.end)]]);
+    const monthW = { n: '월', in: wsum('in'), use: wsum('use'), stock: (B.weeks.slice().reverse().find(w => w.stock != null) || {}).stock, loss: wl, end: (B.weeks.slice().reverse().find(w => w.end != null) || {}).end };
+    let h = `<div class="lg-weeks">${B.weeks.concat([monthW]).map(w => { const cs = w.n === '월' ? [['월입고', wnum(w.in)], ['사용량', wnum(w.use)], ['현재고', wnum(w.stock)], ['loss율', wpct(w.loss)], ['재고box', wnum(w.end)]] : wkCols(w); return `<table class="lg-wb${w.n === '월' ? ' mon' : ''}"><tr><th rowspan="2" class="lg-wn">${w.n === '월' ? '월 합계' : w.n + '주차'}${w.from ? `<div class="lg-sm">${w.from}~${w.to}일</div>` : ''}</th>${cs.map(c => `<th>${c[0]}</th>`).join('')}</tr><tr>${cs.map(c => `<td${c[0] === 'loss율' ? ' class="lg-wl"' : ''}>${c[1]}</td>`).join('')}</tr></table>`; }).join('')}</div>`;
     h += `<div class="lg-wrap"><table class="lg-tbl"><thead><tr><th class="lg-c0">구분</th><th class="lg-c1">품목</th><th class="lg-c2">항목</th><th class="lg-cD">전월<br>/전일</th>${B.days.map((d, i) => `<th class="${dow(d) === 0 ? 'sun' : dow(d) === 6 ? 'sat' : ''}${B.act[i] ? '' : ' off'}">${d}<div class="lg-sm">${WD[dow(d)]}</div></th>`).join('')}<th class="lg-tot">합계</th></tr></thead><tbody>`;
     let lastSec = '', lastA = '', lastB = '';
     B.rows.forEach(r => {
@@ -26376,15 +26384,20 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     g.cols = [{ w: 12 }, { w: 10 }, { w: 12 }, { w: 9 }].concat(B.days.map(() => ({ w: 7.5 })), [{ w: 10 }]);
     const [yy, mo] = B.m.split('-').map(Number);
     put(1, 1, `${mo}월 생산 수불장`, { sz: 16, b: 1, bd: ['', '', '', ''], h: 'left' }); g.merges.push('A1:D1'); g.rows[1].h = 28;
-    // 주차별 요약
-    let r = 3;
-    put(r, 1, '주차', { b: 1, fill: '#E9E9E9' }); B.weeks.forEach((w, i) => put(r, 2 + i, `${w.n}주차 (${w.from}~${w.to}일)`, { b: 1, fill: '#E9E9E9', w: 1 }));
+    // 주차별 요약: 주차마다 [N주차 | (1주차만 전일재고) 주간입고 · 사용량 · 현재고 · loss율 · 재고box] 묶음을 옆으로, 묶음 사이 한 칸 띄움
+    let r = 3, c0 = 1;
     const sumW = k => B.weeks.reduce((t, w) => t + (Number(w[k]) || 0), 0);
-    [['in', '원물 입고 (kg)'], ['use', '원물 사용량 (kg)'], ['prod', '생산 (가공kg)'], ['loss', 'loss율'], ['end', '주말 재고 (500g 박스)']].forEach(([k, t]) => {
-      r++; put(r, 1, t, { b: 1, h: 'left' });
-      B.weeks.forEach((w, i) => put(r, 2 + i, w[k] == null ? '' : (k === 'loss' ? w[k] : w[k]), { h: 'right', nf: k === 'loss' ? '0.0%' : '#,##0.##' }));
+    const lastOf = k => (B.weeks.slice().reverse().find(w => w[k] != null) || {})[k];
+    const blocks = B.weeks.map(w => ({ name: `${w.n}주차`, sub: `${w.from}~${w.to}일`, cols: (w.n === 1 ? [['전일재고', w.start, '#,##0.##']] : []).concat([['주간입고', w.in, '#,##0.##'], ['사용량', w.use, '#,##0.##'], ['현재고', w.stock, '#,##0.##'], ['loss율', w.loss, '0.00%'], ['재고box', w.end, '#,##0.##']]) }));
+    blocks.push({ name: '월 합계', sub: '', cols: [['월입고', sumW('in'), '#,##0.##'], ['사용량', sumW('use'), '#,##0.##'], ['현재고', lastOf('stock'), '#,##0.##'], ['loss율', sumW('use') ? 1 - sumW('prod') / sumW('use') : null, '0.00%'], ['재고box', lastOf('end'), '#,##0.##']] });
+    blocks.forEach(bk => {
+      put(r, c0, bk.name + (bk.sub ? '\n' + bk.sub : ''), { b: 1, fill: '#E9E9E9', w: 1, sz: 11 }); put(r + 1, c0, '', { fill: '#E9E9E9' }); g.merges.push(`${L(c0)}${r}:${L(c0)}${r + 1}`);
+      bk.cols.forEach(([t, v, nf], k) => { put(r, c0 + 1 + k, t, { b: 1, fill: '#F6F6F6' }); put(r + 1, c0 + 1 + k, v == null || !isFinite(v) ? '' : v, { h: 'right', nf, fill: t === 'loss율' ? '#FFE699' : '' }); });
+      c0 += bk.cols.length + 2;
     });
-    r += 2;
+    while(g.cols.length < c0) g.cols.push({ w: 9 });
+    g.rows[r].h = 22; g.rows[r + 1].h = 22;
+    r += 3;
     // 본문
     const head = { b: 1, fill: '#E9E9E9', w: 1 };
     put(r, 1, '구분', head); put(r, 2, '품목', head); put(r, 3, '항목', head); put(r, 4, '전월/전일', head);
