@@ -4,7 +4,7 @@
 //  · 저장: 'mkt-report:YYYY-MM-DD' (그날 리포트) · 'mkt-report-index' (날짜별 요약 — 전일·전주 비교, 2주 흐름)
 //  · 품목 목록: 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } (없으면 기본: 대추방울토마토 · 찰토마토 · 딸기 · 스테비아토마토)
 //  · 매일 아침 pg_cron 이 { action: 'cron' } 으로 부름 (시세리포트_자동실행_SQL.sql) → 어제(한국 시간) 자료를 받음. 로그인 없이 부르면 30분에 한 번만 실제로 받음
-//  · 화면(로그인 토큰 x-app-token)에서 { action: 'run', date, only? } → 그날 자료를 바로 다시 받음 (only: 품목 key 목록이면 그 품목만 받아 끼워 넣음) / { action: 'goods', q } → 품목 코드 찾기 (품목 추가용)
+//  · 화면(관리자 로그인 토큰 x-app-token)에서 { action: 'run', date, only? } → 그날 자료를 바로 다시 받음 (only: 품목 key 목록이면 그 품목만 받아 끼워 넣음) / { action: 'goods', q } → 품목 코드 찾기 (품목 추가용)
 //  필요한 비밀값(Supabase → Edge Functions → Secrets): DATA_GO_KR_KEY (공공데이터포털 일반 인증키)
 //  자동으로 있는 값: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (저장용)
 //  배포할 때 'JWT 확인(Verify JWT)'은 끔 — 이 시스템은 자체 로그인 토큰을 씀.
@@ -235,11 +235,21 @@ export async function handle(req, deps) {
     const r = await deps.fetch(`${base}/rest/v1/kv_store?key=eq.mkt-report-settings&select=key`, { headers: { apikey, 'x-app-token': token } });
     return r.ok;
   };
+  // 관리자인지 (화면과 같은 규칙: 서버 함수 _app_level('admin') = 'full'). 다시 받기·품목 찾기는 관리자만
+  const isAdmin = async () => {
+    if (!token) return false;
+    const apikey = req.headers.get('apikey') || deps.env('SUPABASE_ANON_KEY') || '';
+    const r = await deps.fetch(`${base}/rest/v1/rpc/_app_level`, { method: 'POST', headers: { apikey, 'x-app-token': token, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_prog: 'admin' }) });
+    if (!r.ok) return false;
+    const v = await r.json().catch(() => null);
+    return v === 'full';
+  };
+  const denied = async () => (await loggedIn()) ? json({ ok: false, error: '관리자만 할 수 있습니다' }, 403) : json({ ok: false, error: 'login required' }, 401);
 
   const call = makeApi(key, deps.fetch);
   try {
     if (action === 'goods') {
-      if (!(await loggedIn())) return json({ ok: false, error: 'login required' }, 401);
+      if (!(await isAdmin())) return denied();
       const q = String(body.q || '').trim();
       if (q.length < 1) return json({ ok: true, list: [] });
       const list = [];
@@ -270,7 +280,7 @@ export async function handle(req, deps) {
     };
 
     if (action === 'run') {
-      if (!(await loggedIn())) return json({ ok: false, error: 'login required' }, 401);
+      if (!(await isAdmin())) return denied();
       const day = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : kstDay(-1, now);
       if (day >= kstDay(0, now)) return json({ ok: false, error: '오늘 이후 날짜는 받을 수 없습니다' }, 400);
       if (day < kstDay(-400, now)) return json({ ok: false, error: '너무 오래된 날짜입니다' }, 400);
