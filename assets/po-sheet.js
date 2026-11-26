@@ -70,6 +70,9 @@
     const c15 = c => Number(col15[c]) || 0;
     dyn.D3 = ` ◇토마토 : ${R2((sumC(['J', 'K', 'L', 'M']) + sumC(['N', 'O', 'P', 'Q'])) * 2 + sumC(['AC', 'AD', 'AE', 'AF']) * 0.15)}kg    ◇포도 : ${R2((c15('R') + c15('S')) * 1.8 + (c15('AG') + c15('AH')) * 0.15)}kg    ◇용과 : ${R2(c15('U') * 1.8)}kg`;
     dyn.D4 = ` ◇검은콩 : ${R2(c15('Y') * 0.15)}kg    ◇아몬드 : ${R2(c15('Z') * 0.15)}kg`;
+    // 품목 색: 설정에 올린 발주취합 서식의 품목 열 색(m.colFill, 열 → '#RRGGBB') · 묶음 머리글 색(m.groupFillByCol) — 없으면 기본 서식 색 그대로
+    const CF = m.colFill || {}, GFC = m.groupFillByCol || {}, GF = {};
+    GROUPS.forEach(G => { const k = G.cols.find(c => c15(c) > 0 && GFC[c]) || G.cols.find(c => GFC[c]); if(k) G.cols.forEach(c => { GF[c] = GFC[k]; }); });
     const hideRows = new Set();
     LINES.forEach(L => {
       const stock = sumC(L.box || L.bottle, m.stockByCol || {});
@@ -89,7 +92,10 @@
         let val = v;
         if(dyn[addr] !== undefined) val = dyn[addr];
         if(m.headText && m.headText[addr] != null) val = m.headText[addr];   // 묶음 머리글 용량(예: 대추방울토마토 750g)
-        const s = on != null ? style((ref ? Number(vals[ref]) > 0 : Number(typeof val === 'object' ? 0 : val) > 0) ? on : st) : style(st);
+        const onNow = on != null && (ref ? Number(vals[ref]) > 0 : Number(typeof val === 'object' ? 0 : val) > 0);
+        let s = on != null ? style(onNow ? on : st) : style(st);
+        if(onNow && CF[col]) s = withFill(s, CF[col]);
+        if(row.r >= 3 && row.r <= 6 && GF[col] && s.fill) s = withFill(s, GF[col]);
         g.set(row.r, col, val, s);
       });
     });
@@ -116,6 +122,7 @@
         const col = CL(n), spec = vec[col];
         let val = v[col]; if(val === undefined) val = '';
         let s = pick(spec, val);
+        if(CF[col] && spec && spec[1] != null && !spec[2] && Number(val) > 0) s = withFill(s, CF[col]);   // 서식의 품목 열 색
         if(pos && pos.lines){   // 업체 줄: 묶음 경계는 굵은 선, 안쪽은 얇은 선
           if(col === 'B' && !pos.noB) s = withBd(s, pos.blockStart ? 'medium' : '', pos.blockEnd ? 'medium' : '');
           else if(col === 'C' && pos.cGroup) s = withBd(s, pos.cStart ? 'medium' : '', pos.cEnd ? 'medium' : '');

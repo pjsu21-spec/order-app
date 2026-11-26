@@ -10821,10 +10821,12 @@ function mnShow(id, keepScroll) {
     PS.GROUPS.forEach((G, gi) => {
       const gc = cellOf(r3, G.cols[0]); const gf = gc[1] != null ? st(gc[1]).fill : '';
       if(gf) colors.groups[gi] = gf.slice(1);
+      { const tg = G.cols.map(L => (r.model.groupFillByCol || {})[L]).find(Boolean); if(tg) colors.groups[gi] = tg.slice(1); }
       G.cols.forEach(L => {
         if(!(col15[L] > 0)) return;
         const hc = cellOf(r17, L), lf = hc[3] != null ? st(hc[3]).fill : (hc[1] != null ? st(hc[1]).fill : '');
         if(lf) colors.cols[L] = lf.slice(1);
+        if((r.model.colFill || {})[L]) colors.cols[L] = r.model.colFill[L].slice(1);   // 올린 서식의 품목 색 우선
         const sku = dict.find(d => skuColumnMap[d.id] === L);
         const HT = r.model.headText || {}, gk = G.cols[0] + '3', hk = L + '17';
         cols.push({ L, gid: gi, gk, hk, group: clean(HT[gk] != null ? HT[gk] : gc[2]), header: clean(HT[hk] != null ? HT[hk] : hc[2]) || (sku ? sku.shortName || sku.name : L), gBase: clean(gc[2]), hBase: clean(hc[2]), unit: PS.PACK_COLS.includes(L) ? 0 : (sku ? Number(sku.boxUnitCount) || 0 : 0) });
@@ -22747,7 +22749,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261126b'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261126c'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -22780,6 +22782,25 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   const PG_MARKETS = ['가락', '구리', '강서', '인천', '안산', '수원', '천안', '대전', '광주', '대구', '구미', '부산'];   // 서식의 도매 시장 순서
   const PG_REGIONS = ['수도권', '지방'];
   // 그날 자료 → 표 모델
+  // 설정에 올린 발주취합 서식의 품목 열 색·묶음 머리글 색 (새 방식 발주서·공유 이미지·현황판에 씀). 서식이 바뀌면 다시 읽음
+  let poTplColorCache = { key: '', v: null };
+  async function poTplColors(){
+    if(!productionTemplateB64) return null;
+    const key = productionTemplateB64.length + ':' + productionTemplateB64.slice(-80) + ':' + JSON.stringify(skuColumnMap);
+    if(poTplColorCache.key === key) return poTplColorCache.v;
+    let v = null;
+    try{
+      const ctx = await poLoadTemplate(productionTemplateB64), Y = poLayout(ctx), groups = poTemplateGroups(ctx);
+      const cols = [];
+      dict.forEach(d => { const L = skuColumnMap[d.id]; if(!L || cols.some(c => c.L === L)) return; const n = poColNum(L); const g = groups.find(x => n >= x.c1 && n <= x.c2); cols.push({ L, header: poText(ctx, L + Y.hdrRow).replace(/\s*\n\s*/g, ' ').trim(), group: g ? g.label : '', gid: g ? g.c1 : -n }); });
+      const cm = await poBoardColors(ctx, cols);
+      const colFill = {}, groupFillByCol = {};
+      cols.forEach(c => { if(cm.cols[c.L]) colFill[c.L] = '#' + cm.cols[c.L]; if(c.gid > 0 && cm.groups[c.gid]) groupFillByCol[c.L] = '#' + cm.groups[c.gid]; });
+      v = { colFill, groupFillByCol };
+    }catch(e){ console.error(e); v = null; }
+    poTplColorCache = { key, v };
+    return v;
+  }
   async function poGenModel(dateKey){
     await pgEnsure();
     await spLoad(dateKey, true);
@@ -22856,7 +22877,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     Object.entries(headUser).forEach(([k, v]) => { if(v) headText[k] = v; });
     // 1박스 = 1개 열: 그 열에 넣은 품목이 모두 박스입수 1 (예: 찰토리 2.5kg) → 발주서에 '박스'로
     const oneCols = [...new Set(Object.values(skuColumnMap))].filter(c => { const its = dict.filter(d => skuColumnMap[d.id] === c); return its.length && its.every(d => Number(d.boxUnitCount) === 1); });
-    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, oneCols, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
+    const tplC = await poTplColors().catch(() => null) || {};
+    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, oneCols, colFill: tplC.colFill || {}, groupFillByCol: tplC.groupFillByCol || {}, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
   }
   async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
   function pgDownloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }
