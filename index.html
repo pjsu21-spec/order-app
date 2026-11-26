@@ -360,6 +360,14 @@
   .disp-pend-form select, .disp-pend-form input{ font-size:12.5px; padding:3px 6px; }
   .disp-pend-form .dp-shelf{ color:var(--muted); }
   .disp-pend-form .dp-help{ flex-basis:100%; font-size:11.5px; color:var(--muted); }
+  #dispatch-list tr.disp-edit td{ background:#f7fbff; }
+  .disp-ed{ padding:6px 4px; text-align:left; }
+  .disp-ed-h{ font-weight:700; font-size:13px; margin:0 0 6px; }
+  .disp-ed-g{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:4px 14px; }
+  .disp-ed-r{ display:flex; align-items:center; gap:6px; font-size:12.5px; }
+  .disp-ed-n{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .disp-ed-r input{ width:70px; text-align:right; font-size:12.5px; padding:2px 6px; }
+  .disp-ed-u{ color:var(--muted); font-size:11.5px; width:24px; }
   /* 연구소 📅 캘린더 */
   .lab-views{ display:inline-flex; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:0 0 10px; }
   .lab-view-btn{ border:0; background:var(--card); padding:7px 16px; font:inherit; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; }
@@ -3314,7 +3322,7 @@
   <li><b>예전 표</b>: 업체 × 품목 수량(팩)과 합계. 잘못 들어간 줄은 체크해서 <b>선택 항목 삭제</b>합니다.</li>
   <li>등록되지 않은 품목이 있으면 표 아래에 <b>붉은 글씨</b>로 알려 줍니다. 품목 관리에서 등록하거나 별칭을 추가한 뒤 다시 입력하세요.</li>
   <li><b>3PL 출고 집계</b>: 품목별 합계와 개별 주문(택배) 목록이 나옵니다. 샘플 택배는 품목별 합계에 <b>다름달음(샘플)</b> 줄로 따로 더해집니다. 출고일 지정 주문 목록은 이 탭에서는 보이지 않습니다.</li>
-  <li><b>출고 예정 (수량 미정)</b>: 쿠팡 토요일 납품분처럼 생산일 오후에야 발주가 확정되는 건은, 집계표 아래 <b>출고일 지정 주문</b>의 <span class="mn-b">+ 출고 예정 (수량 미정)</span>으로 업체·출고일·차수(·납품일)만 먼저 넣습니다. 발주서 쿠팡 블록·현황판·생산 현황판에 수량 칸은 빈 채로 <b>출고일 · 소비기한</b> 줄이 미리 나와 생산에 알릴 수 있습니다(집계·이카운트·거래명세서에는 안 들어감). 실제 발주를 같은 출고일·차수로 입력하면 이 줄은 자동으로 실제 발주로 바뀝니다.</li>
+  <li><b>출고 예정 (수량 미정)</b>: 쿠팡 토요일 납품분처럼 생산일 오후에야 발주가 확정되는 건은, 집계표 아래 <b>출고일 지정 주문</b>의 <span class="mn-b">+ 출고 예정 (수량 미정)</span>으로 업체·출고일·차수(·납품일)만 먼저 넣습니다. 발주서 쿠팡 블록·현황판·생산 현황판에 수량 칸은 빈 채로 <b>출고일 · 소비기한</b> 줄이 미리 나와 생산에 알릴 수 있습니다(집계·이카운트·거래명세서에는 안 들어감). 실제 발주를 같은 출고일·차수로 입력하면 이 줄은 자동으로 실제 발주로 바뀝니다. 메시지로 다시 입력하지 않고 줄의 <span class="mn-b">✏ 수량 입력</span>(실제 발주는 <span class="mn-b">✏ 수정</span>)으로 품목·박스를 바로 넣거나 고칠 수도 있습니다(집계표 합계도 같이 바뀌고, 모두 비우면 다시 수량 미정).</li>
   <li><b>비고</b>: 업체명 아래 칸에 그날 출고 특이 사항을 적습니다(예: 직접 픽업). 생산 / 물류 탭 배차·적재의 <b>비고와 같은 칸</b>이라 어느 쪽에서 고쳐도 똑같이 바뀌고, 발주취합 파일·생산 현황판 비고 칸에 나옵니다. 고치려면 생산 / 물류 전체 권한이 필요합니다. 출고일 지정 업체(쿠팡 등)와 3PL 업체에는 비고 칸이 없습니다.</li>
   <li><b>샘플 신청 줄의 비고</b>: 집계표의 "샘플" 줄을 눌러 펼치면 신청 건마다 비고 칸이 있습니다(오늘 생산분과 재고 사용분은 따로). 적은 내용은 그 날짜 발주취합 파일과 생산 현황판의 샘플 행 비고 칸에 들어갑니다.</li>
   <li><b>🎁 샘플</b>: 발주와 함께 보내는 샘플 수량을 넣거나 고칩니다. 수량 칸 아래에 <b>+샘플</b>로 따로 표시되고 비고에 "샘플 … 포함"이 자동으로 붙습니다. 매출·거래명세서·이카운트에는 잡히지 않고, 생산·적재 수량(합계 줄)과 송품장에는 들어갑니다.</li>
@@ -8608,6 +8616,63 @@ function mnShow(id, keepScroll) {
     setTimeout(() => sync(true), 0);
     return box;
   }
+  // ── 출고 건 수량 입력·수정 (집계/출고 › 출고일 지정 주문) ──
+  //  품목별 박스(박스입수 없는 품목은 팩)로 입력. 저장하면 그 출고 건 items 를 바꾸고, 업체 발주 합계(집계표)에도 바뀐 만큼 더하거나 뺌
+  //  수량 미정(예정) 건에 수량을 넣으면 실제 발주가 되고, 모두 비우면 다시 수량 미정으로 남음
+  function dispEditRow(el, e){
+    const tr = document.createElement('tr'); tr.className = 'disp-edit';
+    const td = document.createElement('td'); td.colSpan = 6; tr.appendChild(td);
+    const unit = d => Number(d.boxUnitCount) || 0;
+    // 품목 후보: 이 건의 품목 + 이 업체가 최근 30일에 주문한 품목
+    const ids = new Set(Object.keys(e.items || {}).filter(id => Number(e.items[id]) > 0));
+    for(let k = 0; k <= 30; k++){ const day = sampleAddDays(currentDateKey, -k); (dispatchByDate[day] || []).filter(x => x.company === e.company).forEach(x => Object.keys(x.items || {}).forEach(id => ids.add(id))); const o = (ordersByDate[day] || {})[e.company]; if(o) Object.keys(o).forEach(id => { if(id !== '_meta') ids.add(id); }); }
+    const list = () => [...ids].map(id => dict.find(d => d.id === id)).filter(Boolean);
+    const draft = {}; Object.entries(e.items || {}).forEach(([id, p]) => { const d = dict.find(x => x.id === id); const n = d ? unit(d) : 0; draft[id] = n > 0 ? Math.round(Number(p) / n * 100) / 100 : Number(p); });
+    const paint = () => {
+      const rows = list().map(d => { const n = unit(d); return `<div class="disp-ed-r"><span class="disp-ed-n">${escapeHtml(d.shortName || d.name)}</span><input type="text" inputmode="decimal" data-id="${escapeHtml(d.id)}" value="${draft[d.id] ? draft[d.id] : ''}" placeholder="0"><span class="disp-ed-u">${n > 0 ? '박스' : '팩'}</span></div>`; }).join('');
+      const opts = dict.filter(d => !ids.has(d.id)).map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.shortName || d.name)}</option>`).join('');
+      td.innerHTML = `<div class="disp-ed"><div class="disp-ed-h">✏ ${escapeHtml(e.company)} · ${shortDate(e.shipDate)}${dispSeqOf(e) > 1 ? ' · ' + dispSeqOf(e) + '차' : ''} 수량 ${e.pending ? '입력' : '수정'} <span class="sub" style="margin:0;font-weight:400;">(박스 — 박스입수가 없는 품목은 팩)</span></div>
+        <div class="disp-ed-g">${rows || '<span class="sub" style="margin:0;">아래에서 품목을 추가하세요</span>'}</div>
+        <div class="row" style="margin:6px 0 0;align-items:center;gap:6px;"><select class="disp-ed-add"><option value="">+ 품목 추가</option>${opts}</select><span style="flex:1"></span><span class="disp-ed-sum sub" style="margin:0;"></span><button type="button" class="btn-primary small-btn disp-ed-save">저장</button><button type="button" class="btn-ghost small-btn disp-ed-cancel">취소</button></div></div>`;
+      const sumUp = () => { let b = 0, p = 0; list().forEach(d => { const v = Number(draft[d.id]) || 0; if(unit(d) > 0) b += v; else p += v; }); td.querySelector('.disp-ed-sum').textContent = `합계 ${Math.round(b * 100) / 100}박스${p ? ` · ${p}팩` : ''}`; };
+      td.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('input', () => { const v = inp.value.replace(/[,\s]/g, '').replace(/박스|팩$/g, ''); draft[inp.dataset.id] = v === '' ? 0 : Number(v); sumUp(); }));
+      td.querySelector('.disp-ed-add').addEventListener('change', ev => { const id = ev.target.value; if(!id) return; ids.add(id); paint(); const i = td.querySelector(`input[data-id="${id}"]`); if(i) i.focus(); });
+      td.querySelector('.disp-ed-cancel').addEventListener('click', () => { el.dataset.editId = ''; renderDispatchList(); });
+      td.querySelector('.disp-ed-save').addEventListener('click', () => dispEditSave(el, e, draft));
+      td.querySelectorAll('input[data-id]').forEach(inp => inp.addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); dispEditSave(el, e, draft); } }));
+      sumUp();
+    };
+    paint();
+    setTimeout(() => { const i = td.querySelector('input[data-id]'); if(i) i.focus(); }, 0);
+    return tr;
+  }
+  function dispEditSave(el, e, draft){
+    if(prodCloseBlocked(currentDateKey)) return;
+    const bad = Object.entries(draft).find(([, v]) => !isFinite(v) || v < 0);
+    if(bad){ toast('수량은 0 이상의 숫자로 넣어주세요'); return; }
+    const next = {};
+    Object.entries(draft).forEach(([id, v]) => { const d = dict.find(x => x.id === id); if(!d || !(v > 0)) return; const n = Number(d.boxUnitCount) || 0; next[id] = Math.round((n > 0 ? v * n : v) * 100) / 100; });
+    const prev = e.items || {};
+    // 업체 발주 합계(집계표)에 바뀐 만큼 반영
+    const orders = currentOrders(), o = orders[e.company] || (orders[e.company] = {});
+    new Set([...Object.keys(prev), ...Object.keys(next)]).forEach(id => {
+      const delta = (Number(next[id]) || 0) - (Number(prev[id]) || 0); if(!delta) return;
+      const v = Math.round(Math.max(0, (Number(o[id]) || 0) + delta) * 100) / 100;
+      if(v > 0) o[id] = v; else delete o[id];
+    });
+    if(!Object.keys(o).some(k => k !== '_meta' && Number(o[k]) > 0)) delete orders[e.company];
+    else o._meta = { enteredBy: getStaffName(), updatedAt: new Date().toISOString() };
+    const wasPending = !!e.pending;
+    e.items = next;
+    if(Object.keys(next).length) delete e.pending; else e.pending = true;   // 모두 비우면 다시 수량 미정
+    e.editedBy = getStaffName(); e.editedAt = new Date().toISOString();
+    saveOrdersByDate(); saveDispatchByDate();
+    const tot = Object.entries(next).reduce((t, [id, p]) => { const d = dict.find(x => x.id === id); const n = d ? Number(d.boxUnitCount) || 0 : 0; return t + (n > 0 ? p / n : 0); }, 0);
+    writeLog('dispatch_edit', `출고일 지정 수량 ${wasPending ? '입력' : '수정'}: ${e.company} ${e.shipDate}${dispSeqOf(e) > 1 ? ' ' + dispSeqOf(e) + '차' : ''} → ${Math.round(tot * 100) / 100}박스 (발주일 ${currentDateKey})`).catch(() => {});
+    el.dataset.editId = '';
+    toast(e.pending ? '수량을 모두 비워 다시 수량 미정으로 두었습니다' : `${e.company} ${shortDate(e.shipDate)}${dispSeqOf(e) > 1 ? ' ' + dispSeqOf(e) + '차' : ''} 수량을 저장했습니다 (${Math.round(tot * 100) / 100}박스) — 집계표에도 반영`);
+    renderAggTable(); renderThirdPartyAggTable();
+  }
   // 출고일 지정 주문 목록 (집계표 아래): 출고일별 내역 확인·삭제
   function renderDispatchList(){
     const el = document.getElementById('dispatch-list');
@@ -8686,9 +8751,17 @@ function mnShow(id, keepScroll) {
         saveOrdersByDate(); saveDispatchByDate();
         renderAggTable(); renderThirdPartyAggTable();
       });
+      const edb = document.createElement('button');
+      edb.className = (e.pending ? 'btn-primary' : 'btn-ghost') + ' small-btn'; edb.style.marginRight = '4px';
+      edb.textContent = e.pending ? '✏ 수량 입력' : '✏ 수정';
+      edb.title = '이 출고 건의 품목·수량을 여기서 바로 넣거나 고칩니다 (집계표 합계도 같이 바뀜)';
+      edb.addEventListener('click', () => { el.dataset.editId = el.dataset.editId === e.id ? '' : e.id; renderDispatchList(); });
+      act.style.whiteSpace = 'nowrap';
+      act.appendChild(edb);
       act.appendChild(del);
       tr.appendChild(act);
       tbody.appendChild(tr);
+      if(el.dataset.editId === e.id) tbody.appendChild(dispEditRow(el, e));
     });
     table.appendChild(tbody);
     const scroll = document.createElement('div');
