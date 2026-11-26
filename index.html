@@ -1273,6 +1273,7 @@
   .mk-note{ font-size:11px; color:var(--muted); font-weight:400; }
   .mk-admin{ margin-top:16px; border-top:1px dashed var(--line); padding-top:8px; font-size:13px; }
   .mk-admin summary{ cursor:pointer; font-weight:600; }
+  .mk-prog{ margin:8px 0; padding:6px 10px; border-radius:8px; background:var(--accent-soft); color:var(--accent); font-size:12px; font-weight:600; }
   .mk-arow{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0; }
   .mk-chip{ display:inline-flex; gap:4px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:3px 10px; margin:0 4px 4px 0; font-size:12px; background:var(--card); }
   .mk-chip small{ color:var(--muted); }
@@ -27828,7 +27829,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const $m = id => document.getElementById(id);
     const K_IDX = 'mkt-report-index', K_SET = 'mkt-report-settings', K_DAY = d => 'mkt-report:' + d;
     const DEF_ITEMS = [{ key: '080603', name: '대추방울토마토', l: '08', m: '06', s: '03' }, { key: '080304', name: '찰토마토', l: '08', m: '03', s: '04' }, { key: '0804', name: '딸기', l: '08', m: '04', s: '' }, { key: '911048', name: '스테비아토마토', l: '91', m: '10', s: '48' }];
-    const M = { idx: null, set: null, day: '', rep: null, item: '', busy: false, cache: {} };
+    const M = { idx: null, set: null, day: '', rep: null, item: '', busy: false, cache: {}, adminOpen: false, prog: '' };
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const won = n => n == null || !isFinite(n) ? '-' : Math.round(n).toLocaleString('ko-KR');
     const vol = kg => kg >= 1000 ? (kg / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '톤' : Math.round(kg).toLocaleString('ko-KR') + 'kg';
@@ -27923,7 +27924,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const areaLine = it => (it.areas || []).map(a => `${a.name} ${won(a.avg)}원/kg${it.pack && a.box != null ? ` · ${won(a.box)}원/상자` : ''}`).join('  |  ');
 
     function cardsHtml(rep){
-      return `<div class="mk-cards">${ordered(rep.items).map(it => {
+      const have = new Set(rep.items.map(x => x.key));
+      const miss = curItems().filter(x => !have.has(x.key)).map(x => ({ key: x.key, name: x.name, missing: true }));
+      return `<div class="mk-cards">${ordered(rep.items.concat(miss)).map(it => {
+        if(it.missing) return `<div class="mk-card off"><div class="mk-cn">${esc(it.name)}</div><div class="sub">이 날짜는 아직 받지 않았습니다</div>${isAdmin() ? `<button type="button" class="btn-ghost small-btn" data-mk-get="${esc(it.key)}" style="margin-top:6px">⬇ 이 날짜 받기</button>` : ''}</div>`;
         if(it.empty) return `<div class="mk-card off"><div class="mk-cn">${esc(it.name)}</div><div class="sub">거래 자료 없음</div></div>`;
         const c = cmpOf(rep.date, it.key);
         return `<button type="button" class="mk-card${it.key === M.item ? ' on' : ''}" data-mk-item="${esc(it.key)}"><div class="mk-cn">${esc(it.name)}</div>
@@ -27994,6 +27998,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           g.addEventListener('mouseenter', show); g.addEventListener('click', show); g.addEventListener('mouseleave', () => { tip.hidden = true; });
         });
       }
+      const adm = box.querySelector('.mk-admin'); if(adm) adm.addEventListener('toggle', () => { M.adminOpen = adm.open; });
+      box.querySelectorAll('[data-mk-get]').forEach(b => b.addEventListener('click', () => fillItem(b.dataset.mkGet, [M.day])));
       bindAdmin();
     }
 
@@ -28023,7 +28029,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     function adminHtml(){
       if(!isAdmin()) return '';
       const items = curItems();
-      return `<details class="mk-admin"><summary>⚙ 관리자 — 다시 받기 · 품목 설정</summary>
+      return `<details class="mk-admin" ${M.adminOpen ? 'open' : ''}><summary>⚙ 관리자 — 다시 받기 · 품목 설정</summary><div id="mk-prog" class="mk-prog" ${M.prog ? '' : 'hidden'}>${esc(M.prog)}</div>
         <div class="mk-arow"><input type="date" id="mk-run-day" value="${addD(kstToday(), -1)}" max="${addD(kstToday(), -1)}"> <button type="button" class="btn-ghost small-btn" id="mk-run">🔄 다시 받기</button>
           <button type="button" class="btn-ghost small-btn" id="mk-fill">📅 지난 2주 빈 날짜 채우기</button> <span class="mk-note">하루 받는 데 15초쯤 걸립니다. 자동: 매일 7:40 (8:40·9:40에 한 번 더)</span></div>
         <div class="mk-arow"><b>리포트 품목</b> <span class="mk-note">◀ ▶로 보이는 순서를 바꿉니다 (지난 날짜에도 바로 적용). 품목 추가·빼기는 다음에 받는 날부터 적용 (지난 날짜는 다시 받기)</span></div>
@@ -28032,10 +28038,26 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <div id="mk-found"></div></details>`;
     }
     const testBlock = () => { if(window.TEST_MODE){ toast('테스트 모드에서는 서버에서 시세를 받지 않습니다 (운영 자료가 바뀜)'); return true; } return false; };
-    async function runDay(day){
-      const r = await callFn({ action: 'run', date: day });
+    async function runDay(day, only){
+      const r = await callFn(only ? { action: 'run', date: day, only } : { action: 'run', date: day });
       delete M.cache[day];
       return r;
+    }
+    const setProg = t => { M.prog = t; const el = $m('mk-prog'); if(el){ el.textContent = t; el.hidden = !t; } };
+    // 새로 추가한 품목(key)을 받아 둔 날짜들(days, 없으면 자료 있는 날 최근 30일)에 그 품목만 받아 끼워 넣음 — 하루 4초쯤
+    async function fillItem(key, days){
+      if(testBlock() || M.busy) return;
+      const it = curItems().find(x => x.key === key); if(!it){ toast('품목 설정에 없는 품목입니다'); return; }
+      const list = (days && days.length ? days : datesOk().slice(0, 30)).filter(Boolean);
+      if(!list.length){ toast('받아 둔 날짜가 없습니다 — 다시 받기로 날짜를 받아 주세요'); return; }
+      M.busy = true; let done = 0, bad = 0, full = false;
+      for(const d of list){
+        setProg(`'${it.name}' 받는 중 ${done + bad + 1}/${list.length} (${dLabel(d)})…`);
+        try{ const r = await runDay(d, [key]); if(r && r.only === undefined) full = true; done++; }catch(err){ bad++; }
+      }
+      M.busy = false; setProg('');
+      toast(`'${it.name}' ${done}일치를 받았습니다${bad ? ` · ${bad}일 실패` : ''}${full ? ' (서버 함수가 예전 버전이라 전체 품목을 다시 받았습니다)' : ''}`);
+      M.item = key; await load(); render();
     }
     async function saveItems(items){
       const v = { items, at: Date.now(), by: (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '' };
@@ -28092,7 +28114,11 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
             if(a.some(x => x.key === o.key)){ toast('이미 있는 품목입니다'); return; }
             if(a.length >= 12){ toast('품목은 12개까지 넣을 수 있습니다'); return; }
             const name = (prompt('리포트에 보일 이름', o.name) || '').trim(); if(!name) return;
-            a.push({ key: o.key, name, l: o.l, m: o.m, s: o.s }); saveItems(a).catch(err => toast(err.message));
+            a.push({ key: o.key, name, l: o.l, m: o.m, s: o.s });
+            saveItems(a).then(() => {
+              const n = Math.min(30, datesOk().length);
+              if(n && confirm(`'${name}'을(를) 추가했습니다.\n받아 둔 ${n}일치 리포트에 '${name}' 자료를 지금 채울까요? (약 ${Math.max(1, Math.round(n * 4 / 60))}분)\n\n취소하면 내일 아침 자동 수집부터 들어갑니다.`)) return fillItem(o.key);
+            }).catch(err => toast(err.message));
           }));
         }catch(err){ out.innerHTML = `<div class="sub">찾지 못했습니다: ${esc(err.message)}</div>`; }
       };
@@ -28106,7 +28132,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       try{ await load(M.idx ? '' : 'latest'); }catch(e){ box.innerHTML = `<div class="sub">불러오지 못했습니다: ${esc(e.message)}</div>`; return; }
       render();
     };
-    window.__mkt = { M, cmpOf, trendSvg, render, load };   // (점검용)
+    window.__mkt = { M, cmpOf, trendSvg, render, load, fill: fillItem };   // (점검용)
   })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──

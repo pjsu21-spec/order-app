@@ -4,7 +4,7 @@
 //  · 저장: 'mkt-report:YYYY-MM-DD' (그날 리포트) · 'mkt-report-index' (날짜별 요약 — 전일·전주 비교, 2주 흐름)
 //  · 품목 목록: 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } (없으면 기본: 대추방울토마토 · 찰토마토 · 딸기 · 스테비아토마토)
 //  · 매일 아침 pg_cron 이 { action: 'cron' } 으로 부름 (시세리포트_자동실행_SQL.sql) → 어제(한국 시간) 자료를 받음. 로그인 없이 부르면 30분에 한 번만 실제로 받음
-//  · 화면(로그인 토큰 x-app-token)에서 { action: 'run', date } → 그날 자료를 바로 다시 받음 / { action: 'goods', q } → 품목 코드 찾기 (품목 추가용)
+//  · 화면(로그인 토큰 x-app-token)에서 { action: 'run', date, only? } → 그날 자료를 바로 다시 받음 (only: 품목 key 목록이면 그 품목만 받아 끼워 넣음) / { action: 'goods', q } → 품목 코드 찾기 (품목 추가용)
 //  필요한 비밀값(Supabase → Edge Functions → Secrets): DATA_GO_KR_KEY (공공데이터포털 일반 인증키)
 //  자동으로 있는 값: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (저장용)
 //  배포할 때 'JWT 확인(Verify JWT)'은 끔 — 이 시스템은 자체 로그인 토큰을 씀.
@@ -181,6 +181,17 @@ export async function buildDay(call, day, items) {
   return { date: day, at: new Date().toISOString(), markets: markets.length, fails, empty: out.every(x => x.empty), items: out };
 }
 
+// 일부 품목만 새로 받은 결과(part)를 그날 리포트(prev)에 합침 — 설정 순서대로, 설정에서 빠진 품목도 그날 자료는 남김
+export function mergeDay(prev, part, items) {
+  const got = new Map(part.items.map(x => [x.key, x])), old = new Map((prev.items || []).map(x => [x.key, x]));
+  const keys = items.map(it => it.key);
+  const all = keys.filter(k => got.has(k) || old.has(k)).map(k => got.get(k) || old.get(k));
+  (prev.items || []).forEach(x => { if (!keys.includes(x.key)) all.push(x); });
+  const names = part.items.map(x => x.name);
+  const fails = (prev.fails || []).filter(f => !names.some(n => f.includes('/' + n + ':'))).concat(part.fails || []);
+  return { ...prev, at: part.at, markets: part.markets || prev.markets, fails, items: all, empty: all.every(x => x.empty) };
+}
+
 // 요약(index)에 그날 값 넣기
 export function indexWith(idx, rep) {
   const dates = { ...((idx && idx.dates) || {}) };
@@ -243,8 +254,15 @@ export async function handle(req, deps) {
     const st = await kvGet('mkt-report-settings').catch(() => null);
     const items = (st && Array.isArray(st.items) && st.items.length ? st.items : DEFAULT_ITEMS)
       .filter(it => it && it.key && it.name && /^\d{2}$/.test(it.l || '')).slice(0, 12);
-    const run = async day => {
-      const rep = await buildDay(call, day, items);
+    // only: 품목 key 목록 → 그 품목만 받아 그날 리포트에 끼워 넣음 (새로 추가한 품목을 지난 날짜에 채울 때)
+    const run = async (day, only) => {
+      const pick = Array.isArray(only) && only.length ? items.filter(it => only.includes(it.key)) : null;
+      if (pick && !pick.length) throw new Error('품목 설정에 없는 품목입니다 — 품목을 먼저 저장하세요');
+      let rep = await buildDay(call, day, pick || items);
+      if (pick) {
+        const prev = await kvGet(`mkt-report:${day}`).catch(() => null);
+        if (prev && Array.isArray(prev.items)) rep = mergeDay(prev, rep, items);
+      }
       await kvSet(`mkt-report:${day}`, rep);
       const idx = await kvGet('mkt-report-index').catch(() => null);
       await kvSet('mkt-report-index', { ...indexWith(idx, rep), lastRunAt: new Date().toISOString() });
@@ -256,8 +274,9 @@ export async function handle(req, deps) {
       const day = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : kstDay(-1, now);
       if (day >= kstDay(0, now)) return json({ ok: false, error: '오늘 이후 날짜는 받을 수 없습니다' }, 400);
       if (day < kstDay(-400, now)) return json({ ok: false, error: '너무 오래된 날짜입니다' }, 400);
-      const rep = await run(day);
-      return json({ ok: true, date: day, empty: rep.empty, fails: rep.fails.length, items: rep.items.map(x => ({ name: x.name, rows: x.rows, avg: x.avg || null })) });
+      const only = Array.isArray(body.only) ? body.only.map(String).slice(0, 12) : null;
+      const rep = await run(day, only);
+      return json({ ok: true, date: day, only, empty: rep.empty, fails: rep.fails.length, items: rep.items.map(x => ({ name: x.name, rows: x.rows, avg: x.avg || null })) });
     }
 
     // cron: 어제 자료. 로그인 없이 부르면 30분에 한 번만 (마구 불러 공공데이터 사용량을 쓰지 않게)
