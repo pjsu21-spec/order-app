@@ -8098,25 +8098,32 @@ function mnShow(id, keepScroll) {
   }
   function parseOrderLine(line){
     {
-      const m = line.match(NUM_REGEX);
-      let qty = null, unit = '박스', itemText = line;
-      if(m){
-        qty = parseFloat(m[0]);
-        const idx = m.index, end = idx + m[0].length;
-        const after = line.slice(end);
-        const unitMatch = after.match(UNIT_REGEX);
-        let consumedEnd = end;
-        if(unitMatch){
-          const raw = unitMatch[1].toLowerCase();
-          unit = raw.startsWith('box') ? '박스' : (raw === 'kg' ? 'kg' : (raw === 'g' ? 'g' : unitMatch[1]));
-          consumedEnd = end + unitMatch[0].length;
-        }
-        itemText = (line.slice(0, idx) + line.slice(consumedEnd)).trim();
+      // 수량 고르기: 품목 이름 안의 규격('[2kg]', '500g', '×4')을 수량으로 읽지 않게
+      //  박스·팩·개가 붙은 숫자 > 단위 없는 숫자(맨 뒤, '×4' 같은 입수 표기는 뺌) > kg·g 숫자
+      //  (예전에는 첫 숫자를 수량으로 읽어 '[2kg] 투맛토(스테비아) 10박스'가 2kg → 2팩으로 들어갈 수 있었음)
+      const toks = [], re = /\d+(?:\.\d+)?/g; let mm;
+      while((mm = re.exec(line))){
+        const st = mm.index, en = st + mm[0].length, after = line.slice(en), before = line.slice(0, st);
+        const cu = after.match(/^\s*(박스|box|bx|개|팩|ea)(?![a-z])/i), wu = cu ? null : after.match(/^\s*(kg|g)(?![a-z])/i);
+        toks.push({ st, en, v: parseFloat(mm[0]), cu, wu, mult: !cu && /[×xX*]\s*$/.test(before) });
       }
-      // '투맛토(망고향)-20박스', '용과~30박스'처럼 이름과 수량 사이 기호는 뺌
-      itemText = itemText.replace(NOISE, '').replace(/^[-*·.\d\)]+\s*/, '').replace(/[\s\-~:=,·*xX×]+$/, '').trim();
+      const pick = toks.find(t => t.cu) || toks.slice().reverse().find(t => !t.cu && !t.wu && !t.mult) || toks.find(t => t.wu) || null;
+      let qty = null, unit = '박스', itemText = line;
+      if(pick){
+        qty = pick.v;
+        const u = pick.cu || pick.wu, raw = u ? u[1].toLowerCase() : '';
+        if(u) unit = (raw === 'box' || raw === 'bx' || raw === '박스') ? '박스' : raw === 'ea' ? '개' : (raw === 'kg' || raw === 'g') ? raw : u[1];
+        itemText = (line.slice(0, pick.st) + ' ' + line.slice(pick.en + (u ? u[0].length : 0))).replace(/\s+/g, ' ').trim();
+      }
+      // '투맛토(망고향)-20박스', '용과~30박스'처럼 이름과 수량 사이 기호는 뺌 (앞의 '1) ', '2. ' 같은 번호도)
+      itemText = itemText.replace(NOISE, '').replace(/^(?:\d+[.)]\s+|[-*·]+\s*)/, '').replace(/[\s\-~:=,·*xX×]+$/, '').trim();
       const info = {};
       const matchedId = itemText ? matchItem(itemText, { preferWeight: PREFER_WEIGHT_G, info }) : null;
+      // kg·g 숫자밖에 없고 그게 고른 품목의 규격이면(예: '투맛토 2kg 스테비아') 수량이 없는 것으로 → 확인 필요
+      if(pick && pick.wu && matchedId){
+        const d = dict.find(x => x.id === matchedId), nm = d ? String(d.name + ' ' + (d.shortName || '')).replace(/\s+/g, '').toLowerCase() : '';
+        if(nm.includes(String(pick.v) + unit)){ qty = null; unit = '박스'; itemText = line.replace(NOISE, '').trim(); }
+      }
       return { raw: line, itemText, qty, unit, matchedId, prefWeight: !!(matchedId && info.pref) };
     }
   }
@@ -8951,6 +8958,7 @@ function mnShow(id, keepScroll) {
       const n = d ? Number(d.boxUnitCount) : 0;
       return n > 0 ? Math.round(q * n * 100) / 100 : null;
     }
+    if(/^(kg|g)$/i.test(String(it.unit || ''))) return null;   // 무게(예: '망고향 150g')는 팩 수가 아님 → 확인 필요 (단위를 박스·팩으로 골라야 환산)
     return q;
   }
 
