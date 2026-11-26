@@ -1231,6 +1231,54 @@
   }
   .dropzone.dragover{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .dropzone .fname{ font-weight:700; color:var(--ink); margin-top:4px; }
+  /* 📈 시세 리포트 */
+  .mk-bar{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
+  .mk-bar select{ padding:5px 8px; }
+  .mk-meta{ font-size:12px; color:var(--muted); }
+  .mk-warn{ color:var(--warn); cursor:help; }
+  .mk-ynote{ font-size:12px; color:var(--warn); background:var(--warn-soft); border-radius:8px; padding:5px 10px; margin:0 0 8px; }
+  .mk-cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(170px, 100%), 1fr)); gap:8px; margin:0 0 12px; }
+  .mk-card{ text-align:left; border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 12px; cursor:pointer; font:inherit; color:inherit; }
+  .mk-card.on{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+  .mk-card.off{ cursor:default; opacity:.7; }
+  .mk-cn{ font-weight:700; font-size:14px; }
+  .mk-cv{ font-size:24px; font-weight:800; margin:2px 0; }
+  .mk-cv small{ font-size:12px; font-weight:400; color:var(--muted); margin-left:2px; }
+  .mk-cp, .mk-cq{ font-size:12px; color:var(--muted); }
+  .mk-cc{ margin:3px 0; }
+  .mk-chg{ font-size:12px; color:var(--muted); margin-right:6px; white-space:nowrap; }
+  .mk-chg.up{ color:#c0392b; } .mk-chg.dn{ color:#1f5fbf; }
+  .mk-ih{ font-size:13px; line-height:1.6; margin:0 0 8px; }
+  .mk-ihc{ margin-top:2px; }
+  .mk-th{ font-size:12px; font-weight:600; color:var(--muted); margin:6px 0 2px; }
+  .mk-trend{ position:relative; max-width:680px; }
+  .mk-trend svg{ width:100%; height:auto; display:block; }
+  .mk-grid{ stroke:var(--line); stroke-width:1; }
+  .mk-ax{ font-size:11px; fill:var(--muted); }
+  .mk-line{ fill:none; stroke:#3b6fd6; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+  .mk-dot{ fill:#3b6fd6; stroke:var(--card); stroke-width:2; }
+  .mk-dot.on{ fill:var(--accent); }
+  .mk-pt{ cursor:pointer; }
+  .mk-tip{ position:absolute; background:var(--ink); color:#fff; font-size:12px; padding:4px 8px; border-radius:6px; pointer-events:none; white-space:nowrap; }
+  .mk-grid2{ display:grid; grid-template-columns:repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap:14px; margin-top:10px; }
+  .mk-grid2 > *, #mkt-body{ min-width:0; }
+  .mk-tbl-wrap{ overflow-x:auto; }
+  .mk-tbl-h{ font-weight:700; font-size:13px; margin:0 0 4px; }
+  .mk-tbl{ border-collapse:collapse; width:100%; font-size:12px; }
+  .mk-tbl th, .mk-tbl td{ border-bottom:1px solid var(--line); padding:4px 6px; white-space:nowrap; }
+  .mk-tbl th{ text-align:left; color:var(--muted); font-weight:600; background:var(--hover); }
+  .mk-tbl td.n{ text-align:right; font-variant-numeric:tabular-nums; }
+  .mk-tbl td.b{ font-weight:700; }
+  .mk-tbl td.mu{ color:var(--muted); }
+  .mk-note{ font-size:11px; color:var(--muted); font-weight:400; }
+  .mk-admin{ margin-top:16px; border-top:1px dashed var(--line); padding-top:8px; font-size:13px; }
+  .mk-admin summary{ cursor:pointer; font-weight:600; }
+  .mk-arow{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0; }
+  .mk-chip{ display:inline-flex; gap:4px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:3px 10px; margin:0 4px 4px 0; font-size:12px; background:var(--card); }
+  .mk-chip small{ color:var(--muted); }
+  .mk-chip button{ border:0; background:none; cursor:pointer; color:var(--muted); padding:0 2px; }
+  .mk-chip.add{ cursor:pointer; font:inherit; font-size:12px; color:inherit; }
+  @media (max-width:600px){ .mk-cards{ grid-template-columns:1fr 1fr; } .mk-cv{ font-size:20px; } .mk-card{ padding:8px 10px; } }
 </style>
 <script src="assets/icons.js?v=20261124"></script>
 </head>
@@ -1306,6 +1354,7 @@
     <button class="main-nav-btn" id="main-nav-btn-admin" data-panel="panel-admin" style="display:none; color:#b7770d;">🛠 관리자</button>
     <button class="main-nav-btn" id="main-nav-btn-lab" data-panel="panel-lab" style="display:none;">🔬 연구소</button>
     <button class="main-nav-btn" id="main-nav-btn-vault" data-panel="panel-vault" style="display:none;">🔐 거래처 계정</button>
+    <button class="main-nav-btn" id="main-nav-btn-mkt" data-panel="panel-mkt">📈 시세 리포트</button>
     <button class="main-nav-btn" id="main-nav-btn-manual" data-panel="panel-manual">📖 사용설명서</button>
   </nav>
 
@@ -2934,6 +2983,19 @@
     </div>
   </div>
 
+  <div id="panel-mkt" class="main-tab-panel">
+    <div class="card">
+      <h2>📈 시세 리포트 <span class="badge">전국 공영도매시장 전일 정산가 · 매일 아침 자동</span></h2>
+      <details class="help" style="margin:0 0 10px;"><summary>ⓘ 보는 방법</summary><div class="sub" style="margin:6px 0 0;">
+        매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더)에 전날 전국 공영도매시장(가락·강서·구리·대구북부 등 32곳)의 <b>정산(경락) 자료</b>를 받아 품목별로 정리합니다. 자료: 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털).
+        <b>kg당 평균</b> = 그날 총 거래금액 ÷ 총 물량(kg)이라 물량이 많은 거래가 더 크게 반영됩니다. <b>대표 포장</b>은 물량이 가장 많은 포장(예: 상자 3kg)이고, 표의 '환산'은 kg당 평균 × 그 포장 무게입니다.
+        <b>전일</b>은 직전 거래일, <b>전주</b>는 7일 전(없으면 그 앞 가장 가까운 거래일)과 비교합니다. 휴장일에는 자료가 없어 그 앞 거래일이 보입니다. 위쪽 카드를 누르면 그 품목의 등급·크기·산지·시장별 표가 나옵니다.
+        <b>🖼 이미지</b>로 카톡에 올릴 요약 이미지를 만듭니다. 품목 추가·빼기와 다시 받기는 관리자가 아래 '⚙ 관리자'에서 합니다.
+      </div></details>
+      <div id="mkt-body"></div>
+    </div>
+  </div>
+
   <div id="panel-manual" class="main-tab-panel">
   <div class="mn-wrap">
   <p class="mn-intro">발주 입력부터 생산·출고, 원물선별, 자재 재고, 이카운트 자료 내려받기까지 화면별 사용 방법입니다. 내 업무에 맞는 탭만 골라 읽으세요.</p>
@@ -3576,6 +3638,16 @@
   <li><span class="mn-b">⬆ 파일 올리기</span>, <span class="mn-b">＋ 새 폴더</span>로 정리하고, 파일은 <span class="mn-b">👁 바로 보기</span> 또는 <span class="mn-b">⬇ 내려받기</span>.</li>
   <li><span class="mn-b">☑ 선택</span>으로 여러 개를 골라 한꺼번에 <span class="mn-b">📂 다른 폴더로 이동</span>하거나 삭제합니다. ⋮ 메뉴에서 이름 바꾸기도 됩니다.</li>
   <li>삭제한 파일은 <b>🗑 휴지통</b>으로 가서 <b>복원</b>할 수 있습니다. 휴지통에서 완전삭제하면 되돌릴 수 없습니다.</li>
+</ul>
+
+<h2>📈 시세 리포트 <span class="mn-who">로그인한 누구나</span></h2>
+<p class="mn-lead">홈 화면의 <b>시세 리포트</b> 타일입니다. 매일 아침 <b>7:40</b>(8:40·9:40에 한 번 더) 전날 전국 공영도매시장 32곳의 정산(경락) 자료를 받아 품목별로 정리합니다. 자료는 한국농수산식품유통공사 전국 공영도매시장 정산정보(공공데이터포털)입니다.</p>
+<ul>
+  <li>위쪽 <b>카드</b>: 품목별 <b>kg당 평균</b>(총 거래금액 ÷ 총 물량), 대표 포장(물량이 가장 많은 포장, 예: 상자 3kg) 가격, <b>전일</b>(직전 거래일)·<b>전주</b>(7일 전) 대비 ▲▼, 전국 물량. 카드를 누르면 그 품목의 표가 아래에 나옵니다.</li>
+  <li>아래 <b>표</b>: 최근 흐름 그래프와 등급별 · 크기별 · 산지(시·도, 시·군) · 도매시장별 · 품종별 · 거래 방식별 물량, kg당 평균, 포장 환산, 최저~최고.</li>
+  <li>날짜 칸과 ◀ ▶로 지난 날짜를 봅니다. 휴장일(예: 일요일)은 "자료 없음"으로 나옵니다.</li>
+  <li><span class="mn-b">🖼 이미지</span>: 카톡에 올릴 요약 이미지(품목 카드 + 등급·산지·시장 표).</li>
+  <li><b>관리자</b>: 아래 ⚙ 관리자에서 날짜를 골라 <span class="mn-b">🔄 다시 받기</span>, <span class="mn-b">📅 지난 2주 빈 날짜 채우기</span>, 리포트 <b>품목 추가·빼기</b>(🔍 찾기로 품목·품종 이름 검색).</li>
 </ul>
 </section>
 
@@ -6156,6 +6228,7 @@ const HOME_TILES = [
   { key: 'lunch', icon: '🍱', img: 'assets/ic-lunch.png', name: '식사취합', desc: '식사 신청 · 취합', href: 'https://pjsu21-spec.github.io/lunch-checkin/lunch-checkin.html?v=20261124a' },
   { key: 'sample', icon: '🧪', img: 'assets/ic-sample.png', name: '샘플 신청', desc: '샘플 신청 · 확인 · 취합 · 개인구매', nav: '#main-nav-btn-sample' },
   { key: 'lab', icon: '🔬', img: 'assets/ic-lab.png', name: '연구소', desc: '연구소 의뢰 샘플 · 연구비 비용', nav: '#main-nav-btn-lab' },   // 관리자 + 허용한 직원만
+  { key: 'mkt', icon: '📈', name: '시세 리포트', desc: '도매시장 전일 경락가 · 등급별 · 산지별', nav: '#main-nav-btn-mkt' },   // 로그인한 누구나
   { key: 'order', icon: '📋', img: 'assets/ic-order.png', name: '발주취합', desc: '발주 입력 · 집계 · 출고 · 실적', nav: '.main-nav-btn[data-panel="panel-order-group"]' },
   { key: 'sorting', icon: '🍅', img: 'assets/ic-sorting.png', name: '원물선별', desc: '입고 · 선별 · 출고 · 재고', nav: '#main-nav-btn-sorting' },
   { key: 'mat', icon: '🗃', img: 'assets/ic-mat.png', name: '자재·재고 관리', desc: '원물 · 부자재 사용 · 재고 실사 · 정전개 (생산)', nav: '#main-nav-btn-mat' },
@@ -16537,6 +16610,7 @@ function mnShow(id, keepScroll) {
       if((panelId === 'panel-mat' || panelId === 'panel-buy') && window.__matOpen) window.__matOpen(panelId === 'panel-buy' ? 'buy' : 'mat');
       if(panelId === 'panel-vault' && window.vaultOpen) window.vaultOpen();   // 거래처 계정
       if(panelId === 'panel-lab' && window.labOpen) window.labOpen();   // 연구소
+      if(panelId === 'panel-mkt' && window.mktOpen) window.mktOpen();   // 시세 리포트
       if(panelId === 'panel-ecount' && window.__ecBuyInit) window.__ecBuyInit();   // 구매입력 설정 (자재·구매 쪽 저장값)
       if(panelId === 'panel-master'){
         if(window.__matOpen) window.__matOpen('master');   // 원물·부자재 · 품목 구성
@@ -22777,6 +22851,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     ]);
   }
   window.rsOpen = rsOpen;
+  window.__pgCapture = (html, width, fileBase, css) => pgCapture(html, width, fileBase, css);   // 시세 리포트 이미지
   window.__rs = { css: RS_CSS, build: rsBuild, html: rsHtml, xlsx: rsXlsx, xlsxAll: rsXlsxAll, grid: rsGrid, drivers: rsDrivers, setRoutes: v => { rsRoutes = v; } };   // (점검용)
   (function wirePoGen(){
     const $ = id => document.getElementById(id);
@@ -27739,6 +27814,276 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(confirm('테스트 모드에서 저장한 내용을 모두 지울까요? (다른 직원이 테스트한 내용도 함께 지워집니다)')) run('', e.currentTarget);
     });
     document.getElementById('test-exit').addEventListener('click', () => { try{ sessionStorage.removeItem('dd_test'); }catch(e){} location.href = location.pathname; });
+  })();
+
+  // ── 📈 시세 리포트: 전국 공영도매시장 전일 정산(경락) 가격 — 서버 함수 market-report(supabase/functions/market-report)가 매일 아침 받아 kv 에 저장 ──
+  //  kv 'mkt-report-index' = { dates: { 'YYYY-MM-DD': { at, empty, partial, items: { key: { name, kg, avg, pack:{label,avg} } } } }, lastRunAt }
+  //  kv 'mkt-report:YYYY-MM-DD' = { date, at, markets, fails[], empty, items: [{ key, name, rows, kg, avg, pack, grades, sizes, gradeSize, regions, origins, markets, varieties, trades }] }
+  //  kv 'mkt-report-settings' = { items: [{ key, name, l, m, s }] } — 관리자가 품목 설정에서 고침 (없으면 서버 기본: 대추방울토마토·찰토마토·딸기)
+  //  로그인한 직원 누구나 봄. 다시 받기·품목 설정은 관리자만. 테스트 모드에서는 서버에서 받지 않음(운영 저장값을 바꾸므로)
+  (function(){
+    const $m = id => document.getElementById(id);
+    const K_IDX = 'mkt-report-index', K_SET = 'mkt-report-settings', K_DAY = d => 'mkt-report:' + d;
+    const DEF_ITEMS = [{ key: '080603', name: '대추방울토마토', l: '08', m: '06', s: '03' }, { key: '080304', name: '찰토마토', l: '08', m: '03', s: '04' }, { key: '0804', name: '딸기', l: '08', m: '04', s: '' }];
+    const M = { idx: null, set: null, day: '', rep: null, item: '', busy: false, cache: {} };
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const won = n => n == null || !isFinite(n) ? '-' : Math.round(n).toLocaleString('ko-KR');
+    const vol = kg => kg >= 1000 ? (kg / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '톤' : Math.round(kg).toLocaleString('ko-KR') + 'kg';
+    const WD = '일월화수목금토';
+    const dLabel = d => { const [y, m, dd] = d.split('-').map(Number); return `${m}/${dd}(${WD[new Date(y, m - 1, dd).getDay()]})`; };
+    const addD = (d, n) => { const [y, m, dd] = d.split('-').map(Number); const t = new Date(y, m - 1, dd + n); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
+    const kstToday = () => { const k = new Date(Date.now() + 9 * 3600e3); return `${k.getUTCFullYear()}-${String(k.getUTCMonth() + 1).padStart(2, '0')}-${String(k.getUTCDate()).padStart(2, '0')}`; };
+    const tm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const isAdmin = () => !!(window.currentUser && window.currentUser.role === 'admin');
+    const jget = async k => { const r = await window.storage.get(k, true); if(!r || !r.value) return null; try{ return JSON.parse(r.value); }catch(e){ return null; } };
+
+    async function callFn(body){
+      const tok = (window.currentUser && window.currentUser.token) || localStorage.getItem('auth_token') || '';
+      const res = await fetch(`${SB_URL}/functions/v1/market-report`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY, 'x-app-token': tok }, body: JSON.stringify(body) });
+      let j = null; try{ j = await res.json(); }catch(e){}
+      if(!res.ok || !j || j.ok === false) throw new Error((j && (j.error || j.message)) || `서버 함수 응답 ${res.status}${res.status === 404 ? ' — 서버 함수(market-report)가 아직 배포되지 않았습니다' : ''}`);
+      return j;
+    }
+
+    // 날짜 목록 (자료 있는 날, 최근 먼저)
+    const datesAll = () => Object.keys((M.idx && M.idx.dates) || {}).sort().reverse();
+    const datesOk = () => datesAll().filter(d => !M.idx.dates[d].empty);
+    // 비교 기준: 직전 거래일 · 일주일 전(7일 전 또는 그 앞 가장 가까운 거래일, 10일 이내)
+    function cmpOf(day, key){
+      const ds = datesOk().filter(d => d < day && M.idx.dates[d].items[key]);
+      const prev = ds[0] || '';
+      const wk = ds.find(d => d <= addD(day, -7) && d >= addD(day, -10)) || '';
+      const v = d => d ? M.idx.dates[d].items[key] : null;
+      return { prev, pv: v(prev), wk, wv: v(wk) };
+    }
+    const pct = (a, b) => (a && b) ? ((a - b) / b) * 100 : null;
+    const chg = (p, label) => {
+      if(p == null) return `<span class="mk-chg">${label} -</span>`;
+      const cls = Math.abs(p) < 0.5 ? '' : p > 0 ? ' up' : ' dn';
+      return `<span class="mk-chg${cls}">${label} ${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p).toFixed(1)}%</span>`;
+    };
+
+    async function load(force){
+      M.idx = await jget(K_IDX).catch(() => null);
+      M.set = await jget(K_SET).catch(() => null);
+      const ok = datesOk();
+      if(!M.day || force === 'latest' || !M.idx || !M.idx.dates[M.day]) M.day = ok[0] || datesAll()[0] || '';
+      await loadDay();
+    }
+    async function loadDay(){
+      M.rep = null;
+      if(!M.day) return;
+      M.rep = M.cache[M.day] || await jget(K_DAY(M.day)).catch(() => null);
+      if(M.rep) M.cache[M.day] = M.rep;
+      const its = (M.rep && M.rep.items) || [];
+      if(!its.some(x => x.key === M.item)) M.item = (its.find(x => !x.empty) || its[0] || {}).key || '';
+    }
+
+    // 2주 흐름 (선택한 날까지 최근 14거래일, kg당 평균) — 한 줄 그래프, 점에 마우스를 올리면 값
+    function trendSvg(key, day){
+      const ds = datesOk().filter(d => d <= day && M.idx.dates[d].items[key]).slice(0, 14).reverse();
+      if(ds.length < 2) return '<div class="sub" style="margin:6px 0;">흐름 그래프는 자료가 이틀 이상 쌓이면 나옵니다.</div>';
+      const vs = ds.map(d => M.idx.dates[d].items[key].avg);
+      const W = 640, H = 170, L = 52, R = 14, T = 14, B = 26;
+      let lo = Math.min(...vs), hi = Math.max(...vs); if(hi === lo){ hi += 1; lo -= 1; }
+      const pad = (hi - lo) * 0.15; lo = Math.max(0, lo - pad); hi += pad;
+      const x = i => L + (ds.length === 1 ? 0 : i * (W - L - R) / (ds.length - 1));
+      const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+      const ticks = [lo, (lo + hi) / 2, hi];
+      const grid = ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="mk-grid"/><text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" class="mk-ax">${won(v)}</text>`).join('');
+      const xl = ds.map((d, i) => (i === 0 || i === ds.length - 1 || ds.length <= 7 || i % 2 === 0) ? `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="mk-ax">${d.slice(5).replace('-', '/')}</text>` : '').join('');
+      const path = ds.map((d, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(vs[i]).toFixed(1)}`).join('');
+      const pts = ds.map((d, i) => `<g class="mk-pt" data-tip="${esc(dLabel(d))} · kg당 ${won(vs[i])}원"><circle cx="${x(i).toFixed(1)}" cy="${y(vs[i]).toFixed(1)}" r="12" fill="transparent"/><circle cx="${x(i).toFixed(1)}" cy="${y(vs[i]).toFixed(1)}" r="4" class="mk-dot${d === day ? ' on' : ''}"/></g>`).join('');
+      return `<div class="mk-trend"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 ${ds.length}거래일 kg당 평균 경락가">${grid}${xl}<path d="${path}" class="mk-line"/>${pts}</svg><div class="mk-tip" hidden></div></div>`;
+    }
+
+    function tableHtml(title, rows, it, opts){
+      if(!rows || !rows.length) return '';
+      const o = opts || {};
+      const total = it.kg || rows.reduce((s, r) => s + r.kg, 0);
+      const pk = it.pack;
+      const list = o.top ? rows.slice(0, o.top) : rows;
+      return `<div class="mk-tbl-wrap"><div class="mk-tbl-h">${esc(title)}${o.note ? ` <span class="mk-note">${esc(o.note)}</span>` : ''}</div><table class="mk-tbl"><thead><tr><th>구분</th><th>물량</th><th>비중</th><th>kg당 평균</th>${pk ? `<th>${esc(pk.label)} 환산</th>` : ''}<th>kg당 최저~최고</th></tr></thead><tbody>${
+        list.map(r => `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${total ? Math.round(r.kg / total * 100) : 0}%</td><td class="n b">${won(r.avg)}</td>${pk ? `<td class="n">${won(r.avg * pk.unitKg)}</td>` : ''}<td class="n mu">${r.lo != null ? won(r.lo) : '-'} ~ ${r.hi != null ? won(r.hi) : '-'}</td></tr>`).join('')
+      }</tbody></table>${o.top && rows.length > o.top ? `<div class="mk-note">상위 ${o.top}곳 (전체 ${rows.length}곳)</div>` : ''}</div>`;
+    }
+
+    function cardsHtml(rep){
+      return `<div class="mk-cards">${rep.items.map(it => {
+        if(it.empty) return `<div class="mk-card off"><div class="mk-cn">${esc(it.name)}</div><div class="sub">거래 자료 없음</div></div>`;
+        const c = cmpOf(rep.date, it.key);
+        return `<button type="button" class="mk-card${it.key === M.item ? ' on' : ''}" data-mk-item="${esc(it.key)}"><div class="mk-cn">${esc(it.name)}</div>
+          <div class="mk-cv">${won(it.avg)}<small>원/kg</small></div>
+          ${it.pack ? `<div class="mk-cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}
+          <div class="mk-cc">${chg(pct(it.avg, c.pv && c.pv.avg), '전일')} ${chg(pct(it.avg, c.wv && c.wv.avg), '전주')}</div>
+          <div class="mk-cq">물량 ${vol(it.kg)}</div></button>`;
+      }).join('')}</div>`;
+    }
+
+    function itemHtml(rep, it){
+      if(!it || it.empty) return '<div class="sub">이 품목은 이날 거래 자료가 없습니다.</div>';
+      const c = cmpOf(rep.date, it.key);
+      const pk = it.pack;
+      return `<div class="mk-item">
+        <div class="mk-ih"><b>${esc(it.name)}</b> · kg당 평균 <b>${won(it.avg)}원</b>${pk ? ` · 대표 포장 ${esc(pk.label)} 평균 <b>${won(pk.avg)}원</b> (최저 ${won(pk.lo)} ~ 최고 ${won(pk.hi)}, ${won(pk.boxes)}개 · 물량의 ${pk.share}%)` : ''} · 전국 물량 ${vol(it.kg)}
+          <div class="mk-ihc">${chg(pct(it.avg, c.pv && c.pv.avg), '전일' + (c.prev ? `(${c.prev.slice(5).replace('-', '/')})` : ''))} ${chg(pct(it.avg, c.wv && c.wv.avg), '전주' + (c.wk ? `(${c.wk.slice(5).replace('-', '/')})` : ''))}</div></div>
+        <div class="mk-th">최근 흐름 · kg당 평균 (원)</div>${trendSvg(it.key, rep.date)}
+        <div class="mk-grid2">
+          ${tableHtml('등급별', it.grades, it)}
+          ${tableHtml('크기별', it.sizes, it)}
+          ${tableHtml('산지 (시·도)', it.regions, it)}
+          ${tableHtml('산지 (시·군)', it.origins, it, { top: 15 })}
+          ${tableHtml('도매시장별', it.markets, it, { top: 15 })}
+          ${it.varieties && it.varieties.length > 1 ? tableHtml('품종별', it.varieties, it) : ''}
+          ${tableHtml('거래 방식', it.trades, it)}
+        </div>
+        ${it.skipped ? `<div class="mk-note">kg 단위가 아닌 거래 ${it.skipped}건은 kg당 가격 계산에서 뺐습니다.</div>` : ''}
+      </div>`;
+    }
+
+    function render(){
+      const box = $m('mkt-body'); if(!box) return;
+      const ds = datesAll();
+      if(!ds.length){
+        box.innerHTML = `<div class="sub" style="margin:8px 0;">아직 받은 시세가 없습니다. 매일 아침 자동으로 받습니다${isAdmin() ? ' — 지금 받으려면 아래 <b>🔄 다시 받기</b>를 누르세요' : ''}.</div>${adminHtml()}`;
+        bindAdmin(); return;
+      }
+      const rep = M.rep;
+      const yday = addD(kstToday(), -1);
+      const yInfo = M.idx.dates[yday];
+      const yNote = !yInfo ? `어제(${dLabel(yday)}) 자료는 아직 받지 않았습니다 (매일 7:40 · 8:40 · 9:40에 받음).` : yInfo.empty ? `어제(${dLabel(yday)})는 거래 자료가 없습니다 (휴장일 또는 아직 집계 전).` : '';
+      const di = ds.indexOf(M.day);
+      box.innerHTML = `
+        <div class="mk-bar">
+          <button type="button" class="btn-ghost small-btn" id="mk-prev" ${di >= ds.length - 1 ? 'disabled' : ''}>◀</button>
+          <select id="mk-day">${ds.map(d => `<option value="${d}" ${d === M.day ? 'selected' : ''}>${dLabel(d)} 거래${M.idx.dates[d].empty ? ' (자료 없음)' : ''}</option>`).join('')}</select>
+          <button type="button" class="btn-ghost small-btn" id="mk-next" ${di <= 0 ? 'disabled' : ''}>▶</button>
+          <span class="mk-meta">${rep ? `전국 공영도매시장 ${rep.markets}곳 · 받은 시각 ${tm(rep.at)}${rep.fails && rep.fails.length ? ` · <span class="mk-warn" title="${esc(rep.fails.join('\n'))}">⚠ 일부 못 받음 ${rep.fails.length}건</span>` : ''}` : ''}</span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn-ghost small-btn" id="mk-img" ${rep && !rep.empty ? '' : 'disabled'}>🖼 이미지</button>
+        </div>
+        ${yNote ? `<div class="mk-ynote">${esc(yNote)}</div>` : ''}
+        ${!rep ? '<div class="sub">이 날짜 리포트를 불러오지 못했습니다.</div>' : rep.empty ? `<div class="sub" style="margin:10px 0;">${dLabel(rep.date)}에는 설정한 품목의 거래 자료가 없습니다 (휴장일 또는 집계 전).</div>` : cardsHtml(rep) + itemHtml(rep, rep.items.find(x => x.key === M.item))}
+        ${adminHtml()}`;
+      $m('mk-day').addEventListener('change', async e => { M.day = e.target.value; await loadDay(); render(); });
+      $m('mk-prev').addEventListener('click', async () => { M.day = ds[di + 1]; await loadDay(); render(); });
+      $m('mk-next').addEventListener('click', async () => { M.day = ds[di - 1]; await loadDay(); render(); });
+      box.querySelectorAll('[data-mk-item]').forEach(b => b.addEventListener('click', () => { M.item = b.dataset.mkItem; render(); }));
+      $m('mk-img').addEventListener('click', () => shareImg().catch(e => toast('이미지를 만들지 못했습니다: ' + (e.message || e))));
+      const tr = box.querySelector('.mk-trend');
+      if(tr){
+        const tip = tr.querySelector('.mk-tip');
+        tr.querySelectorAll('.mk-pt').forEach(g => {
+          const show = () => { const r = g.getBoundingClientRect(), pr = tr.getBoundingClientRect(); tip.textContent = g.dataset.tip; tip.hidden = false; tip.style.left = Math.min(pr.width - 150, Math.max(0, r.left - pr.left + r.width / 2 - 70)) + 'px'; tip.style.top = Math.max(0, r.top - pr.top - 34) + 'px'; };
+          g.addEventListener('mouseenter', show); g.addEventListener('click', show); g.addEventListener('mouseleave', () => { tip.hidden = true; });
+        });
+      }
+      bindAdmin();
+    }
+
+    // ── 공유용 이미지: 품목별 요약 + 등급·산지·시장 표 ──
+    async function shareImg(){
+      const rep = M.rep; if(!rep || rep.empty) return;
+      const css = `.mki{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111;background:#fff;position:relative;width:880px;}
+        .mki h1{font-size:22px;margin:0 0 2px;} .mki .s{color:#666;font-size:12px;margin:0 0 12px;}
+        .mki .cards{display:flex;gap:8px;margin:0 0 12px;} .mki .c{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 10px;position:relative;}
+        .mki .cn{font-weight:700;font-size:14px;} .mki .cv{font-size:22px;font-weight:800;} .mki .cv small{font-size:12px;color:#666;font-weight:400;margin-left:2px;}
+        .mki .cp,.mki .cq{font-size:12px;color:#444;} .mki .up{color:#c0392b;} .mki .dn{color:#1f5fbf;}
+        .mki h2{font-size:15px;margin:14px 0 6px;border-left:4px solid #c8102e;padding-left:6px;}
+        .mki .g{display:flex;gap:10px;align-items:flex-start;} .mki .g>div{flex:1;}
+        .mki table{border-collapse:collapse;width:100%;font-size:12px;} .mki th,.mki td{border:1px solid #ddd;padding:3px 6px;} .mki th{background:#f2f2f2;font-weight:600;} .mki td.n{text-align:right;} .mki .t{font-weight:600;font-size:12px;margin:0 0 3px;}`;
+      const ch = (p, l) => p == null ? `${l} -` : `<span class="${Math.abs(p) < 0.5 ? '' : p > 0 ? 'up' : 'dn'}">${l} ${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p).toFixed(1)}%</span>`;
+      const mini = (t, rows, it, top) => !rows || !rows.length ? '' : `<div><div class="t">${esc(t)}</div><table><tr><th>구분</th><th>물량</th><th>kg당</th>${it.pack ? `<th>${esc(it.pack.label)}</th>` : ''}</tr>${rows.slice(0, top || 8).map(r => `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${won(r.avg)}</td>${it.pack ? `<td class="n">${won(r.avg * it.pack.unitKg)}</td>` : ''}</tr>`).join('')}</table></div>`;
+      const ok = rep.items.filter(x => !x.empty);
+      const html = `<div class="mki"><h1>도매시장 시세 리포트 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 다름달음 통합시스템</div>
+        <div class="cards">${ok.map(it => { const c = cmpOf(rep.date, it.key); return `<div class="c"><div class="cn">${esc(it.name)}</div><div class="cv">${won(it.avg)}<small>원/kg</small></div>${it.pack ? `<div class="cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}<div class="cp">${ch(pct(it.avg, c.pv && c.pv.avg), '전일')} · ${ch(pct(it.avg, c.wv && c.wv.avg), '전주')}</div><div class="cq">물량 ${vol(it.kg)}</div></div>`; }).join('')}</div>
+        ${ok.map(it => `<h2>${esc(it.name)}</h2><div class="g">${mini('등급별', it.grades, it)}${mini('산지 (시·도)', it.regions, it)}${mini('도매시장별', it.markets, it, 6)}</div>`).join('')}</div>`;
+      if(!window.__pgCapture){ toast('이미지 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+      await window.__pgCapture(html, 880, '시세리포트_' + rep.date.slice(2).replace(/-/g, ''), css);
+      writeLog('market_report', `시세 리포트 이미지 ${rep.date}`).catch(() => {});
+    }
+
+    // ── 관리자: 다시 받기 · 지난 2주 채우기 · 품목 설정 ──
+    function adminHtml(){
+      if(!isAdmin()) return '';
+      const items = (M.set && M.set.items && M.set.items.length) ? M.set.items : DEF_ITEMS;
+      return `<details class="mk-admin"><summary>⚙ 관리자 — 다시 받기 · 품목 설정</summary>
+        <div class="mk-arow"><input type="date" id="mk-run-day" value="${addD(kstToday(), -1)}" max="${addD(kstToday(), -1)}"> <button type="button" class="btn-ghost small-btn" id="mk-run">🔄 다시 받기</button>
+          <button type="button" class="btn-ghost small-btn" id="mk-fill">📅 지난 2주 빈 날짜 채우기</button> <span class="mk-note">하루 받는 데 15초쯤 걸립니다. 자동: 매일 7:40 (8:40·9:40에 한 번 더)</span></div>
+        <div class="mk-arow"><b>리포트 품목</b> <span class="mk-note">바꾸면 다음에 받는 날부터 적용 (지난 날짜는 다시 받기)</span></div>
+        <div id="mk-items">${items.map((it, i) => `<span class="mk-chip">${esc(it.name)} <small>${esc([it.l, it.m, it.s].filter(Boolean).join('-'))}</small> <button type="button" data-mk-del="${i}" title="빼기">✕</button></span>`).join('')}</div>
+        <div class="mk-arow"><input type="text" id="mk-q" placeholder="품목·품종 이름 (예: 방울, 설향, 샤인)" style="width:220px"> <button type="button" class="btn-ghost small-btn" id="mk-find">🔍 찾기</button> <button type="button" class="btn-ghost small-btn" id="mk-def">기본 품목으로</button></div>
+        <div id="mk-found"></div></details>`;
+    }
+    const testBlock = () => { if(window.TEST_MODE){ toast('테스트 모드에서는 서버에서 시세를 받지 않습니다 (운영 자료가 바뀜)'); return true; } return false; };
+    async function runDay(day){
+      const r = await callFn({ action: 'run', date: day });
+      delete M.cache[day];
+      return r;
+    }
+    async function saveItems(items){
+      const v = { items, at: Date.now(), by: (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '' };
+      await window.storage.set(K_SET, JSON.stringify(v), true);
+      M.set = v;
+      writeLog('market_report', `시세 리포트 품목: ${items.map(x => x.name).join(', ')}`).catch(() => {});
+      render();
+    }
+    function bindAdmin(){
+      if(!isAdmin() || !$m('mk-run')) return;
+      const items = () => ((M.set && M.set.items && M.set.items.length) ? M.set.items : DEF_ITEMS).slice();
+      $m('mk-run').addEventListener('click', async e => {
+        if(testBlock() || M.busy) return;
+        const day = $m('mk-run-day').value; if(!day) return;
+        M.busy = true; e.target.disabled = true; e.target.textContent = '받는 중…';
+        try{ const r = await runDay(day); toast(r.empty ? `${dLabel(day)}에는 거래 자료가 없습니다` : `${dLabel(day)} 시세를 받았습니다${r.fails ? ` (일부 못 받음 ${r.fails}건)` : ''}`); M.day = day; await load(); render(); }
+        catch(err){ toast('받지 못했습니다: ' + err.message); e.target.disabled = false; e.target.textContent = '🔄 다시 받기'; }
+        finally{ M.busy = false; }
+      });
+      $m('mk-fill').addEventListener('click', async e => {
+        if(testBlock() || M.busy) return;
+        const have = new Set(datesAll()), y = addD(kstToday(), -1);
+        const miss = []; for(let i = 0; i < 14; i++){ const d = addD(y, -i); if(!have.has(d)) miss.push(d); }
+        if(!miss.length){ toast('지난 2주는 모두 받아 두었습니다'); return; }
+        if(!confirm(`비어 있는 ${miss.length}일을 차례로 받습니다 (약 ${Math.ceil(miss.length * 15 / 60)}분). 진행할까요?`)) return;
+        M.busy = true; e.target.disabled = true; let done = 0, bad = 0;
+        for(const d of miss){ e.target.textContent = `받는 중 ${done + bad + 1}/${miss.length}…`; try{ await runDay(d); done++; }catch(err){ bad++; } }
+        M.busy = false; toast(`${done}일 받았습니다${bad ? ` · ${bad}일 실패` : ''}`); await load(); render();
+      });
+      $m('mk-items').querySelectorAll('[data-mk-del]').forEach(b => b.addEventListener('click', () => {
+        const a = items(); if(a.length <= 1){ toast('품목이 하나는 있어야 합니다'); return; }
+        const [x] = a.splice(Number(b.dataset.mkDel), 1);
+        if(confirm(`'${x.name}'을(를) 리포트에서 뺄까요?`)) saveItems(a).catch(err => toast(err.message));
+      }));
+      $m('mk-def').addEventListener('click', () => { if(confirm('리포트 품목을 기본(대추방울토마토 · 찰토마토 · 딸기)으로 되돌릴까요?')) saveItems(DEF_ITEMS.slice()).catch(err => toast(err.message)); });
+      const find = async () => {
+        const q = $m('mk-q').value.trim(); if(!q) return;
+        if(window.TEST_MODE){ toast('테스트 모드에서는 품목 찾기를 쓰지 않습니다'); return; }
+        const out = $m('mk-found'); out.innerHTML = '<div class="sub">찾는 중… (품목 코드표 전체를 읽어 10초쯤 걸립니다)</div>';
+        try{
+          const r = await callFn({ action: 'goods', q });
+          const mids = new Map(); r.list.forEach(g => { const k = g.l + g.m; if(!mids.has(k)) mids.set(k, { l: g.l, m: g.m, s: '', name: g.mn, key: g.l + g.m, sub: g.ln + ' 전체' }); });
+          const opts = [...mids.values()].concat(r.list.map(g => ({ l: g.l, m: g.m, s: g.s, name: g.sn, key: g.l + g.m + g.s, sub: `${g.ln} › ${g.mn}` })));
+          out.innerHTML = opts.length ? opts.slice(0, 60).map((o, i) => `<button type="button" class="mk-chip add" data-mk-add="${i}">＋ ${esc(o.name)} <small>${esc(o.sub)}</small></button>`).join('') : '<div class="sub">찾은 품목이 없습니다.</div>';
+          out.querySelectorAll('[data-mk-add]').forEach(b => b.addEventListener('click', () => {
+            const o = opts[Number(b.dataset.mkAdd)], a = items();
+            if(a.some(x => x.key === o.key)){ toast('이미 있는 품목입니다'); return; }
+            if(a.length >= 12){ toast('품목은 12개까지 넣을 수 있습니다'); return; }
+            const name = (prompt('리포트에 보일 이름', o.name) || '').trim(); if(!name) return;
+            a.push({ key: o.key, name, l: o.l, m: o.m, s: o.s }); saveItems(a).catch(err => toast(err.message));
+          }));
+        }catch(err){ out.innerHTML = `<div class="sub">찾지 못했습니다: ${esc(err.message)}</div>`; }
+      };
+      $m('mk-find').addEventListener('click', find);
+      $m('mk-q').addEventListener('keydown', e => { if(e.key === 'Enter') find(); });
+    }
+
+    window.mktOpen = async function(){
+      const box = $m('mkt-body'); if(!box) return;
+      if(!M.idx) box.innerHTML = '<div class="sub">불러오는 중…</div>';
+      try{ await load(M.idx ? '' : 'latest'); }catch(e){ box.innerHTML = `<div class="sub">불러오지 못했습니다: ${esc(e.message)}</div>`; return; }
+      render();
+    };
+    window.__mkt = { M, cmpOf, trendSvg, render, load };   // (점검용)
   })();
 
   // ── 앱 시작: 세션 복원 또는 로그인 화면 ──
