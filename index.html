@@ -315,6 +315,8 @@
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
+  .pr-xl td.pr-xl-n{ text-align:right; color:#444; }
+  .pr-xl .pr-xl-y{ background:#fff59d; font-weight:700; }
   /* 📒 월간 생산 수불장 */
   .lg-weeks{ display:flex; flex-wrap:wrap; gap:8px 12px; margin:0 0 10px; }
   .lg-wb{ border-collapse:collapse; font-size:12px; width:auto !important; flex:0 0 auto; }
@@ -1888,7 +1890,8 @@
     <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin:0 0 8px;">
       생산본부 생산일보입니다. 적은 내용은 <b>TV 생산 현황판</b>의 <b>[생산일보]</b> 화면에 그대로 나옵니다(현황판 오른쪽 위 '보기' 버튼으로 현황판 / 생산일보 / 번갈아 보기). 고칠 때마다 바로 저장됩니다.<br>
       · <b>① 발주현황</b>은 자동입니다: 재고 = 전일 재고, 금일출고 = 오늘 발주(샘플 동봉 포함) + 생산본부 샘플, 생산박스 = 금일출고 − 재고 = 오늘 만들어야 할 박스(재고로 충분하면 0, 남는 재고는 "재고 남음"으로 작게 표시).<br>
-      · <b>② 생산지시</b>의 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg). 직접 적으면 그 값이 우선입니다.<br>
+      · <b>② 생산지시 — 엑셀 방식(기본)</b>: 생산본부 생산 kg 계산표와 같은 칸 순서·식입니다. <b>재고박스</b>(전일 재고) · <b>발주 박스</b>(오늘 발주 + 샘플) → <b>생산KG</b> = (발주 − 재고) × 박스당 kg(품목 이름의 kg) + 여유 kg(기본 30) → <b>여유분</b> = 생산KG × (1 + 여유율 3%) → <b>ct</b> = 여유분 ÷ 1ct kg(12) 올림 + 추가 ct(기본 4) → <b>생산지시kg</b> = ct × 1ct kg. 재고로 충분하면 0입니다. 생산지시kg·ct는 직접 고칠 수 있고(ct만 적으면 생산지시kg = ct × 1ct kg), 기준값은 표 아래 칸에서 바꿉니다. '박스 여유분·로스율'을 고르면 예전 방식입니다.<br>
+      · (예전 방식) <b>② 생산지시</b>의 원물·작업kg·ct를 비워 두면 회색 자동값이 쓰입니다(작업kg = 생산 필요 박스 × 단가 확인 SKU 구성의 원물 kg/박스, ct = 작업kg ÷ 1ct kg). 직접 적으면 그 값이 우선입니다.<br>
       · <b>여유분 · 로스율</b>: 발주 기준 생산 필요 박스에 <b>여유분(박스)</b>을 더하고 로스를 감안해 <b>작업kg = (생산 필요 박스 + 여유분 박스) × 원물 kg/박스 ÷ (1 − 로스율)</b>로 실제 투입할 원물을 계산합니다(생산할 박스가 없으면 여유분도 더하지 않음). 줄마다 적거나, 비워 두면 아래 <b>기본 여유분·로스율</b>을 씁니다. 비고(향료 사용량 등)는 자유 입력입니다.<br>
       · 생산 순서에 적은 품목은 <b>⤵ 생산 순서에서 가져오기</b>로 한 번에 넣을 수 있고, 인원 배치는 <b>⤵ 전날 인원·비고 가져오기</b>로 이어 쓸 수 있습니다.<br>
       · <b>🔒 생산 마감</b>: 누르면 이 납품일은 발주를 추가·수정·삭제할 수 없게 잠기고(발주 입력·업로드·집계표·개인구매·3PL 줄), 바로 <b>마감 PPT</b>를 받습니다. 송장번호·반품·실적 등록은 마감 뒤에도 됩니다. 잘못 눌렀으면 <b>🔓 마감 해제</b>.<br>
@@ -1921,7 +1924,9 @@
       <button type="button" class="btn-ghost small-btn" id="pr-inst-add">+ 줄 추가</button>
       <button type="button" class="btn-ghost small-btn" id="pr-inst-seq" title="① 생산 순서에 적은 품목을 순서대로 생산지시 줄로 넣습니다">⤵ 생산 순서에서 가져오기</button>
       <label class="sub" style="margin:0;">1ct = <input id="pr-ctkg" type="number" min="0" step="0.1" style="width:64px;"> kg (ct 자동 계산용)</label>
-      <label class="sub" style="margin:0;" title="생산지시 줄에서 비워 둔 여유분·로스율에 쓰이는 기본값 (매일 같이 씀)">기본 여유분 <input id="pr-extra" type="text" inputmode="decimal" style="width:52px;">박스 · 로스율 <input id="pr-loss" type="text" inputmode="decimal" style="width:52px;">%</label>
+      <label class="sub" style="margin:0;" title="생산 kg 계산 방식 (모든 날짜에 같이 씀)">계산 <select id="pr-mode"><option value="xl">엑셀 방식</option><option value="old">박스 여유분·로스율</option></select></label>
+      <span id="pr-xl-std" class="sub" style="margin:0;" title="엑셀 방식 기준값 (매일 같이 씀)">여유 <input id="pr-xl-add" type="text" inputmode="decimal" style="width:44px;">kg · 여유율 <input id="pr-xl-rate" type="text" inputmode="decimal" style="width:40px;">% · 추가 <input id="pr-xl-ct" type="text" inputmode="decimal" style="width:36px;">ct · 박스당 <input id="pr-xl-kg" type="text" inputmode="decimal" style="width:40px;" title="품목 이름에 kg이 없을 때만 씀 (예: [2kg] 투맛토 → 2kg)">kg</span>
+      <label id="pr-old-std" class="sub" style="margin:0;" title="생산지시 줄에서 비워 둔 여유분·로스율에 쓰이는 기본값 (매일 같이 씀)">기본 여유분 <input id="pr-extra" type="text" inputmode="decimal" style="width:52px;">박스 · 로스율 <input id="pr-loss" type="text" inputmode="decimal" style="width:52px;">%</label>
       <span class="sub" style="margin:0;">작업kg·ct의 <b style="color:#1f5fbf;">파란 숫자</b> = 자동 계산 (직접 적으면 그 값이 우선 · 지우면 다시 자동)</span>
     </div>
     <h3 style="margin:14px 0 4px;">③ 비고 · 인원</h3>
@@ -25940,7 +25945,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   //  키가 'prod-plan-'로 시작해 생산/물류 권한으로 저장됨 (서버 권한 규칙과 같음)
   //  여유분·로스율: 생산지시 줄의 extra(박스)·loss(%) — 비우면 'prod-plan-report-std' 의 extra·loss(기본값). 작업kg 자동 = (필요 박스 + 여유분) × kg/박스 ÷ (1 − 로스)
   const prCache = {}, prLoading = {};
-  let prStdDoc = {}, prRates = { extra: 0, loss: 0 };
+  let prStdDoc = {}, prRates = { extra: 0, loss: 0, mode: 'xl', xlAdd: 30, xlRate: 3, xlCt: 4, xlKg: 2 };
+  const prNum = (v, d) => (v === '' || v == null || !isFinite(Number(v))) ? d : Number(v);
   let prStd = null, prQueue = Promise.resolve(), prCost = null, prCostAt = 0;   // prCost: 단가 확인 원가 설정(cost-config) — 원물·kg/박스
   const PR_STAFF_DEFAULT = ['가공실', '원물', '내포장실', '외포장실'];
   const PR_STD_DEFAULT = '용액 투입량 기준\n1CT -> 66L\n\n콩크 : 1 ~ 1.8톤 기준 1.5KG\n향 추가 : 1~1.8톤 기준 0.8KG';
@@ -25974,7 +25980,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
           const s = await window.storage.get('prod-plan-report-std', true); let o = {};
           if(s && s.value){ try{ o = JSON.parse(s.value) || {}; }catch(e){ /* 기본 */ } }
           prStdDoc = o; prStd = o.text == null ? PR_STD_DEFAULT : String(o.text);
-          prRates = { extra: Number(o.extra) || 0, loss: Number(o.loss) || 0 };
+          prRates = { extra: Number(o.extra) || 0, loss: Number(o.loss) || 0, mode: o.mode === 'old' ? 'old' : 'xl', xlAdd: prNum(o.xlAdd, 30), xlRate: prNum(o.xlRate, 3), xlCt: prNum(o.xlCt, 4), xlKg: prNum(o.xlKg, 2) };
         }
         await prCostLoad(force);
       }catch(e){ if(!prCache[dk]) prCache[dk] = Object.assign(prNorm(null), { error: true }); }
@@ -26036,10 +26042,36 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   // 로스율(%) → 투입 배수 (0 이상 95 미만만 인정), 여유분은 박스 (0 이상)
   const prPct = v => { const n = Number(v); return isFinite(n) && n > 0 && n < 95 ? n : 0; };
   const prBox = v => { const n = Number(v); return isFinite(n) && n > 0 ? n : 0; };
+  // 박스당 제품 kg: 품목 이름의 [2kg]·[1.8kg]·3kg (없으면 팩 g × 박스입수), 그래도 없으면 기준값
+  function prBoxKg(item){
+    const nm = `${item.name || ''} ${item.shortName || ''}`;
+    const m = /(\d+(?:\.\d+)?)\s*kg/i.exec(item.name || ''); if(m) return Number(m[1]);
+    const g = /(\d+(?:\.\d+)?)\s*g\b/i.exec(nm), n = Number(item.boxUnitCount) || 0;
+    return g && n > 0 ? Number(g[1]) * n / 1000 : 0;
+  }
+  // 엑셀 방식 (생산본부가 쓰던 생산 kg 계산표와 같은 식)
+  //  생산KG = (발주박스 − 재고박스) × 박스당 kg + 여유 kg · 여유분 = 생산KG × (1 + 여유율) · ct = 여유분 ÷ 1ct kg 올림 + 추가 ct · 생산지시kg = ct × 1ct kg
+  //  만들 박스가 없으면(재고로 충분) 모두 0
+  function prXl(dk, item, ctKg){
+    const n = Number(item.boxUnitCount) || 0, toB = p => n > 0 ? p / n : p;
+    const stP = Number(carryEffective(dk, 0)[item.id]) || 0, outP = Number(carryNeed(dk)[item.id]) || 0;
+    const stock = prR(toB(stP)), out = prR(toB(outP)), boxes = Math.max(0, toB(outP - stP));
+    const kgBox = prBoxKg(item) || prRates.xlKg || 2;
+    if(!(boxes > 0)) return { stock, out, boxes: 0, kgBox, prodKg: 0, margin: 0, ct: 0, kg: 0 };
+    const prodKg = Math.round((boxes * kgBox + (Number(prRates.xlAdd) || 0)) * 10) / 10;
+    const margin = Math.round(prodKg * (1 + (Number(prRates.xlRate) || 0) / 100) * 10) / 10;
+    const ct = ctKg > 0 ? Math.ceil(margin / ctKg - 1e-9) + (Number(prRates.xlCt) || 0) : 0;
+    const kg = ctKg > 0 ? Math.round(ct * ctKg * 10) / 10 : margin;
+    return { stock, out, boxes: prR(boxes), kgBox, prodKg, margin, ct, kg };
+  }
   function prAuto(dk, id, ctKg, extra, loss){
     const item = dict.find(d => d.id === id); if(!item) return { raw: '', kg: '', ct: '', base: '' };
     const cfg = skuCfgFrom(prCost, id) || {}, raws = (prCost && prCost.rawMaterials) || [];   // 정전개가 있으면 정전개 기준
     const raw = cfg.rawId ? ((raws.find(r => r.id === cfg.rawId) || {}).name || '') : '';
+    if(prRates.mode !== 'old'){
+      const x = prXl(dk, item, ctKg);
+      return { raw, kg: x.kg ? x.kg : (x.boxes > 0 ? x.kg : ''), ct: x.ct ? x.ct : '', base: x.prodKg || '', xl: x };
+    }
     const need = Math.max(0, (carryNeed(dk)[id] || 0) - (carryEffective(dk, 0)[id] || 0));
     const n = Number(item.boxUnitCount) || 0, boxes = n > 0 ? need / n : need, kpb = Number(cfg.rawKgPerBox) || 0;
     const base = kpb > 0 ? Math.round(boxes * kpb * 10) / 10 : '';                       // 발주 기준 필요 원물kg
@@ -26593,7 +26625,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     return doc.inst.map((r, i) => {
       const extra = prVal(r.extra, prRates.extra), loss = prVal(r.loss, prRates.loss);
       const a = prAuto(dk, r.item, doc.ctKg, extra, loss), item = dict.find(d => d.id === r.item);
-      const kg = prVal(r.kg, a.kg), ctAuto = (r.kg !== '' && r.kg != null && doc.ctKg > 0) ? Math.round(Number(r.kg) / doc.ctKg * 10) / 10 : a.ct;
+      const ctOnly = prRates.mode !== 'old' && (r.kg === '' || r.kg == null) && r.ct !== '' && r.ct != null && doc.ctKg > 0;
+      const kg = ctOnly ? Math.round(Number(r.ct) * doc.ctKg * 10) / 10 : prVal(r.kg, a.kg), ctAuto = (r.kg !== '' && r.kg != null && doc.ctKg > 0) ? Math.round(Number(r.kg) / doc.ctKg * 10) / 10 : a.ct;
       return { r, i, lbl: r.lbl || `${i + 1}차`, raw: r.raw || a.raw, name: item ? (item.shortName || item.name) : '', kg, ct: prVal(r.ct, ctAuto), a, ctAuto, note: r.note || '', extra: prBox(extra), loss: prPct(loss), base: a.base };
     });
   }
@@ -26609,6 +26642,10 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   const prSumLbl = g => (g ? (g.raw || '원물 미지정') + ' ' : '') + '합계';
   function prSumRowsHtml(dk, doc){
     const gs = prSumByRaw(dk, doc), n = v => v ? v.toLocaleString() : '';
+    if(prRates.mode !== 'old'){
+      const xs = prInstView(dk, doc), S = (raw, f) => prR(xs.filter(x => String(x.raw || '').trim() === (raw == null ? String(x.raw || '').trim() : raw)).reduce((t, x) => t + (Number(f(x)) || 0), 0));
+      return (gs.length ? gs : [null]).map(g => { const k = g ? g.raw : null; return `<tr class="pr-sumr"><td colspan="3" style="text-align:center;font-weight:700;">${escapeHtml(prSumLbl(g))}</td><td></td><td style="text-align:right;">${n(S(k, x => x.a.xl && x.a.xl.out))}</td><td style="text-align:right;">${n(S(k, x => x.a.xl && x.a.xl.prodKg))}</td><td style="text-align:right;">${n(S(k, x => x.a.xl && x.a.xl.margin))}</td><td style="font-weight:700;">${g ? n(g.kg) : ''}</td><td style="font-weight:700;">${g ? n(g.ct) : ''}</td><td colspan="2"></td></tr>`; }).join('');
+    }
     return (gs.length ? gs : [null]).map(g => `<tr class="pr-sumr"><td colspan="3" style="text-align:center;font-weight:700;">${escapeHtml(prSumLbl(g))}</td><td style="text-align:right;color:var(--muted);">${g ? n(g.base) : ''}</td><td></td><td></td><td style="font-weight:700;">${g ? n(g.kg) : ''}</td><td style="font-weight:700;">${g ? n(g.ct) : ''}</td><td colspan="2"></td></tr>`).join('');
   }
   function prRenderSums(){
@@ -26637,7 +26674,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const dk = currentDateKey;
     const badge = document.getElementById('prod-report-date'); if(badge) badge.textContent = dk ? `납품일 ${dk}` : '';
     prRenderOrder();
-    { const ae = document.activeElement; if(ae && ae !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && (ae.closest('#pr-inst') || ae.closest('#pr-etc') || ae.closest('#pr-waste') || ae.id === 'pr-std' || ae.id === 'pr-ctkg' || ae.id === 'pr-extra' || ae.id === 'pr-loss')){ prRenderPending = true; return; } }   // 입력 중이면 칸을 나간 뒤에 다시 그림
+    { const ae = document.activeElement; if(ae && ae !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && (ae.closest('#pr-inst') || ae.closest('#pr-etc') || ae.closest('#pr-waste') || ae.id === 'pr-std' || ae.id === 'pr-ctkg' || ae.id === 'pr-extra' || ae.id === 'pr-loss' || /^pr-xl-/.test(ae.id))){ prRenderPending = true; return; } }   // 입력 중이면 칸을 나간 뒤에 다시 그림
     prRenderPending = false;
     const instEl = document.getElementById('pr-inst'), etcEl = document.getElementById('pr-etc');
     if(!dk) return;
@@ -26648,6 +26685,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // ② 생산지시
     const opts = dict.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.shortName || d.name)}</option>`).join('');
     const view = prInstView(dk, doc);
+    if(prRates.mode !== 'old'){
+      const f1 = v => v === '' || v == null ? '' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+      let hx = `<div style="overflow-x:auto;"><table class="pr-tbl pr-xl"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th title="전일 재고 (박스)">재고박스</th><th title="오늘 발주 + 샘플 (박스)" class="pr-xl-y">발주 박스</th><th title="(발주박스 − 재고박스) × 박스당 kg + 여유 kg">생산KG</th><th title="생산KG × (1 + 여유율)">여유분</th><th title="ct × 1ct kg — 직접 적으면 그 값이 우선">생산지시kg</th><th title="여유분 ÷ 1ct kg 올림 + 추가 ct — 직접 적으면 그 값이 우선">ct</th><th>비고</th><th></th></tr></thead><tbody>`;
+      view.forEach(x => {
+        const X = x.a.xl || {};
+        hx += `<tr data-id="${x.r.id}"><td><input data-f="lbl" value="${escapeHtml(x.r.lbl || '')}" placeholder="${x.i + 1}차" style="width:56px;"></td>
+          <td><input data-f="raw" value="${escapeHtml(x.r.raw || '')}" placeholder="${escapeHtml(x.a.raw || '원물')}" style="width:90px;"></td>
+          <td><select data-f="item" style="max-width:170px;"><option value="">품목 선택</option>${opts}</select></td>
+          <td class="pr-xl-n">${x.r.item ? f1(X.stock) : ''}</td>
+          <td class="pr-xl-n pr-xl-y">${x.r.item ? f1(X.out) : ''}</td>
+          <td class="pr-xl-n" title="${X.boxes ? `(${f1(X.out)} − ${f1(X.stock)}) × ${f1(X.kgBox)}kg + ${f1(prRates.xlAdd)}kg` : ''}">${x.r.item ? f1(X.prodKg) : ''}</td>
+          <td class="pr-xl-n" title="${X.prodKg ? `${f1(X.prodKg)} × ${f1(1 + (Number(prRates.xlRate) || 0) / 100)}` : ''}">${x.r.item ? f1(X.margin) : ''}</td>
+          <td><input data-f="kg" type="text" inputmode="decimal" autocomplete="off" value="${x.r.kg == null ? '' : escapeHtml(String(x.r.kg))}" placeholder="${x.kg === '' || x.kg == null ? '' : x.kg}" title="파란 숫자 = 자동 (ct × 1ct kg). 직접 적으면 그 값이 우선, 지우면 다시 자동" style="width:80px;"></td>
+          <td><input data-f="ct" type="text" inputmode="numeric" autocomplete="off" value="${x.r.ct == null ? '' : escapeHtml(String(x.r.ct))}" placeholder="${x.ctAuto === '' ? '' : x.ctAuto}" title="파란 숫자 = 자동 (여유분 ÷ 1ct kg 올림 + 추가 ct). ct만 적으면 생산지시kg = ct × 1ct kg" style="width:60px;"></td>
+          <td><input data-f="note" value="${escapeHtml(x.r.note || '')}" placeholder="예: 망고향 0.8kg" style="width:180px;"></td>
+          <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
+      });
+      hx += prSumRowsHtml(dk, doc) + `<tr id="pr-sum-note-row"><td colspan="9" style="text-align:right;color:var(--muted);font-size:12px;">원물별 합계 · 합계 비고 →</td><td colspan="2"><input id="pr-inst-note" value="${escapeHtml(doc.instNote)}" placeholder="합계 비고 (예: 가압 0.8bar)" style="width:220px;"></td></tr></tbody></table></div>`;
+      instEl.innerHTML = hx;
+      view.forEach(x => { const sel = instEl.querySelector(`tr[data-id="${x.r.id}"] select`); if(sel) sel.value = x.r.item || ''; });
+    }
     let h = `<div style="overflow-x:auto;"><table class="pr-tbl"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th title="발주 기준 필요 원물 (생산 필요 박스 × 원물 kg/박스)">필요kg</th><th title="생산 필요 박스에 더할 여유분 (박스) · 비우면 기본 여유분">여유분(박스)</th><th title="비우면 기본 로스율">로스%</th><th title="실제 투입 원물 = (생산 필요 박스 + 여유분) × kg/박스 ÷ (1−로스)">작업kg</th><th>ct</th><th>비고</th><th></th></tr></thead><tbody>`;
     view.forEach(x => {
       h += `<tr data-id="${x.r.id}"><td><input data-f="lbl" value="${escapeHtml(x.r.lbl || '')}" placeholder="${x.i + 1}차" style="width:56px;"></td>
@@ -26662,11 +26720,14 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         <td style="white-space:nowrap;"><button type="button" class="btn-ghost small-btn" data-act="up">▲</button><button type="button" class="btn-ghost small-btn" data-act="dn">▼</button><button type="button" class="btn-ghost small-btn" data-act="del">✕</button></td></tr>`;
     });
     h += prSumRowsHtml(dk, doc) + `<tr id="pr-sum-note-row"><td colspan="8" style="text-align:right;color:var(--muted);font-size:12px;">원물별 합계 · 합계 비고 →</td><td colspan="2"><input id="pr-inst-note" value="${escapeHtml(doc.instNote)}" placeholder="합계 비고 (예: 가압 0.8bar)" style="width:220px;"></td></tr></tbody></table></div>`;
-    instEl.innerHTML = h;
-    view.forEach(x => { const sel = instEl.querySelector(`tr[data-id="${x.r.id}"] select`); if(sel) sel.value = x.r.item || ''; });
+    if(prRates.mode === 'old'){ instEl.innerHTML = h;
+    view.forEach(x => { const sel = instEl.querySelector(`tr[data-id="${x.r.id}"] select`); if(sel) sel.value = x.r.item || ''; }); }
     const ctk = document.getElementById('pr-ctkg'); if(ctk && document.activeElement !== ctk) ctk.value = doc.ctKg || '';
     { const bi = document.getElementById('pr-extra'), li = document.getElementById('pr-loss');
       if(bi && document.activeElement !== bi) bi.value = prRates.extra || ''; if(li && document.activeElement !== li) li.value = prRates.loss || ''; }
+    { const xl = prRates.mode !== 'old', md = document.getElementById('pr-mode'); if(md) md.value = xl ? 'xl' : 'old';
+      const oldBox = document.getElementById('pr-old-std'), xlBox = document.getElementById('pr-xl-std'); if(oldBox) oldBox.style.display = xl ? 'none' : ''; if(xlBox) xlBox.style.display = xl ? '' : 'none';
+      [['pr-xl-add', 'xlAdd'], ['pr-xl-rate', 'xlRate'], ['pr-xl-ct', 'xlCt'], ['pr-xl-kg', 'xlKg']].forEach(([id, k]) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = prRates[k]; }); }
     // ③ 비고 · 인원
     let e = `<label class="sub" style="display:block;margin:0 0 2px;">비고 (현황판 가운데 '비고' 칸 · 예: 점심시간 12:30~13:30)</label><textarea id="pr-note" rows="2" style="width:100%;max-width:640px;">${escapeHtml(doc.note)}</textarea>
       <div class="row" style="align-items:center;margin-top:6px;"><label>일용직 충원 <input id="pr-temp" type="number" min="0" value="${escapeHtml(doc.temp)}" style="width:70px;"> 명</label></div>
@@ -26678,7 +26739,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     prRenderWaste(dk, doc, can);
     const stdEl = document.getElementById('pr-std'); if(stdEl && document.activeElement !== stdEl) stdEl.value = prStd == null ? PR_STD_DEFAULT : prStd;
     // 권한 없으면 잠금
-    card.querySelectorAll('#pr-inst input, #pr-inst select, #pr-inst button, #pr-etc input, #pr-etc textarea, #pr-etc button, #pr-std, #pr-ctkg, #pr-extra, #pr-loss, #pr-inst-add, #pr-inst-seq, #pr-copy-prev').forEach(x => { x.disabled = !can; });
+    card.querySelectorAll('#pr-inst input, #pr-inst select, #pr-inst button, #pr-etc input, #pr-etc textarea, #pr-etc button, #pr-std, #pr-ctkg, #pr-extra, #pr-loss, #pr-mode, #pr-xl-add, #pr-xl-rate, #pr-xl-ct, #pr-xl-kg, #pr-inst-add, #pr-inst-seq, #pr-copy-prev').forEach(x => { x.disabled = !can; });
     const ro = document.getElementById('pr-ro'); if(ro) ro.style.display = can ? 'none' : '';
     try{ prodCloseUi(); }catch(e){ /* 마감 표시는 부가 */ }
   }
@@ -26720,6 +26781,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(map[t.id]){ const v = t.value.trim(); prCommit(d, doc => { doc[map[t.id]] = v; }); return; }
       if(t.id === 'pr-ctkg'){ const v = Number(t.value) || 0; prCommit(d, doc => { doc.ctKg = v; }, true); return; }
       if(t.id === 'pr-std'){ prStdSave(t.value.replace(/\s+$/, '')); return; }
+      if(t.id === 'pr-mode'){ prStdSave(null, { mode: t.value === 'old' ? 'old' : 'xl' }); prRender(); return; }
+      if(/^pr-xl-(add|rate|ct|kg)$/.test(t.id)){
+        const k = { 'pr-xl-add': 'xlAdd', 'pr-xl-rate': 'xlRate', 'pr-xl-ct': 'xlCt', 'pr-xl-kg': 'xlKg' }[t.id], v = t.value.replace(/[,\s%]/g, '').replace(/kg$/i, ''), n = v === '' ? 0 : Number(v);
+        if(!isFinite(n) || n < 0 || (k === 'xlRate' && n >= 100)){ toast('0 이상의 숫자로 입력해주세요'); t.value = prRates[k]; return; }
+        prStdSave(null, { [k]: n }); prRender(); return;
+      }
       if(t.id === 'pr-extra' || t.id === 'pr-loss'){
         const v = t.value.replace(/[,\s%]/g, '').replace(/박스$/, ''), n = v === '' ? 0 : Number(v);
         if(t.id === 'pr-loss' && (!isFinite(n) || n < 0 || n >= 95)){ toast('로스율은 0 ~ 95% 사이로 입력해주세요'); t.value = prRates.loss || ''; return; }
@@ -26802,7 +26869,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     t1 += '</tbody></table>';
     const v = prInstView(dk, doc).filter(x => x.r.item || x.r.raw || x.r.note || x.r.kg !== '' || x.r.lbl);
     const lossNote = v.some(x => x.extra || x.loss) ? '<br><span style="font-size:.7em;font-weight:400;">여유분·로스 반영</span>' : '';
-    let t2 = `<table class="t2"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th>작업kg${lossNote}</th><th>ct</th><th>비고</th></tr></thead><tbody>`;
+    let t2 = `<table class="t2"><thead><tr><th>생산지시</th><th>원물</th><th>품목</th><th>${prRates.mode !== 'old' ? '생산지시kg' : '작업kg' + lossNote}</th><th>ct</th><th>비고</th></tr></thead><tbody>`;
     if(!v.length) t2 += '<tr><td colspan="6" style="color:#8a94a8;">생산/물류 탭 → 생산일보에서 생산지시를 적으면 여기에 나옵니다</td></tr>';
     v.forEach((x, i) => {
       const first = i === 0 || v[i - 1].raw !== x.raw;
