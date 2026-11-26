@@ -315,6 +315,35 @@
   .lab-st{ display:inline-block; font-size:11.5px; font-weight:700; padding:1px 8px; border-radius:10px; background:#fdecea; color:#c0392b; white-space:nowrap; }
   .lab-st-recv{ background:#fff4d6; color:#9a6b00; }
   .lab-st-done{ background:#e3f4e8; color:#1e7a3c; }
+  /* 📒 월간 생산 수불장 */
+  .lg-week{ overflow-x:auto; margin:0 0 10px; }
+  .lg-wt{ border-collapse:collapse; font-size:12px; }
+  .lg-wt th, .lg-wt td{ border:1px solid var(--line); padding:3px 8px; text-align:right; white-space:nowrap; }
+  .lg-wt thead th, .lg-wt tbody th{ background:var(--hover); text-align:center; font-weight:600; }
+  .lg-wt tbody th{ text-align:left; }
+  .lg-wrap{ overflow:auto; max-height:72vh; border:1px solid var(--line); border-radius:8px; }
+  .lg-tbl{ border-collapse:separate; border-spacing:0; font-size:11.5px; }
+  .lg-tbl th, .lg-tbl td{ border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:2px 5px; white-space:nowrap; text-align:right; min-width:42px; height:22px; }
+  .lg-tbl thead th{ position:sticky; top:0; z-index:3; background:#f3eeea; text-align:center; font-weight:700; }
+  .lg-tbl thead th.sun{ color:#c0392b; } .lg-tbl thead th.sat{ color:#1f5fbf; }
+  .lg-tbl th.off, .lg-tbl td.off{ background:#faf8f6; }
+  .lg-tbl .lg-c0, .lg-tbl .lg-c1, .lg-tbl .lg-c2, .lg-tbl .lg-cD{ position:sticky; z-index:2; background:#fff; text-align:left; }
+  .lg-tbl thead .lg-c0, .lg-tbl thead .lg-c1, .lg-tbl thead .lg-c2, .lg-tbl thead .lg-cD{ z-index:4; background:#f3eeea; }
+  .lg-tbl .lg-c0{ left:0; min-width:78px; max-width:78px; white-space:normal; font-weight:600; }
+  .lg-tbl .lg-c1{ left:78px; min-width:52px; max-width:52px; }
+  .lg-tbl .lg-c2{ left:130px; min-width:92px; max-width:92px; }
+  .lg-tbl .lg-cD{ left:222px; min-width:50px; text-align:right; box-shadow:2px 0 0 var(--line); }
+  .lg-tbl td.lg-cD{ background:#fbf8f5; }
+  .lg-tbl .lg-tot{ background:#faf6f2; font-weight:700; }
+  .lg-tbl tr.lg-sec td{ position:sticky; left:0; background:var(--accent-soft); color:var(--accent); font-weight:700; text-align:left; font-size:12px; }
+  .lg-tbl tr.lg-sub td{ background:#f7f4f1; font-weight:700; }
+  .lg-tbl tr.lg-sub td.lg-c0, .lg-tbl tr.lg-sub td.lg-c1, .lg-tbl tr.lg-sub td.lg-c2{ background:#f1ece7; }
+  .lg-tbl td.ed{ cursor:pointer; }
+  .lg-tbl td.ed:hover{ outline:2px solid var(--accent-soft); outline-offset:-2px; }
+  .lg-tbl td.ov{ color:#1f5fbf; font-weight:800; }
+  .lg-tbl td.neg{ color:#c0392b; }
+  .lg-tbl .lg-in{ width:64px; font-size:11.5px; padding:1px 3px; text-align:right; }
+  .lg-sm{ font-size:10px; color:var(--muted); font-weight:400; }
   /* 출고 예정 (수량 미정) */
   #dispatch-list tr.disp-pending td{ background:#fff8e6; color:#7a5a00; }
   .disp-pend-form{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:8px 10px; margin:0 0 8px; border:1px dashed #e0b84a; border-radius:8px; background:#fffbef; font-size:12.5px; }
@@ -1940,6 +1969,26 @@
           같은 날짜를 다시 반영하면 기록이 덮어써져서 <b>중복 차감되지 않습니다</b>(발주가 바뀌었으면 다시 불러와서 반영). [반영 되돌리기]는 그 날짜의 자동 차감을 모두 취소하고 재고를 복구합니다. 자재·정전개 등록은 <b>🗃 자재·재고</b> 탭, 구매 입고는 <b>🧺 구매관리</b> 탭에서 합니다.</div></details>
         <div class="row" style="margin:6px 0;"><button type="button" class="btn-ghost small-btn" id="mat-d-reload">↻ 새로고침</button><span class="sub" id="mat-d-msg" style="margin:0;"></span></div>
         <div id="mat-d-wrap"></div>
+      </div>
+    </details>
+  </div>
+  <div class="card" id="lg-card">
+    <details id="lg-fold">
+      <summary style="cursor:pointer; font-size:16px; font-weight:700; color:var(--fg);">📒 월간 생산 수불장 <span class="badge">생산본부 수불장(토마토) · 일별</span></summary>
+      <div style="margin-top:10px;">
+        <details class="help"><summary>ⓘ 설명</summary><div class="sub" style="margin-top:0;">
+          생산본부가 엑셀로 쓰던 <b>월간 생산 수불장</b>을 시스템 자료로 채웁니다. 날짜 칸은 그 달 1~31일(발주·생산일 기준), 마지막 칸은 월 합계(재고는 마지막 값, 비율은 월 전체로 계산)입니다.<br>
+          <b>자동</b>: ① 투맛토 500g×4·② 150g 생산실적 — 출고 = 그날 발주(샘플 동봉 포함) + 출고한 샘플, 재고 = 전일 재고 + 생산 − 출고(생산량을 적은 날은 그 값), <b>BOX(생산)</b> = 출고 + 재고 − 전일 재고(엑셀과 같은 식) · ③ 원물 사용량 — 500g은 <b>생산일보 생산지시 작업kg</b>, 150g은 생산 팩 × 0.15kg · ④ 용과(투래곤후르츠) · ⑤ 가공kg(500g 팩 × 0.5kg + 150g 팩 × 0.15kg) · ⑥ loss = 1 − 가공kg ÷ 원물kg, 불량율 = 1 − 가공합계 ÷ 사용량 · ⑧ 원물/품질 <b>입고량</b> = 원물선별 원물입고(사입처별).<br>
+          <b>직접 입력</b>: ⑦ 챔버 가동 횟수, ⑧ 3kg 포장 · 포장 외 출고 · 가공 · 재고(실사), 전월 재고. 원물 입고량은 ⑧ 가공 합계(없으면 그날 사용량)가 기본입니다.<br>
+          칸을 누르면 고칠 수 있습니다(Enter 저장 · Esc 취소 · Tab 다음 칸). 고친 칸은 <b style="color:#1f5fbf;">파란 굵은 글씨</b>, 비우고 저장하면 자동값으로 돌아갑니다. 생산/물류 권한이 있는 직원이 고칠 수 있고, 같이 적어도 서로 덮어쓰지 않습니다. <b>📥 엑셀</b>은 같은 배치로 내려받습니다.
+        </div></details>
+        <div class="row" style="margin:6px 0;align-items:center;">
+          <span class="sub" style="margin:0;">월</span><input type="month" id="lg-month">
+          <button type="button" class="btn-ghost small-btn" id="lg-reload">↻ 새로고침</button>
+          <button type="button" class="btn-ghost small-btn" id="lg-xlsx">📥 엑셀</button>
+          <span class="sub" id="lg-meta" style="margin:0;"></span>
+        </div>
+        <div id="lg-body"></div>
       </div>
     </details>
   </div>
@@ -25977,6 +26026,381 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       .catch(() => { prMatRaw = []; prMatRawP = null; });
     return prMatRawP;
   }
+  // ══════════════════ 📒 월간 생산 수불장 (생산본부 엑셀 '생산 수불장' 토마토 시트와 같은 구성) ══════════════════
+  //  날짜 칸 = 그 달 1~31일 (시스템 날짜 = 발주·생산일). 시스템 자료로 자동 계산하고, 칸을 눌러 직접 고칠 수 있음(고친 칸은 파란 굵은 글씨, 비우면 자동값으로).
+  //  자동: 생산실적(투맛토 500g×4 · 150g — 출고 = 그날 발주+샘플, 재고 = 전일 재고 + 생산 − 출고, 생산 = 출고 + 재고 − 전일 재고) · 용과(투래곤후르츠)
+  //        원물 사용량(500g = 생산일보 생산지시 작업kg, 150g = 생산 팩 × 0.15kg) · 가공kg/원물kg · loss · 불량율 · 주차별 요약
+  //        원물/품질 입고량 = 원물선별 원물입고(사입처별 kg)
+  //  직접 입력: 챔버 가동 횟수 · 원물/품질의 3kg 포장 · 포장 외 출고 · 가공 · 재고(실사) · 전월 재고 · 그 밖에 자동값을 고칠 칸
+  //  저장: kv 'prod-plan-ledger-YYYY-MM' = { v:1, cells: { 행키: { 일(1~31) | 'D'(전월): 값 } }, at, by } — 'prod-plan-' 키라 생산/물류 권한으로 저장
+  const LG = { month: '', doc: null, rows: null, busy: false, open: false, vendors: null, inbound: null, err: '' };
+  const LG_FLAV = [['stv', '스테비아', /스테비아/], ['mng', '망고', /망고/], ['grp', '자몽', /자몽/], ['pch', '복숭아', /복숭아/]];
+  const lgKey = m => 'prod-plan-ledger-' + m;
+  const lgDays = m => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo, 0).getDate(); };
+  const lgDk = (m, d) => `${m}-${String(d).padStart(2, '0')}`;
+  const lgR = (v, n) => { if(v == null || v === '' || !isFinite(v)) return v; const p = Math.pow(10, n == null ? 2 : n); return Math.round(Number(v) * p) / p; };
+  const lgCan = () => window.sectionLevel('plan') === 'full';
+  // 품목 묶음: 투맛토 500g(2kg 상자 4팩) · 150g, 용과(투래곤후르츠)
+  function lgSkus(){
+    const nm = d => `${d.name || ''} ${d.shortName || ''}`;
+    const tm = dict.filter(d => /투맛토/.test(nm(d)));
+    const g = {};
+    LG_FLAV.forEach(([k, , re]) => {
+      g['b5_' + k] = tm.filter(d => re.test(nm(d)) && !/150\s*g/i.test(nm(d)));
+      g['p15_' + k] = tm.filter(d => re.test(nm(d)) && /150\s*g/i.test(nm(d)));
+    });
+    g.dragon = dict.filter(d => /투래곤|용과|드래곤/.test(nm(d)));
+    return g;
+  }
+  const lgUnit = d => Number(d.boxUnitCount) || 0;
+  const lgBoxKg = d => { const m = /\[(\d+(?:\.\d+)?)\s*kg\]/i.exec(d.name || ''); if(m) return Number(m[1]); const g = /(\d+(?:\.\d+)?)\s*g\b/i.exec(`${d.shortName || ''} ${d.name || ''}`); return g ? Number(g[1]) * (lgUnit(d) || 1) / 1000 : 0; };
+  // 그날 자료가 있는 날 (발주 또는 재고 입력)
+  const lgActive = dk => !!(ordersByDate[dk] && Object.keys(ordersByDate[dk]).some(k => k !== '_meta')) || carryHasData(dk);
+  // 하루 품목 묶음의 시작 재고·생산·출고·끝 재고 (팩)
+  function lgFlow(dk, skus){
+    const st = carryEffective(dk, 0), ship = carryShipped(dk), need = carryNeed(dk), made = (previousStock[dk] || {}).made || {};
+    let s = 0, m = 0, o = 0, sb = 0, mb = 0, ob = 0;
+    skus.forEach(d => {
+      const a = Number(st[d.id]) || 0, sh = Number(ship[d.id]) || 0;
+      const mk = (made[d.id] != null && made[d.id] !== '') ? (Number(made[d.id]) || 0) : Math.max(0, (Number(need[d.id]) || 0) - a);
+      const u = lgUnit(d) || 1;
+      s += a; m += mk; o += sh; sb += a / u; mb += mk / u; ob += sh / u;
+    });
+    return { start: s, made: m, ship: o, end: s + m - o, startB: sb, madeB: mb, shipB: ob, endB: sb + mb - ob };
+  }
+  // 생산일보 생산지시 작업kg (그 품목들)
+  function lgInstKg(dk, skus){
+    const doc = prCache[dk]; if(!doc || !doc.inst || !doc.inst.length) return 0;
+    const ids = new Set(skus.map(d => d.id));
+    return prInstView(dk, doc).filter(x => ids.has(x.r.item)).reduce((t, x) => t + (Number(x.kg) || 0), 0);
+  }
+
+  async function lgLoad(force){
+    const m = LG.month, n = lgDays(m), keys = [];
+    for(let d = 1; d <= n; d++) keys.push('prod-plan-report-' + lgDk(m, d));
+    LG.err = '';
+    try{
+      if(window.storage.prefetch) await window.storage.prefetch(keys.concat([lgKey(m)]), true);
+      const r = await window.storage.get(lgKey(m), true);
+      const v = r && r.value ? JSON.parse(r.value) : null;
+      LG.doc = (v && v.cells) ? v : { v: 1, cells: {} };
+      await Promise.all(keys.map(k => prLoad(k.slice('prod-plan-report-'.length), force)));
+    }catch(e){ LG.err = (e && e.message) || String(e); if(!LG.doc) LG.doc = { v: 1, cells: {} }; }
+    // 원물선별 원물입고 (사입처별)
+    try{
+      const [vs, ib] = await Promise.all([
+        sbQuery('sorting_vendors', '?select=id,name'),
+        sbQuery('sorting_inbound', `?work_date=gte.${m}-01&work_date=lte.${lgDk(m, n)}&select=work_date,vendor_id,weight_kg,item_name`),
+      ]);
+      LG.vendors = new Map((vs || []).map(x => [String(x.id), x.name]));
+      LG.inbound = (ib || []).filter(x => !x.item_name || /토마토/.test(x.item_name));
+    }catch(e){ LG.vendors = LG.vendors || new Map(); LG.inbound = LG.inbound || []; }
+  }
+
+  // ── 표 만들기: 행 = { k(저장 키), sec, a, b, c, lbl(D열), unit, dec, input(직접 입력 가능), tot('sum'|'last'|'rate'|''), vals[1..n], D(전월/전일), auto[1..n] } ──
+  function lgBuild(){
+    const m = LG.month, n = lgDays(m), cells = (LG.doc && LG.doc.cells) || {}, sk = lgSkus();
+    const days = Array.from({ length: n }, (_, i) => i + 1), dks = days.map(d => lgDk(m, d));
+    const act = dks.map(lgActive);
+    const ov = (k, d) => { const c = cells[k]; if(!c) return undefined; const v = c[d]; return (v === '' || v == null) ? undefined : Number(v); };
+    const rows = [];
+    // 자동값 + 고친 값 → 행 (input: 고칠 수 있는 칸)
+    const row = (o, autoFn) => {
+      const r = Object.assign({ unit: '', dec: 2, input: true, tot: 'sum', a: '', b: '', c: '', lbl: '' }, o);
+      r.auto = {}; r.vals = {}; r.ovd = {};
+      days.forEach((d, i) => { const a = autoFn ? autoFn(d, i) : undefined; r.auto[d] = a; const v = ov(r.k, d); r.ovd[d] = v !== undefined; r.vals[d] = v !== undefined ? v : a; });
+      if(o.Dauto !== undefined || o.Dinput){ const v = ov(r.k, 'D'); r.Dovd = v !== undefined; r.D = v !== undefined ? v : o.Dauto; }
+      rows.push(r); return r;
+    };
+    const calc = (o, fn) => row(Object.assign({ input: false }, o), fn);
+    // 생산 = 출고 + 재고 − 그날 시작 재고. 시작 재고는 시스템 전일 재고(직접 입력 포함), 앞 날 재고를 이 표에서 고쳤으면 그 값
+    const mkProd = (out, end, flows, sKey) => { let prev = end.D == null ? 0 : Number(end.D), prevOvd = !!end.Dovd; return (d, i) => { const o = val(out, d), e = val(end, d); if(o == null && e == null) return undefined; const f = flows[i]; const st = (f && !prevOvd) ? f[sKey] : prev; const v = (o || 0) + (e || 0) - st; if(e != null){ prev = e; prevOvd = !!end.ovd[d]; } return lgR(v); }; };
+    const val = (r, d) => { const v = r.vals[d]; return v == null || v === '' || !isFinite(v) ? null : Number(v); };
+    const sumR = (rs, d) => { let any = false, t = 0; rs.forEach(r => { const v = val(r, d); if(v != null){ any = true; t += v; } }); return any ? t : null; };
+    // ① 생산실적 — 투맛토 500g×4 (박스)
+    const fl = {}, f15 = {};
+    LG_FLAV.forEach(([k]) => { fl[k] = dks.map((dk, i) => act[i] && sk['b5_' + k].length ? lgFlow(dk, sk['b5_' + k]) : null); f15[k] = dks.map((dk, i) => act[i] && sk['p15_' + k].length ? lgFlow(dk, sk['p15_' + k]) : null); });
+    const firstAct = act.indexOf(true);
+    const P = {};
+    LG_FLAV.forEach(([k, nm]) => {
+      if(!sk['b5_' + k].length) return;
+      const start0 = firstAct >= 0 && fl[k][firstAct] ? fl[k][firstAct].startB : 0;
+      const out = row({ k: `p5_${k}_out`, sec: 'prod', b: nm, c: '출고량', unit: '박스' }, (d, i) => fl[k][i] ? lgR(fl[k][i].shipB) : undefined);
+      const end = row({ k: `p5_${k}_end`, sec: 'prod', b: nm, c: '재고량', unit: '박스', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => fl[k][i] ? lgR(fl[k][i].endB) : undefined);
+      // 생산 박스 = 출고 + 재고 − 전일 재고 (엑셀 수불장과 같은 식, 전일 = 앞 날 중 재고가 있는 마지막 날)
+      const box = calc({ k: `p5_${k}_box`, sec: 'prod', a: '투맛토\n500g×4', b: nm, c: 'BOX', unit: '박스' }, mkProd(out, end, fl[k], 'startB'));
+      const pack = calc({ k: `p5_${k}_pack`, sec: 'prod', b: nm, c: '팩', unit: '팩' }, d => { const b = val(box, d); return b == null ? undefined : lgR(b * 4); });
+      { const pk1 = rows.pop(), bx1 = rows.pop(); rows.splice(rows.indexOf(out), 0, bx1, pk1); }   // 순서: BOX · 팩 · 출고량 · 재고량
+      P[k] = { box, pack, out, end };
+    });
+    const pk = Object.keys(P);
+    if(pk.length){
+      const sub = (c, key, tot) => calc({ k: 'p5_sub_' + key, sec: 'prod', a: '소계', c, unit: key === 'pack' ? '팩' : '박스', tot: tot || 'sum', sub: true }, d => { const v = sumR(pk.map(k => P[k][key]), d); return v == null ? undefined : lgR(v); });
+      sub('BOX', 'box'); sub('팩', 'pack'); sub('출고량', 'out'); sub('재고량', 'end', 'last');
+    }
+    // ② 투맛토 150g (팩)
+    const Q = {};
+    LG_FLAV.forEach(([k, nm]) => {
+      if(!sk['p15_' + k].length) return;
+      const start0 = firstAct >= 0 && f15[k][firstAct] ? f15[k][firstAct].start : 0;
+      const out = row({ k: `p15_${k}_out`, sec: 'p15', b: nm, c: '출고량', unit: '팩' }, (d, i) => f15[k][i] ? lgR(f15[k][i].ship) : undefined);
+      const end = row({ k: `p15_${k}_end`, sec: 'p15', b: nm, c: '재고량', unit: '팩', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => f15[k][i] ? lgR(f15[k][i].end) : undefined);
+      const pack = calc({ k: `p15_${k}_pack`, sec: 'p15', a: '투맛토\n150g', b: nm, c: '팩(생산)', unit: '팩' }, mkProd(out, end, f15[k], 'start'));
+      rows.splice(rows.indexOf(out), 0, rows.pop());
+      Q[k] = { pack, out, end };
+    });
+    const qk = Object.keys(Q);
+    if(qk.length){
+      const sub = (c, key, tot) => calc({ k: 'p15_sub_' + key, sec: 'p15', a: '소계', c, unit: '팩', tot: tot || 'sum', sub: true }, d => { const v = sumR(qk.map(k => Q[k][key]), d); return v == null ? undefined : lgR(v); });
+      sub('팩(생산)', 'pack'); sub('출고량', 'out'); sub('재고량', 'end', 'last');
+    }
+    // ③ 원물 사용량 (kg) — 500g: 생산일보 생산지시 작업kg, 150g: 생산 팩 × 0.15kg
+    const U5 = {}, U15 = {};
+    LG_FLAV.forEach(([k, nm]) => {
+      if(sk['b5_' + k].length) U5[k] = row({ k: `u5_${k}`, sec: 'raw', a: '투맛토 500g', b: nm, c: '사용량', unit: 'kg', dec: 1 }, (d, i) => { if(!act[i]) return undefined; const v = lgInstKg(dks[i], sk['b5_' + k]); return v ? lgR(v, 1) : undefined; });
+    });
+    LG_FLAV.forEach(([k, nm]) => {
+      if(Q[k]) U15[k] = calc({ k: `u15_${k}`, sec: 'raw', a: '투맛토 150g', b: nm, c: '사용량', unit: 'kg', dec: 1 }, d => { const p = val(Q[k].pack, d); return p == null ? undefined : lgR(p * 0.15, 2); });
+    });
+    const use = calc({ k: 'raw_use', sec: 'raw', a: '사용량', unit: 'kg', dec: 1, sub: true }, d => { const v = sumR(Object.values(U5).concat(Object.values(U15)), d); return v == null ? undefined : lgR(v, 1); });
+    const vendRows = [];   // 원물/품질 (아래에서 채움) — 가공 합계가 원물 입고량 기본값
+    const inRaw = row({ k: 'raw_in', sec: 'raw', a: '원물 입고량', unit: 'kg', dec: 1, Dauto: 0, Dinput: true, note: '원물/품질 가공 합계(없으면 사용량)' }, () => undefined);
+    rows.splice(rows.indexOf(inRaw), 1); rows.splice(rows.indexOf(rows.find(r => r.sec === 'raw')), 0, inRaw);
+    const stockRaw = calc({ k: 'raw_stock', sec: 'raw', a: '현 재고', unit: 'kg', dec: 1, tot: 'last' }, () => undefined);
+    // ④ 용과 (투래곤후르츠)
+    let DG = null;
+    if(sk.dragon.length){
+      const flw = dks.map((dk, i) => act[i] ? lgFlow(dk, sk.dragon) : null), kgB = lgBoxKg(sk.dragon[0]) || 1.8;
+      const start0 = firstAct >= 0 && flw[firstAct] ? flw[firstAct].startB : 0;
+      const raw = row({ k: 'dg_raw', sec: 'dragon', a: '용과', c: '원물', unit: 'kg', dec: 1 }, (d, i) => { if(!act[i]) return undefined; const v = lgInstKg(dks[i], sk.dragon); return v ? lgR(v, 1) : undefined; });
+      const out = row({ k: 'dg_out', sec: 'dragon', c: '출고', unit: '박스' }, (d, i) => flw[i] ? lgR(flw[i].shipB) : undefined);
+      const end = row({ k: 'dg_end', sec: 'dragon', c: '재고', unit: '박스', tot: 'last', Dauto: lgR(start0), Dinput: true }, (d, i) => flw[i] ? lgR(flw[i].endB) : undefined);
+      const box = calc({ k: 'dg_box', sec: 'dragon', c: '박스(생산)', unit: '박스' }, mkProd(out, end, flw, 'startB'));
+      rows.splice(rows.indexOf(out), 0, rows.pop());
+      const loss = calc({ k: 'dg_loss', sec: 'dragon', c: '불량율', unit: '%', tot: 'rate' }, d => { const r = val(raw, d), b = val(box, d); return r ? lgR(1 - (b || 0) * kgB / r, 4) : undefined; });
+      loss.rate = { num: d => (val(box, d) || 0) * kgB, den: d => val(raw, d) || 0 };
+      DG = { raw, box, out, end, loss };
+    }
+    // ⑤ loss · 가공kg/원물kg
+    const LS = {};
+    LG_FLAV.forEach(([k, nm]) => {
+      if(!P[k] && !Q[k]) return;
+      const pr = d => (P[k] ? (val(P[k].pack, d) || 0) * 0.5 : 0) + (Q[k] ? (val(Q[k].pack, d) || 0) * 0.15 : 0);
+      const rw = d => (U5[k] ? (val(U5[k], d) || 0) : 0) + (U15[k] ? (val(U15[k], d) || 0) : 0);
+      const pk2 = calc({ k: `kg_${k}_pr`, sec: 'kg', a: '가공kg · 원물kg', b: nm, c: '가공kg', unit: 'kg', dec: 1 }, d => { const v = pr(d); return v ? lgR(v, 1) : undefined; });
+      const rk = calc({ k: `kg_${k}_raw`, sec: 'kg', b: nm, c: '원물kg', unit: 'kg', dec: 1 }, d => { const v = rw(d); return v ? lgR(v, 1) : undefined; });
+      const ls = calc({ k: `loss_${k}`, sec: 'loss', a: 'loss', b: nm, unit: '%', tot: 'rate' }, d => { const r = rw(d); return r ? lgR(1 - pr(d) / r, 4) : undefined; });
+      ls.rate = { num: pr, den: rw };
+      LS[k] = { pr, rw, pk2, rk, ls };
+    });
+    const prTot = d => Object.values(LS).reduce((t, x) => t + x.pr(d), 0);
+    const prSum = calc({ k: 'kg_total', sec: 'kg', a: '가공합계', unit: 'kg', dec: 1, sub: true }, d => { const v = prTot(d); return v ? lgR(v, 1) : undefined; });
+    const defect = calc({ k: 'defect', sec: 'loss', a: '불량율', unit: '%', tot: 'rate', sub: true }, d => { const u = val(use, d); return u ? lgR(1 - prTot(d) / u, 4) : undefined; });
+    defect.rate = { num: prTot, den: d => val(use, d) || 0 };
+    // ⑥ 챔버 가동 횟수 (직접 입력)
+    const CH = LG_FLAV.map(([k, nm]) => row({ k: `ch_${k}`, sec: 'chamber', a: '챔버 가동 횟수', b: nm, unit: '회', dec: 0 }, () => undefined));
+    calc({ k: 'ch_sum', sec: 'chamber', a: '합계', unit: '회', dec: 0, sub: true }, d => { const v = sumR(CH, d); return v == null ? undefined : v; });
+    // ⑦ 원물 / 품질 (사입처별) — 입고량은 원물선별 원물입고, 나머지는 직접 입력
+    const inb = {}; (LG.inbound || []).forEach(x => { const v = String(x.vendor_id || ''); const d = Number(String(x.work_date).slice(8, 10)); if(!d) return; (inb[v] = inb[v] || {})[d] = (inb[v][d] || 0) + (Number(x.weight_kg) || 0); });
+    const vids = new Set(Object.keys(inb));
+    Object.keys(cells).forEach(k => { const mm = /^v_(.+?)_(in|pk3|pkx|proc|end)$/.exec(k); if(mm) vids.add(mm[1]); });
+    const vname = id => (LG.vendors && LG.vendors.get(id)) || (cells['vname_' + id] && cells['vname_' + id].n) || `사입처 ${id}`;
+    const V = [];
+    [...vids].sort((a, b) => vname(a).localeCompare(vname(b), 'ko')).forEach(id => {
+      const nm = vname(id);
+      const vin = row({ k: `v_${id}_in`, sec: 'vend', vend: id, a: '원물 / 품질', b: nm, c: '입고량', unit: 'kg', dec: 0 }, d => (inb[id] && inb[id][d]) ? lgR(inb[id][d], 1) : undefined);
+      const vend = row({ k: `v_${id}_end`, sec: 'vend', vend: id, b: nm, c: '재고(실사)', unit: 'kg', dec: 0, tot: 'last', Dauto: 0, Dinput: true }, () => undefined);
+      let prev = vend.D == null ? 0 : Number(vend.D);
+      const vstk = calc({ k: `v_${id}_stock`, sec: 'vend', vend: id, b: nm, c: '재고량', unit: 'kg', dec: 0, tot: '' }, d => { const i2 = val(vin, d), e = val(vend, d); const has = i2 != null || e != null; const v = prev + (i2 || 0); if(e != null) prev = e; else if(i2 != null) prev = v; return has ? lgR(v, 1) : undefined; });
+      const p3 = row({ k: `v_${id}_pk3`, sec: 'vend', vend: id, b: nm, c: '3kg 포장', unit: 'kg', dec: 0 }, () => undefined);
+      const px = row({ k: `v_${id}_pkx`, sec: 'vend', vend: id, b: nm, c: '포장 외 출고', unit: 'kg', dec: 0 }, () => undefined);
+      const pp = row({ k: `v_${id}_proc`, sec: 'vend', vend: id, b: nm, c: '가공', unit: 'kg', dec: 0 }, () => undefined);
+      const vout = calc({ k: `v_${id}_out`, sec: 'vend', vend: id, b: nm, c: '출고량', unit: 'kg', dec: 0 }, d => { const v = sumR([p3, px, pp], d); return v == null ? undefined : v; });
+      const bad = calc({ k: `v_${id}_bad`, sec: 'vend', vend: id, b: nm, c: '부적합량', unit: 'kg', dec: 0 }, d => { const s = val(vstk, d), e = val(vend, d); if(s == null || e == null) return undefined; return lgR(s - (val(vout, d) || 0) - e, 1); });
+      const br = calc({ k: `v_${id}_badr`, sec: 'vend', vend: id, b: nm, c: '선별 부적합율', unit: '%', tot: 'rate' }, d => { const s = val(vstk, d), b = val(bad, d); return s && b != null ? lgR(b / s, 4) : undefined; });
+      br.rate = { num: d => val(bad, d) || 0, den: d => (val(bad, d) != null ? (val(vstk, d) || 0) : 0) };
+      // 표 순서: 입고량 · 재고량 · 출고량 · 3kg 포장 · 포장 외 출고 · 가공 · 부적합량 · 부적합율 · 재고(실사)
+      [vin, vstk, vout, p3, px, pp, bad, br, vend].forEach(r => { rows.splice(rows.indexOf(r), 1); rows.push(r); });
+      V.push({ id, vin, vstk, vout, p3, px, pp, bad, br, vend });
+    });
+    if(V.length > 1){
+      const S = key => d => { const v = sumR(V.map(x => x[key]), d); return v == null ? undefined : v; };
+      calc({ k: 'vt_in', sec: 'vtot', a: '원물 / 품질', b: '종합', c: '입고량', unit: 'kg', dec: 0 }, S('vin'));
+      calc({ k: 'vt_out', sec: 'vtot', b: '종합', c: '출고량', unit: 'kg', dec: 0 }, S('vout'));
+      calc({ k: 'vt_proc', sec: 'vtot', b: '종합', c: '가공', unit: 'kg', dec: 0 }, S('pp'));
+      calc({ k: 'vt_bad', sec: 'vtot', b: '종합', c: '부적합량', unit: 'kg', dec: 0 }, S('bad'));
+      calc({ k: 'vt_end', sec: 'vtot', b: '종합', c: '재고(실사)', unit: 'kg', dec: 0, tot: 'last' }, S('vend'));
+    }
+    // 원물 입고량 기본값 = 원물/품질 가공 합계 (없으면 그날 사용량) · 현 재고 = 전월 재고 + 입고 − 사용
+    const procTot = d => { const v = sumR(V.map(x => x.pp), d); return v; };
+    days.forEach(d => { if(inRaw.ovd[d]) return; const p = procTot(d); const a = p != null ? p : val(use, d); inRaw.auto[d] = a == null ? undefined : lgR(a, 1); inRaw.vals[d] = inRaw.auto[d]; });
+    { let cur = inRaw.D == null ? 0 : Number(inRaw.D), started = false; days.forEach(d => { const i2 = val(inRaw, d), u = val(use, d); if(i2 == null && u == null){ stockRaw.vals[d] = started ? undefined : undefined; return; } started = true; cur += (i2 || 0) - (u || 0); stockRaw.auto[d] = lgR(cur, 1); if(!stockRaw.ovd[d]) stockRaw.vals[d] = stockRaw.auto[d]; }); }
+    // 구역 순서대로 (같은 구역 안에서는 만든 순서)
+    const ORDER = ['prod', 'p15', 'raw', 'dragon', 'kg', 'loss', 'chamber', 'vend', 'vtot'];
+    rows.sort((x, y) => ORDER.indexOf(x.sec) - ORDER.indexOf(y.sec));
+    // 합계 열
+    rows.forEach(r => {
+      if(r.tot === 'sum'){ let t = 0, any = false; days.forEach(d => { const v = val(r, d); if(v != null){ t += v; any = true; } }); r.total = any ? lgR(t, r.dec) : null; }
+      else if(r.tot === 'last'){ let l = null; days.forEach(d => { const v = val(r, d); if(v != null) l = v; }); r.total = l; }
+      else if(r.tot === 'rate' && r.rate){ let a = 0, b = 0; days.forEach(d => { a += r.rate.num(d) || 0; b += r.rate.den(d) || 0; }); r.total = b ? lgR(1 - a / b, 4) : null; if(r.k.startsWith('v_') || r.k === 'vt_badr') r.total = b ? lgR(a / b, 4) : null; }
+      else r.total = null;
+    });
+    // 주차별 요약 (일~토 한 주): 원물 입고 · 사용량 · 생산(가공kg) · loss율 · 주말 재고(500g 박스)
+    const weeks = []; let wk = null;
+    days.forEach(d => { const dow = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, d).getDay(); if(!wk || dow === 0){ wk = { from: d, to: d }; weeks.push(wk); } wk.to = d; });
+    const endSub = rows.find(r => r.k === 'p5_sub_end');
+    const W = weeks.map((w, i) => {
+      let inS = 0, useS = 0, prS = 0, endB = null;
+      for(let d = w.from; d <= w.to; d++){ inS += val(inRaw, d) || 0; useS += val(use, d) || 0; prS += prTot(d); if(endSub){ const e = val(endSub, d); if(e != null) endB = e; } }
+      return { n: i + 1, from: w.from, to: w.to, in: lgR(inS, 1), use: lgR(useS, 1), prod: lgR(prS, 1), loss: useS ? lgR(1 - prS / useS, 4) : null, end: endB };
+    });
+    return { m, n, days, dks, act, rows, weeks: W };
+  }
+
+  // ── 화면 ──
+  const lgFmt = (v, r) => {
+    if(v == null || v === '' || !isFinite(v)) return '';
+    if(r.unit === '%') return (Number(v) * 100).toFixed(1) + '%';
+    const p = Math.pow(10, r.dec); const x = Math.round(Number(v) * p) / p;
+    return x.toLocaleString('ko-KR', { maximumFractionDigits: r.dec });
+  };
+  const LG_SEC = { prod: '① 생산실적 — 투맛토 500g×4 (박스)', p15: '② 생산실적 — 투맛토 150g (팩)', raw: '③ 원물 사용량 (kg)', dragon: '④ 용과 (투래곤후르츠)', kg: '⑤ 가공kg · 원물kg', loss: '⑥ loss · 불량율', chamber: '⑦ 챔버 가동 횟수', vend: '⑧ 원물 / 품질 (사입처별)', vtot: '⑧ 원물 / 품질 — 종합' };
+  function lgRender(){
+    const box = document.getElementById('lg-body'); if(!box) return;
+    if(LG.busy && !LG.rows){ box.innerHTML = '<div class="sub">불러오는 중… (생산일보·원물선별 자료를 읽습니다)</div>'; return; }
+    let B; try{ B = lgBuild(); }catch(e){ console.error(e); box.innerHTML = `<div class="sub" style="color:var(--danger,#c0392b);">수불장을 만들지 못했습니다: ${escapeHtml(e.message || String(e))}</div>`; return; }
+    LG.rows = B;
+    const can = lgCan(), WD = ['일', '월', '화', '수', '목', '금', '토'];
+    const dow = d => new Date(Number(B.m.slice(0, 4)), Number(B.m.slice(5, 7)) - 1, d).getDay();
+    let h = `<div class="lg-week"><table class="lg-wt"><thead><tr><th>주차</th>${B.weeks.map(w => `<th>${w.n}주차<div class="lg-sm">${w.from}~${w.to}일</div></th>`).join('')}<th>월 합계</th></tr></thead><tbody>`;
+    const wsum = k => B.weeks.reduce((t, w) => t + (Number(w[k]) || 0), 0);
+    const wl = wsum('use') ? 1 - wsum('prod') / wsum('use') : null;
+    [['in', '원물 입고 (kg)'], ['use', '원물 사용량 (kg)'], ['prod', '생산 (가공kg)'], ['loss', 'loss율'], ['end', '주말 재고 (500g 박스)']].forEach(([k, t]) => {
+      h += `<tr><th>${t}</th>${B.weeks.map(w => `<td>${k === 'loss' ? (w.loss == null ? '' : (w.loss * 100).toFixed(1) + '%') : (w[k] == null ? '' : Number(w[k]).toLocaleString('ko-KR'))}</td>`).join('')}<td><b>${k === 'loss' ? (wl == null ? '' : (wl * 100).toFixed(1) + '%') : k === 'end' ? (B.weeks.slice().reverse().find(w => w.end != null) || {}).end ?? '' : lgR(wsum(k), 1).toLocaleString('ko-KR')}</b></td></tr>`;
+    });
+    h += '</tbody></table></div>';
+    h += `<div class="lg-wrap"><table class="lg-tbl"><thead><tr><th class="lg-c0">구분</th><th class="lg-c1">품목</th><th class="lg-c2">항목</th><th class="lg-cD">전월<br>/전일</th>${B.days.map((d, i) => `<th class="${dow(d) === 0 ? 'sun' : dow(d) === 6 ? 'sat' : ''}${B.act[i] ? '' : ' off'}">${d}<div class="lg-sm">${WD[dow(d)]}</div></th>`).join('')}<th class="lg-tot">합계</th></tr></thead><tbody>`;
+    let lastSec = '', lastA = '', lastB = '';
+    B.rows.forEach(r => {
+      if(r.sec !== lastSec){ lastA = ''; lastB = ''; }
+      // 같은 구역에서 앞 줄과 같은 구분·품목 이름은 비움 (엑셀의 병합 칸처럼)
+      const showA = r.a && r.a !== lastA ? r.a : '', showB = r.b && (r.b !== lastB || showA) ? r.b : ''; if(r.a) lastA = r.a; if(r.b) lastB = r.b; if(r.sub){ lastA = ''; lastB = ''; }
+      if(r.sec !== lastSec){ lastSec = r.sec; h += `<tr class="lg-sec"><td colspan="${B.n + 5}">${LG_SEC[r.sec] || ''}</td></tr>`; }
+      const ed = can && r.input;
+      const dCell = (r.D !== undefined || r.Dinput) ? `<td class="lg-cD${can && r.Dinput ? ' ed' : ''}${r.Dovd ? ' ov' : ''}" data-k="${escapeHtml(r.k)}" data-d="D" title="${r.Dinput ? '전월 말(1일 직전) 값 — 눌러서 고침' : ''}">${lgFmt(r.D, r)}</td>` : '<td class="lg-cD"></td>';
+      h += `<tr class="${r.sub ? 'lg-sub' : ''}"><td class="lg-c0">${escapeHtml(showA).replace(/\n/g, '<br>')}</td><td class="lg-c1">${escapeHtml(showB)}</td><td class="lg-c2">${escapeHtml(r.c || '')}${r.unit ? ` <span class="lg-sm">${escapeHtml(r.unit)}</span>` : ''}</td>${dCell}${B.days.map((d, i) => {
+        const v = r.vals[d], neg = isFinite(v) && Number(v) < 0;
+        return `<td class="${ed ? 'ed' : ''}${r.ovd[d] ? ' ov' : ''}${neg ? ' neg' : ''}${B.act[i] ? '' : ' off'}" data-k="${escapeHtml(r.k)}" data-d="${d}"${r.ovd[d] ? ` title="직접 고친 값 (자동: ${lgFmt(r.auto[d], r) || '없음'}) — 비우면 자동값"` : ''}>${lgFmt(v, r)}</td>`;
+      }).join('')}<td class="lg-tot">${lgFmt(r.total, r)}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+    box.innerHTML = h;
+    if(can) box.querySelectorAll('td.ed').forEach(td => td.addEventListener('click', () => lgEdit(td)));
+  }
+  function lgEdit(td){
+    if(td.querySelector('input')) return;
+    const k = td.dataset.k, d = td.dataset.d, cur = (((LG.doc || {}).cells || {})[k] || {})[d];
+    const r = LG.rows.rows.find(x => x.k === k); if(!r) return;
+    const show = cur != null && cur !== '' ? cur : (d === 'D' ? (r.D ?? '') : (r.vals[d] ?? ''));
+    const inp = document.createElement('input'); inp.type = 'number'; inp.step = 'any'; inp.className = 'lg-in'; inp.value = show === '' ? '' : (r.unit === '%' ? Number(show) : show);
+    td.textContent = ''; td.appendChild(inp); inp.focus(); inp.select();
+    let done = false;
+    const finish = async save => {
+      if(done) return; done = true;
+      if(!save){ lgRender(); return; }
+      const raw = inp.value.trim();
+      const autoV = d === 'D' ? undefined : r.auto[d];
+      // 자동값과 같으면 고친 값으로 남기지 않음
+      const nv = raw === '' ? '' : Number(raw);
+      if(raw !== '' && !isFinite(nv)){ toast('숫자를 넣어주세요'); lgRender(); return; }
+      const same = raw !== '' && autoV != null && Math.abs(Number(autoV) - nv) < 1e-9 && !(cur != null && cur !== '');
+      if(same){ lgRender(); return; }
+      await lgSave(k, d, raw === '' ? '' : nv);
+    };
+    inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); finish(true); } else if(e.key === 'Escape'){ finish(false); } else if(e.key === 'Tab'){ e.preventDefault(); finish(true).then(() => { const cells = [...document.querySelectorAll('#lg-body td.ed')]; const i = cells.findIndex(x => x.dataset.k === k && x.dataset.d === d); const nx = cells[i + (e.shiftKey ? -1 : 1)]; if(nx) lgEdit(nx); }); } });
+    inp.addEventListener('blur', () => finish(true));
+  }
+  // 저장: 서버 최신본을 읽어 그 칸만 바꿔 씀 (여러 사람이 같이 적어도 덮어쓰지 않게)
+  async function lgSave(k, d, v){
+    if(!lgCan()){ toast('수불장은 생산/물류 권한이 있어야 고칠 수 있습니다'); lgRender(); return; }
+    const key = lgKey(LG.month);
+    let cur;
+    try{ const r = await window.storage.get(key, true); cur = r && r.value ? JSON.parse(r.value) : null; }
+    catch(e){ toast('수불장을 불러오지 못했습니다. 인터넷 연결을 확인해주세요'); lgRender(); return; }
+    cur = (cur && cur.cells) ? cur : { v: 1, cells: {} };
+    const c = cur.cells[k] = cur.cells[k] || {};
+    if(v === '' || v == null) delete c[d]; else c[d] = v;
+    if(!Object.keys(c).length) delete cur.cells[k];
+    cur.at = Date.now(); cur.by = (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || '';
+    try{ await window.storage.set(key, JSON.stringify(cur), true); }
+    catch(e){ toast('저장하지 못했습니다: ' + ((e && e.message) || e)); lgRender(); return; }
+    LG.doc = cur;
+    lgRender();
+    const meta = document.getElementById('lg-meta'); if(meta) meta.textContent = `저장됨 ${new Date().toTimeString().slice(0, 5)}`;
+  }
+
+  // ── 엑셀 (수불장과 같은 배치: A~D 구분 · E~ 일자 · 마지막 합계) ──
+  async function lgXlsx(){
+    try{ await pgEnsure(); }catch(e){ toast('엑셀 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요'); return; }
+    if(typeof JSZip === 'undefined' || !window.PoSheet){ toast('엑셀 기능을 불러오지 못했습니다'); return; }
+    const B = LG.rows || lgBuild();
+    const L = n => { let t = ''; while(n > 0){ const mm = (n - 1) % 26; t = String.fromCharCode(65 + mm) + t; n = Math.floor((n - 1) / 26); } return t; };
+    const T = 'thin', st = o => Object.assign({ fn: '맑은 고딕', sz: 10, b: 0, fc: '#000000', fill: '', bd: [T, T, T, T], h: 'center', v: 'center', w: 0, nf: '' }, o);
+    const g = { rows: [], merges: [], cols: [], maxRow: 0, zoom: 85 };
+    const put = (r, c, v, o) => { const R = g.rows[r] || (g.rows[r] = { h: 18, hidden: false, cells: {} }); R.cells[L(c)] = { v: v == null ? '' : v, st: st(o || {}) }; if(r > g.maxRow) g.maxRow = r; };
+    const W = 4 + B.n + 1;
+    g.cols = [{ w: 12 }, { w: 10 }, { w: 12 }, { w: 9 }].concat(B.days.map(() => ({ w: 7.5 })), [{ w: 10 }]);
+    const [yy, mo] = B.m.split('-').map(Number);
+    put(1, 1, `${mo}월 생산 수불장`, { sz: 16, b: 1, bd: ['', '', '', ''], h: 'left' }); g.merges.push('A1:D1'); g.rows[1].h = 28;
+    // 주차별 요약
+    let r = 3;
+    put(r, 1, '주차', { b: 1, fill: '#E9E9E9' }); B.weeks.forEach((w, i) => put(r, 2 + i, `${w.n}주차 (${w.from}~${w.to}일)`, { b: 1, fill: '#E9E9E9', w: 1 }));
+    const sumW = k => B.weeks.reduce((t, w) => t + (Number(w[k]) || 0), 0);
+    [['in', '원물 입고 (kg)'], ['use', '원물 사용량 (kg)'], ['prod', '생산 (가공kg)'], ['loss', 'loss율'], ['end', '주말 재고 (500g 박스)']].forEach(([k, t]) => {
+      r++; put(r, 1, t, { b: 1, h: 'left' });
+      B.weeks.forEach((w, i) => put(r, 2 + i, w[k] == null ? '' : (k === 'loss' ? w[k] : w[k]), { h: 'right', nf: k === 'loss' ? '0.0%' : '#,##0.##' }));
+    });
+    r += 2;
+    // 본문
+    const head = { b: 1, fill: '#E9E9E9', w: 1 };
+    put(r, 1, '구분', head); put(r, 2, '품목', head); put(r, 3, '항목', head); put(r, 4, '전월/전일', head);
+    B.days.forEach((d, i) => put(r, 5 + i, d, Object.assign({}, head, { fc: new Date(yy, mo - 1, d).getDay() === 0 ? '#C0392B' : new Date(yy, mo - 1, d).getDay() === 6 ? '#1F5FBF' : '#000000' })));
+    put(r, W, '합계', head);
+    let lastSec = '';
+    B.rows.forEach(x => {
+      if(x.sec !== lastSec){ lastSec = x.sec; r++; put(r, 1, LG_SEC[x.sec] || '', { b: 1, fill: '#FBE9EC', h: 'left', bd: [T, '', T, T] }); for(let c = 2; c <= W; c++) put(r, c, '', { fill: '#FBE9EC', bd: ['', c === W ? T : '', T, T] }); g.merges.push(`A${r}:${L(W)}${r}`); }
+      r++;
+      const nf = x.unit === '%' ? '0.0%' : x.dec === 0 ? '#,##0' : x.dec === 1 ? '#,##0.0' : '#,##0.##';
+      const base = x.sub ? { fill: '#F6F6F6', b: 1 } : {};
+      put(r, 1, (x.a || '').replace(/\n/g, ' '), Object.assign({ h: 'left' }, base)); put(r, 2, x.b || '', base); put(r, 3, (x.c || '') + (x.unit && x.unit !== '%' ? ` (${x.unit})` : ''), Object.assign({ h: 'left' }, base));
+      put(r, 4, x.D == null ? '' : x.D, Object.assign({ h: 'right', nf }, base));
+      B.days.forEach((d, i) => { const v = x.vals[d]; put(r, 5 + i, v == null || v === '' || !isFinite(v) ? '' : Number(v), Object.assign({ h: 'right', nf }, base, x.ovd[d] ? { fc: '#1F5FBF', b: 1 } : {})); });
+      put(r, W, x.total == null ? '' : x.total, Object.assign({ h: 'right', nf, b: 1, fill: '#FAFAFA' }, base));
+    });
+    const blob = await window.PoSheet.toXlsx(g, '토마토');
+    pgDownloadBlob(blob, `생산 수불장 ${String(yy).slice(2)}${String(mo).padStart(2, '0')}.xlsx`);
+    writeLog('prod_ledger', `월간 생산 수불장 엑셀 ${B.m}`).catch(() => {});
+  }
+
+  async function lgOpen(force){
+    if(!LG.month) LG.month = String(currentDateKey || new Date().toISOString()).slice(0, 7);
+    const mi = document.getElementById('lg-month'); if(mi) mi.value = LG.month;
+    LG.busy = true; LG.rows = null; lgRender();
+    await lgLoad(force);
+    LG.busy = false; lgRender();
+    const meta = document.getElementById('lg-meta');
+    if(meta) meta.textContent = (LG.doc && LG.doc.at ? `마지막 저장 ${new Date(LG.doc.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} ${LG.doc.by || ''}` : '') + (LG.err ? ` · ⚠ ${LG.err}` : '');
+  }
+  window.__lg = { LG, build: lgBuild, open: lgOpen, xlsx: lgXlsx, skus: lgSkus };   // (점검용)
+  (function wireLedger(){
+    const fold = document.getElementById('lg-fold'); if(!fold) return;
+    fold.addEventListener('toggle', () => { if(fold.open && !LG.rows && !LG.busy) lgOpen(); });
+    const mi = document.getElementById('lg-month');
+    if(mi) mi.addEventListener('change', () => { if(/^\d{4}-\d{2}$/.test(mi.value)){ LG.month = mi.value; lgOpen(); } });
+    const rf = document.getElementById('lg-reload'); if(rf) rf.addEventListener('click', () => lgOpen(true));
+    const xb = document.getElementById('lg-xlsx'); if(xb) xb.addEventListener('click', () => lgXlsx().catch(e => toast('엑셀을 만들지 못했습니다: ' + (e.message || e))));
+  })();
+
   // ══════════════════ 폐기 사진 (원물 제조 폐기 · 자재 사용/로스) ══════════════════
   //  사진 한 장 = kv 'mat-led-photo-<id>' (자재 기록 권한: 생산/물류 또는 발주자동화와 같은 키 묶음). 긴 변 1600px JPEG로 줄여 저장
   //  기록에는 사진 id만 둠: 생산일보 waste[].ph · 자재 수불 기록 e.ph · 생산 마감 제조 폐기 det[].ph
