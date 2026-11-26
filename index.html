@@ -22747,7 +22747,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function pgEnsure(){
     if(window.PoSheet && window.PO_BASE) return Promise.resolve();
     if(pgLoading) return pgLoading;
-    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261125a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
+    const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src + '?v=20261126a'; s.onload = ok; s.onerror = () => bad(new Error('불러오기 실패: ' + src)); document.head.appendChild(s); });
     pgLoading = load('assets/po-sheet-base.js').then(() => load('assets/po-sheet.js')).catch(e => { pgLoading = null; throw e; });
     return pgLoading;
   }
@@ -22854,7 +22854,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(m && Number(m[1]) !== w) headText[col + hr.r] = t.replace(m[0], w + 'g');
     });
     Object.entries(headUser).forEach(([k, v]) => { if(v) headText[k] = v; });
-    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
+    // 1박스 = 1개 열: 그 열에 넣은 품목이 모두 박스입수 1 (예: 찰토리 2.5kg) → 발주서에 '박스'로
+    const oneCols = [...new Set(Object.values(skuColumnMap))].filter(c => { const its = dict.filter(d => skuColumnMap[d.id] === c); return its.length && its.every(d => Number(d.boxUnitCount) === 1); });
+    return { model: { date: dateKey, col15, stockByCol: built.stockByCol || {}, smpUseByCol: built.smpUseByCol || {}, sections, disp, headText, oneCols, extras: built.extras || [], rules: await pgRules() }, warn, counts: { rows: sections.reduce((a, s) => a + s.subs.reduce((b, x) => b + x.rows.length, 0), 0), disp: disp.length, extras: (built.extras || []).length } };
   }
   async function poGenGrid(dateKey){ const r = await poGenModel(dateKey); return Object.assign(r, { grid: window.PoSheet.build(r.model) }); }
   function pgDownloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); }

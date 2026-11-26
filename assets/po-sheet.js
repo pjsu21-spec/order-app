@@ -59,7 +59,9 @@
     // ── 1) 머리글 1~18행 ──
     const sumC = (cs, src) => R2((cs || []).reduce((a, c) => a + (Number((src || col15)[c]) || 0), 0));
     const boxesAll = sumC(BOX_COLS), packsAll = R2(boxesAll * 4 + sumC(PACK_COLS));
-    vals.G15 = m.totPacks != null ? m.totPacks : packsAll; vals.H15 = boxesAll;
+    // 1박스 = 1개 품목(예: 찰토리 2.5kg — SKU 박스입수 1)만 든 팩 열: '박스'로 보이고 총 박스에 더함 (팩 수는 그대로 1개씩)
+    const ONE = (m.oneCols || []).filter(c => PACK_COLS.includes(c));
+    vals.G15 = m.totPacks != null ? m.totPacks : packsAll; vals.H15 = R2(boxesAll + sumC(ONE));
     PROD_COLS.forEach(c => { vals[c + '15'] = R2(col15[c]); vals[c + '16'] = PACK_COLS.includes(c) ? R2(col15[c]) : R2((col15[c] || 0) * 4); });
     const dyn = {};
     const d = new Date(m.date + 'T00:00:00');
@@ -77,7 +79,7 @@
       dyn['B' + L.r] = text; dyn['G' + L.r] = stock || ''; dyn['H' + L.r] = R2(stock - sumC(L.box || L.bottle) - sumC(L.box || L.bottle, m.smpUseByCol || {}));   // 전날 생산 샘플이 오늘 재고에서 나감
       if(!(stock > 0) && !(used > 0)) hideRows.add(L.r);
     });
-    GROUPS.forEach(G => { dyn[G.cell] = `총수량 : ${sumC(G.cols)}${G.unit}`; });
+    GROUPS.forEach(G => { const used = G.cols.filter(c => c15(c) > 0); dyn[G.cell] = `총수량 : ${sumC(G.cols)}${used.length && used.every(c => ONE.includes(c)) ? '박스' : G.unit}`; });
     dyn.G15 = vals.G15; dyn.H15 = vals.H15;
     PROD_COLS.forEach(c => { dyn[c + '15'] = vals[c + '15']; dyn[c + '16'] = vals[c + '16']; });
     B.header.rows.forEach(row => {
@@ -244,6 +246,8 @@
       m.extras.forEach(e => { g.set(r, 'B', `${e.company} · ${e.item} ${e.qty}${e.unit || ''}`, Object.assign(mk(), { fc: '#000000' })); g.row(r).h = 18; g.row(r).cells.B.spill = 1; r++; });
     }
     g.maxRow = r - 1;
+    // 1박스 = 1개 열: 칸 서식의 '팩' 글자를 '박스'로 (머리글 합계·합계 줄 등)
+    if(ONE.length) g.rows.forEach(R => { if(!R) return; ONE.forEach(c => { const x = R.cells[c]; if(x && x.st && /팩/.test(x.st.nf || '')) x.st = Object.assign({}, x.st, { nf: x.st.nf.replace(/팩/g, '박스') }); }); });
     autoFit(g);
     return g;
   }
@@ -457,9 +461,14 @@
       let tds = '';
       for(let n = 1; n <= LASTC; n++){
         if(!visC(n) || covered.has(n + ',' + r)) continue;
-        const col = CL(n), c = R.cells[col] || { v: '', st: null };
+        const col = CL(n), mg = mm.get(n + ',' + r);
+        let c = R.cells[col] || { v: '', st: null };
+        // 병합의 원래 첫 칸(글자가 든 칸)이 숨긴 행·열이면 보이는 첫 칸에 그 글자·모양을 씀 (예: 찰토리 머리글·총수량 — 엑셀은 보이는데 이미지에서 비던 것)
+        if(mg && (mg.c1 !== n || mg.r1 !== r)){
+          const mc = g.rows[mg.r1] && g.rows[mg.r1].cells[CL(mg.c1)];
+          if(mc && mc.v !== '' && mc.v != null && (c.v === '' || c.v == null)) c = mc;
+        }
         const s = c.st || { sz: 11, bd: ['', '', '', ''] };
-        const mg = mm.get(n + ',' + r);
         let bd = s.bd;
         if(mg){
           // 병합 칸 테두리: 오른쪽은 맨 오른쪽 칸, 아래는 맨 아래 칸 것
