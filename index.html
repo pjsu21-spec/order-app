@@ -7899,7 +7899,10 @@ function mnShow(id, keepScroll) {
   // hintText(상품명)에 용량(500g)이 하나만 있으면 용량이 빠진 품목명의 모호함을 푸는 데 쓰고,
   // setQty(주문건수=세트 수)만큼 수량을 곱함. "(자몽향)"처럼 앞 품목 이름이 생략된 항목은 앞 품목의 이름을 이어받음.
   function parseOptionCode(code, hintText, setQty){
-    const parts = String(code || '').split(/[+＋\n]/).map(s=>s.trim()).filter(Boolean);
+    // '+'·줄바꿈으로 나누고, '망고향 2개, 자몽향 1개'처럼 쉼표로 이은 것도 (쉼표로 나눈 조각이 모두 수량으로 끝날 때만) 나눔
+    const QTY_END = /\d+(?:\.\d+)?\s*(?:팩|개|ea|EA|박스|box|BOX)?\s*$/;
+    const parts = String(code || '').split(/[+＋\n]/).map(s=>s.trim()).filter(Boolean)
+      .flatMap(p => { const sub = p.split(/[,，]/).map(s => s.trim()).filter(Boolean); return sub.length > 1 && sub.every(s => QTY_END.test(s)) ? sub : [p]; });
     if(parts.length === 0) return null;
     const weights = [...new Set((String(hintText || '').match(/\d+\s*g(?![a-z])/gi) || []).map(w=>w.replace(/\s+/g, '').toLowerCase()))];
     const weight = weights.length === 1 ? weights[0] : '';
@@ -7916,7 +7919,9 @@ function mnShow(id, keepScroll) {
       if(/^[(（]/.test(name) && k > 0) cands.push(prevName.slice(0, k) + name);
       let itemText = name, itemId = null;
       for(const c of cands){
-        itemId = matchItem(c) || (weight ? matchItem(c + ' ' + weight) : null);
+        // 상품명의 용량(예: 150g)이 있으면 그 용량으로 먼저 찾음 — 예전엔 '투맛토(망고향)'이 별칭으로 [2kg] 박스에 바로 맞아 150g 세트가 2kg으로 들어갈 수 있었음
+        const hasW = /\d+(?:\.\d+)?\s*(?:kg|g)(?![a-z])/i.test(c);
+        itemId = (weight && !hasW ? matchItem(c + ' ' + weight) : null) || matchItem(c);
         if(itemId){ itemText = c; break; }
       }
       if(!itemId) itemText = cands[cands.length - 1];
