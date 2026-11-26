@@ -1277,6 +1277,7 @@
   .mk-chip{ display:inline-flex; gap:4px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:3px 10px; margin:0 4px 4px 0; font-size:12px; background:var(--card); }
   .mk-chip small{ color:var(--muted); }
   .mk-chip button{ border:0; background:none; cursor:pointer; color:var(--muted); padding:0 2px; }
+  .mk-chip button:disabled{ opacity:.25; cursor:default; }
   .mk-chip.add{ cursor:pointer; font:inherit; font-size:12px; color:inherit; }
   @media (max-width:600px){ .mk-cards{ grid-template-columns:1fr 1fr; } .mk-cv{ font-size:20px; } .mk-card{ padding:8px 10px; } }
 </style>
@@ -27837,6 +27838,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const kstToday = () => { const k = new Date(Date.now() + 9 * 3600e3); return `${k.getUTCFullYear()}-${String(k.getUTCMonth() + 1).padStart(2, '0')}-${String(k.getUTCDate()).padStart(2, '0')}`; };
     const tm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const isAdmin = () => !!(window.currentUser && window.currentUser.role === 'admin');
+    const curItems = () => (M.set && M.set.items && M.set.items.length) ? M.set.items : DEF_ITEMS;
+    // 보이는 순서 = 품목 설정 순서 (지난 날짜 리포트도 지금 설정 순서로 보임). 설정에 없는 품목은 뒤에
+    const ordered = list => { const ks = curItems().map(x => x.key); const ix = k => { const i = ks.indexOf(k); return i < 0 ? 999 : i; }; return (list || []).map((x, i) => ({ x, i })).sort((a, b) => ix(a.x.key) - ix(b.x.key) || a.i - b.i).map(o => o.x); };
     const jget = async k => { const r = await window.storage.get(k, true); if(!r || !r.value) return null; try{ return JSON.parse(r.value); }catch(e){ return null; } };
 
     async function callFn(body){
@@ -27877,7 +27881,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(!M.day) return;
       M.rep = M.cache[M.day] || await jget(K_DAY(M.day)).catch(() => null);
       if(M.rep) M.cache[M.day] = M.rep;
-      const its = (M.rep && M.rep.items) || [];
+      const its = ordered((M.rep && M.rep.items) || []);
       if(!its.some(x => x.key === M.item)) M.item = (its.find(x => !x.empty) || its[0] || {}).key || '';
     }
 
@@ -27919,7 +27923,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const areaLine = it => (it.areas || []).map(a => `${a.name} ${won(a.avg)}원/kg${it.pack && a.box != null ? ` · ${won(a.box)}원/상자` : ''}`).join('  |  ');
 
     function cardsHtml(rep){
-      return `<div class="mk-cards">${rep.items.map(it => {
+      return `<div class="mk-cards">${ordered(rep.items).map(it => {
         if(it.empty) return `<div class="mk-card off"><div class="mk-cn">${esc(it.name)}</div><div class="sub">거래 자료 없음</div></div>`;
         const c = cmpOf(rep.date, it.key);
         return `<button type="button" class="mk-card${it.key === M.item ? ' on' : ''}" data-mk-item="${esc(it.key)}"><div class="mk-cn">${esc(it.name)}</div>
@@ -28006,7 +28010,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         .mki table{border-collapse:collapse;width:100%;font-size:12px;} .mki th,.mki td{border:1px solid #ddd;padding:3px 6px;} .mki th{background:#f2f2f2;font-weight:600;} .mki td.n{text-align:right;} .mki .t{font-weight:600;font-size:12px;margin:0 0 3px;}`;
       const ch = (p, l) => p == null ? `${l} -` : `<span class="${Math.abs(p) < 0.5 ? '' : p > 0 ? 'up' : 'dn'}">${l} ${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p).toFixed(1)}%</span>`;
       const mini = (t, rows, it, top) => !rows || !rows.length ? '' : `<div><div class="t">${esc(t)}</div><table><tr><th>구분</th><th>물량</th><th>kg당</th>${it.pack ? `<th>상자당<br>(${esc(it.pack.label)})</th>` : ''}</tr>${rows.slice(0, top || 8).map(r => { const bx = r.box != null ? r.box : (it.pack ? r.avg * it.pack.unitKg : 0), est = r.box == null || r.est; return `<tr><td>${esc(r.name)}</td><td class="n">${vol(r.kg)}</td><td class="n">${won(r.avg)}</td>${it.pack ? `<td class="n">${est ? '≈' : ''}${won(bx)}</td>` : ''}</tr>`; }).join('')}</table></div>`;
-      const ok = rep.items.filter(x => !x.empty);
+      const ok = ordered(rep.items).filter(x => !x.empty);
       const html = `<div class="mki"><h1>Daily Report · 도매시장 시세 · ${dLabel(rep.date)} 거래</h1><div class="s">전국 공영도매시장 ${rep.markets}곳 정산가격 (한국농수산식품유통공사) · kg당 = 총 거래금액 ÷ 총 물량 · 상자당 = 대표 포장 거래 평균(≈ 환산) · 다름달음 통합시스템</div>
         <div class="cards">${ok.map(it => { const c = cmpOf(rep.date, it.key); return `<div class="c"><div class="cn">${esc(it.name)}</div><div class="cv">${won(it.avg)}<small>원/kg</small></div>${it.pack ? `<div class="cp">${esc(it.pack.label)} ${won(it.pack.avg)}원</div>` : ''}<div class="cp">${ch(pct(it.avg, c.pv && c.pv.avg), '전일')} · ${ch(pct(it.avg, c.wv && c.wv.avg), '전주')}</div><div class="cq">물량 ${vol(it.kg)}</div></div>`; }).join('')}</div>
         ${ok.map(it => `<h2>${esc(it.name)}</h2><div class="g">${it.marketsCap ? mini('수도권 도매시장 Top10', it.marketsCap, it, 10) + mini('지방 도매시장 Top10', it.marketsLocal, it, 10) : mini('도매시장별', it.markets, it, 8)}${mini('등급별', it.grades, it)}</div>`).join('')}</div>`;
@@ -28018,12 +28022,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // ── 관리자: 다시 받기 · 지난 2주 채우기 · 품목 설정 ──
     function adminHtml(){
       if(!isAdmin()) return '';
-      const items = (M.set && M.set.items && M.set.items.length) ? M.set.items : DEF_ITEMS;
+      const items = curItems();
       return `<details class="mk-admin"><summary>⚙ 관리자 — 다시 받기 · 품목 설정</summary>
         <div class="mk-arow"><input type="date" id="mk-run-day" value="${addD(kstToday(), -1)}" max="${addD(kstToday(), -1)}"> <button type="button" class="btn-ghost small-btn" id="mk-run">🔄 다시 받기</button>
           <button type="button" class="btn-ghost small-btn" id="mk-fill">📅 지난 2주 빈 날짜 채우기</button> <span class="mk-note">하루 받는 데 15초쯤 걸립니다. 자동: 매일 7:40 (8:40·9:40에 한 번 더)</span></div>
-        <div class="mk-arow"><b>리포트 품목</b> <span class="mk-note">바꾸면 다음에 받는 날부터 적용 (지난 날짜는 다시 받기)</span></div>
-        <div id="mk-items">${items.map((it, i) => `<span class="mk-chip">${esc(it.name)} <small>${esc([it.l, it.m, it.s].filter(Boolean).join('-'))}</small> <button type="button" data-mk-del="${i}" title="빼기">✕</button></span>`).join('')}</div>
+        <div class="mk-arow"><b>리포트 품목</b> <span class="mk-note">◀ ▶로 보이는 순서를 바꿉니다 (지난 날짜에도 바로 적용). 품목 추가·빼기는 다음에 받는 날부터 적용 (지난 날짜는 다시 받기)</span></div>
+        <div id="mk-items">${items.map((it, i) => `<span class="mk-chip"><button type="button" data-mk-mv="${i}" data-d="-1" title="앞으로" ${i === 0 ? 'disabled' : ''}>◀</button>${esc(it.name)} <small>${esc([it.l, it.m, it.s].filter(Boolean).join('-'))}</small> <button type="button" data-mk-mv="${i}" data-d="1" title="뒤로" ${i === items.length - 1 ? 'disabled' : ''}>▶</button> <button type="button" data-mk-del="${i}" title="빼기">✕</button></span>`).join('')}</div>
         <div class="mk-arow"><input type="text" id="mk-q" placeholder="품목·품종 이름 (예: 방울, 설향, 샤인)" style="width:220px"> <button type="button" class="btn-ghost small-btn" id="mk-find">🔍 찾기</button> <button type="button" class="btn-ghost small-btn" id="mk-def">기본 품목으로</button></div>
         <div id="mk-found"></div></details>`;
     }
@@ -28042,7 +28046,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }
     function bindAdmin(){
       if(!isAdmin() || !$m('mk-run')) return;
-      const items = () => ((M.set && M.set.items && M.set.items.length) ? M.set.items : DEF_ITEMS).slice();
+      const items = () => curItems().slice();
       $m('mk-run').addEventListener('click', async e => {
         if(testBlock() || M.busy) return;
         const day = $m('mk-run-day').value; if(!day) return;
@@ -28061,6 +28065,13 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         for(const d of miss){ e.target.textContent = `받는 중 ${done + bad + 1}/${miss.length}…`; try{ await runDay(d); done++; }catch(err){ bad++; } }
         M.busy = false; toast(`${done}일 받았습니다${bad ? ` · ${bad}일 실패` : ''}`); await load(); render();
       });
+      $m('mk-items').querySelectorAll('[data-mk-mv]').forEach(b => b.addEventListener('click', () => {
+        const a = items(), i = Number(b.dataset.mkMv), j = i + Number(b.dataset.d);
+        if(j < 0 || j >= a.length) return;
+        [a[i], a[j]] = [a[j], a[i]];
+        M.item = '';   // 순서를 바꾸면 맨 앞 품목을 펼쳐 보여 줌
+        saveItems(a).then(() => loadDay()).then(() => render()).catch(err => toast(err.message));
+      }));
       $m('mk-items').querySelectorAll('[data-mk-del]').forEach(b => b.addEventListener('click', () => {
         const a = items(); if(a.length <= 1){ toast('품목이 하나는 있어야 합니다'); return; }
         const [x] = a.splice(Number(b.dataset.mkDel), 1);
