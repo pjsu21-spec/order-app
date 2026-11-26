@@ -6386,7 +6386,7 @@ window.erpCodesLoad = (() => { let p = null; return force => {
       const ws = XLSX.utils.aoa_to_sheet([['구분', '품목명', '지금 코드(이카운트)', 'ERP CODE', 'ERP 품명', 'ERP 규격', '검사'], ...(E.items || []).map(i => { const m = E.map[i.key], ck = m ? check(m.code) : null; return [i.type, i.name, i.code, m ? m.code : '', m ? m.name || '' : '', m ? m.spec || '' : '', !m ? '' : ck.ok && !ck.warn.length ? 'OK' : ck.err.concat(ck.warn).join(' / ')]; })]);
       XLSX.utils.sheet_add_aoa(ws, freeRows().map(f => { const ck = check(f.code); return ['코드만(품목 연결 전)', '', f.old || '', f.code, f.name || '', f.spec || '', ck.ok && !ck.warn.length ? 'OK' : ck.err.concat(ck.warn).join(' / ')]; }), { origin: -1 });
       ws['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 18 }, { wch: 16 }, { wch: 30 }, { wch: 40 }, { wch: 30 }];
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ERP 코드'); XLSX.writeFile(wb, `ERP_코드표_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ERP 코드'); XLSX.writeFile(wb, `ERP_코드표_${(d => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'))(new Date())}.xlsx`);
     });
     box.querySelectorAll('input.erp-in').forEach(inp => inp.addEventListener('change', async () => {
       const key = inp.closest('tr').dataset.key, it = E.items.find(i => i.key === key), c = up(inp.value);
@@ -16489,7 +16489,7 @@ function mnShow(id, keepScroll) {
       itemSel.appendChild(opt);
     });
     // Default dates
-    const today = new Date().toISOString().slice(0,10);
+    const today = getTodayKey();
     if(!document.getElementById('return-date').value) document.getElementById('return-date').value = today;
     if(!document.getElementById('return-original-date').value) document.getElementById('return-original-date').value = today;
   }
@@ -16578,7 +16578,7 @@ function mnShow(id, keepScroll) {
       const ws = XLSX.utils.aoa_to_sheet([header,...data]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, '반품내역');
-      XLSX.writeFile(wb, `반품내역_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.xlsx`);
+      XLSX.writeFile(wb, `반품내역_${getTodayKey().replace(/-/g,'')}.xlsx`);
     }catch(e){ toast('다운로드 실패: '+e.message); }
   });
 
@@ -16974,7 +16974,7 @@ function mnShow(id, keepScroll) {
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const dateStr = getTodayKey().replace(/-/g,'');
     a.href = url;
     a.download = `다름달음_발주취합_백업_${dateStr}.json`;
     a.click();
@@ -19286,7 +19286,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   // ══════════════════ 원물선별 · 현황 (재고/작업/출고 현황판, 작업·출고는 날짜 선택 가능) ══════════════════
   function initSortingOverviewUI(){
     const dateInput = document.getElementById('overview-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
     document.getElementById('overview-refresh-btn').addEventListener('click', loadSortingOverview);
     dateInput.addEventListener('change', loadSortingOverview);
     loadSortingOverview();
@@ -19326,7 +19326,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   async function loadOverviewWork(){
     const wrap = document.getElementById('overview-work-wrap');
     wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
-    const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
+    const date = document.getElementById('overview-date').value || getTodayKey();
     try{
       await srLoad();
       const raws = !srOn() ? [null] : (srOverviewAll() ? srRaws : [srActive()]);
@@ -19355,7 +19355,7 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
   async function loadOverviewShipment(){
     const wrap = document.getElementById('overview-shipment-wrap');
     wrap.innerHTML = ''; const srGen = (wrap._srGen = (wrap._srGen || 0) + 1);   // 겹친 요청은 마지막 것만 그림
-    const date = document.getElementById('overview-date').value || new Date().toISOString().slice(0,10);
+    const date = document.getElementById('overview-date').value || getTodayKey();
     try{
       await srLoad();
       const raws = !srOn() ? [null] : (srOverviewAll() ? srRaws : [srActive()]);
@@ -19431,7 +19431,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
   async function initSortingInboundUI(){
     const vendorSel = document.getElementById('inbound-vendor-select'), farmSel = document.getElementById('inbound-origin-select');
     const dateInput = document.getElementById('inbound-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
 
     await inboundFillVendors();
     try{
@@ -19766,7 +19766,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
 
   async function initSortingOutputUI(){
     const dateInput = document.getElementById('output-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
 
     document.getElementById('output-calc-btn').addEventListener('click', calcOutputAllocation);
     document.getElementById('output-add-btn').addEventListener('click', submitSortingOutputAll);
@@ -20099,7 +20099,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
 
   function initSortingShareUI(){
     const dateInput = document.getElementById('share-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
     document.getElementById('share-generate-btn').addEventListener('click', generateShareImage);
     document.getElementById('share-download-btn').addEventListener('click', downloadShareImage);
     document.getElementById('share-native-btn').addEventListener('click', nativeShareImage);
@@ -20254,7 +20254,7 @@ ALTER TABLE sorting_inbound ADD COLUMN IF NOT EXISTS unit_price numeric;`;
 
   async function initSortingShipmentUI(){
     const dateInput = document.getElementById('shipment-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
 
     await shipmentLoadDestinations();
     ['mousedown', 'focus'].forEach(ev => document.getElementById('shipment-destination-input').addEventListener(ev, shipmentFillDestList));
@@ -20566,7 +20566,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
 
   async function initSortingEquipmentUI(){
     const dateInput = document.getElementById('equipment-date');
-    if(!dateInput.value) dateInput.value = new Date().toISOString().slice(0,10);
+    if(!dateInput.value) dateInput.value = getTodayKey();
 
     try{
       const types = await sbQuery('sorting_equipment_types', '?is_active=eq.true&order=id.asc');
@@ -24674,7 +24674,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       const ws = XLSX.utils.aoa_to_sheet([header,...data]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, '활동로그');
-      XLSX.writeFile(wb, `활동로그_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.writeFile(wb, `활동로그_${getTodayKey()}.xlsx`);
     }catch(e){ toast('로그 다운로드 실패: '+e.message); }
   });
 
@@ -28085,7 +28085,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       matRender();
     });
     const fillList = () => {
-      const days = Number(MAT.ledDays), from = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : '';
+      const days = Number(MAT.ledDays), from = days ? sampleAddDays(getTodayKey(), -days) : '';
       const rows = MAT.led.filter(e => (MAT.ledVoid || !e.void) && (!MAT.ledMat || e.m === MAT.ledMat) && (!from || e.d >= from) && (MAT.mode !== 'buy' || e.t === 'in')).sort((a, b) => b.d.localeCompare(a.d) || (b.ts || 0) - (a.ts || 0));
       const box = matEl('mat-l-list');
       if(!rows.length){ box.innerHTML = '<div class="sub">조건에 맞는 기록이 없습니다.</div>'; return; }
@@ -28100,7 +28100,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     };
     fillList();
     // 구매입력 엑셀
-    { const t0 = getTodayKey(); if(!MAT.xTo) MAT.xTo = t0; if(!MAT.xFrom) MAT.xFrom = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    { const t0 = getTodayKey(); if(!MAT.xTo) MAT.xTo = t0; if(!MAT.xFrom) MAT.xFrom = sampleAddDays(getTodayKey(), -30);
       matEl('mat-x-from').value = MAT.xFrom; matEl('mat-x-to').value = MAT.xTo; matEl('mat-x-wh').value = MAT.ec.warehouse; matEl('mat-x-t21').value = MAT.ec.tt21; matEl('mat-x-t22').value = MAT.ec.tt22; matEl('mat-x-mgr').value = MAT.ecMgr; matEl('mat-x-new').checked = MAT.xNew;
       if(MAT.xRaw == null) MAT.xRaw = true;
       matEl('mat-x-raw').checked = MAT.xRaw;
