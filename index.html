@@ -27453,8 +27453,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
     // 표가 가로로 길어 아래가 비면(TV 등) 줄 높이를 늘려 세로도 꽉 채움 — 글자 크기는 그대로, 줄만 높아짐
     if(!narrow && !document.getElementById('po-board').classList.contains('rep')){
-      const target = ah / s;
-      if(target > h * 1.04 && fit.querySelector('.pb-table tbody tr')){
+      const target = ah / s * 0.985;   // 확대할 때 반올림으로 맨 아래 줄이 잘리지 않게 약간 여유
+      if(target > h * 1.01 && fit.querySelector('.pb-table tbody tr')){
         let lo = 0, hi = 160;
         for(let i = 0; i < 9; i++){
           const mid = (lo + hi) / 2;
@@ -27647,12 +27647,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!window.TV_MODE) return;
     const day0 = getTodayKey();
     let hiddenMin = 0;
+    // 프로그램이 새로 올라가면(서버 파일이 바뀌면) 5분 안에 페이지를 새로 열어 반영 — TV는 아무도 F5를 안 누르므로
+    let verMin = 0, ver0 = null;
+    const tvVer = async () => { const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); if(!r.ok) return null; const t = await r.text(); let h = 0; for(let i = 0; i < t.length; i += 7) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; };
+    const tvCheckVersion = async () => { try{ const v = await tvVer(); if(!v) return; if(ver0 == null){ ver0 = v; return; } if(v !== ver0) location.reload(); }catch(e){ /* 인터넷 끊김 등: 다음에 다시 */ } };
+    tvCheckVersion();
     const ready = () => window.currentUser && dict && dict.length && document.getElementById('app').style.display !== 'none';
     const tick = () => {
       if(!ready()){ setTimeout(tick, 1000); return; }   // 로그인할 때까지 계속 기다림
       poBoardOpen();
       setInterval(() => {
         if(getTodayKey() !== day0){ location.reload(); return; }
+        if(++verMin >= 5){ verMin = 0; tvCheckVersion(); }
         if(document.getElementById('po-board').style.display === 'none'){ if(++hiddenMin >= 2){ hiddenMin = 0; poBoardOpen(); } }
         else hiddenMin = 0;
       }, 60000);
