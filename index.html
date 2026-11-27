@@ -27824,7 +27824,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     let hiddenMin = 0;
     // 프로그램이 새로 올라가면(서버 파일이 바뀌면) 5분 안에 페이지를 새로 열어 반영 — TV는 아무도 F5를 안 누르므로
     let verMin = 0, ver0 = null;
-    const tvVer = async () => { const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); if(!r.ok) return null; const t = await r.text(); let h = 0; for(let i = 0; i < t.length; i += 7) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; };
+    const tvVer = async () => { const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); if(!r.ok) return null; const t = await r.text(); let h = 0; for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; };
     const tvCheckVersion = async () => { try{ const v = await tvVer(); if(!v) return; if(ver0 == null){ ver0 = v; return; } if(v !== ver0) location.reload(); }catch(e){ /* 인터넷 끊김 등: 다음에 다시 */ } };
     tvCheckVersion();
     const ready = () => window.currentUser && dict && dict.length && document.getElementById('app').style.display !== 'none';
@@ -27839,6 +27839,30 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       }, 60000);
     };
     setTimeout(tick, 500);
+  })();
+  // 새 버전 알림 (TV 모드가 아닌 화면): 프로그램이 새로 올라가면 오른쪽 아래에 [지금 적용] 버튼을 띄움
+  //  시스템 안의 🔄 새로고침 버튼은 '자료'만 다시 읽고 프로그램은 그대로라, 바뀐 기능은 이 버튼(또는 F5)으로 받아야 함
+  (function updNotice(){
+    if(window.TV_MODE || !/^https?:/.test(location.protocol)) return;
+    let ver0 = null, lastAt = 0, shown = false;
+    const fp = async () => { const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }); if(!r.ok) return null; const t = await r.text(); let h = 0; for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ':' + h; };
+    const show = () => {
+      if(shown) return; shown = true;
+      const b = document.createElement('div'); b.id = 'upd-notice';
+      b.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9000;background:#1f2937;color:#fff;border-radius:12px;padding:10px 12px 10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-size:13.5px;max-width:calc(100vw - 28px);';
+      b.innerHTML = '<span>🆕 프로그램이 새로 바뀌었습니다</span><button type="button" data-upd style="background:#e01f2e;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;white-space:nowrap;">지금 적용</button><button type="button" data-x title="나중에" style="background:none;border:none;color:#cbd5e1;font-size:16px;cursor:pointer;padding:0 2px;">✕</button>';
+      b.querySelector('[data-upd]').addEventListener('click', () => location.reload());
+      b.querySelector('[data-x]').addEventListener('click', () => b.remove());
+      document.body.appendChild(b);
+    };
+    const check = async () => {
+      if(shown || Date.now() - lastAt < 120000) return; lastAt = Date.now();
+      try{ const v = await fp(); if(!v) return; if(ver0 == null){ ver0 = v; return; } if(v !== ver0) show(); }catch(e){ /* 인터넷 끊김 등: 다음에 다시 */ }
+    };
+    setTimeout(check, 3000);
+    setInterval(check, 10 * 60000);
+    window.addEventListener('focus', check);   // 다른 창에 있다가 돌아오면 확인 (2분에 한 번까지)
+    window.__upd = { check, show, state: () => ({ ver0, lastAt, shown }) };
   })();
 
   // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
