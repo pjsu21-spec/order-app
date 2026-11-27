@@ -1734,7 +1734,7 @@
       <button class="btn-primary small-btn" id="export-production-order-btn" style="background:var(--accent);">📋 발주취합 다운로드</button>
       <button class="btn-ghost small-btn" id="pg-xlsx-btn" title="서식 파일 없이 프로그램이 지금 서식과 같은 모양으로 발주취합 엑셀을 만듭니다 (시험 중 — 기존 다운로드와 숫자가 같은지 비교해 주세요). 출력·공유용이라 수식 없이 값만 들어갑니다">🆕 새 방식 다운로드 (시험)</button>
       <button class="btn-ghost small-btn" id="pg-img-btn" title="발주서를 이미지로 만들어 복사·저장·공유합니다 (단체 카톡방 공유용)">🖼 공유용 이미지</button>
-      <button class="btn-ghost small-btn" id="pg-print-btn" title="발주서를 A4 가로 한 장 폭에 맞춰 바로 인쇄합니다">🖨 인쇄</button>
+      <button class="btn-ghost small-btn" id="pg-print-btn" title="발주서를 A4 한 장에 꽉 차게 바로 인쇄합니다 (가로·세로 방향 자동)">🖨 인쇄</button>
       <button class="btn-ghost small-btn" id="po-board-btn" title="발주취합 파일에 들어가는 내용을 화면 표로 보여줍니다 (파일 다운로드 없이 확인)">📺 생산 현황판</button>
       <button class="btn-ghost small-btn" id="po-draft-save-btn" title="지금 상태를 초안 공유본으로 저장합니다. 이후 수량이 바뀌거나 새로 생긴 업체는 다운로드할 때 업체명 칸이 노란색으로 표시됩니다">📌 초안 공유본으로 저장</button>
       <button class="btn-ghost small-btn" id="po-draft-clear-btn" style="display:none;" title="저장된 초안 공유본을 해제합니다">초안 해제</button>
@@ -1920,7 +1920,7 @@
     <div class="row" style="margin-top:0;align-items:center;">
       <button type="button" class="btn-ghost small-btn" id="pr-board-btn" title="TV 생산 현황판을 생산일보 화면으로 엽니다">📺 생산일보 보기</button>
       <button type="button" class="btn-ghost small-btn" id="pr-img-btn" title="생산일보를 이미지로 만들어 복사·저장·공유합니다 (단체 카톡방 공유용)">🖼 공유용 이미지</button>
-      <button type="button" class="btn-ghost small-btn" id="pr-print-btn" title="생산일보를 A4 가로로 바로 인쇄합니다">🖨 인쇄</button>
+      <button type="button" class="btn-ghost small-btn" id="pr-print-btn" title="생산일보를 A4 한 장에 꽉 차게 바로 인쇄합니다 (가로·세로 방향 자동)">🖨 인쇄</button>
       <button type="button" class="btn-ghost small-btn" id="pr-copy-prev" title="최근 생산일보의 인원 배치·일용직·총 인원·비고를 가져옵니다">⤵ 전날 인원·비고 가져오기</button>
       <span id="pr-meta" style="font-size:12px;color:var(--muted);"></span>
       <span id="pr-ro" class="sub" style="display:none;margin:0;">👁 생산 / 물류 권한이 읽기만이라 보기만 됩니다</span>
@@ -23383,20 +23383,39 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.body.appendChild(ov);
     return { close };
   }
-  // 인쇄: 숨은 창(iframe)에 표를 넣고 A4 가로 한 장 폭에 맞춰 인쇄
+  // 인쇄: 숨은 창(iframe)에 표를 넣고 A4 한 장에 꽉 차게 인쇄
   async function pgPrint(html, width, extraCss, title){
     await pgFontReady();
     const fr = document.createElement('iframe');
-    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    fr.style.cssText = 'position:fixed;left:-20000px;top:0;width:1400px;height:900px;border:0;visibility:hidden;pointer-events:none;';   // 내용 크기를 재야 해서 0px이 아니라 보이지 않게만
     document.body.appendChild(fr);
-    const pageW = 1080;   // A4 가로 인쇄 영역 폭(px, 여백 제외 대략)
-    const zoom = Math.min(1, pageW / (width + 4));
     const doc = fr.contentDocument;
     doc.open();
-    doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title || '인쇄')}</title><style>${window.PoSheet.fontCss}@page{size:A4 landscape;margin:7mm;}html,body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.pg-z{zoom:${zoom};}${extraCss || ''}</style></head><body><div class="pg-z">${html}</div></body></html>`);
+    doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title || '인쇄')}</title><style>${window.PoSheet.fontCss}html,body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.pg-z{display:inline-block;}${extraCss || ''}</style><style id="pg-fit"></style></head><body><div class="pg-z">${html}</div></body></html>`);
     doc.close();
     try{ await Promise.race([fr.contentDocument.fonts.load("800 12px 'PoNanumEB'"), new Promise(r => setTimeout(r, 6000))]); }catch(e){}
     await new Promise(r => setTimeout(r, 200));
+    // A4 한 장에 꽉 차게: 내용 크기(px)와 A4 인쇄 영역(여백 7mm)을 비교해 배율을 정함. 작으면 키우고 크면 줄임.
+    // 내용이 가로로 길면 가로 방향, 세로로 길면 세로 방향 중 더 크게 나오는 쪽
+    const zEl = doc.querySelector('.pg-z');
+    const cw = Math.max(zEl.scrollWidth, zEl.offsetWidth) || (width + 4);
+    let ch = Math.max(zEl.scrollHeight, zEl.offsetHeight) || 1;
+    const MM = 96 / 25.4, M = 7;
+    const fitOf = (pw, ph) => Math.min(((pw - M * 2) * MM) / cw, ((ph - M * 2) * MM) / ch) * 0.97;   // 0.97: 반올림으로 2장으로 넘어가지 않게
+    const land = fitOf(297, 210), port = fitOf(210, 297), isLand = land >= port;
+    let zoom = Math.max(0.2, Math.min(4, isLand ? land : port));
+    // 가로로 꽉 찼는데 아래가 남으면(업체가 적은 날 등) 줄 높이를 늘려 세로도 채움 — 글자 크기는 그대로 (최대 2.5배)
+    { const PH = ((isLand ? 210 : 297) - M * 2) * MM, trs = [...zEl.querySelectorAll('tr')];
+      if(trs.length && ch * zoom < PH * 0.94){
+        const k = Math.min(2.5, (PH * 0.97 / zoom) / ch);
+        const hs = trs.map(tr => tr.getBoundingClientRect().height);
+        trs.forEach((tr, i) => { tr.style.height = (hs[i] * k).toFixed(1) + 'px'; });
+        ch = Math.max(zEl.scrollHeight, zEl.offsetHeight) || ch;
+        zoom = Math.max(0.2, Math.min(4, fitOf(isLand ? 297 : 210, isLand ? 210 : 297)));
+      } }
+    doc.getElementById('pg-fit').textContent = `@page{size:A4 ${isLand ? 'landscape' : 'portrait'};margin:${M}mm;}body{text-align:center;}.pg-z{zoom:${zoom.toFixed(4)};text-align:left;}`;
+    window.__pgLastFit = { cw, ch, zoom, isLand };
+    await new Promise(r => setTimeout(r, 100));
     fr.contentWindow.focus(); fr.contentWindow.print();
     setTimeout(() => fr.remove(), 60000);
   }
