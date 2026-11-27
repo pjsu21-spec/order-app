@@ -16398,6 +16398,8 @@ function mnShow(id, keepScroll) {
     await Promise.all(batches.map(ofEnsureAoa));   // 다른 화면에서 올린 묶음은 원본 내용을 서버에서 읽어 옴
     const lost = batches.filter(b => !Array.isArray(b.aoa));
     if(lost.length === batches.length){ toast('원본 파일 내용을 서버에서 읽지 못했습니다 — 인터넷 연결 확인 후 다시 시도하거나, 같은 원본 엑셀을 다시 올려 주세요'); return; }
+    // 일부 묶음만 못 읽었으면 읽은 묶음만으로 만듦 (예전엔 여기서 멈춰 파일이 안 나왔음)
+    const okBatches = batches.filter(b => Array.isArray(b.aoa));
 
     const trackingColRaw = (document.getElementById('original-tracking-col').value || '').trim().toUpperCase();
     const courierCol = (document.getElementById('original-courier-col').value || '').trim().toUpperCase();
@@ -16409,8 +16411,21 @@ function mnShow(id, keepScroll) {
     // Produce one output file per batch (if multiple uploads, create a zip-like multi-sheet wb)
     const wb = XLSX.utils.book_new();
     const rows = currentLineItems().filter(r=>r.company===companyName);
+    const trackedRows = rows.filter(r => r && r.trackingNo);
+    if(!trackedRows.length){
+      if(!confirm(`${companyName}: 오늘(${currentDateKey}) 개별 주문에 운송장번호가 하나도 없습니다.\n송장/명세서에서 운송장 파일을 먼저 올려야 원본 양식에 운송장이 채워집니다.\n\n그래도 운송장 칸이 빈 파일을 받을까요?`)) return;
+    }
+    // 예비 연결: 원본 행 번호(sourceRowIndex)가 없거나 다른 묶음으로 잡힌 주문도 주문번호(+수령인)로 원본 행을 찾아 운송장을 채움
+    //  (원본을 다시 올리거나 운송장 파일로 줄이 새로 생기면 묶음 번호가 어긋나 운송장 칸이 통째로 비던 것)
+    const coObj = companies.find(c => c.name === companyName), mp = (coObj && coObj.uploadMapping) || {};
+    const colOf = L => { const s = String(L || '').trim().toUpperCase(); return /^[A-Z]{1,3}$/.test(s) ? letterToIndex(s) : -1; };
+    const oCol = colOf(mp.orderNo), nCol = colOf(mp.recipientName);
+    const byOrder = new Map(), byOrderName = new Map();
+    const addTo = (m, k, t) => { if(!k) return; (m.get(k) || m.set(k, new Set()).get(k)).add(t); };
+    trackedRows.forEach(r => { const o = String(r.orderNo || '').trim(); if(!o) return; addTo(byOrder, o, r.trackingNo); addTo(byOrderName, o + '|' + String(r.recipientName || '').trim(), r.trackingNo); });
+    let placed = 0, dataRows = 0;
 
-    batches.forEach((batch, batchIdx)=>{
+    okBatches.forEach((batch, batchIdx)=>{
       // Build tracking map: sourceRowIndex → tracking numbers
       // For same-address orders (e.g. 스테비아+망고+자몽 all from row 1 of the original file),
       // each row in lineItems has a different sourceRowIndex (each original file row = one SKU line).
@@ -16452,7 +16467,22 @@ function mnShow(id, keepScroll) {
       });
 
       const aoa = batch.aoa;
-      const startRow = batch.startRow;
+      const startRow = batch.startRow || Number(mp.startRow) || 2;
+      // 예비 연결 (주문번호 + 수령인 → 주문번호만)
+      if(oCol >= 0){
+        for(let idx = startRow - 1; idx < aoa.length; idx++){
+          if(trackingStrByRowIdx[idx]) continue;
+          const row = aoa[idx] || [];
+          const o = cleanCell(row[oCol]); if(!o) continue;
+          const nm = nCol >= 0 ? cleanCell(row[nCol]) : '';
+          const set = (nm && byOrderName.get(o + '|' + nm)) || byOrder.get(o);
+          if(set && set.size) trackingStrByRowIdx[idx] = Array.from(set).join(' / ');
+        }
+      }
+      for(let idx = startRow - 1; idx < aoa.length; idx++){
+        const row = aoa[idx] || [];
+        if(row.some(v => v != null && String(v).trim() !== '')){ dataRows++; if(trackingStrByRowIdx[idx]) placed++; }
+      }
 
       let outRows;
       if(trackingColRaw){
@@ -16486,12 +16516,16 @@ function mnShow(id, keepScroll) {
       }
 
       const ws = XLSX.utils.aoa_to_sheet(outRows);
-      const sheetName = batches.length > 1 ? `운송장반영_${batchIdx+1}` : '운송장반영';
+      const sheetName = okBatches.length > 1 ? `운송장반영_${batchIdx+1}` : '운송장반영';
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
+    if(trackedRows.length && !placed){
+      if(!confirm(`${companyName}: 운송장번호는 ${trackedRows.length}줄 있는데 원본 파일의 어느 행과도 연결되지 않았습니다.\n(원본 파일이 오늘 주문과 다른 파일이거나, 업체 설정의 주문번호 열이 바뀌었을 수 있습니다)\n\n[취소]를 누르면 원본 대신 '주문번호 · 운송장번호 목록'으로 받습니다.\n그래도 원본 양식(운송장 칸 빈 채로)을 받을까요?`)){ ofExportList(companyName, share); return; }
+    }
 
     const dateLabel = (getDeliveryDateLabel() || currentDateKey).replace(/-/g,'');
-    ofOut(wb, `${companyName}_운송장반영_${dateLabel}.xlsx`, share, `${companyName} 원본 양식 + 운송장번호 파일${share ? '을 만들었습니다' : '이 다운로드되었습니다'}`);
+    const stat = ` — 원본 ${dataRows}줄 중 운송장 ${placed}줄 채움${lost.length ? ` · 서버에서 못 읽은 원본 묶음 ${lost.length}개 제외` : ''}`;
+    ofOut(wb, `${companyName}_운송장반영_${dateLabel}.xlsx`, share, `${companyName} 원본 양식 + 운송장번호 파일${share ? '을 만들었습니다' : '이 다운로드되었습니다'}${stat}`);
   }
 
   // 제이엠로지스 발주서 엑셀 (다운로드·공유 공용): rows = 개별 주문 줄
