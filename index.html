@@ -3473,6 +3473,7 @@
 <ul>
   <li><b>왼쪽 위 칸</b>에 제목·납품일·<span class="mn-b">지금 새로고침</span>·<span class="mn-b">⛶ 전체화면</span>·<span class="mn-b">닫기</span>가 있습니다. 표는 화면 가로를 꽉 채웁니다.</li>
   <li><span class="mn-b">⛶ 전체화면</span>을 누르면 브라우저 주소창·탭·작업표시줄 없이 현황판만 화면 가득 나옵니다(TV용). <b>Esc</b>를 누르거나 다시 누르면 원래대로 돌아옵니다.</li>
+  <li><b>TV 전용 주소</b>: <b>order.dareumdaleum.com/?tv=1</b> 로 열면 로그인 후 현황판이 바로 뜨고, 날짜는 사무실에서 고른 납품일과 상관없이 <b>항상 오늘</b>입니다. 자정이 지나면 알아서 다음 날 현황판으로 바뀌고, 누가 닫아도 2분 뒤 다시 뜹니다.</li>
   <li><b>오른쪽 아래</b>에 마지막 새로고침 시각이 있습니다. 켜 둔 동안 <b>5분마다 자동</b>으로 서버의 최신 값을 불러오고, 바로 확인하려면 <span class="mn-b">지금 새로고침</span>.</li>
   <li>품목은 발주취합 서식과 같은 <b>색</b>으로 구분됩니다. 수량이 바뀐 칸은 잠깐 강조됩니다.</li>
   <li>쿠팡처럼 <b>출고일을 지정한 주문</b> 줄에도 발주취합 파일과 똑같이 납품담당·적재방식·재고사용·비고와 <b>소비기한(예: 11월 20일까지)</b>이 나옵니다. 1차/2차 출고는 줄이 따로 나오고 2차는 소비기한이 하루 늦습니다.</li>
@@ -3934,6 +3935,8 @@ window.TEST_MODE = (function(){
     return sessionStorage.getItem('dd_test') === '1';
   } catch (e) { return false; }
 })();
+// ── TV 모드 (?tv=1): 로그인하면 생산 현황판을 바로 띄우고, 날짜는 항상 오늘(자정이 지나면 새로 열어 다음 날로) ──
+window.TV_MODE = (function(){ try { return new URLSearchParams(location.search).get('tv') === '1'; } catch (e) { return false; } })();
 const SB_KEY = 'sb_publishable_Es6Y1pOe1friYzEnvT0iSw_gqQQvFvJ';
 
 const sbHeaders = {
@@ -27546,6 +27549,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const body = document.getElementById('pb-fit');
     try{
       if(reload) await poBoardReload();
+      if(window.TV_MODE) currentDateKey = getTodayKey();   // TV는 사무실에서 고른 납품일과 상관없이 항상 오늘 (화면에만, 저장 안 함)
       const m = await poBoardCollect(currentDateKey);
       await prLoadForBoard(currentDateKey);
       pbModel = m;
@@ -27627,9 +27631,27 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 전체화면에서 마우스를 3초 안 움직이면 화살표를 숨김 (TV 화면 가운데 커서가 남지 않게)
     const board = document.getElementById('po-board');
     let curT = null;
-    const wake = () => { board.classList.remove('pb-nocur'); clearTimeout(curT); if(isFs()) curT = setTimeout(() => board.classList.add('pb-nocur'), 3000); };
+    const wake = () => { board.classList.remove('pb-nocur'); clearTimeout(curT); if(isFs() || window.TV_MODE) curT = setTimeout(() => board.classList.add('pb-nocur'), 3000); };
     board.addEventListener('mousemove', wake);
     document.addEventListener('fullscreenchange', wake);
+    if(window.TV_MODE) wake();
+  })();
+  // TV 모드: 로그인·자료 준비가 끝나면 현황판을 띄움. 누가 닫아도 2분 뒤 다시 띄우고, 날짜가 바뀌면 페이지를 새로 열어 다음 날 현황판 + 최신 프로그램으로
+  (function tvBoot(){
+    if(!window.TV_MODE) return;
+    const day0 = getTodayKey();
+    let hiddenMin = 0;
+    const ready = () => window.currentUser && dict && dict.length && document.getElementById('app').style.display !== 'none';
+    const tick = () => {
+      if(!ready()){ setTimeout(tick, 1000); return; }   // 로그인할 때까지 계속 기다림
+      poBoardOpen();
+      setInterval(() => {
+        if(getTodayKey() !== day0){ location.reload(); return; }
+        if(document.getElementById('po-board').style.display === 'none'){ if(++hiddenMin >= 2){ hiddenMin = 0; poBoardOpen(); } }
+        else hiddenMin = 0;
+      }, 60000);
+    };
+    setTimeout(tick, 500);
   })();
 
   // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
