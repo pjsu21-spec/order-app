@@ -785,6 +785,8 @@
   .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
   .pb-table{ border-collapse:collapse; font-size:16px; white-space:nowrap; color:#111; background:#fff; }
   .pb-table th, .pb-table td{ border:1px solid #b8c2d6; padding:4px 10px; }
+  #pb-fit .pb-table tbody tr, #pb-fit .pb-ship tbody tr{ height:var(--pb-rh, auto); }   /* 세로 빈 공간을 줄 높이로 채움 (poBoardFit) */
+  #po-board.pb-nocur, #po-board.pb-nocur *{ cursor:none !important; }   /* 전체화면에서 마우스를 3초 안 움직이면 화살표 숨김 */
   .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; text-align:right; padding-right:18px; }
   .pb-table .pb-g{ color:#111; font-size:17px; font-weight:800; text-align:center; }
   .pb-table .pb-h{ color:#111; font-size:15px; font-weight:700; text-align:center; min-width:64px; white-space:normal; }
@@ -27433,13 +27435,26 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function poBoardFit(){
     const body = document.getElementById('pb-body'), fit = document.getElementById('pb-fit');
     if(!body || !fit) return;
-    fit.style.zoom = 1;
+    fit.style.zoom = 1; fit.style.setProperty('--pb-rh', 'auto');
     const w = fit.offsetWidth, h = fit.offsetHeight;
     if(!w || !h) return;
     const cs = getComputedStyle(body);   // 안쪽 여백을 뺀 실제 표시 영역에 맞춤 (아래쪽 합계 줄이 잘리지 않게)
     const aw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const narrow = window.innerWidth < 760;   // 휴대폰: 가로 폭에 맞추되 글자가 너무 작아지지 않게 (넘치는 부분은 밀어서 봄)
     const s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
+    // 표가 가로로 길어 아래가 비면(TV 등) 줄 높이를 늘려 세로도 꽉 채움 — 글자 크기는 그대로, 줄만 높아짐
+    if(!narrow && !document.getElementById('po-board').classList.contains('rep')){
+      const target = ah / s;
+      if(target > h * 1.04 && fit.querySelector('.pb-table tbody tr')){
+        let lo = 0, hi = 160;
+        for(let i = 0; i < 9; i++){
+          const mid = (lo + hi) / 2;
+          fit.style.setProperty('--pb-rh', mid + 'px');
+          if(fit.offsetHeight <= target && fit.offsetWidth <= w + 1) lo = mid; else hi = mid;
+        }
+        fit.style.setProperty('--pb-rh', Math.floor(lo) + 'px');
+      }
+    }
     fit.style.zoom = s;
     poBoardPlaceHead();
   }
@@ -27609,6 +27624,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     document.addEventListener('fullscreenchange', () => { paint(); if(document.getElementById('po-board').style.display !== 'none') poBoardFit(); });
     document.addEventListener('webkitfullscreenchange', paint);
     window.__pbExitFs = () => { if(isFs()){ try{ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){} } };
+    // 전체화면에서 마우스를 3초 안 움직이면 화살표를 숨김 (TV 화면 가운데 커서가 남지 않게)
+    const board = document.getElementById('po-board');
+    let curT = null;
+    const wake = () => { board.classList.remove('pb-nocur'); clearTimeout(curT); if(isFs()) curT = setTimeout(() => board.classList.add('pb-nocur'), 3000); };
+    board.addEventListener('mousemove', wake);
+    document.addEventListener('fullscreenchange', wake);
   })();
 
   // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
