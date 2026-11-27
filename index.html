@@ -27439,12 +27439,18 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const body = document.getElementById('pb-body'), fit = document.getElementById('pb-fit');
     if(!body || !fit) return;
     fit.style.zoom = 1; fit.style.setProperty('--pb-rh', 'auto');
-    const w = fit.offsetWidth, h = fit.offsetHeight;
+    const rep = fit.querySelector('.pr-rep'); if(rep) rep.style.width = '';
+    let w = fit.offsetWidth, h = fit.offsetHeight;
     if(!w || !h) return;
     const cs = getComputedStyle(body);   // 안쪽 여백을 뺀 실제 표시 영역에 맞춤 (아래쪽 합계 줄이 잘리지 않게)
     const aw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ah = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const narrow = window.innerWidth < 760;   // 휴대폰: 가로 폭에 맞추되 글자가 너무 작아지지 않게 (넘치는 부분은 밀어서 봄)
-    const s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
+    // 생산일보: 화면이 가로로 길어 양옆이 비면 표 폭을 넓혀 가로도 채움 (최대 1.8배)
+    if(!narrow && rep && aw / w > (ah / h) * 1.04){
+      rep.style.width = Math.round(Math.min(rep.offsetWidth * 1.8, rep.offsetWidth * (aw / w) / (ah / h))) + 'px';
+      w = fit.offsetWidth; h = fit.offsetHeight;
+    }
+    let s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
     // 표가 가로로 길어 아래가 비면(TV 등) 줄 높이를 늘려 세로도 꽉 채움 — 글자 크기는 그대로, 줄만 높아짐
     if(!narrow && !document.getElementById('po-board').classList.contains('rep')){
       const target = ah / s;
