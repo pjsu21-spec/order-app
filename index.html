@@ -27491,6 +27491,31 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       }
     }
     fit.style.zoom = s;
+    // 보정: 실제로 화면에 그려진 크기를 다시 재서 맞춤. 글자 반올림·화면 배율(DPI)·해상도에 따라
+    // 확대·축소가 계산대로 되지 않아 너무 작거나(가장자리·아래가 빔) 넘치는 일이 있음
+    const box = () => fit.getBoundingClientRect();
+    for(let i = 0; i < 3; i++){
+      const r = box(); if(!r.width || !r.height) break;
+      const k = narrow ? aw / r.width : Math.min(aw / r.width, ah / r.height) * 0.99;
+      if(Math.abs(k - 1) < 0.015) break;
+      s = narrow ? Math.max(0.55, Math.min(1.2, s * k)) : Math.max(0.4, Math.min(3, s * k));
+      fit.style.zoom = s;
+    }
+    // 가로로 꽉 찼는데 아래가 아직 남으면 줄 높이를 더 늘림 (실제 그려진 높이로 판단)
+    if(!narrow && !document.getElementById('po-board').classList.contains('rep') && fit.querySelector('.pb-table tbody tr')){
+      const r0 = box();
+      if(r0.height < ah * 0.97 && r0.width > aw * 0.95){
+        const cur = parseFloat(fit.style.getPropertyValue('--pb-rh')) || 0;
+        let lo = cur, hi = Math.max(cur, 0) + 200;
+        for(let i = 0; i < 10; i++){
+          const mid = (lo + hi) / 2;
+          fit.style.setProperty('--pb-rh', mid + 'px');
+          const r = box();
+          if(r.height <= ah * 0.985 && r.width <= aw + 1) lo = mid; else hi = mid;
+        }
+        fit.style.setProperty('--pb-rh', lo > 0 ? Math.floor(lo) + 'px' : 'auto');
+      }
+    }
     poBoardPlaceHead();
   }
   function poBoardPlaceHead(){
