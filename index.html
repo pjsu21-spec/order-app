@@ -845,6 +845,10 @@
   #product-stock-editor table.ps-tbl col.ps-c-n{ width:auto; }
   #product-stock-editor table.ps-tbl col.ps-c-v{ width:210px; }
   #product-stock-editor table.ps-tbl col.ps-c-x{ width:70px; }
+  #product-stock-editor table.ps-tbl col.ps-c-p{ width:110px; }
+  #product-stock-editor table.ps-tbl td.ps-pv{ text-align:right; white-space:nowrap; }
+  #product-stock-editor table.ps-tbl td.ps-pv small{ color:var(--muted); }
+  #product-stock-editor table.ps-tbl td.ps-pend{ color:var(--muted); cursor:help; }
   #product-stock-editor table.ps-tbl th{ background:var(--accent-soft, #fdecef); color:var(--text, #1f2937); font-weight:800; font-size:13px; text-align:left; padding:7px 8px; border-bottom:2px solid var(--line, #e5e7eb); white-space:nowrap; }
   #product-stock-editor table.ps-tbl th small{ display:block; font-weight:600; font-size:11px; color:var(--muted); }
   #product-stock-editor table.ps-tbl td{ padding:5px 8px; border-bottom:1px solid var(--line, #eee); vertical-align:middle; }
@@ -861,6 +865,7 @@
     #product-stock-editor table.ps-tbl{ font-size:12px; }
     #product-stock-editor table.ps-tbl col.ps-c-v{ width:21%; }
     #product-stock-editor table.ps-tbl col.ps-c-x{ width:40px; }
+    #product-stock-editor table.ps-tbl col.ps-c-p{ width:14%; }
     #product-stock-editor table.ps-tbl th{ padding:6px 3px; font-size:12px; white-space:normal; line-height:1.2; text-align:center; }
     #product-stock-editor table.ps-tbl th:first-child{ text-align:left; padding-left:4px; }
     #product-stock-editor table.ps-tbl th small{ font-size:10px; }
@@ -6936,6 +6941,33 @@ function mnShow(id, keepScroll) {
   const CARRY_LOOKBACK_DAYS = 10, CARRY_MAX_CHAIN = 12;
   const carryRound = v => Math.round((Number(v) || 0) * 100) / 100;
   const carryIsKey = k => /^\d{4}-\d{2}-\d{2}$/.test(k);
+  // ── 실물 재고 / 가용 재고 (기능만 준비 — window.FF_PHYS_STOCK = true 일 때만 화면에 보임, 사용자 요청 시 켬) ──
+  //  전산(가용) 재고는 발주서 날짜에 출고를 뺌. 출고일이 그 뒤인 건(쿠팡 등 출고일 지정 건 · 명일 출고 업체)은 그 사이 창고에 실물로 남아 있음
+  //  출고 대기: T 아침 기준 = 발주 날짜 < T ≤ 출고일 / T 마감 뒤(endOfDay) = 발주 날짜 ≤ T < 출고일 · 실물 재고 = 가용 + 출고 대기 (팩)
+  window.FF_PHYS_STOCK = window.FF_PHYS_STOCK === true;
+  const physOn = () => window.FF_PHYS_STOCK === true;
+  const psPhysMode = () => { try{ return localStorage.getItem('ps-phys-mode') === 'phys'; }catch(e){ return false; } };
+  function stockPendingAt(T, endOfDay){
+    const map = {}, det = [];
+    if(!carryIsKey(T)) return { map, det };
+    const from = sampleAddDays(T, -14);
+    const add = (id, q, company, od, sd) => { q = Number(q) || 0; if(!(q > 0) || id === '_meta') return; map[id] = carryRound((map[id] || 0) + q); det.push({ id, q, company, orderDate: od, shipDate: sd }); };
+    const inWin = (od, sd) => endOfDay ? (od <= T && sd > T) : (od < T && sd >= T);
+    Object.keys(ordersByDate).filter(k => carryIsKey(k) && k >= from && k <= T).forEach(k => {
+      const orders = ordersPhys(k) || {};
+      Object.keys(orders).forEach(c => {
+        if(c === '_meta') return;
+        if(isDispatchCompany(c)){
+          (dispatchByDate[k] || []).forEach(e => { if(e.company !== c || e.pending || !parseDateKey(e.shipDate) || !inWin(k, e.shipDate)) return; Object.entries(e.items || {}).forEach(([id, q]) => add(id, q, c, k, e.shipDate)); });
+        } else {
+          const sd = shipDayOf(k, c);
+          if(sd && sd !== k && inWin(k, sd)) Object.entries(orders[c] || {}).forEach(([id, q]) => add(id, q, c, k, sd));
+        }
+      });
+    });
+    return { map, det };
+  }
+  window.__phys = { stockPendingAt };   // (점검용)
   // 샘플 신청(생산본부 생산 품목)을 날짜별로 모아 둠 — 자동 이월 계산용 (서버에서 읽어 둔 값, 없으면 샘플 없이 계산)
   //  byDay[날짜] = { prod: 그날 생산하는 샘플, ship: 그날 출고하는 샘플, use: 그날 출고하는데 앞서 생산해 둔(재고 사용) 샘플 } — 모두 { 품목id: 팩 }
   let carrySmp = { at: 0, center: '', byDay: {}, loading: false };
@@ -9821,12 +9853,21 @@ function mnShow(id, keepScroll) {
     }
     const stock = currentPreviousStock();
     const shipped = carryNeed(currentDateKey);   // 오늘 필요한 수량(팩, 샘플 포함): 생산 필요수량 안내에 사용
+    const PH = physOn(), PEND = PH ? stockPendingAt(currentDateKey || computeCurrentDateKey(), false) : null, physMode = PH && psPhysMode();
     const hint = document.createElement('div');
     hint.className = 'sub'; hint.style.cssText = 'margin:0 0 6px;';
     hint.innerHTML = '모두 <b>박스</b> 단위입니다 (박스입수가 없는 품목은 팩). <b>D-1 재고(전일 재고)</b>는 발주취합 파일의 전일재고 칸에 들어갑니다. 비워 두면 <b>직전 영업일의 전일 재고 + 그날 생산량 − 그날 출고</b>로 <b>자동 계산</b>되어 "자동"으로 표시되고, 직접 입력하면 그 값이 우선합니다(0도 입력값입니다. 칸을 비우면 다시 자동 계산). ' +
       '<b>D 생산량(오늘 생산량)</b>은 내일의 자동 계산에만 쓰이며, 비워 두면 생산 필요수량만큼 생산한 것으로 계산합니다. 생산 / 물류 → 📒 월간 생산 수불장의 생산량 칸(BOX·팩(생산)·박스(생산))에 넣어도 여기에 같이 들어갑니다. ' +
       '<b>D-2 재고(이틀 전 재고)</b>는 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 입력하세요(생산 / 물류 탭의 재고사용 배정용, 자동 계산 안 함, 파일에는 넣지 않음).';
     wrap.appendChild(hint);
+    if(PH){   // 실물 / 가용 입력 기준
+      const mb = document.createElement('div'); mb.className = 'ps-phys-mode';
+      mb.style.cssText = 'margin:0 0 6px;font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;';
+      const n = Object.keys(PEND.map).length;
+      mb.innerHTML = `<b>D-1 재고 입력 기준</b><label><input type="radio" name="ps-phys" value="avail"${physMode ? '' : ' checked'}> 가용(전산)</label><label><input type="radio" name="ps-phys" value="phys"${physMode ? ' checked' : ''}> 실물(창고에서 센 수량 — 출고 대기를 빼고 저장)</label><span class="sub" style="margin:0;">출고 대기 = 발주서에는 들어갔지만 출고일이 아직인 수량(쿠팡 등 출고일 지정 건 · 명일 출고 업체)${n ? ` · ${n}개 품목` : ' · 지금 없음'}</span>`;
+      mb.querySelectorAll('input').forEach(r => r.addEventListener('change', () => { try{ localStorage.setItem('ps-phys-mode', r.value); }catch(e){} renderProductStockEditor(); }));
+      wrap.appendChild(mb);
+    }
     // 자주 안 쓰는 품목(최근 30일 발주·오늘 필요량·재고·생산량이 모두 없음)은 아래 접힌 칸으로
     const more = document.createElement('details'); more.className = 'ps-more';
     try{ more.open = localStorage.getItem('ps-more-open') === '1'; }catch(e){}
@@ -9837,7 +9878,7 @@ function mnShow(id, keepScroll) {
     const md = k => { const [, m, d] = k.split('-').map(Number); return m + '/' + d; };
     const mkTbl = head => {
       const t = document.createElement('table'); t.className = 'ps-tbl';
-      t.innerHTML = '<colgroup><col class="ps-c-n"><col class="ps-c-v"><col class="ps-c-v"><col class="ps-c-v"><col class="ps-c-x"></colgroup>' + (head ? `<thead><tr><th>품명</th><th title="이틀 전 재고 — 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 (재고사용 배정용, 파일에는 안 들어감)">D-2 재고 <small>이틀 전 · ${md(sampleAddDays(dk0, -2))}</small></th><th title="전일 재고 — 발주취합 파일의 전일재고 칸에 들어감. 비우면 자동 계산">D-1 재고 <small>전일 · ${md(sampleAddDays(dk0, -1))}</small></th><th title="오늘 생산량 — 내일 전일 재고 자동 계산에 쓰임. 비우면 생산 필요수량만큼">D 생산량 <small>오늘 · ${md(dk0)}</small></th><th></th></tr></thead>` : '') + '<tbody></tbody>';
+      t.innerHTML = '<colgroup><col class="ps-c-n"><col class="ps-c-v"><col class="ps-c-v">' + (PH ? '<col class="ps-c-p"><col class="ps-c-p">' : '') + '<col class="ps-c-v"><col class="ps-c-x"></colgroup>' + (head ? `<thead><tr><th>품명</th><th title="이틀 전 재고 — 쿠팡·특수 건처럼 이틀 전 재고까지 쓸 때만 (재고사용 배정용, 파일에는 안 들어감)">D-2 재고 <small>이틀 전 · ${md(sampleAddDays(dk0, -2))}</small></th><th title="전일 재고 — 발주취합 파일의 전일재고 칸에 들어감. 비우면 자동 계산">D-1 재고 <small>전일 · ${md(sampleAddDays(dk0, -1))}</small></th>${PH ? `<th title="발주서에는 들어가 가용 재고에서 빠졌지만 출고일이 아직이라 창고에 있는 수량 (칸에 마우스를 올리면 내역)">출고 대기 <small>출고 전</small></th><th title="창고에 실제로 있어야 할 수량 = D-1 가용 재고 + 출고 대기">실물 재고 <small>창고 기준</small></th>` : ''}<th title="오늘 생산량 — 내일 전일 재고 자동 계산에 쓰임. 비우면 생산 필요수량만큼">D 생산량 <small>오늘 · ${md(dk0)}</small></th><th></th></tr></thead>` : '') + '<tbody></tbody>';
       return t;
     };
     const mainTbl = mkTbl(true), moreTbl = mkTbl(false);
@@ -9858,6 +9899,7 @@ function mnShow(id, keepScroll) {
       const per = Number(item.boxUnitCount) || 0, U = per > 0 ? '박스' : '팩';
       const toIn = packs => (packs === '' || packs == null) ? '' : (per > 0 ? Math.round(Number(packs) / per * 1000) / 1000 : Number(packs));
       const toPacks = raw => { const v = parseFloat(raw) || 0; return per > 0 ? carryRound(v * per) : v; };
+      const pend = PH ? (PEND.map[id] || 0) : 0;   // 출고 대기(팩)
       const mkStock = (store, ph, onChange) => {
         const input = document.createElement('input');
         input.type = 'number'; input.step = 'any';
@@ -9883,7 +9925,11 @@ function mnShow(id, keepScroll) {
 
       const s1 = mkStock(stock.product, U, raw => {
         if(raw === ''){ delete stock.product[id]; delete stock.auto[id]; ensureCarryOver(currentDateKey); }   // 비우면 자동 계산으로
-        else { stock.product[id] = parseFloat(raw) || 0; delete stock.auto[id]; }
+        else {
+          let v = parseFloat(raw) || 0;
+          if(physMode && pend){ v = carryRound(v - pend); if(v < 0){ toast(`${item.name}: 센 수량이 출고 대기(${toIn(pend)}${U})보다 적습니다 — 가용 재고는 0으로 저장합니다`); v = 0; } }   // 실물로 센 수량 → 출고 대기를 빼고 가용으로 저장
+          stock.product[id] = v; delete stock.auto[id];
+        }
         savePreviousStock(); renderAggTable(); refresh();
       });
       const s2 = mkStock(stock.product2, U, raw => {
@@ -9895,12 +9941,21 @@ function mnShow(id, keepScroll) {
         savePreviousStock();
       });
       s3.input.title = '오늘 실제로 생산한 수량. 내일 전일 재고를 자동 계산할 때만 쓰입니다. 비우면 생산 필요수량(오늘 출고 − 전일 재고)만큼 생산한 것으로 봅니다';
+      const pdTd = PH ? document.createElement('td') : null, phTd = PH ? document.createElement('td') : null;
+      if(PH){
+        pdTd.className = 'ps-pv ps-pend'; phTd.className = 'ps-pv ps-phys';
+        const dl = PEND.det.filter(x => x.id === id);
+        pdTd.title = dl.length ? dl.map(x => `${x.company} · ${md(x.orderDate)} 발주 → ${md(x.shipDate)} 출고 · ${toIn(x.q)}${per > 0 ? '박스' : '팩'}`).join('\n') : '출고 대기 없음';
+        pdTd.innerHTML = pend ? `${toIn(pend)}<small> ${U}</small>` : '-';
+      }
       const refresh = ()=>{
         const isAuto = !!stock.auto[id];
-        s1.input.value = toIn(stock.product[id] ?? '');
+        const hasV = stock.product[id] != null && stock.product[id] !== '';
+        s1.input.value = toIn(physMode && hasV ? carryRound((Number(stock.product[id]) || 0) + pend) : (stock.product[id] ?? ''));
+        if(PH) phTd.innerHTML = `<b>${toIn(carryRound((Number(stock.product[id]) || 0) + pend))}</b><small> ${U}</small>`;
         s1.input.style.background = isAuto ? 'var(--accent-soft)' : '';
         tag.style.display = isAuto ? '' : 'none';
-        s1.upd(stock.product[id] ?? 0);
+        s1.upd(physMode && hasV ? carryRound((Number(stock.product[id]) || 0) + pend) : (stock.product[id] ?? 0));
         const need = Math.max(0, carryRound((shipped[id] || 0) - (Number(stock.product[id]) || 0)));
         s3.input.placeholder = need > 0 ? `필요 ${toIn(need)}${per > 0 ? '박스' : ''}` : U;
       };
@@ -9911,6 +9966,7 @@ function mnShow(id, keepScroll) {
       const field = (label, parts) => { const td = document.createElement('td'); const f = document.createElement('div'); f.className = 'ps-f'; const l = document.createElement('span'); l.className = 'ps-l'; l.textContent = label; f.append(l, ...parts); td.appendChild(f); return td; };
       row.appendChild(field(`D-2 재고(${U})`, [s2.input, s2.span]));
       row.appendChild(field(`D-1 재고(${U})`, [s1.input, tag, s1.span]));
+      if(PH){ row.appendChild(pdTd); row.appendChild(phTd); }
       row.appendChild(field(`D 생산량(${U})`, [s3.input, s3.span]));
 
       const clearBtn = document.createElement('button');
@@ -28064,10 +28120,12 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   }
   function invRows(){
     const sm = matStockMap(), P = invProducts(), T = getTodayKey(), rows = [];
+    const PP = (physOn() && !P.none) ? stockPendingAt(P.T, P.closed) : null;   // 실물/가용 (기능 켰을 때만)
     if(!P.none) (dict || []).forEach(d => {
       const cur = P.cur[d.id] || 0, shelf = Number(d.shelfDays) || 0;
+      const pend = PP ? (PP.map[d.id] || 0) : 0, pendDet = PP ? PP.det.filter(x => x.id === d.id) : [];
       const lots = invFifo((P.lots[d.id] || []).map(l => Object.assign({}, l, { exp: shelf ? invAddDays(l.d, shelf) : '' })), cur);
-      rows.push({ prod: true, id: d.id, kind: 'sku', kindLabel: '제품', name: d.name || '', unit: '팩', cur, safety: 0, low: false, lots, shelf, last: (P.lots[d.id] || [])[0] ? P.lots[d.id][0].d : '', off: false,
+      rows.push({ prod: true, id: d.id, kind: 'sku', kindLabel: '제품', name: d.name || '', unit: '팩', cur, safety: 0, low: false, lots, shelf, last: (P.lots[d.id] || [])[0] ? P.lots[d.id][0].d : '', off: false, pend, pendDet,
         note: P.closed ? `오늘 생산 +${matN(P.madeT[d.id] || 0)} · 출고 −${matN(P.shipT[d.id] || 0)} 반영` : '' });
     });
     matItems(MAT.stockOff).forEach(i => {
@@ -28116,7 +28174,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       else if(!items.length){ t.innerHTML = '<div class="sub">조건에 맞는 자재가 없습니다.</div>'; }
       else {
         t.innerHTML = `<table class="mat-t"><thead><tr><th>ERP 코드</th><th>품목</th><th>구분</th><th>현재고</th><th>안전재고</th><th>상태</th><th>소비기한 (가장 빠른 것)</th><th>최근 입고·생산일</th><th>재고 실사 (실제 수량 입력)</th></tr></thead><tbody>${items.map(r => {
-          if(r.prod) return `<tr data-sku="${escapeHtml(r.id)}"><td>${window.erpCodeCell ? window.erpCodeCell(r.id) : ''}</td><td>${escapeHtml(r.name)}${r.note ? `<div class="sub" style="margin:0;">${escapeHtml(r.note)}</div>` : ''}</td><td>제품</td><td class="n${r.cur < 0 ? ' mat-low' : ''}">${matN(r.cur)} 팩</td><td class="n">-</td><td></td><td>${invExpBadge(r)}${invLotsHtml(r, INV.T)}</td><td>${escapeHtml(r.last || '-')}</td><td><span class="sub" style="margin:0;">발주취합 › 제품 재고(전일 재고)에서 고침</span></td></tr>`;
+          if(r.prod) return `<tr data-sku="${escapeHtml(r.id)}"><td>${window.erpCodeCell ? window.erpCodeCell(r.id) : ''}</td><td>${escapeHtml(r.name)}${r.note ? `<div class="sub" style="margin:0;">${escapeHtml(r.note)}</div>` : ''}</td><td>제품</td><td class="n${r.cur < 0 ? ' mat-low' : ''}">${matN(r.cur)} 팩${r.pend ? `<div class="sub" style="margin:0;cursor:help;" title="${escapeHtml(r.pendDet.map(x => `${x.company} · ${x.orderDate.slice(5)} 발주 → ${x.shipDate.slice(5)} 출고 · ${matN(x.q)}팩`).join('\n'))}">가용 · 실물 ${matN(Math.round((r.cur + r.pend) * 100) / 100)}팩 (출고 대기 ${matN(r.pend)})</div>` : ''}</td><td class="n">-</td><td></td><td>${invExpBadge(r)}${invLotsHtml(r, INV.T)}</td><td>${escapeHtml(r.last || '-')}</td><td><span class="sub" style="margin:0;">발주취합 › 제품 재고(전일 재고)에서 고침</span></td></tr>`;
           const i = r.item, cur = r.cur, low = r.low, rawn = MAT.rawIn[i.id];
           return `<tr data-id="${escapeHtml(i.id)}"${i.off ? ' style="opacity:.55;"' : ''}><td>${window.erpCodeCell ? window.erpCodeCell(i.id) : ''}</td><td>${escapeHtml(i.name)}${rawn > 0 ? `<div class="sub" style="margin:0;">원물선별 입고 +${matN(rawn)}${escapeHtml(i.unit)}${(MAT.rawWaste || {})[i.id] > 0 ? ` · 선별 폐기 −${matN(MAT.rawWaste[i.id])}${escapeHtml(i.unit)}` : ''}${(MAT.rawShip || {})[i.id] > 0 ? ` · 선별 출고(외부) −${matN(MAT.rawShip[i.id])}${escapeHtml(i.unit)}` : ''} 포함</div>` : ''}</td><td>${MAT_KIND[i.kind] || ''}</td><td class="n${low ? ' mat-low' : ''}">${matN(cur)} ${escapeHtml(i.unit)}</td><td class="n">${Number(i.safety) > 0 ? matN(i.safety) + ' ' + escapeHtml(i.unit) : '-'}</td><td>${low ? '<span class="mat-low">⚠ 부족</span>' : (Number(i.safety) > 0 ? '<span class="mat-ok">정상</span>' : '')}</td><td>${invExpBadge(r)}${invLotsHtml(r, INV.T)}</td><td>${escapeHtml(matLastIn(i.id) || '-')}</td><td style="white-space:nowrap;"><input type="text" class="mat-cnt" inputmode="decimal" placeholder="실제 수량" style="width:90px;"> <button type="button" class="btn-ghost small-btn mat-cnt-btn">맞추기</button></td></tr>`;
         }).join('')}</tbody></table>`;
