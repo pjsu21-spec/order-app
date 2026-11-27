@@ -3469,7 +3469,8 @@
 <h2>생산 현황판</h2>
 <p class="mn-lead">집계 / 출고나 생산 / 물류 탭의 <span class="mn-b">📺 생산 현황판</span>을 누르면 전체 화면으로 열립니다. 공장 모니터에 띄워 두는 용도로 만들었습니다.</p>
 <ul>
-  <li><b>왼쪽 위 칸</b>에 제목·납품일·<span class="mn-b">지금 새로고침</span>·<span class="mn-b">닫기</span>가 있습니다. 표는 화면 가로를 꽉 채웁니다.</li>
+  <li><b>왼쪽 위 칸</b>에 제목·납품일·<span class="mn-b">지금 새로고침</span>·<span class="mn-b">⛶ 전체화면</span>·<span class="mn-b">닫기</span>가 있습니다. 표는 화면 가로를 꽉 채웁니다.</li>
+  <li><span class="mn-b">⛶ 전체화면</span>을 누르면 브라우저 주소창·탭·작업표시줄 없이 현황판만 화면 가득 나옵니다(TV용). <b>Esc</b>를 누르거나 다시 누르면 원래대로 돌아옵니다.</li>
   <li><b>오른쪽 아래</b>에 마지막 새로고침 시각이 있습니다. 켜 둔 동안 <b>5분마다 자동</b>으로 서버의 최신 값을 불러오고, 바로 확인하려면 <span class="mn-b">지금 새로고침</span>.</li>
   <li>품목은 발주취합 서식과 같은 <b>색</b>으로 구분됩니다. 수량이 바뀐 칸은 잠깐 강조됩니다.</li>
   <li>쿠팡처럼 <b>출고일을 지정한 주문</b> 줄에도 발주취합 파일과 똑같이 납품담당·적재방식·재고사용·비고와 <b>소비기한(예: 11월 20일까지)</b>이 나옵니다. 1차/2차 출고는 줄이 따로 나오고 2차는 소비기한이 하루 늦습니다.</li>
@@ -6742,7 +6743,7 @@ function mnShow(id, keepScroll) {
   <div class="pb-head" id="pb-head">
     <div class="pb-title">🏭 생산 발주 현황</div>
     <div class="pb-date" id="pb-date"></div>
-    <div class="pb-actions"><button id="pb-view" title="현황판 / 생산일보 / 번갈아(30초) 보기를 바꿉니다">보기: 현황판</button><button id="pb-refresh">지금 새로고침</button><button id="pb-close">닫기 ✕</button></div>
+    <div class="pb-actions"><button id="pb-view" title="현황판 / 생산일보 / 번갈아(30초) 보기를 바꿉니다">보기: 현황판</button><button id="pb-refresh">지금 새로고침</button><button id="pb-fs" title="브라우저 주소창·탭·작업표시줄 없이 현황판만 화면 가득 보여 줍니다 (Esc로 해제)">⛶ 전체화면</button><button id="pb-close">닫기 ✕</button></div>
   </div>
   <div class="pb-bottom">
     <div class="pb-notes" id="pb-notes"></div>
@@ -27572,6 +27573,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   function poBoardClose(fromPop){
     poBoardAutoStop();
     if(pbCycleTimer){ clearInterval(pbCycleTimer); pbCycleTimer = null; }
+    if(window.__pbExitFs) window.__pbExitFs();
     document.getElementById('po-board').style.display = 'none';
     document.body.style.overflow = '';
     if(pbPushed){ pbPushed = false; if(fromPop !== true){ try{ history.back(); }catch(e){ /* 무시 */ } } }   // 버튼·Esc로 닫으면 만들어 둔 기록도 되돌림
@@ -27590,6 +27592,24 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(pbModel){ pbPaint(pbModel); poBoardFit(); poBoardFoot(); }
   });
   document.getElementById('pb-close').addEventListener('click', () => poBoardClose());
+  // 전체화면: 브라우저 주소창·탭·작업표시줄 없이 현황판만 (TV용). Esc로 해제, 현황판을 닫으면 같이 해제
+  (function pbFs(){
+    const btn = document.getElementById('pb-fs');
+    const de = document.documentElement;
+    if(!btn) return;
+    if(!(de.requestFullscreen || de.webkitRequestFullscreen)){ btn.style.display = 'none'; return; }
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const paint = () => { btn.textContent = isFs() ? '⛶ 전체화면 해제' : '⛶ 전체화면'; };
+    btn.addEventListener('click', async () => {
+      try{
+        if(isFs()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        else await (de.requestFullscreen || de.webkitRequestFullscreen).call(de);
+      }catch(e){ window.showToast('전체화면을 열 수 없습니다. 키보드 F11을 눌러 보세요'); }
+    });
+    document.addEventListener('fullscreenchange', () => { paint(); if(document.getElementById('po-board').style.display !== 'none') poBoardFit(); });
+    document.addEventListener('webkitfullscreenchange', paint);
+    window.__pbExitFs = () => { if(isFs()){ try{ (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){} } };
+  })();
 
   // ══════════ 자재·재고 관리 (정전개 / 역전개 · 구매입력) ══════════
   // 제품(SKU) 1팩을 만들 때 쓰는 자재를 정전개로 등록하고, 자재를 고르면 쓰이는 제품을 역전개로 확인한다.
