@@ -797,7 +797,19 @@
   #pb-fit .pb-table th, #pb-fit .pb-table td{ padding:2px 7px; }
   #pb-fit .pb-table .pb-h{ width:84px; }
   #pb-fit .pb-table .pb-g{ white-space:normal; }
-  #pb-fit .pb-table .pb-corner{ padding-right:12px; }   /* 세로 빈 공간을 줄 높이로 채움 (poBoardFit) */
+  #pb-fit .pb-table .pb-corner{ padding-right:12px; }
+  /* 재고사용: 다른 화면은 한 줄에 하나씩, 현황판 화면은 이어 써서 줄이 길게 늘어나지 않게 (샘플 줄이 7줄씩 높아지던 것) */
+  .pb-table .pb-sl{ display:block; }
+  #pb-fit .pb-table .pb-pstock{ white-space:normal; min-width:150px; max-width:210px; }
+  #pb-fit .pb-table .pb-sl{ display:inline; }
+  #pb-fit .pb-table .pb-sl + .pb-sl::before{ content:' · '; color:#9aa6bd; }
+  /* 현황판 화면: 수량·업체명을 상대적으로 크게 (안내 칸보다 숫자가 먼저 보이게) */
+  #pb-fit .pb-table .pb-n{ font-size:25px; }
+  #pb-fit .pb-table .pb-name{ font-size:21px; }
+  #pb-fit .pb-table .pb-sum .pb-big{ font-size:34px; }
+  #pb-fit .pb-table .pb-grand .pb-n{ font-size:30px; }
+  #pb-fit .pb-table .pb-dim{ font-size:15px; }
+  #pb-fit .pb-table .pb-h{ font-size:16px; }   /* 세로 빈 공간을 줄 높이로 채움 (poBoardFit) */
   #po-board.pb-nocur, #po-board.pb-nocur *{ cursor:none !important; }   /* 전체화면에서 마우스를 3초 안 움직이면 화살표 숨김 */
   .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; text-align:right; padding-right:18px; }
   .pb-table .pb-g{ color:#111; font-size:17px; font-weight:800; text-align:center; }
@@ -27441,7 +27453,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
         let span = 0; if(first){ for(let q = k; q < b.rows.length && b.rows[q].cat === r.cat; q++) span++; }
         const p = r.p || {};
         const next = /명일/.test(p.note || '');
-        const pCells = P ? `<td class="pb-p">${e(p.driver || '')}</td><td class="pb-p">${e(p.load || '')}</td><td class="pb-p pb-pstock">${e(p.stock || '')}</td><td class="pb-p pb-pnote">${e(p.note || '')}</td>` : '';
+        const pCells = P ? `<td class="pb-p">${e(p.driver || '')}</td><td class="pb-p">${e(p.load || '')}</td><td class="pb-p pb-pstock">${pbStockHtml(p.stock)}</td><td class="pb-p pb-pnote">${e(p.note || '')}</td>` : '';
         html += `<tr class="pb-row">${first ? `<td rowspan="${span}" class="pb-cat">${e(r.cat)}</td>` : ''}<td class="pb-reg">${e(r.region)}</td><td class="pb-name${r.changed ? ' pb-ychg' : ''}">${e(r.name)}${next ? '<span class="pb-badge">명일</span>' : ''}</td>${m.cols.map(c => cell(r.key, c.L, r.qty[c.L], '', r.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${pCells}</tr>`;
       });
       html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n"${b.sub[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(b.sub[c.L])}</td>`).join('')}${pBlank}</tr>`;
@@ -27450,7 +27462,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       html += `<tr class="pb-sec"><td colspan="${fixed + m.cols.length + P}">출고일 지정 주문 (쿠팡 등)</td></tr>`;
       m.dispatch.forEach(d => {
         const dp = d.p || {};
-        const dCells = P ? `<td class="pb-p">${e(dp.driver || '')}</td><td class="pb-p">${e(dp.load || '')}</td><td class="pb-p pb-pstock">${e(dp.stock || '')}</td><td class="pb-p pb-pnote">${e(dp.note || '')}</td>` : '';
+        const dCells = P ? `<td class="pb-p">${e(dp.driver || '')}</td><td class="pb-p">${e(dp.load || '')}</td><td class="pb-p pb-pstock">${pbStockHtml(dp.stock)}</td><td class="pb-p pb-pnote">${e(dp.note || '')}</td>` : '';
         html += `<tr class="pb-row"><td class="pb-cat">${e(d.ship ? shortDate(d.ship) : '')}</td><td class="pb-reg">${e(d.warehouse)}</td><td class="pb-name">${e(d.name)}</td>${m.cols.map(c => cell(d.key, c.L, d.qty[c.L], '', d.qty[c.L] > 0 ? baseOf(c) : '')).join('')}${dCells}</tr>`;
       });
       html += `<tr class="pb-subtotal"><td colspan="${fixed}" class="pb-lbl">소계</td>${m.cols.map(c => `<td class="pb-n"${m.disp[c.L] > 0 ? ` style="background:${deepOf(baseOf(c))}"` : ''}>${pbFmt(m.disp[c.L])}</td>`).join('')}${pBlank}</tr>`;
@@ -27466,6 +27478,8 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     }
     return html;
   }
+  // 재고사용 칸: 줄마다 따로 (현황판 화면에서는 한 줄에 이어 써서 줄 높이를 줄임 — CSS .pb-sl)
+  const pbStockHtml = v => String(v || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => `<span class="pb-sl">${escapeHtml(x)}</span>`).join('');
   function poBoardFit(){
     const body = document.getElementById('pb-body'), fit = document.getElementById('pb-fit');
     if(!body || !fit) return;
