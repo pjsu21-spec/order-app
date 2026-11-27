@@ -140,7 +140,67 @@ async function authenticate(request, env, url) {
   if (!isAdmin && u.access_files !== true) throw new HttpError(403, '공유폴더 접근 권한이 없습니다. 관리자에게 요청해주세요.');
   // 읽기 전용(users.readonly_files = true): 보기·내려받기만 가능. 관리자에게는 적용되지 않습니다.
   const readOnly = !isAdmin && u.readonly_files === true;
-  return { id: String(u.id), rawId: u.id, username: u.username, display_name: u.display_name, isAdmin, readOnly };
+  return { id: String(u.id), rawId: u.id, username: u.username, display_name: u.display_name, department: String(u.department || '').trim(), isAdmin, readOnly };
+}
+
+// ── 폴더별 접근 권한 (SQL: 공유폴더_폴더권한_SQL.sql → shared_files.acl) ──
+//  폴더의 acl = { restricted: true, depts: { 부서명: 'read'|'edit' }, users: { 사용자id: 'read'|'edit' } }
+//  · acl이 없거나 restricted가 아니면 공유폴더 권한자 누구나 (지금과 같음)
+//  · 지정한 폴더 안의 폴더·파일은 모두 같은 제한을 받음. 위아래로 여러 폴더에 지정하면 모두를 만족해야 함 (가장 낮은 권한)
+//  · 부서와 개인을 함께 지정하면 둘 중 높은 권한. 관리자는 항상 전체
+//  · 공유폴더 '읽기 전용' 직원은 폴더 권한이 '전체'여도 읽기만
+const LV = { none: 0, read: 1, edit: 2 };
+const LV_NAME = ['none', 'read', 'edit'];
+const ACL_SQL_MSG = '폴더별 권한 설정(DB)이 아직 적용되지 않았습니다. 관리자가 「공유폴더_폴더권한_SQL」을 Supabase에서 실행해주세요.';
+function aclLevel(user, acl) {
+  let best = 0;
+  const u = acl.users && acl.users[user.id];
+  if (u) best = Math.max(best, LV[u] || 0);
+  const d = user.department && acl.depts && acl.depts[user.department];
+  if (d) best = Math.max(best, LV[d] || 0);
+  return best;
+}
+// folderId 폴더 '안'에서의 권한 (null = 맨 위 「전체」) → 0 없음 / 1 읽기 / 2 전체
+function levelIn(user, folderId, byId) {
+  if (user.isAdmin) return 2;
+  let lv = user.readOnly ? 1 : 2;
+  for (let cur = folderId ? byId.get(folderId) : null, g = 0; cur && g < 200; cur = cur.parent_id ? byId.get(cur.parent_id) : null, g++) {
+    if (cur.acl && cur.acl.restricted) lv = Math.min(lv, aclLevel(user, cur.acl));
+    if (!lv) break;
+  }
+  return lv;
+}
+// 항목 자체의 권한: 폴더는 그 폴더 안, 파일은 들어 있는 폴더 안
+const levelOf = (user, row, byId) => levelIn(user, row.is_folder ? row.id : (row.parent_id || null), byId);
+// 권한 판단용 폴더 목록 (acl 칸이 아직 없으면 제한 없이 동작)
+async function loadFolders(db) {
+  try {
+    const rows = await db.getAll('shared_files?is_folder=eq.true&deleted_at=is.null&select=id,parent_id,name,acl');
+    return { byId: new Map(rows.map(r => [r.id, r])), aclEnabled: true };
+  } catch (e) {
+    if (!/acl/.test(e.message)) throw e;
+    const rows = await db.getAll('shared_files?is_folder=eq.true&deleted_at=is.null&select=id,parent_id,name');
+    return { byId: new Map(rows.map(r => [r.id, r])), aclEnabled: false };
+  }
+}
+function needLevel(user, folderId, byId, need, what) {
+  const lv = levelIn(user, folderId, byId);
+  if (lv >= need) return;
+  if (!lv) throw new HttpError(403, '이 폴더에 접근할 권한이 없습니다');
+  throw new HttpError(403, `이 폴더는 읽기만 할 수 있습니다${what ? ` (${what} 불가)` : ''}`);
+}
+// 저장 전에 acl 모양을 정리 (모르는 값은 버림)
+function cleanAcl(raw) {
+  if (!raw || raw.restricted !== true) return null;
+  const pick = (o, keyOk) => {
+    const out = {};
+    if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) {
+      const key = String(k).trim().slice(0, 100);
+      if (key && keyOk(key) && (v === 'read' || v === 'edit')) out[key] = v;
+    }
+    return out;
+  };
+  return { restricted: true, depts: pick(raw.depts, () => true), users: pick(raw.users, k => /^[\w-]{1,64}$/.test(k)) };
 }
 
 async function writeLog(env, user, action, detail) {
@@ -248,14 +308,29 @@ async function route(request, env) {
 
   // 목록 전체 (폴더 구조는 화면에서 조립)
   if (method === 'GET' && path === '/api/list') {
-    let items, trashRows;
+    let items, trashRows, aclEnabled = true;
+    const COLS = 'id,parent_id,name,is_folder,size,mime,uploaded_by,uploaded_by_name,created_at';
     try {
-      items = await db.getAll('shared_files?deleted_at=is.null&select=id,parent_id,name,is_folder,size,mime,uploaded_by,uploaded_by_name,created_at&order=name.asc');
+      try { items = await db.getAll(`shared_files?deleted_at=is.null&select=${COLS},acl&order=name.asc`); }
+      catch (e) { if (!/acl/.test(e.message)) throw e; aclEnabled = false; items = await db.getAll(`shared_files?deleted_at=is.null&select=${COLS}&order=name.asc`); }
       trashRows = await db.getAll('shared_files?deleted_at=not.is.null&select=id,size,is_folder,r2_key,uploaded_by,deleted_at,trash_root_id');
     } catch (e) {
       if (/deleted_at/.test(e.message)) throw new HttpError(500, TRASH_SQL_MSG);
       throw e;
     }
+    // 폴더별 권한: 볼 수 있는 항목만 내려보내고, 항목마다 내 권한(lvl)을 붙임. 권한 설정 내용(acl)은 관리자에게만
+    const folderById = new Map(items.filter(r => r.is_folder).map(r => [r.id, r]));
+    const allItems = items;
+    items = [];
+    for (const r of allItems) {
+      const lv = levelOf(user, r, folderById);
+      if (!lv) continue;
+      const { acl, ...rest } = r;
+      const out = { ...rest, lvl: LV_NAME[lv], restricted: !!(acl && acl.restricted) };
+      if (user.isAdmin && acl) out.acl = acl;
+      items.push(out);
+    }
+    const rootLvl = LV_NAME[levelIn(user, null, folderById)];
     // 보관 기간이 지난 휴지통 항목은 여기서 함께 정리합니다
     const cutoff = Date.now() - TRASH_DAYS * 86400000;
     const expired = trashRows.filter(r => new Date(r.deleted_at).getTime() < cutoff);
@@ -267,13 +342,30 @@ async function route(request, env) {
       } catch (e) { console.warn('휴지통 자동 정리 실패', e.message); }
     }
     const fileBytes = (rows) => rows.reduce((s, r) => s + (r.is_folder ? 0 : Number(r.size || 0)), 0);
-    const used = fileBytes(items) + fileBytes(trashRows); // 휴지통 파일도 R2 용량을 차지합니다
+    const used = fileBytes(allItems) + fileBytes(trashRows); // 휴지통 파일도 R2 용량을 차지합니다 (전체 사용량은 권한과 상관없이)
     const roots = trashRows.filter(r => r.id === r.trash_root_id && canManageTrash(user, r));
     return json({
       items, used, limit: MAX_TOTAL_BYTES,
       trashEnabled: true, trashDays: TRASH_DAYS, trash: { count: roots.length, bytes: fileBytes(trashRows) },
-      me: { id: user.id, display_name: user.display_name, isAdmin: user.isAdmin, readOnly: user.readOnly }
+      aclEnabled, rootLvl,
+      me: { id: user.id, display_name: user.display_name, department: user.department, isAdmin: user.isAdmin, readOnly: user.readOnly }
     });
+  }
+
+  // 폴더 접근 권한 지정 (관리자만) — body: { id, acl: { restricted, depts, users } | null }
+  if (method === 'POST' && path === '/api/acl') {
+    if (!user.isAdmin) throw new HttpError(403, '폴더 접근 권한은 관리자만 정할 수 있습니다');
+    const body = await request.json();
+    if (!isUuid(body.id)) throw new HttpError(400, '잘못된 요청입니다');
+    const { byId, aclEnabled } = await loadFolders(db);
+    if (!aclEnabled) throw new HttpError(500, ACL_SQL_MSG);
+    const row = byId.get(body.id);
+    if (!row) throw new HttpError(404, '폴더를 찾을 수 없습니다. 새로고침 해주세요.');
+    const acl = cleanAcl(body.acl);
+    const updated = await db.patch(`shared_files?id=eq.${row.id}`, { acl });
+    const desc = acl ? `지정 (부서 ${Object.keys(acl.depts).length} · 개인 ${Object.keys(acl.users).length})` : '해제 (모든 공유폴더 사용자)';
+    await writeLog(env, user, 'file_acl', `공유폴더: '${row.name}' 폴더 접근 권한 ${desc}`);
+    return json({ item: updated[0] });
   }
 
   // 여기부터는 내용을 바꾸는 요청 — 읽기 전용 사용자는 내려받기(/dl/)만 통과
@@ -286,6 +378,7 @@ async function route(request, env) {
     const body = await request.json();
     const parentId = normalizeParent(body.parent_id);
     await ensureFolder(db, parentId);
+    needLevel(user, parentId, (await loadFolders(db)).byId, 2, '새 폴더');
     const name = await uniqueName(db, parentId, cleanName(body.name));
     const rows = await db.insert('shared_files', {
       parent_id: parentId, name, is_folder: true, size: 0,
@@ -303,6 +396,7 @@ async function route(request, env) {
     const { size, stream } = sizedBody(request);
     if (size > SINGLE_UPLOAD_MAX) throw new HttpError(413, '파일이 너무 큽니다');
     await ensureFolder(db, parentId);
+    needLevel(user, parentId, (await loadFolders(db)).byId, 2, '올리기');
     await checkQuota(db, size);
     const key = `f/${crypto.randomUUID()}`;
     const obj = await env.BUCKET.put(key, stream, { httpMetadata: { contentType: mime } });
@@ -322,6 +416,7 @@ async function route(request, env) {
     const parentId = normalizeParent(body.parent_id);
     cleanName(body.name);
     await ensureFolder(db, parentId);
+    needLevel(user, parentId, (await loadFolders(db)).byId, 2, '올리기');
     await checkQuota(db, Number(body.size || 0));
     const key = `f/${crypto.randomUUID()}`;
     const mpu = await env.BUCKET.createMultipartUpload(key, {
@@ -357,6 +452,7 @@ async function route(request, env) {
     const obj = await mpu.complete(body.parts.map(p => ({ partNumber: p.partNumber, etag: p.etag })));
     try {
       await ensureFolder(db, parentId);
+      needLevel(user, parentId, (await loadFolders(db)).byId, 2, '올리기');
       const item = await insertFileRow(db, user, { parentId, name, size: obj.size, mime: body.type, key });
       await writeLog(env, user, 'file_upload', `공유폴더: 업로드 '${item.name}' (${obj.size} bytes)`);
       return json({ item });
@@ -382,6 +478,7 @@ async function route(request, env) {
     const rows = await db.get(`shared_files?id=eq.${body.id}&deleted_at=is.null&limit=1`);
     if (!rows.length) throw new HttpError(404, '항목을 찾을 수 없습니다');
     const row = rows[0];
+    needLevel(user, row.parent_id || null, (await loadFolders(db)).byId, 2, '이름 바꾸기');
     if (!user.isAdmin && row.uploaded_by !== user.id) throw new HttpError(403, '올린 사람 또는 관리자만 이름을 바꿀 수 있습니다');
     const name = await uniqueName(db, row.parent_id, cleanName(body.name), row.id);
     const updated = await db.patch(`shared_files?id=eq.${row.id}`, { name });
@@ -403,6 +500,9 @@ async function route(request, env) {
     } else if (!user.isAdmin && row.uploaded_by !== user.id) {
       throw new HttpError(403, '올린 사람 또는 관리자만 이동할 수 있습니다');
     }
+    { const F = (await loadFolders(db)).byId;   // 꺼내는 곳과 넣는 곳 모두 '전체' 권한이 있어야 함
+      needLevel(user, row.parent_id || null, F, 2, '이동');
+      needLevel(user, destId, F, 2, '이동'); }
     if (destId) {
       const dest = byId.get(destId);
       if (!dest || !dest.is_folder) throw new HttpError(404, '옮길 폴더를 찾을 수 없습니다. 새로고침 해주세요.');
@@ -431,6 +531,7 @@ async function route(request, env) {
     } else if (!user.isAdmin && target.uploaded_by !== user.id) {
       throw new HttpError(403, '올린 사람 또는 관리자만 삭제할 수 있습니다');
     }
+    needLevel(user, target.parent_id || null, (await loadFolders(db)).byId, 2, '삭제');
     const children = new Map();
     for (const r of all) {
       if (!children.has(r.parent_id)) children.set(r.parent_id, []);
@@ -489,7 +590,9 @@ async function route(request, env) {
     if (!root || !root.deleted_at || root.trash_root_id !== root.id) throw new HttpError(404, '휴지통에서 항목을 찾을 수 없습니다');
     if (!canManageTrash(user, root)) throw new HttpError(403, '올린 사람 또는 관리자만 복원할 수 있습니다');
     const parent = root.parent_id ? byId.get(root.parent_id) : null;
-    const parentId = parent && !parent.deleted_at ? parent.id : null;
+    let parentId = parent && !parent.deleted_at ? parent.id : null;
+    // 원래 폴더에 지금 '전체' 권한이 없으면(폴더 권한이 바뀜) 맨 위 「전체」로 복원
+    if (parentId && levelIn(user, parentId, (await loadFolders(db)).byId) < 2) parentId = null;
     const name = await uniqueName(db, parentId, root.name, root.id);
     const clear = { deleted_at: null, deleted_by: null, deleted_by_name: null, trash_root_id: null };
     const updated = await db.patch(`shared_files?id=eq.${root.id}`, { ...clear, parent_id: parentId, name });
@@ -530,6 +633,7 @@ async function route(request, env) {
     const rows = await db.get(`shared_files?id=eq.${id}&is_folder=eq.false&deleted_at=is.null&limit=1`);
     if (!rows.length) throw new HttpError(404, '파일을 찾을 수 없습니다');
     const row = rows[0];
+    needLevel(user, row.parent_id || null, (await loadFolders(db)).byId, 1);
     const range = request.headers.get('Range');
     const obj = await env.BUCKET.get(row.r2_key, range ? { range: request.headers } : undefined);
     if (!obj) throw new HttpError(404, '파일 본문을 찾을 수 없습니다');

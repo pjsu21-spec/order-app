@@ -214,6 +214,14 @@ const selected = new Set(); // 선택한 항목 id
 let visibleRows = [];     // 지금 화면에 보이는 항목 (전체선택·Shift 범위선택용)
 let lastPickIdx = -1;
 let trashEnabled = false, trashDays = 30, trashCount = 0; // 휴지통(Worker가 지원할 때만 켜짐)
+let aclEnabled = false, rootLvl = null; // 폴더별 접근 권한 (Worker·SQL이 지원할 때만)
+// 폴더 '안'에서 내 권한: 'edit' 전체 / 'read' 읽기만 (Worker가 항목마다 lvl을 붙여 줌. 예전 Worker면 공유폴더 권한 그대로)
+function lvlIn(folderId){
+  if (folderId) { const f = byId.get(folderId); if (f && f.lvl) return f.lvl; }
+  else if (rootLvl) return rootLvl;
+  return me && me.readOnly ? 'read' : 'edit';
+}
+const canEditIn = (folderId) => lvlIn(folderId) === 'edit';
 
 const $ = (id) => document.getElementById(id);
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -328,9 +336,7 @@ async function refresh(){
   [...selected].forEach(id => { if (!byId.has(id)) selected.delete(id); });
   if (currentFolder && !byId.has(currentFolder)) currentFolder = null;
   $('user-badge').textContent = `${me.display_name}${me.isAdmin ? ' (관리자)' : me.readOnly ? ' (읽기 전용)' : ''}`;
-  // 읽기 전용: 올리기·새 폴더 숨김
-  $('upload-btn').style.display = me.readOnly ? 'none' : '';
-  $('folder-btn').style.display = me.readOnly ? 'none' : '';
+  aclEnabled = !!data.aclEnabled; rootLvl = data.rootLvl || null;
   const pct = Math.min(100, data.used / data.limit * 100);
   $('usage-text').textContent = `사용량 ${fmtSize(data.used)} / ${fmtSize(data.limit)} (${pct.toFixed(1)}%)${data.trash && data.trash.bytes ? ` · 휴지통 ${fmtSize(data.trash.bytes)} 포함` : ''}`;
   trashEnabled = !!data.trashEnabled; trashDays = data.trashDays || 30; trashCount = (data.trash && data.trash.count) || 0;
@@ -358,6 +364,18 @@ function render(){
   const path = pathOf(currentFolder);
   addCrumb('전체', null, path.length === 0);
   path.forEach((f, i) => { const s = document.createElement('span'); s.textContent = '›'; crumbs.appendChild(s); addCrumb(f.name, f.id, i === path.length - 1); });
+  // 이 폴더에서 올리기·새 폴더 (읽기만이면 숨김) + 권한 안내
+  const editHere = canEditIn(currentFolder);
+  $('upload-btn').style.display = editHere ? '' : 'none';
+  $('folder-btn').style.display = editHere ? '' : 'none';
+  const lockedAt = path.filter(f => f.restricted);
+  if (lockedAt.length || !editHere) {
+    const n = document.createElement('span');
+    n.style.cssText = 'margin-left:auto;font-size:12px;color:var(--muted);font-weight:600;';
+    n.textContent = `${lockedAt.length ? '🔒 지정한 부서·직원만 보는 폴더' : ''}${lockedAt.length && !editHere ? ' · ' : ''}${!editHere ? '읽기만 가능' : ''}`;
+    if (me && me.isAdmin && lockedAt.length) n.textContent += ` (${lockedAt.map(f => f.name).join(' › ')}에서 지정)`;
+    crumbs.appendChild(n);
+  }
 
   // 항목
   const q = searchText.trim().toLowerCase();
@@ -374,10 +392,10 @@ function render(){
     const row = document.createElement('div'); row.className = 'item' + (selected.has(it.id) ? ' picked' : '');
     const where = q ? (pathOf(it.parent_id).map(f => f.name).join(' › ') || '전체') + ' · ' : '';
     const meta = it.is_folder
-      ? `${where}폴더 · ${items.filter(x => x.parent_id === it.id).length}개`
+      ? `${where}폴더 · ${items.filter(x => x.parent_id === it.id).length}개${it.restricted ? ' · 🔒 지정한 부서·직원만' : ''}${it.lvl === 'read' && !(me && me.readOnly) ? ' · 읽기만' : ''}`
       : `${where}${fmtSize(it.size)} · ${fmtDate(it.created_at)} · ${escapeHtml(it.uploaded_by_name || '')}`;
     row.innerHTML = `${selectMode ? `<input type="checkbox" class="chk" ${selected.has(it.id) ? 'checked' : ''}>` : ''}<div class="icon">${iconFor(it)}</div>
-      <div class="main"><div class="name">${escapeHtml(it.name)}</div><div class="meta">${it.is_folder ? escapeHtml(meta) : meta}</div></div>
+      <div class="main"><div class="name">${it.restricted ? '🔒 ' : ''}${escapeHtml(it.name)}</div><div class="meta">${it.is_folder ? escapeHtml(meta) : meta}</div></div>
       <button class="more" aria-label="메뉴">⋮</button>`;
     row.querySelector('.main').addEventListener('click', e => { if (selectMode) pickItem(it, idx, e.shiftKey); else openItem(it); });
     const chk = row.querySelector('.chk'); if (chk) chk.addEventListener('click', e => { e.preventDefault(); pickItem(it, idx, e.shiftKey); });
@@ -405,11 +423,14 @@ function openSheet(html){ $('sheet').innerHTML = html; $('overlay').classList.ad
 
 function showMenu(it){
   const mine = me && it.uploaded_by === me.id;
-  const canRename = !me.readOnly && (me.isAdmin || mine);
-  const canDelete = !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
+  const here = canEditIn(it.parent_id || null);   // 이 항목이 들어 있는 폴더에서 '전체' 권한이 있어야 바꿀 수 있음
+  const canRename = here && !me.readOnly && (me.isAdmin || mine);
+  const canDelete = here && !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
   const canMove = canDelete;
-  const sheet = openSheet(`<h3>${iconFor(it)} ${escapeHtml(it.name)}</h3>
+  const canAcl = it.is_folder && me.isAdmin && aclEnabled;
+  const sheet = openSheet(`<h3>${iconFor(it)} ${it.restricted ? '🔒 ' : ''}${escapeHtml(it.name)}</h3>
     ${it.is_folder ? '<button class="sheet-btn" data-act="open">📂 열기</button>' : '<button class="sheet-btn" data-act="download">⬇ 내려받기</button>'}
+    ${canAcl ? '<button class="sheet-btn" data-act="acl">🔒 접근 권한 (부서·직원 지정)</button>' : ''}
     ${!it.is_folder && canPreview(it) ? '<button class="sheet-btn" data-act="preview">👁 바로 보기</button>' : ''}
     ${canMove ? '<button class="sheet-btn" data-act="move">📂 다른 폴더로 이동</button>' : ''}
     ${canRename ? '<button class="sheet-btn" data-act="rename">✏ 이름 바꾸기</button>' : ''}
@@ -423,7 +444,62 @@ function showMenu(it){
     if (act === 'rename') askName('이름 바꾸기', it.name, async (name) => { await api('/api/rename', { method:'POST', body: JSON.stringify({ id: it.id, name }) }); toast('이름을 바꿨습니다'); await refresh(); });
     if (act === 'move') askMove(it);
     if (act === 'delete') askDelete(it);
+    if (act === 'acl') askAcl(it);
   }));
+}
+
+// ── 폴더 접근 권한 (관리자) ──
+//  제한 없음 = 공유폴더 권한자 누구나 / 지정 = 고른 부서·직원만 (읽기 또는 전체). 이 폴더 안의 폴더·파일도 같이 적용
+let usersCache = null;
+async function loadUsersBasic(){
+  if (usersCache) return usersCache;
+  const r = await sbRpc('app_list_users_basic', { p_token: token });
+  usersCache = (Array.isArray(r) ? r : []).filter(u => u && u.is_active !== false);
+  return usersCache;
+}
+async function askAcl(it){
+  openSheet(`<h3>🔒 「${escapeHtml(it.name)}」 접근 권한</h3><p style="color:var(--muted);">직원 목록을 불러오는 중…</p>`);
+  let users;
+  try { users = await loadUsersBasic(); } catch (e) { closeSheet(); toast('직원 목록을 불러오지 못했습니다: ' + e.message); return; }
+  const acl = (it.acl && it.acl.restricted) ? it.acl : { restricted: false, depts: {}, users: {} };
+  const depts = [...new Set(users.map(u => String(u.department || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  Object.keys(acl.depts || {}).forEach(d => { if (!depts.includes(d)) depts.push(d); });   // 지금은 아무도 없는 부서도 지정해 둔 것은 보이게
+  const opt = (v) => `<option value="">-</option><option value="read"${v === 'read' ? ' selected' : ''}>읽기</option><option value="edit"${v === 'edit' ? ' selected' : ''}>전체</option>`;
+  const selCss = 'font-family:inherit;font-size:14px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;';
+  const rowCss = 'display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #eee9dc;';
+  const above = pathOf(it.parent_id).filter(f => f.restricted);
+  const sheet = openSheet(`<h3>🔒 「${escapeHtml(it.name)}」 접근 권한</h3>
+    <label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:14px;"><input type="radio" name="acl-mode" value="all"${acl.restricted ? '' : ' checked'}> 모든 공유폴더 사용자 (제한 없음)</label>
+    <label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:14px;"><input type="radio" name="acl-mode" value="some"${acl.restricted ? ' checked' : ''}> 지정한 부서·직원만</label>
+    <div id="acl-box" style="${acl.restricted ? '' : 'display:none;'}">
+      <p style="color:var(--muted);font-size:12.5px;">읽기 = 보기·내려받기 / 전체 = 올리기·이름 바꾸기·삭제까지. 부서와 직원을 함께 정하면 둘 중 높은 권한. 관리자는 항상 볼 수 있습니다.${above.length ? `<br>⚠ 위 폴더(${escapeHtml(above.map(f => f.name).join(' › '))})에도 제한이 있어, 그 폴더 권한도 있어야 들어올 수 있습니다.` : ''}</p>
+      <div style="max-height:44vh;overflow:auto;">
+        <div style="font-weight:700;font-size:13px;margin:6px 4px 2px;">부서</div>
+        ${depts.length ? depts.map(d => `<div style="${rowCss}"><span style="flex:1;">${escapeHtml(d)} <span style="color:var(--muted);font-size:12px;">(${users.filter(u => String(u.department || '').trim() === d).length}명)</span></span><select data-dept="${escapeHtml(d)}" style="${selCss}">${opt((acl.depts || {})[d])}</select></div>`).join('') : '<p style="color:var(--muted);font-size:13px;">계정에 부서가 적힌 직원이 없습니다. 통합 시스템 → 관리자 → 사용자에서 부서를 적어 주세요.</p>'}
+        <div style="font-weight:700;font-size:13px;margin:12px 4px 2px;">직원 개인</div>
+        ${users.map(u => `<div style="${rowCss}"><span style="flex:1;">${escapeHtml(u.display_name || u.username)} <span style="color:var(--muted);font-size:12px;">${escapeHtml(u.department || '')}</span></span><select data-user="${escapeHtml(String(u.id))}" style="${selCss}">${opt((acl.users || {})[String(u.id)])}</select></div>`).join('')}
+      </div>
+    </div>
+    <div class="row"><button data-act="cancel">취소</button><button class="btn-primary" data-act="save">저장</button></div>`);
+  const box = sheet.querySelector('#acl-box');
+  sheet.querySelectorAll('input[name=acl-mode]').forEach(r => r.addEventListener('change', () => { box.style.display = sheet.querySelector('input[name=acl-mode]:checked').value === 'some' ? '' : 'none'; }));
+  sheet.querySelector('[data-act=cancel]').addEventListener('click', closeSheet);
+  sheet.querySelector('[data-act=save]').addEventListener('click', async () => {
+    const some = sheet.querySelector('input[name=acl-mode]:checked').value === 'some';
+    let next = null;
+    if (some) {
+      next = { restricted: true, depts: {}, users: {} };
+      sheet.querySelectorAll('select[data-dept]').forEach(s => { if (s.value) next.depts[s.dataset.dept] = s.value; });
+      sheet.querySelectorAll('select[data-user]').forEach(s => { if (s.value) next.users[s.dataset.user] = s.value; });
+      if (!Object.keys(next.depts).length && !Object.keys(next.users).length && !confirm('부서·직원을 하나도 고르지 않았습니다. 이대로 저장하면 관리자만 볼 수 있습니다. 저장할까요?')) return;
+    }
+    closeSheet();
+    try {
+      await api('/api/acl', { method:'POST', body: JSON.stringify({ id: it.id, acl: next }) });
+      toast(next ? `🔒 「${it.name}」 접근 권한을 지정했습니다` : `「${it.name}」을(를) 모든 공유폴더 사용자에게 열었습니다`);
+      await refresh();
+    } catch (e) { toast(e.message); }
+  });
 }
 
 function askName(title, initial, onOk){
@@ -455,7 +531,8 @@ function askMove(it){
       .forEach(f => { lines.push({ id: f.id, name: f.name, depth }); walk(f.id, depth + 1); });
   })(null, 1);
   const cur = it.parent_id || null;
-  const btn = (id, label, depth) => `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${id === cur ? ' color:var(--muted);' : ''}" ${id === cur ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : ''}</button>`;
+  // 넣을 수 없는 폴더(읽기만)는 회색으로
+  const btn = (id, label, depth) => { const no = id === cur || !canEditIn(id); return `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${no ? ' color:var(--muted);' : ''}" ${no ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : (!canEditIn(id) ? ' (읽기만)' : '')}</button>`; };
   const sheet = openSheet(`<h3>「${escapeHtml(it.name)}」 옮길 폴더 선택</h3>
     <div style="max-height:50vh; overflow:auto;">${btn(null, '전체 (최상위)', 0)}${lines.map(l => btn(l.id, l.name, l.depth)).join('')}</div>
     ${lines.length ? '' : '<p style="color:var(--muted);">아직 폴더가 없습니다. 「＋ 새 폴더」로 먼저 폴더를 만들어주세요.</p>'}
@@ -486,7 +563,7 @@ function askDelete(it){
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 function canModify(it){ // 이동·삭제 권한 (개별 ⋮ 메뉴와 같은 기준)
   const mine = me && it.uploaded_by === me.id;
-  return !me.readOnly && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
+  return !me.readOnly && canEditIn(it.parent_id || null) && (it.is_folder ? me.isAdmin : (me.isAdmin || mine));
 }
 function setSelectMode(on){
   selectMode = on; selected.clear(); lastPickIdx = -1;
@@ -500,7 +577,7 @@ function updateSelBar(){
   const allPicked = visibleRows.length > 0 && visibleRows.every(it => selected.has(it.id));
   $('sel-all').textContent = allPicked ? '전체해제' : '전체선택';
   ['sel-dl', 'sel-move', 'sel-del'].forEach(id => { $(id).disabled = n === 0; });
-  const ro = !!(me && me.readOnly);
+  const ro = !!(me && me.readOnly) || !canEditIn(currentFolder);
   $('sel-move').style.display = ro ? 'none' : ''; $('sel-del').style.display = ro ? 'none' : '';
 }
 function pickItem(it, idx, shift){
@@ -582,7 +659,7 @@ function askMoveMany(){
   })(null, 1);
   const parents = new Set(targets.map(x => x.parent_id || null));
   const cur = parents.size === 1 ? [...parents][0] : undefined; // 모두 같은 폴더에 있을 때만 「현재 위치」 표시
-  const btn = (id, label, depth) => `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${id === cur ? ' color:var(--muted);' : ''}" ${id === cur ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : ''}</button>`;
+  const btn = (id, label, depth) => { const no = id === cur || !canEditIn(id); return `<button class="sheet-btn" data-dest="${id || 'root'}" style="padding-left:${10 + depth * 18}px;${no ? ' color:var(--muted);' : ''}" ${no ? 'disabled' : ''}>📁 ${escapeHtml(label)}${id === cur ? ' (현재 위치)' : (!canEditIn(id) ? ' (읽기만)' : '')}</button>`; };
   const sheet = openSheet(`<h3>선택한 ${targets.length}개 옮길 폴더 선택</h3>
     ${skipped ? `<p style="color:var(--muted);">권한이 없는 ${skipped}개는 제외됩니다.</p>` : ''}
     <div style="max-height:50vh; overflow:auto;">${btn(null, '전체 (최상위)', 0)}${lines.map(l => btn(l.id, l.name, l.depth)).join('')}</div>
@@ -700,6 +777,7 @@ window.addEventListener('drop', e => {
   e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
   if (!token || !me) return;
   if (me.readOnly) { toast('읽기 전용 권한이라 파일을 올릴 수 없습니다'); return; }
+  if (!canEditIn(currentFolder)) { toast('이 폴더는 읽기만 할 수 있어 파일을 올릴 수 없습니다'); return; }
   uploadFiles([...e.dataTransfer.files]);
 });
 
