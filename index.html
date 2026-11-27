@@ -723,6 +723,8 @@
   .sp-grid{ font-size:12px; width:auto; }
   /* 생산 현황판 — 흰 배경, 품목별 색 구분(엑셀 발주서와 같은 색), 표가 가로 전체를 쓰고 제목·버튼은 표의 왼쪽 위 빈 칸에, 새로고침 정보는 오른쪽 아래에 */
   #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#fff; color:#1a2233; font-family:inherit; }
+  /* TV 모드: TV가 화면 가장자리를 잘라 보여 주는 것(오버스캔) 대비 안쪽 여백. 주소의 &m=숫자(%)로 조절, 기본 2 */
+  #po-board.pb-tv{ box-sizing:border-box; padding:calc(var(--tv-m, 2) * 1vh) calc(var(--tv-m, 2) * 1vw); }
   #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:6px 6px 2px 6px; display:flex; justify-content:center; align-items:flex-start; }
   @media (max-width: 759px){
     #po-board .pb-body{ overflow:auto; -webkit-overflow-scrolling:touch; justify-content:flex-start; padding:4px; }
@@ -3473,7 +3475,7 @@
 <ul>
   <li><b>왼쪽 위 칸</b>에 제목·납품일·<span class="mn-b">지금 새로고침</span>·<span class="mn-b">⛶ 전체화면</span>·<span class="mn-b">닫기</span>가 있습니다. 표는 화면 가로를 꽉 채웁니다.</li>
   <li><span class="mn-b">⛶ 전체화면</span>을 누르면 브라우저 주소창·탭·작업표시줄 없이 현황판만 화면 가득 나옵니다(TV용). <b>Esc</b>를 누르거나 다시 누르면 원래대로 돌아옵니다.</li>
-  <li><b>TV 전용 주소</b>: <b>order.dareumdaleum.com/?tv=1</b> 로 열면 로그인 후 현황판이 바로 뜨고, 날짜는 사무실에서 고른 납품일과 상관없이 <b>항상 오늘</b>입니다. 자정이 지나면 알아서 다음 날 현황판으로 바뀌고, 누가 닫아도 2분 뒤 다시 뜹니다.</li>
+  <li><b>TV 전용 주소</b>: <b>order.dareumdaleum.com/?tv=1</b> 로 열면 로그인 후 현황판이 바로 뜨고, 날짜는 사무실에서 고른 납품일과 상관없이 <b>항상 오늘</b>입니다. 자정이 지나면 알아서 다음 날 현황판으로 바뀌고, 누가 닫아도 2분 뒤 다시 뜹니다. 프로그램이 새로 올라가면 5분 안에 알아서 반영됩니다. TV가 화면 가장자리를 잘라 보여 주면 주소 끝에 <b>&amp;m=4</b>처럼 안쪽 여백(%)을 붙입니다(기본 2, 여백 없음은 &amp;m=0).</li>
   <li><b>오른쪽 아래</b>에 마지막 새로고침 시각이 있습니다. 켜 둔 동안 <b>5분마다 자동</b>으로 서버의 최신 값을 불러오고, 바로 확인하려면 <span class="mn-b">지금 새로고침</span>.</li>
   <li>품목은 발주취합 서식과 같은 <b>색</b>으로 구분됩니다. 수량이 바뀐 칸은 잠깐 강조됩니다.</li>
   <li>쿠팡처럼 <b>출고일을 지정한 주문</b> 줄에도 발주취합 파일과 똑같이 납품담당·적재방식·재고사용·비고와 <b>소비기한(예: 11월 20일까지)</b>이 나옵니다. 1차/2차 출고는 줄이 따로 나오고 2차는 소비기한이 하루 늦습니다.</li>
@@ -27646,6 +27648,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
   (function tvBoot(){
     if(!window.TV_MODE) return;
     const day0 = getTodayKey();
+    { const pbEl = document.getElementById('po-board'); pbEl.classList.add('pb-tv');
+      const mv = parseFloat(new URLSearchParams(location.search).get('m'));
+      if(isFinite(mv) && mv >= 0 && mv <= 15) pbEl.style.setProperty('--tv-m', String(mv)); }
     let hiddenMin = 0;
     // 프로그램이 새로 올라가면(서버 파일이 바뀌면) 5분 안에 페이지를 새로 열어 반영 — TV는 아무도 F5를 안 누르므로
     let verMin = 0, ver0 = null;
