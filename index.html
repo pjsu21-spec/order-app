@@ -23832,18 +23832,30 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     try{ renderAggTable(); renderThirdPartyLineItems(); ppRenderList(); }catch(e){ /* 화면 갱신은 부가 */ }
     return true;
   }
+  // 마감·자재 차감·마감 PPT 직전에 서버의 최신 발주·재고·샘플 동봉을 다시 읽음
+  //  (화면을 아침에 열어 둔 PC로 마감하면, 그 뒤 다른 직원이 넣은 발주가 PPT·자재 차감에서 빠지던 것)
+  async function pcSyncLatest(){
+    try{
+      await poBoardReload({ keepDate: true });
+      await prodCloseRefresh();
+      try{ renderAggTable(); renderThirdPartyAggTable(); renderProductStockEditor(); }catch(e){ /* 화면 갱신은 부가 */ }
+      return true;
+    }catch(e){ console.error(e); toast('⚠ 서버의 최신 발주를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 해 주세요'); return false; }
+  }
   async function pcClose(){
     const dk = currentDateKey; if(!dk) return;
     if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 생산 마감을 할 수 있습니다'); return; }
     await prodCloseRefresh();
     if(isProdClosed(dk)){ toast('이미 마감된 날짜입니다'); return; }
     if(!confirm(`납품일 ${dk} 생산을 마감할까요?\n\n· 마감하면 이 날짜에는 발주를 추가·수정·삭제할 수 없습니다 (발주 입력·업로드·집계표·개인구매·3PL 줄)\n· 잘못 눌렀으면 [마감 해제]로 되돌릴 수 있습니다\n· 마감 후 바로 생산일보 PPT를 받습니다`)) return;
+    if(!(await pcSyncLatest())) return;
     const ok = await pcSetClose(dk, { at: new Date().toISOString(), by: pcWho() });
     if(!ok) return;
+    await pcSyncLatest();   // 마감 직전에 들어온 발주까지
     try{ await writeLog('prod_close', `생산 마감 ${dk}`); }catch(e){}
     toast(`🔒 ${prodCloseMd(dk)} 생산을 마감했습니다 — 자재 차감 중…`);
     await pcDeductRun(dk);
-    await pcPpt(dk);
+    await pcPpt(dk, { synced: true });
   }
   // ── 생산 마감 → 자재 자동 차감 (생산량 기준) ──
   //  생산량(팩) = 제품 재고 입력의 '오늘 생산량', 비어 있으면 생산 필요수량(오늘 필요 − 전일 재고) — 다음 날 전일 재고 자동 계산과 같은 기준
@@ -24051,8 +24063,9 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     [...new Set(olds)].forEach(fn => { if(!relTexts.some(tx => tx.includes('/' + fn + '"') || tx.includes('"' + fn + '"'))) zip.remove('ppt/media/' + fn); });
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
   }
-  async function pcPpt(dk){
+  async function pcPpt(dk, opt){
     dk = dk || currentDateKey; if(!dk) return;
+    if(!(opt && opt.synced) && !(await pcSyncLatest())) return;
     if(!isProdClosed(dk)){ toast('생산 마감을 한 뒤에 PPT를 받을 수 있습니다'); return; }
     if(typeof JSZip === 'undefined'){ toast('압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'); return; }
     const btn = document.getElementById('pc-ppt-btn'); if(btn) btn.disabled = true;
@@ -24101,6 +24114,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       if(!prCan()){ toast('생산 / 물류 전체 권한이 있어야 자재 차감을 반영할 수 있습니다'); return; }
       if(!isProdClosed(dk)){ toast('생산 마감한 날짜만 반영합니다'); return; }
       $('pc-ded-btn').disabled = true;
+      if(!(await pcSyncLatest())){ $('pc-ded-btn').disabled = false; return; }
       const c = await pcDeductRun(dk);
       $('pc-ded-btn').disabled = false;
       if(c) toast('자재 차감을 다시 반영했습니다');
@@ -27655,7 +27669,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>${PB_AUTO_MS / 60000}분마다 자동 새로고침 · [지금 새로고침]을 누르면 바로 불러옵니다${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
   }
   // 서버에서 최신 발주 데이터를 다시 불러옴 ([지금 새로고침] 버튼)
-  async function poBoardReload(){
+  async function poBoardReload(opt){
     const get = async k => { const r = await window.storage.get(k, true); return r ? r.value : null; };
     const jp = (v, d) => { try{ return v ? JSON.parse(v) : d; }catch(e){ return d; } };
     const [d, c, o, ps, dd, scm, sgm, dsp, tpl, cats, spl, oex] = await Promise.all(['dictionary', 'companies', 'orders-by-date', 'previous-stock', 'delivery-date', 'sku-column-map', 'sku-group-map', 'dispatch-by-date', 'production-template-b64', 'company-categories', 'split-by-date', 'order-extras-by-date'].map(get));
@@ -27666,6 +27680,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     kvDeepSnapAll(['previous-stock', 'dispatch-by-date', 'split-by-date', 'order-extras-by-date'].concat(d ? ['dictionary'] : [], c ? ['companies'] : []));
     if(tpl) productionTemplateB64 = tpl;
     if(cats) companyCategories = jp(cats, companyCategories);
+    if(opt && opt.keepDate) return;   // 생산 마감·PPT: 보고 있는 날짜는 그대로 두고 자료만 최신으로
     if(dd){ const x = jp(dd, null); if(x){ document.getElementById('delivery-year').value = x.year || ''; document.getElementById('delivery-month').value = x.month || ''; document.getElementById('delivery-day').value = x.day || ''; } }
     currentDateKey = computeCurrentDateKey();
   }
