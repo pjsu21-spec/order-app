@@ -792,7 +792,12 @@
   .pb-badge{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px; background:#d98200; color:#fff; font-size:13px; font-weight:800; vertical-align:middle; }
   .pb-table{ border-collapse:collapse; font-size:16px; white-space:nowrap; color:#111; background:#fff; }
   .pb-table th, .pb-table td{ border:1px solid #b8c2d6; padding:4px 10px; }
-  #pb-fit .pb-table tbody tr, #pb-fit .pb-ship tbody tr{ height:var(--pb-rh, auto); }   /* 세로 빈 공간을 줄 높이로 채움 (poBoardFit) */
+  #pb-fit .pb-table tbody tr, #pb-fit .pb-ship tbody tr{ height:var(--pb-rh, auto); }
+  /* 현황판 화면: 품목 머리글을 두 줄로 접고 칸 여백을 줄여 표 폭을 좁힘 → 화면에 맞출 때 글자가 더 크게 나옴 */
+  #pb-fit .pb-table th, #pb-fit .pb-table td{ padding:2px 7px; }
+  #pb-fit .pb-table .pb-h{ width:84px; }
+  #pb-fit .pb-table .pb-g{ white-space:normal; }
+  #pb-fit .pb-table .pb-corner{ padding-right:12px; }   /* 세로 빈 공간을 줄 높이로 채움 (poBoardFit) */
   #po-board.pb-nocur, #po-board.pb-nocur *{ cursor:none !important; }   /* 전체화면에서 마우스를 3초 안 움직이면 화살표 숨김 */
   .pb-table .pb-corner{ background:#e9eef8; color:#1a2233; font-size:20px; text-align:right; padding-right:18px; }
   .pb-table .pb-g{ color:#111; font-size:17px; font-weight:800; text-align:center; }
@@ -27466,6 +27471,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     if(!body || !fit) return;
     fit.style.zoom = 1; fit.style.setProperty('--pb-rh', 'auto');
     const rep = fit.querySelector('.pr-rep'); if(rep) rep.style.width = '';
+    const tbl0 = fit.querySelector('.pb-table'); if(tbl0) tbl0.style.width = '';
     let w = fit.offsetWidth, h = fit.offsetHeight;
     if(!w || !h) return;
     const cs = getComputedStyle(body);   // 안쪽 여백을 뺀 실제 표시 영역에 맞춤 (아래쪽 합계 줄이 잘리지 않게)
@@ -27494,12 +27500,22 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     // 보정: 실제로 화면에 그려진 크기를 다시 재서 맞춤. 글자 반올림·화면 배율(DPI)·해상도에 따라
     // 확대·축소가 계산대로 되지 않아 너무 작거나(가장자리·아래가 빔) 넘치는 일이 있음
     const box = () => fit.getBoundingClientRect();
-    for(let i = 0; i < 3; i++){
+    const correct = () => { for(let i = 0; i < 3; i++){
       const r = box(); if(!r.width || !r.height) break;
       const k = narrow ? aw / r.width : Math.min(aw / r.width, ah / r.height) * 0.99;
       if(Math.abs(k - 1) < 0.015) break;
       s = narrow ? Math.max(0.55, Math.min(1.2, s * k)) : Math.max(0.4, Math.min(3, s * k));
       fit.style.zoom = s;
+    } };
+    correct();
+    // 세로가 꽉 찼는데 양옆이 남으면 표 폭을 넓혀 가로도 채움 (머리글이 한 줄로 펴지면 그만큼 더 커짐)
+    const tbl = fit.querySelector('.pb-table');
+    if(!narrow && tbl && !document.getElementById('po-board').classList.contains('rep')){
+      for(let j = 0; j < 2; j++){
+        const r = box(); if(!(r.width < aw * 0.97 && r.height > ah * 0.95)) break;
+        tbl.style.width = Math.floor(tbl.offsetWidth * (aw * 0.985) / r.width) + 'px';
+        correct();
+      }
     }
     // 가로로 꽉 찼는데 아래가 아직 남으면 줄 높이를 더 늘림 (실제 그려진 높이로 판단)
     if(!narrow && !document.getElementById('po-board').classList.contains('rep') && fit.querySelector('.pb-table tbody tr')){
