@@ -725,6 +725,11 @@
   #po-board{ position:fixed; inset:0; z-index:9999; display:none; flex-direction:column; background:#fff; color:#1a2233; font-family:inherit; }
   /* TV 모드: TV가 화면 가장자리를 잘라 보여 주는 것(오버스캔) 대비 안쪽 여백. 주소의 &m=숫자(%)로 조절, 기본 2 */
   #po-board.pb-tv{ box-sizing:border-box; padding:calc(var(--tv-m, 2) * 1vh) calc(var(--tv-m, 2) * 1vw); }
+  /* TV는 누르는 사람이 없으므로 버튼을 숨기고 그 자리를 표에 씀 (HD 1280×720 같은 작은 해상도에서도 글자가 크게) */
+  #po-board.pb-tv .pb-actions{ display:none; }
+  #po-board.pb-tv.rep .pb-head{ display:none; }
+  #po-board.pb-tv.rep .pb-body{ padding-top:4px; }
+  #po-board.pb-tv .pb-bottom{ padding-bottom:0; }
   #po-board .pb-body{ flex:1 1 auto; min-width:0; overflow:hidden; padding:6px 6px 2px 6px; display:flex; justify-content:center; align-items:flex-start; }
   @media (max-width: 759px){
     #po-board .pb-body{ overflow:auto; -webkit-overflow-scrolling:touch; justify-content:flex-start; padding:4px; }
@@ -27471,7 +27476,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
       rep.style.width = Math.round(Math.min(rep.offsetWidth * 1.8, rep.offsetWidth * (aw / w) / (ah / h))) + 'px';
       w = fit.offsetWidth; h = fit.offsetHeight;
     }
-    let s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h)));
+    let s = narrow ? Math.max(0.55, Math.min(1.2, aw / w)) : Math.max(0.4, Math.min(3, Math.min(aw / w, ah / h) * 0.985));   // 0.985: 확대·축소 때 글자 반올림으로 맨 아래가 잘리지 않게
     // 표가 가로로 길어 아래가 비면(TV 등) 줄 높이를 늘려 세로도 꽉 채움 — 글자 크기는 그대로, 줄만 높아짐
     if(!narrow && !document.getElementById('po-board').classList.contains('rep')){
       const target = ah / s * 0.985;   // 확대할 때 반올림으로 맨 아래 줄이 잘리지 않게 약간 여유
@@ -27516,6 +27521,7 @@ ALTER TABLE sorting_shipment ADD COLUMN IF NOT EXISTS sku_name text;`;
     const el = document.getElementById('pb-foot');
     if(!el) return;
     const t = d => d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` : '-';
+    if(window.TV_MODE){ el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b> · ${PB_AUTO_MS / 60000}분마다 자동${pbErr ? ` <span style="color:#c0392b">⚠ 새로고침 실패</span>` : ''}`; return; }   // TV: 한 줄로 (표 자리 확보)
     el.innerHTML = `마지막 새로고침 <b>${t(pbLast)}</b><br>${PB_AUTO_MS / 60000}분마다 자동 새로고침 · [지금 새로고침]을 누르면 바로 불러옵니다${pbErr ? `<br><span style="color:#c0392b">⚠ ${escapeHtml(pbErr)}</span>` : ''}`;
   }
   // 서버에서 최신 발주 데이터를 다시 불러옴 ([지금 새로고침] 버튼)
