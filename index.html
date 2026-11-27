@@ -8602,7 +8602,26 @@ function mnShow(id, keepScroll) {
     if(!Object.keys(d).length) delete orderExtras[dateKey];
     return true;
   }
+  // 생산 마감한 날짜의 샘플 동봉은 바꾸지 않음: 이 화면에서 바꾼 샘플(마지막으로 맞춘 값과 다른 것)을 되돌림. 비고는 그대로 저장
+  function extrasCloseGuard(){
+    let base = null;
+    try{ const b = kvDeepBase['order-extras-by-date']; base = b && b.json ? JSON.parse(b.json) : null; }catch(e){ base = null; }
+    if(!base || typeof base !== 'object') return 0;
+    const norm = s => JSON.stringify(Object.keys(s || {}).filter(id => Number(s[id]) > 0).sort().map(id => [id, Number(s[id])]));
+    let n = 0;
+    new Set([...Object.keys(orderExtras || {}), ...Object.keys(base)]).forEach(dk => {
+      if(!isProdClosed(dk)) return;
+      const L = orderExtras[dk] || {}, B = base[dk] || {};
+      new Set([...Object.keys(L), ...Object.keys(B)]).forEach(co => {
+        const bs = (B[co] || {}).sample || {};
+        if(norm((L[co] || {}).sample) === norm(bs)) return;
+        const ex = extrasEnsure(dk, co); ex.sample = Object.assign({}, bs); extrasTidy(dk, co); n++;
+      });
+    });
+    return n;
+  }
   async function saveOrderExtras(o){
+    if(extrasCloseGuard()){ toast('🔒 생산 마감된 날짜라 샘플 동봉은 추가·수정할 수 없습니다 (생산일보 카드에서 마감 해제 가능)'); try{ renderAggTable(); }catch(e){} }
     try{ await kvSaveDeep('order-extras-by-date', () => orderExtras, 5, Object.assign({ onGot: () => renderAggTable() }, o)); }catch(e){ console.error(e); toast('비고·샘플 내용을 저장하지 못했습니다. 인터넷 연결을 확인해주세요'); }
   }
   // 샘플 동봉 수량 { 품목id: 팩 } (없으면 빈 객체)
@@ -11400,7 +11419,8 @@ function mnShow(id, keepScroll) {
           const sb = document.createElement('button'); sb.type = 'button'; sb.className = 'pbe-chip' + (aggBoardOpen.kind === 'smp' && aggBoardOpen.company === mt.company ? ' on' : '');
           const ns = Object.keys(sampleOf(dk, mt.company) || {}).length;
           sb.textContent = ns ? `🎁 샘플 ${ns}` : '＋샘플'; sb.title = '이 업체에 함께 보낼 샘플(샘플 동봉) 넣기·고치기';
-          sb.addEventListener('click', ev => { ev.stopPropagation(); aggBoardOpen = aggBoardOpen.kind === 'smp' && aggBoardOpen.company === mt.company ? { kind: '', company: '' } : { kind: 'smp', company: mt.company }; aggBoardRender(true); });
+          if(isProdClosed(dk)){ sb.title = '🔒 생산 마감된 날짜라 샘플 동봉을 추가·수정할 수 없습니다'; sb.style.opacity = '.45'; }
+          sb.addEventListener('click', ev => { ev.stopPropagation(); if(prodCloseBlocked(dk)) return; aggBoardOpen = aggBoardOpen.kind === 'smp' && aggBoardOpen.company === mt.company ? { kind: '', company: '' } : { kind: 'smp', company: mt.company }; aggBoardRender(true); });
           nameTd.appendChild(sb);
         }
         const np = ((splitByDate[dk] || {})[mt.company] || []).length;
@@ -17824,6 +17844,14 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     const reqId = sampleCan('collect') ? (sEl('sample-requester-select').value || me.id) : me.id;
     const reqUser = reqId === me.id ? me : (sampleUsers.find(u => u.id === reqId) || {});
     const reqName = reqId === me.id ? me.display_name : (reqUser.display_name || reqUser.username || '');
+    // 생산 마감한 날짜에 걸리는 생산본부 생산 샘플은 새로 넣거나 품목·수량·날짜를 바꿀 수 없음 (메모·용도만 고치는 것은 됨)
+    { const newR = { ship_at: new Date(shipVal).toISOString(), production_method: prod, items };
+      const oldR = sampleEditId ? (sampleRows || []).find(x => x.id === sampleEditId) : null;
+      const sig = r => r ? JSON.stringify([sampleDayKey(r.ship_at), (r.items || []).map(i => [i.skuId, Number(i.packs) || 0, i.production_method || r.production_method, i.production_date || '', !!i.from_stock]).sort()]) : '';
+      if(!oldR || sig(oldR) !== sig(newR)){
+        const cd = [...new Set([...sampleClosedDays(newR), ...sampleClosedDays(oldR)])].sort();
+        if(cd.length){ toast(sampleClosedMsg(cd)); return; }
+      } }
     const btn = sEl('sample-submit'); btn.disabled = true;
     try{
       if(sampleEditId){
@@ -17928,7 +17956,19 @@ ALTER TABLE sample_requests ADD COLUMN IF NOT EXISTS production_method text;`;
     }catch(e){ toast(e.message); }
     await sampleLoad(); sampleRenderList();
   }
+  // 생산 마감한 날짜에 걸리는 '생산본부 생산' 샘플(생산일 또는 출고일이 마감 날짜) → 그 날짜 목록
+  function sampleClosedDays(r){
+    const out = new Set();
+    if(!r) return [];
+    (r.items || []).forEach(i => {
+      if((i.production_method || r.production_method) !== '생산본부 생산') return;
+      [sampleItemProdDay(r, i), sampleDayKey(r.ship_at)].forEach(d => { if(isProdClosed(d)) out.add(d); });
+    });
+    return [...out].sort();
+  }
+  const sampleClosedMsg = days => `🔒 ${days.map(prodCloseMd).join(', ')}은(는) 생산 마감된 날짜라 생산본부 생산 샘플을 추가·수정·취소할 수 없습니다 (생산일보 카드에서 마감 해제 후 다시 해 주세요)`;
   async function sampleSetStatus(r, patch, logMsg, okMsg){
+    if(patch && patch.status === '취소'){ const cd = sampleClosedDays(r); if(cd.length){ toast(sampleClosedMsg(cd)); return; } }
     try{
       const out = await samplePatch(r.id, patch);
       if(!out.length){ toast('처리하지 못했습니다. 새로고침 후 다시 시도해주세요'); }
